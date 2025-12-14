@@ -244,7 +244,7 @@ const dropShippingSchema = new mongoose.Schema({
 });
 
 // Indexes
-dropShippingSchema.index({ transactionNumber: 1 });
+// Note: transactionNumber already has an index from unique: true, so we don't need to add it again
 dropShippingSchema.index({ supplier: 1, status: 1 });
 dropShippingSchema.index({ customer: 1, status: 1 });
 dropShippingSchema.index({ transactionDate: -1 });

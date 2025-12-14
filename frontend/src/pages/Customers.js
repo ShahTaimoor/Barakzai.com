@@ -53,6 +53,16 @@ const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) => {
     defaultValues: defaultCustomerValues
   });
 
+  const [isCityModalOpen, setIsCityModalOpen] = useState(false);
+  const [cityFormData, setCityFormData] = useState({
+    name: '',
+    state: '',
+    country: 'US',
+    description: '',
+    isActive: true
+  });
+  const queryClient = useQueryClient();
+
   const addresses = watch('addresses') || defaultCustomerValues.addresses;
 
   useEffect(() => {
@@ -118,6 +128,43 @@ const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) => {
       }
     }
   );
+
+  // City creation mutation
+  const createCityMutation = useMutation(citiesAPI.createCity, {
+    onSuccess: (response) => {
+      queryClient.invalidateQueries(['active-cities']);
+      queryClient.refetchQueries(['active-cities']);
+      toast.success('City created successfully');
+      setIsCityModalOpen(false);
+      setCityFormData({
+        name: '',
+        state: '',
+        country: 'US',
+        description: '',
+        isActive: true
+      });
+      // Auto-select the newly created city
+      if (response?.data?.data?.name) {
+        const newCityName = response.data.data.name;
+        const currentAddresses = addresses;
+        if (currentAddresses.length > 0) {
+          handleAddressChange(0, 'city', newCityName);
+        }
+      }
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to create city');
+    },
+  });
+
+  const handleCitySubmit = (e) => {
+    e.preventDefault();
+    if (!cityFormData.name.trim()) {
+      toast.error('City name is required');
+      return;
+    }
+    createCityMutation.mutate(cityFormData);
+  };
 
   const ledgerOptions = useMemo(() => {
     if (!Array.isArray(ledgerAccounts)) return [];
@@ -383,20 +430,30 @@ const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           City *
                         </label>
-                        <select
-                          value={address.city || ''}
-                          onChange={(e) => handleAddressChange(index, 'city', e.target.value)}
-                          className="input"
-                          required
-                          disabled={citiesLoading}
-                        >
-                          <option value="">Select a city</option>
-                          {citiesData.map((city) => (
-                            <option key={city._id || city.name} value={city.name}>
-                              {city.name}{city.state ? `, ${city.state}` : ''}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex gap-2">
+                          <select
+                            value={address.city || ''}
+                            onChange={(e) => handleAddressChange(index, 'city', e.target.value)}
+                            className="input flex-1"
+                            required
+                            disabled={citiesLoading}
+                          >
+                            <option value="">Select a city</option>
+                            {citiesData.map((city) => (
+                              <option key={city._id || city.name} value={city.name}>
+                                {city.name}{city.state ? `, ${city.state}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setIsCityModalOpen(true)}
+                            className="btn btn-secondary px-3 py-2 whitespace-nowrap"
+                            title="Add New City"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
                         {citiesLoading && (
                           <p className="text-xs text-gray-500 mt-1">Loading cities...</p>
                         )}
@@ -500,6 +557,118 @@ const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) => {
           </form>
         </div>
       </div>
+
+      {/* City Form Modal */}
+      {isCityModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Add New City
+                </h2>
+                <button
+                  onClick={() => {
+                    setIsCityModalOpen(false);
+                    setCityFormData({
+                      name: '',
+                      state: '',
+                      country: 'US',
+                      description: '',
+                      isActive: true
+                    });
+                  }}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCitySubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    City Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={cityFormData.name}
+                    onChange={(e) => setCityFormData({ ...cityFormData, name: e.target.value })}
+                    className="input"
+                    placeholder="Enter city name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={cityFormData.state}
+                    onChange={(e) => setCityFormData({ ...cityFormData, state: e.target.value })}
+                    className="input"
+                    placeholder="Enter state"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    value={cityFormData.country}
+                    onChange={(e) => setCityFormData({ ...cityFormData, country: e.target.value })}
+                    className="input"
+                    placeholder="Enter country"
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="cityIsActive"
+                    checked={cityFormData.isActive}
+                    onChange={(e) => setCityFormData({ ...cityFormData, isActive: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="cityIsActive" className="ml-2 block text-sm text-gray-700">
+                    Active
+                  </label>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCityModalOpen(false);
+                      setCityFormData({
+                        name: '',
+                        state: '',
+                        country: 'US',
+                        description: '',
+                        isActive: true
+                      });
+                    }}
+                    className="btn btn-secondary"
+                    disabled={createCityMutation.isLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={createCityMutation.isLoading}
+                  >
+                    {createCityMutation.isLoading ? 'Adding...' : 'Add City'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

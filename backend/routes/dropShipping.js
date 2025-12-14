@@ -16,6 +16,35 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+// Helper functions to transform names to uppercase
+const transformCustomerToUppercase = (customer) => {
+  if (!customer) return customer;
+  if (customer.toObject) customer = customer.toObject();
+  if (customer.name) customer.name = customer.name.toUpperCase();
+  if (customer.businessName) customer.businessName = customer.businessName.toUpperCase();
+  if (customer.firstName) customer.firstName = customer.firstName.toUpperCase();
+  if (customer.lastName) customer.lastName = customer.lastName.toUpperCase();
+  return customer;
+};
+
+const transformSupplierToUppercase = (supplier) => {
+  if (!supplier) return supplier;
+  if (supplier.toObject) supplier = supplier.toObject();
+  if (supplier.companyName) supplier.companyName = supplier.companyName.toUpperCase();
+  if (supplier.contactPerson && supplier.contactPerson.name) {
+    supplier.contactPerson.name = supplier.contactPerson.name.toUpperCase();
+  }
+  return supplier;
+};
+
+const transformProductToUppercase = (product) => {
+  if (!product) return product;
+  if (product.toObject) product = product.toObject();
+  if (product.name) product.name = product.name.toUpperCase();
+  if (product.description) product.description = product.description.toUpperCase();
+  return product;
+};
+
 // @route   GET /api/drop-shipping
 // @desc    Get all drop shipping transactions with filters
 // @access  Private
@@ -239,6 +268,21 @@ router.post('/', [
       { path: 'items.product', select: 'name description pricing inventory' },
       { path: 'createdBy', select: 'firstName lastName email' }
     ]);
+
+    // Transform names to uppercase
+    if (transaction.supplier) {
+      transaction.supplier = transformSupplierToUppercase(transaction.supplier);
+    }
+    if (transaction.customer) {
+      transaction.customer = transformCustomerToUppercase(transaction.customer);
+    }
+    if (transaction.items && Array.isArray(transaction.items)) {
+      transaction.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
 
     res.status(201).json({
       message: 'Drop shipping transaction created successfully',

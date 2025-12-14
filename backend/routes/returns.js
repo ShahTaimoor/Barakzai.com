@@ -53,6 +53,21 @@ router.post('/', [
       { path: 'requestedBy', select: 'firstName lastName email' }
     ]);
 
+    // Transform names to uppercase
+    if (returnRequest.customer) {
+      returnRequest.customer = transformCustomerToUppercase(returnRequest.customer);
+    }
+    if (returnRequest.items && Array.isArray(returnRequest.items)) {
+      returnRequest.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
+    if (returnRequest.originalOrder && returnRequest.originalOrder.customer) {
+      returnRequest.originalOrder.customer = transformCustomerToUppercase(returnRequest.originalOrder.customer);
+    }
+
     res.status(201).json({
       message: 'Return request created successfully',
       return: returnRequest
@@ -137,6 +152,30 @@ router.get('/', [
 
     const total = await Return.countDocuments(filter);
 
+    // Transform names to uppercase
+    returns.forEach(returnItem => {
+      if (returnItem.customer) {
+        returnItem.customer = transformCustomerToUppercase(returnItem.customer);
+      }
+      if (returnItem.items && Array.isArray(returnItem.items)) {
+        returnItem.items.forEach(item => {
+          if (item.product) {
+            item.product = transformProductToUppercase(item.product);
+          }
+        });
+      }
+      if (returnItem.originalOrder && returnItem.originalOrder.customer) {
+        returnItem.originalOrder.customer = transformCustomerToUppercase(returnItem.originalOrder.customer);
+      }
+      if (returnItem.originalOrder && returnItem.originalOrder.items && Array.isArray(returnItem.originalOrder.items)) {
+        returnItem.originalOrder.items.forEach(item => {
+          if (item.product) {
+            item.product = transformProductToUppercase(item.product);
+          }
+        });
+      }
+    });
+
     res.json({
       returns,
       pagination: {
@@ -186,6 +225,30 @@ router.get('/:returnId', [
 
     if (!returnRequest) {
       return res.status(404).json({ message: 'Return request not found' });
+    }
+    
+    // Transform names to uppercase
+    if (returnRequest.customer) {
+      returnRequest.customer = transformCustomerToUppercase(returnRequest.customer);
+    }
+    if (returnRequest.items && Array.isArray(returnRequest.items)) {
+      returnRequest.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
+    if (returnRequest.originalOrder) {
+      if (returnRequest.originalOrder.customer) {
+        returnRequest.originalOrder.customer = transformCustomerToUppercase(returnRequest.originalOrder.customer);
+      }
+      if (returnRequest.originalOrder.items && Array.isArray(returnRequest.originalOrder.items)) {
+        returnRequest.originalOrder.items.forEach(item => {
+          if (item.product) {
+            item.product = transformProductToUppercase(item.product);
+          }
+        });
+      }
     }
     
     // Debug: Log the return data to see if amounts are present

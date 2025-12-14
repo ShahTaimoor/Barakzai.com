@@ -227,9 +227,44 @@ module.exports = app;
 // Only start server and scheduler in non-serverless environment
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 POS Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+
+  // Handle port already in use error
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`\n❌ ERROR: Port ${PORT} is already in use!`);
+      console.error(`\n💡 Solutions:`);
+      console.error(`   1. Kill the process using port ${PORT}:`);
+      console.error(`      Windows: netstat -ano | findstr :${PORT}`);
+      console.error(`      Then: taskkill /PID <PID> /F`);
+      console.error(`   2. Or use a different port:`);
+      console.error(`      PORT=5001 npm start`);
+      console.error(`\n🔍 Finding process on port ${PORT}...`);
+      
+      // Try to find and suggest killing the process
+      const { exec } = require('child_process');
+      exec(`netstat -ano | findstr :${PORT}`, (err, stdout) => {
+        if (!err && stdout) {
+          const lines = stdout.split('\n');
+          const listeningLine = lines.find(line => line.includes('LISTENING'));
+          if (listeningLine) {
+            const pid = listeningLine.trim().split(/\s+/).pop();
+            if (pid && pid !== '0') {
+              console.error(`\n   Found process PID: ${pid}`);
+              console.error(`   Kill it with: taskkill /PID ${pid} /F`);
+            }
+          }
+        }
+      });
+      
+      process.exit(1);
+    } else {
+      console.error('❌ Server error:', error);
+      process.exit(1);
+    }
   });
 
   // Start backup scheduler (only in non-serverless environments)

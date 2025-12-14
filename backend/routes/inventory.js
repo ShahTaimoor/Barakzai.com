@@ -9,6 +9,15 @@ const Product = require('../models/Product');
 
 const router = express.Router();
 
+// Helper function to transform product names to uppercase
+const transformProductToUppercase = (product) => {
+  if (!product) return product;
+  if (product.toObject) product = product.toObject();
+  if (product.name) product.name = product.name.toUpperCase();
+  if (product.description) product.description = product.description.toUpperCase();
+  return product;
+};
+
 // @route   GET /api/inventory
 // @desc    Get inventory list with filters and pagination
 // @access  Private (requires 'view_inventory' permission)
@@ -120,12 +129,18 @@ router.get('/', [
     const combinedResults = allProducts.map(product => {
       const existingInv = inventoryMap.get(product._id.toString());
       if (existingInv) {
+        // Transform product name to uppercase
+        if (existingInv.product) {
+          existingInv.product = transformProductToUppercase(existingInv.product);
+        }
         return existingInv;
       } else {
+        // Transform product name to uppercase
+        const transformedProduct = transformProductToUppercase(product);
         // Create inventory record from product data
         return {
           _id: `temp_${product._id}`,
-          product: product,
+          product: transformedProduct,
           currentStock: product.inventory?.currentStock || 0,
           reorderPoint: product.inventory?.reorderPoint || 0,
           reorderQuantity: product.inventory?.reorderQuantity || 0,

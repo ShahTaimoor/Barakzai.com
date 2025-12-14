@@ -12,6 +12,16 @@ const { sanitizeRequest, handleValidationErrors } = require('../middleware/valid
 
 const router = express.Router();
 
+// Helper function to transform product names to uppercase
+const transformProductToUppercase = (product) => {
+  if (!product) return product;
+  if (product.toObject) product = product.toObject();
+  if (product.name) product.name = product.name.toUpperCase();
+  if (product.description) product.description = product.description.toUpperCase();
+  if (product.category && product.category.name) product.category.name = product.category.name.toUpperCase();
+  return product;
+};
+
 // Configure multer for file uploads
 const upload = multer({
   dest: 'uploads/',
@@ -247,8 +257,11 @@ router.get('/', [
     
     const total = await Product.countDocuments(filter);
     
+    // Transform product names to uppercase
+    const transformedProducts = products.map(transformProductToUppercase);
+    
     res.json({
-      products,
+      products: transformedProducts,
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
@@ -276,7 +289,7 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     
-    res.json({ product });
+    res.json({ product: transformProductToUppercase(product) });
   } catch (error) {
     console.error('Get product error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -477,7 +490,9 @@ router.get('/search/:query', auth, async (req, res) => {
     .select('name pricing inventory status')
     .limit(10);
     
-    res.json({ products });
+    // Transform product names to uppercase
+    const transformedProducts = products.map(transformProductToUppercase);
+    res.json({ products: transformedProducts });
   } catch (error) {
     console.error('Search products error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -619,7 +634,9 @@ router.get('/low-stock', auth, async (req, res) => {
     .select('name inventory pricing')
     .sort({ 'inventory.currentStock': 1 });
     
-    res.json({ products });
+    // Transform product names to uppercase
+    const transformedProducts = products.map(transformProductToUppercase);
+    res.json({ products: transformedProducts });
   } catch (error) {
     console.error('Get low stock products error:', error);
     res.status(500).json({ message: 'Server error' });

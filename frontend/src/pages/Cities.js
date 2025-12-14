@@ -271,11 +271,10 @@ export const Cities = () => {
   });
 
   const { 
-    isDeleteDialogOpen, 
-    itemToDelete, 
-    openDeleteDialog, 
-    closeDeleteDialog, 
-    confirmDelete 
+    confirmation, 
+    confirmDelete, 
+    handleConfirm, 
+    handleCancel 
   } = useDeleteConfirmation();
 
   const handleSave = (data) => {
@@ -292,7 +291,8 @@ export const Cities = () => {
   };
 
   const handleDelete = (city) => {
-    openDeleteDialog(city, () => {
+    const cityName = city.name || 'this city';
+    confirmDelete(cityName, 'city', async () => {
       deleteMutation.mutate(city._id);
     });
   };
@@ -499,11 +499,12 @@ export const Cities = () => {
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={closeDeleteDialog}
-        onConfirm={confirmDelete}
-        itemName={itemToDelete?.name || 'this city'}
+        isOpen={confirmation.isOpen}
+        onClose={handleCancel}
+        onConfirm={handleConfirm}
+        itemName={confirmation.message?.match(/"([^"]*)"/)?.[1] || 'this city'}
         itemType="city"
+        isLoading={confirmation.isLoading}
       />
     </div>
   );

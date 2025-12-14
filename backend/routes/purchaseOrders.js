@@ -6,6 +6,25 @@ const inventoryService = require('../services/inventoryService');
 
 const router = express.Router();
 
+// Helper functions to transform names to uppercase
+const transformSupplierToUppercase = (supplier) => {
+  if (!supplier) return supplier;
+  if (supplier.toObject) supplier = supplier.toObject();
+  if (supplier.companyName) supplier.companyName = supplier.companyName.toUpperCase();
+  if (supplier.contactPerson && supplier.contactPerson.name) {
+    supplier.contactPerson.name = supplier.contactPerson.name.toUpperCase();
+  }
+  return supplier;
+};
+
+const transformProductToUppercase = (product) => {
+  if (!product) return product;
+  if (product.toObject) product = product.toObject();
+  if (product.name) product.name = product.name.toUpperCase();
+  if (product.description) product.description = product.description.toUpperCase();
+  return product;
+};
+
 // @route   GET /api/purchase-orders
 // @desc    Get all purchase orders with filtering and pagination
 // @access  Private
@@ -76,6 +95,20 @@ router.get('/', [
     
     const total = await PurchaseOrder.countDocuments(filter);
     
+    // Transform names to uppercase
+    purchaseOrders.forEach(po => {
+      if (po.supplier) {
+        po.supplier = transformSupplierToUppercase(po.supplier);
+      }
+      if (po.items && Array.isArray(po.items)) {
+        po.items.forEach(item => {
+          if (item.product) {
+            item.product = transformProductToUppercase(item.product);
+          }
+        });
+      }
+    });
+    
     res.json({
       purchaseOrders,
       pagination: {
@@ -106,6 +139,18 @@ router.get('/:id', auth, async (req, res) => {
     
     if (!purchaseOrder) {
       return res.status(404).json({ message: 'Purchase order not found' });
+    }
+    
+    // Transform names to uppercase
+    if (purchaseOrder.supplier) {
+      purchaseOrder.supplier = transformSupplierToUppercase(purchaseOrder.supplier);
+    }
+    if (purchaseOrder.items && Array.isArray(purchaseOrder.items)) {
+      purchaseOrder.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
     }
     
     res.json({ purchaseOrder });
@@ -173,6 +218,18 @@ router.post('/', [
       { path: 'items.product', select: 'name description pricing inventory' },
       { path: 'createdBy', select: 'firstName lastName email' }
     ]);
+    
+    // Transform names to uppercase
+    if (purchaseOrder.supplier) {
+      purchaseOrder.supplier = transformSupplierToUppercase(purchaseOrder.supplier);
+    }
+    if (purchaseOrder.items && Array.isArray(purchaseOrder.items)) {
+      purchaseOrder.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
     
     res.status(201).json({
       message: 'Purchase order created successfully',
@@ -487,6 +544,18 @@ router.put('/:id/confirm', [
       { path: 'createdBy', select: 'firstName lastName email' },
       { path: 'lastModifiedBy', select: 'firstName lastName email' }
     ]);
+    
+    // Transform names to uppercase
+    if (purchaseOrder.supplier) {
+      purchaseOrder.supplier = transformSupplierToUppercase(purchaseOrder.supplier);
+    }
+    if (purchaseOrder.items && Array.isArray(purchaseOrder.items)) {
+      purchaseOrder.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
     
     res.json({
       message: 'Purchase order confirmed successfully and inventory updated',

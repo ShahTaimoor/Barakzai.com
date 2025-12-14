@@ -11,6 +11,17 @@ const Customer = require('../models/Customer');
 const { auth, requirePermission } = require('../middleware/auth');
 const ledgerAccountService = require('../services/ledgerAccountService');
 
+// Helper function to transform customer names to uppercase
+const transformCustomerToUppercase = (customer) => {
+  if (!customer) return customer;
+  if (customer.toObject) customer = customer.toObject();
+  if (customer.name) customer.name = customer.name.toUpperCase();
+  if (customer.businessName) customer.businessName = customer.businessName.toUpperCase();
+  if (customer.firstName) customer.firstName = customer.firstName.toUpperCase();
+  if (customer.lastName) customer.lastName = customer.lastName.toUpperCase();
+  return customer;
+};
+
 const router = express.Router();
 
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
@@ -203,8 +214,11 @@ router.get('/', [
     
     const total = await Customer.countDocuments(filter);
     
+    // Transform customer names to uppercase
+    const transformedCustomers = customers.map(transformCustomerToUppercase);
+    
     res.json({
-      customers,
+      customers: transformedCustomers,
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
@@ -356,7 +370,7 @@ router.get('/:id', [auth, validateCustomerIdParam], async (req, res) => {
       return res.status(404).json({ message: 'Customer not found' });
     }
     
-    res.json({ customer });
+    res.json({ customer: transformCustomerToUppercase(customer) });
   } catch (error) {
     console.error('Get customer error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -384,11 +398,14 @@ router.get('/search/:query', auth, async (req, res) => {
     .limit(10)
     .lean();
     
-    // Add displayName to each customer
-    const customersWithDisplayName = customers.map(customer => ({
-      ...customer,
-      displayName: customer.businessName || customer.name
-    }));
+    // Add displayName to each customer and transform to uppercase
+    const customersWithDisplayName = customers.map(customer => {
+      const transformed = transformCustomerToUppercase(customer);
+      return {
+        ...transformed,
+        displayName: (transformed.businessName || transformed.name || '').toUpperCase()
+      };
+    });
     
     res.json({ customers: customersWithDisplayName });
   } catch (error) {

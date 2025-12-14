@@ -13,6 +13,17 @@ const ledgerAccountService = require('../services/ledgerAccountService');
 
 const router = express.Router();
 
+// Helper function to transform supplier names to uppercase
+const transformSupplierToUppercase = (supplier) => {
+  if (!supplier) return supplier;
+  if (supplier.toObject) supplier = supplier.toObject();
+  if (supplier.companyName) supplier.companyName = supplier.companyName.toUpperCase();
+  if (supplier.contactPerson && supplier.contactPerson.name) {
+    supplier.contactPerson.name = supplier.contactPerson.name.toUpperCase();
+  }
+  return supplier;
+};
+
 const parseOpeningBalance = (value) => {
   if (value === undefined || value === null || value === '') return null;
   const parsed = parseFloat(value);
@@ -266,8 +277,11 @@ router.get('/', [
     console.log('Suppliers found:', suppliers.length, 'Total:', total);
     console.log('Filter used:', filter);
     
+    // Transform supplier names to uppercase
+    const transformedSuppliers = suppliers.map(transformSupplierToUppercase);
+    
     res.json({
-      suppliers,
+      suppliers: transformedSuppliers,
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
@@ -293,7 +307,7 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Supplier not found' });
     }
     
-    res.json({ supplier });
+    res.json({ supplier: transformSupplierToUppercase(supplier) });
   } catch (error) {
     console.error('Get supplier error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -443,7 +457,9 @@ router.get('/search/:query', auth, async (req, res) => {
     .select('companyName contactPerson email phone businessType paymentTerms rating reliability pendingBalance advanceBalance')
     .limit(10);
     
-    res.json({ suppliers });
+    // Transform supplier names to uppercase
+    const transformedSuppliers = suppliers.map(transformSupplierToUppercase);
+    res.json({ suppliers: transformedSuppliers });
   } catch (error) {
     console.error('Search suppliers error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -528,7 +544,9 @@ router.get('/active/list', auth, async (req, res) => {
       .select('companyName contactPerson email phone businessType paymentTerms rating pendingBalance advanceBalance')
       .sort({ companyName: 1 });
     
-    res.json({ suppliers });
+    // Transform supplier names to uppercase
+    const transformedSuppliers = suppliers.map(transformSupplierToUppercase);
+    res.json({ suppliers: transformedSuppliers });
   } catch (error) {
     console.error('Get active suppliers list error:', error);
     res.status(500).json({ message: 'Server error' });

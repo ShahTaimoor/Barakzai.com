@@ -10,6 +10,25 @@ const inventoryService = require('../services/inventoryService');
 
 const router = express.Router();
 
+// Helper functions to transform names to uppercase
+const transformCustomerToUppercase = (customer) => {
+  if (!customer) return customer;
+  if (customer.toObject) customer = customer.toObject();
+  if (customer.name) customer.name = customer.name.toUpperCase();
+  if (customer.businessName) customer.businessName = customer.businessName.toUpperCase();
+  if (customer.firstName) customer.firstName = customer.firstName.toUpperCase();
+  if (customer.lastName) customer.lastName = customer.lastName.toUpperCase();
+  return customer;
+};
+
+const transformProductToUppercase = (product) => {
+  if (!product) return product;
+  if (product.toObject) product = product.toObject();
+  if (product.name) product.name = product.name.toUpperCase();
+  if (product.description) product.description = product.description.toUpperCase();
+  return product;
+};
+
 // @route   GET /api/sales-orders
 // @desc    Get all sales orders with filtering and pagination
 // @access  Private
@@ -102,10 +121,18 @@ router.get('/', [
     
     console.log(`Found ${salesOrders.length} sales orders out of ${total} total`);
     
-    // Add displayName to each customer
+    // Transform names to uppercase and add displayName to each customer
     salesOrders.forEach(so => {
       if (so.customer) {
-        so.customer.displayName = so.customer.businessName || so.customer.name || `${so.customer.firstName || ''} ${so.customer.lastName || ''}`.trim() || so.customer.email || 'Unknown Customer';
+        so.customer = transformCustomerToUppercase(so.customer);
+        so.customer.displayName = (so.customer.businessName || so.customer.name || `${so.customer.firstName || ''} ${so.customer.lastName || ''}`.trim() || so.customer.email || 'Unknown Customer').toUpperCase();
+      }
+      if (so.items && Array.isArray(so.items)) {
+        so.items.forEach(item => {
+          if (item.product) {
+            item.product = transformProductToUppercase(item.product);
+          }
+        });
       }
     });
     
@@ -141,9 +168,17 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Sales order not found' });
     }
     
-    // Add displayName to customer
+    // Transform names to uppercase and add displayName to customer
     if (salesOrder.customer) {
-      salesOrder.customer.displayName = salesOrder.customer.businessName || salesOrder.customer.name || `${salesOrder.customer.firstName || ''} ${salesOrder.customer.lastName || ''}`.trim() || salesOrder.customer.email || 'Unknown Customer';
+      salesOrder.customer = transformCustomerToUppercase(salesOrder.customer);
+      salesOrder.customer.displayName = (salesOrder.customer.businessName || salesOrder.customer.name || `${salesOrder.customer.firstName || ''} ${salesOrder.customer.lastName || ''}`.trim() || salesOrder.customer.email || 'Unknown Customer').toUpperCase();
+    }
+    if (salesOrder.items && Array.isArray(salesOrder.items)) {
+      salesOrder.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
     }
     
     res.json({ salesOrder });
@@ -195,6 +230,18 @@ router.post('/', [
       { path: 'items.product', select: 'name description pricing inventory' },
       { path: 'createdBy', select: 'firstName lastName email' }
     ]);
+    
+    // Transform names to uppercase
+    if (salesOrder.customer) {
+      salesOrder.customer = transformCustomerToUppercase(salesOrder.customer);
+    }
+    if (salesOrder.items && Array.isArray(salesOrder.items)) {
+      salesOrder.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
     
     res.status(201).json({
       message: 'Sales order created successfully',
@@ -256,6 +303,18 @@ router.put('/:id', [
       { path: 'createdBy', select: 'firstName lastName email' },
       { path: 'lastModifiedBy', select: 'firstName lastName email' }
     ]);
+    
+    // Transform names to uppercase
+    if (updatedSO.customer) {
+      updatedSO.customer = transformCustomerToUppercase(updatedSO.customer);
+    }
+    if (updatedSO.items && Array.isArray(updatedSO.items)) {
+      updatedSO.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
     
     res.json({
       message: 'Sales order updated successfully',
@@ -341,6 +400,18 @@ router.put('/:id/confirm', [
       { path: 'createdBy', select: 'firstName lastName email' },
       { path: 'lastModifiedBy', select: 'firstName lastName email' }
     ]);
+    
+    // Transform names to uppercase
+    if (salesOrder.customer) {
+      salesOrder.customer = transformCustomerToUppercase(salesOrder.customer);
+    }
+    if (salesOrder.items && Array.isArray(salesOrder.items)) {
+      salesOrder.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
+    }
     
     res.json({
       message: 'Sales order confirmed successfully and inventory updated',

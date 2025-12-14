@@ -14,6 +14,25 @@ const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Helper functions to transform names to uppercase
+const transformCustomerToUppercase = (customer) => {
+  if (!customer) return customer;
+  if (customer.toObject) customer = customer.toObject();
+  if (customer.name) customer.name = customer.name.toUpperCase();
+  if (customer.businessName) customer.businessName = customer.businessName.toUpperCase();
+  if (customer.firstName) customer.firstName = customer.firstName.toUpperCase();
+  if (customer.lastName) customer.lastName = customer.lastName.toUpperCase();
+  return customer;
+};
+
+const transformProductToUppercase = (product) => {
+  if (!product) return product;
+  if (product.toObject) product = product.toObject();
+  if (product.name) product.name = product.name.toUpperCase();
+  if (product.description) product.description = product.description.toUpperCase();
+  return product;
+};
+
 // @route   GET /api/orders
 // @desc    Get all orders with filtering and pagination
 // @access  Private
@@ -141,6 +160,20 @@ router.get('/', [
     
     const total = await Sales.countDocuments(filter);
     
+    // Transform names to uppercase
+    orders.forEach(order => {
+      if (order.customer) {
+        order.customer = transformCustomerToUppercase(order.customer);
+      }
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          if (item.product) {
+            item.product = transformProductToUppercase(item.product);
+          }
+        });
+      }
+    });
+    
     res.json({
       orders,
       pagination: {
@@ -170,6 +203,18 @@ router.get('/:id', auth, async (req, res) => {
     
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    
+    // Transform names to uppercase
+    if (order.customer) {
+      order.customer = transformCustomerToUppercase(order.customer);
+    }
+    if (order.items && Array.isArray(order.items)) {
+      order.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
     }
     
     res.json({ order });

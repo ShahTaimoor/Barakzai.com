@@ -11,6 +11,26 @@ const { sanitizeRequest, handleValidationErrors } = require('../middleware/valid
 
 const router = express.Router();
 
+// Helper functions to transform names to uppercase
+const transformSupplierToUppercase = (supplier) => {
+  if (!supplier) return supplier;
+  if (supplier.toObject) supplier = supplier.toObject();
+  if (supplier.companyName) supplier.companyName = supplier.companyName.toUpperCase();
+  if (supplier.name) supplier.name = supplier.name.toUpperCase();
+  if (supplier.contactPerson && supplier.contactPerson.name) {
+    supplier.contactPerson.name = supplier.contactPerson.name.toUpperCase();
+  }
+  return supplier;
+};
+
+const transformProductToUppercase = (product) => {
+  if (!product) return product;
+  if (product.toObject) product = product.toObject();
+  if (product.name) product.name = product.name.toUpperCase();
+  if (product.description) product.description = product.description.toUpperCase();
+  return product;
+};
+
 // @route   GET /api/purchase-invoices
 // @desc    Get all purchase invoices with filtering and pagination
 // @access  Private
@@ -124,6 +144,18 @@ router.get('/:id', [
     
     if (!invoice) {
       return res.status(404).json({ message: 'Purchase invoice not found' });
+    }
+    
+    // Transform names to uppercase
+    if (invoice.supplier) {
+      invoice.supplier = transformSupplierToUppercase(invoice.supplier);
+    }
+    if (invoice.items && Array.isArray(invoice.items)) {
+      invoice.items.forEach(item => {
+        if (item.product) {
+          item.product = transformProductToUppercase(item.product);
+        }
+      });
     }
     
     res.json({ invoice });
