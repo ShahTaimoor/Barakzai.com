@@ -1,7 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const { createRateLimiter } = require('../middleware/rateLimit');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 
@@ -95,14 +94,10 @@ router.post('/register', [
   }
 });
 
-// Login-specific rate limiter (5/min per IP)
-const loginLimiter = createRateLimiter({ windowMs: 60_000, max: 5 });
-
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
 router.post('/login', [
-  loginLimiter,
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
   body('password').exists().withMessage('Password is required')
 ], async (req, res) => {

@@ -23,6 +23,7 @@ import {
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate } from '../utils/formatters';
 import { suppliersAPI, customersAPI, chartOfAccountsAPI } from '../services/api';
+import PrintModal from '../components/PrintModal';
 
 // API functions
 const fetchCashPayments = async (params = {}) => {
@@ -88,6 +89,8 @@ const CashPayments = () => {
   });
 
   // State for modals
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printData, setPrintData] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -465,6 +468,36 @@ const CashPayments = () => {
 
   const handleExport = () => {
     showSuccessToast('Export functionality coming soon');
+  };
+
+  const handlePrint = (payment) => {
+    // Format payment data for PrintModal
+    const formattedData = {
+      invoiceNumber: payment.voucherCode,
+      orderNumber: payment.voucherCode,
+      createdAt: payment.date,
+      invoiceDate: payment.date,
+      customer: payment.customer || null,
+      customerInfo: payment.customer || null,
+      supplier: payment.supplier || null,
+      pricing: {
+        subtotal: payment.amount || 0,
+        total: payment.amount || 0,
+        discountAmount: 0,
+        taxAmount: 0
+      },
+      total: payment.amount || 0,
+      subtotal: payment.amount || 0,
+      items: [],
+      payment: {
+        method: 'Cash',
+        status: 'Paid',
+        amountPaid: payment.amount || 0
+      },
+      notes: payment.notes || payment.particular || ''
+    };
+    setPrintData(formattedData);
+    setShowPrintModal(true);
   };
 
   const cashPayments = cashPaymentsData?.data?.cashPayments || [];
@@ -1201,6 +1234,13 @@ const CashPayments = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
                             <button
+                              onClick={() => handlePrint(payment)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Print"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </button>
+                            <button
                               className="text-blue-600 hover:text-blue-900"
                               title="View"
                             >
@@ -1229,6 +1269,18 @@ const CashPayments = () => {
           )}
         </div>
       </div>
+
+      {/* Print Modal */}
+      <PrintModal
+        isOpen={showPrintModal}
+        onClose={() => {
+          setShowPrintModal(false);
+          setPrintData(null);
+        }}
+        orderData={printData}
+        documentTitle="Cash Payment"
+        partyLabel={printData?.supplier ? 'Supplier' : printData?.customer ? 'Customer' : 'Payee'}
+      />
 
       {/* Create Modal - Removed */}
       {false && (

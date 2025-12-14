@@ -18,6 +18,7 @@ import {
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { customersAPI, suppliersAPI } from '../services/api';
+import PrintModal from '../components/PrintModal';
 
 // API functions
 const fetchCashReceipts = async (params = {}) => {
@@ -119,7 +120,9 @@ const CashReceipts = () => {
   // State for modals
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [printData, setPrintData] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -563,6 +566,36 @@ const CashReceipts = () => {
   const handleExport = () => {
     // TODO: Implement export functionality
     showSuccessToast('Export functionality coming soon');
+  };
+
+  const handlePrint = (receipt) => {
+    // Format receipt data for PrintModal
+    const formattedData = {
+      invoiceNumber: receipt.voucherCode,
+      orderNumber: receipt.voucherCode,
+      createdAt: receipt.date,
+      invoiceDate: receipt.date,
+      customer: receipt.customer || null,
+      customerInfo: receipt.customer || null,
+      supplier: receipt.supplier || null,
+      pricing: {
+        subtotal: receipt.amount || 0,
+        total: receipt.amount || 0,
+        discountAmount: 0,
+        taxAmount: 0
+      },
+      total: receipt.amount || 0,
+      subtotal: receipt.amount || 0,
+      items: [],
+      payment: {
+        method: 'Cash',
+        status: 'Paid',
+        amountPaid: receipt.amount || 0
+      },
+      notes: receipt.notes || receipt.particular || ''
+    };
+    setPrintData(formattedData);
+    setShowPrintModal(true);
   };
 
   const cashReceipts = cashReceiptsData?.data?.cashReceipts || [];
@@ -1093,6 +1126,13 @@ const CashReceipts = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
                             <button
+                              onClick={() => handlePrint(receipt)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Print"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => handleView(receipt)}
                               className="text-blue-600 hover:text-blue-900"
                               title="View"
@@ -1560,6 +1600,18 @@ const CashReceipts = () => {
           </div>
         </div>
       )}
+
+      {/* Print Modal */}
+      <PrintModal
+        isOpen={showPrintModal}
+        onClose={() => {
+          setShowPrintModal(false);
+          setPrintData(null);
+        }}
+        orderData={printData}
+        documentTitle="Cash Receipt"
+        partyLabel={printData?.supplier ? 'Supplier' : 'Customer'}
+      />
     </div>
   );
 };

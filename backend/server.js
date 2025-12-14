@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoose = require('mongoose');
-const { createRateLimiter } = require('./middleware/rateLimit');
 const { seedBasicAccounts } = require('./services/accountSeeder');
 
 // Load environment variables
@@ -56,9 +55,6 @@ const corsOptions = {
 // Security middleware
 app.use(helmet());
 app.use(cors(corsOptions));
-
-// Global rate limiter (e.g., 300 requests per 5 minutes per IP)
-app.use(createRateLimiter({ windowMs: 5 * 60_000, max: 300 }));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

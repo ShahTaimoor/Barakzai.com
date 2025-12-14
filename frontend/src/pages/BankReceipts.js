@@ -18,6 +18,7 @@ import {
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate } from '../utils/formatters';
 import { customersAPI, suppliersAPI, banksAPI } from '../services/api';
+import PrintModal from '../components/PrintModal';
 
 // API functions
 const fetchBankReceipts = async (params = {}) => {
@@ -83,6 +84,8 @@ const BankReceipts = () => {
   });
 
   // State for modals
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printData, setPrintData] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -237,6 +240,38 @@ const BankReceipts = () => {
 
   const handleExport = () => {
     showSuccessToast('Export functionality coming soon');
+  };
+
+  const handlePrint = (receipt) => {
+    // Format receipt data for PrintModal
+    const formattedData = {
+      invoiceNumber: receipt.voucherCode,
+      orderNumber: receipt.voucherCode,
+      createdAt: receipt.date,
+      invoiceDate: receipt.date,
+      customer: receipt.customer || null,
+      customerInfo: receipt.customer || null,
+      supplier: receipt.supplier || null,
+      pricing: {
+        subtotal: receipt.amount || 0,
+        total: receipt.amount || 0,
+        discountAmount: 0,
+        taxAmount: 0
+      },
+      total: receipt.amount || 0,
+      subtotal: receipt.amount || 0,
+      items: [],
+      payment: {
+        method: 'Bank Transfer',
+        status: 'Paid',
+        amountPaid: receipt.amount || 0
+      },
+      notes: receipt.notes || receipt.particular || '',
+      bankAccount: receipt.bank ? `${receipt.bank.bankName} - ${receipt.bank.accountNumber}` : '',
+      transactionReference: receipt.transactionReference || ''
+    };
+    setPrintData(formattedData);
+    setShowPrintModal(true);
   };
 
   const bankReceipts = bankReceiptsData?.data?.bankReceipts || [];
@@ -819,6 +854,13 @@ const BankReceipts = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
                             <button
+                              onClick={() => handlePrint(receipt)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Print"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </button>
+                            <button
                               className="text-blue-600 hover:text-blue-900"
                               title="View"
                             >
@@ -847,6 +889,18 @@ const BankReceipts = () => {
           )}
         </div>
       </div>
+
+      {/* Print Modal */}
+      <PrintModal
+        isOpen={showPrintModal}
+        onClose={() => {
+          setShowPrintModal(false);
+          setPrintData(null);
+        }}
+        orderData={printData}
+        documentTitle="Bank Receipt"
+        partyLabel={printData?.supplier ? 'Supplier' : 'Customer'}
+      />
 
       {/* Create Modal - Removed */}
       {false && (
