@@ -257,28 +257,45 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Track login activity
+// Track login activity using an atomic update to avoid VersionError under concurrency
 userSchema.methods.trackLogin = async function(ipAddress, userAgent) {
-  this.lastLogin = new Date();
-  this.loginCount += 1;
-  
-  // Add to login history (keep last 10 logins)
-  this.loginHistory.unshift({
-    loginTime: new Date(),
+  const now = new Date();
+  const loginEntry = {
+    loginTime: now,
     ipAddress: ipAddress || 'Unknown',
     userAgent: userAgent || 'Unknown'
-  });
-  
-  // Keep only last 10 login records
-  if (this.loginHistory.length > 10) {
-    this.loginHistory = this.loginHistory.slice(0, 10);
-  }
-  
-  await this.save();
+  };
+
+  // Atomic update: set lastLogin, increment loginCount, and push into loginHistory (capped at 10)
+  await this.constructor.updateOne(
+    { _id: this._id },
+    {
+      $set: { lastLogin: now },
+      $inc: { loginCount: 1 },
+      $push: {
+        loginHistory: {
+          $each: [loginEntry],
+          $position: 0,
+          $slice: 10
+        }
+      }
+    }
+  );
+
+  // Keep in-memory instance reasonably in sync for downstream logic
+  this.lastLogin = now;
+  this.loginCount = (this.loginCount || 0) + 1;
+  this.loginHistory = [loginEntry, ...(this.loginHistory || [])].slice(0, 10);
 };
 
-// Track permission changes
-userSchema.methods.trackPermissionChange = async function(changedBy, changeType, oldData = {}, newData = {}, notes = '') {
+// Track permission changes using an atomic update to avoid VersionError under concurrency
+userSchema.methods.trackPermissionChange = async function(
+  changedBy,
+  changeType,
+  oldData = {},
+  newData = {},
+  notes = ''
+) {
   const permissionRecord = {
     changedBy: changedBy._id || changedBy,
     changedAt: new Date(),
@@ -289,15 +306,25 @@ userSchema.methods.trackPermissionChange = async function(changedBy, changeType,
     newPermissions: newData.permissions || [],
     notes
   };
-  
-  this.permissionHistory.unshift(permissionRecord);
-  
-  // Keep only last 20 permission change records
-  if (this.permissionHistory.length > 20) {
-    this.permissionHistory = this.permissionHistory.slice(0, 20);
-  }
-  
-  await this.save();
+
+  await this.constructor.updateOne(
+    { _id: this._id },
+    {
+      $push: {
+        permissionHistory: {
+          $each: [permissionRecord],
+          $position: 0,
+          $slice: 20
+        }
+      }
+    }
+  );
+
+  // Keep in-memory instance capped as well
+  this.permissionHistory = [
+    permissionRecord,
+    ...(this.permissionHistory || [])
+  ].slice(0, 20);
 };
 
 // Method to increment login attempts

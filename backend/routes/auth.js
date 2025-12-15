@@ -39,13 +39,7 @@ router.post('/register', [
     const { firstName, lastName, email, password, role, phone, department, permissions, status } = req.body;
     console.log('✅ Extracted data:', { firstName, lastName, email, role, permissions, status });
     
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-    
-    // Create new user
+    // Try to create user atomically; avoid race conditions causing 500s on unique email
     console.log('🔄 Creating new user with data:', {
       firstName,
       lastName,
@@ -54,19 +48,28 @@ router.post('/register', [
       permissions: permissions || []
     });
     
-    const user = new User({
-      firstName,
-      lastName,
-      email,
-      password,
-      role,
-      phone,
-      department,
-      permissions: permissions || [],
-      status: status || 'active'
-    });
-    
-    await user.save();
+    let user;
+    try {
+      user = new User({
+        firstName,
+        lastName,
+        email,
+        password,
+        role,
+        phone,
+        department,
+        permissions: permissions || [],
+        status: status || 'active'
+      });
+      
+      await user.save();
+    } catch (err) {
+      // Handle duplicate email gracefully instead of returning a 500 from Atlas (E11000)
+      if (err && (err.code === 11000 || err.name === 'MongoServerError')) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+      throw err;
+    }
 
         // Track user creation in permission history
         await user.trackPermissionChange(

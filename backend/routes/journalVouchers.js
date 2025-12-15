@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { auth, requirePermission } = require('../middleware/auth');
 const JournalVoucher = require('../models/JournalVoucher');
 const ChartOfAccounts = require('../models/ChartOfAccounts');
+const { runWithTransactionRetry } = require('../services/transactionUtils');
 
 const router = express.Router();
 
@@ -148,15 +149,12 @@ router.post('/', [
   body('entries.*.credit').optional().isFloat({ min: 0 }).withMessage('Credit must be a non-negative number'),
   body('entries.*.particulars').optional().isString().trim().isLength({ max: 500 }).withMessage('Particulars are too long')
 ], withValidation, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { voucherDate, reference, description, entries, notes } = req.body;
     const createdBy = req.user?._id;
 
     const accountIds = entries.map(entry => entry.accountId);
-    const accounts = await ChartOfAccounts.find({ _id: { $in: accountIds } }).session(session);
+    const accounts = await ChartOfAccounts.find({ _id: { $in: accountIds } });
 
     if (accounts.length !== entries.length) {
       throw new Error('One or more selected accounts were not found.');
@@ -200,45 +198,45 @@ router.post('/', [
       throw new Error('Total debit must be greater than zero.');
     }
 
-    const journalVoucher = new JournalVoucher({
-      voucherDate: voucherDate ? new Date(voucherDate) : new Date(),
-      reference,
-      description,
-      entries: entriesWithAccount,
-      notes,
-      createdBy,
-      status: 'posted'
-    });
+    const populatedVoucher = await runWithTransactionRetry(async (session) => {
+      const journalVoucher = new JournalVoucher({
+        voucherDate: voucherDate ? new Date(voucherDate) : new Date(),
+        reference,
+        description,
+        entries: entriesWithAccount,
+        notes,
+        createdBy,
+        status: 'posted'
+      });
 
-    await journalVoucher.save({ session });
+      await journalVoucher.save({ session });
 
-    // Update account balances
-    for (const entry of entriesWithAccount) {
-      const account = accounts.find(acc => acc._id.toString() === entry.account.toString());
-      if (!account) continue;
+      // Update account balances
+      for (const entry of entriesWithAccount) {
+        const account = accounts.find(acc => acc._id.toString() === entry.account.toString());
+        if (!account) continue;
 
-      const amount = entry.debit > 0 ? entry.debit : entry.credit;
-      const isDebitEntry = entry.debit > 0;
+        const amount = entry.debit > 0 ? entry.debit : entry.credit;
+        const isDebitEntry = entry.debit > 0;
 
-      let delta = amount;
-      if (account.normalBalance === 'debit') {
-        delta = isDebitEntry ? amount : -amount;
-      } else {
-        delta = isDebitEntry ? -amount : amount;
+        let delta = amount;
+        if (account.normalBalance === 'debit') {
+          delta = isDebitEntry ? amount : -amount;
+        } else {
+          delta = isDebitEntry ? -amount : amount;
+        }
+
+        await ChartOfAccounts.updateOne(
+          { _id: account._id },
+          { $inc: { currentBalance: delta } },
+          { session }
+        );
       }
 
-      await ChartOfAccounts.updateOne(
-        { _id: account._id },
-        { $inc: { currentBalance: delta } },
-        { session }
-      );
-    }
-
-    await session.commitTransaction();
-    session.endSession();
-
-    const populatedVoucher = await JournalVoucher.findById(journalVoucher._id)
-      .populate('createdBy', 'firstName lastName email');
+      return JournalVoucher.findById(journalVoucher._id)
+        .session(session)
+        .populate('createdBy', 'firstName lastName email');
+    });
 
     res.status(201).json({
       success: true,
@@ -246,9 +244,6 @@ router.post('/', [
       data: populatedVoucher
     });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-
     console.error('Error creating journal voucher:', error);
     res.status(400).json({
       success: false,
