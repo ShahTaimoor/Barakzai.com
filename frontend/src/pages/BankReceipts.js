@@ -150,9 +150,15 @@ const BankReceipts = () => {
   // Fetch banks for dropdown
   const { data: banksData, isLoading: banksLoading, error: banksError } = useQuery(
     ['banks', { isActive: true }],
-    () => banksAPI.getBanks({ isActive: true }),
+    () => banksAPI.getBanks({ isActive: true }).then((res) => {
+      // Axios response structure: res.data = { success: true, data: { banks: [...] } }
+      const banks = res?.data?.data?.banks || res?.data?.banks || res?.banks || [];
+      if (!Array.isArray(banks)) {
+        return [];
+      }
+      return banks;
+    }),
     {
-      select: (data) => data?.data?.banks || data?.banks || [],
       onError: (error) => {
         console.error('Error fetching banks:', error);
       }
@@ -235,7 +241,24 @@ const BankReceipts = () => {
   };
 
   const handleCreate = () => {
-    createMutation.mutate(formData);
+    // Clean up form data - remove empty strings and only send fields with values
+    const cleanedData = {
+      date: formData.date || new Date().toISOString().split('T')[0],
+      amount: parseFloat(formData.amount) || 0,
+      particular: formData.particular || undefined,
+      bank: formData.bank,
+      transactionReference: formData.transactionReference || undefined,
+      notes: formData.notes || undefined
+    };
+    
+    // Only include customer or supplier if they have values (not empty strings)
+    if (paymentType === 'customer' && formData.customer) {
+      cleanedData.customer = formData.customer;
+    } else if (paymentType === 'supplier' && formData.supplier) {
+      cleanedData.supplier = formData.supplier;
+    }
+    
+    createMutation.mutate(cleanedData);
   };
 
   const handleExport = () => {
@@ -524,7 +547,10 @@ const BankReceipts = () => {
                   step="0.01"
                   min="0"
                   value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                    setFormData(prev => ({ ...prev, amount: value }));
+                  }}
                   className="input w-full"
                   placeholder="0.00"
                   required
@@ -1045,8 +1071,12 @@ const BankReceipts = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                      setFormData(prev => ({ ...prev, amount: value }));
+                    }}
                     className="input w-full"
                     placeholder="0.00"
                     required

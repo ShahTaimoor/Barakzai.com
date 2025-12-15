@@ -160,9 +160,15 @@ const BankPayments = () => {
   // Fetch banks for dropdown
   const { data: banksData, isLoading: banksLoading, error: banksError } = useQuery(
     ['banks', { isActive: true }],
-    () => banksAPI.getBanks({ isActive: true }),
+    () => banksAPI.getBanks({ isActive: true }).then((res) => {
+      // Axios response structure: res.data = { success: true, data: { banks: [...] } }
+      const banks = res?.data?.data?.banks || res?.data?.banks || res?.banks || [];
+      if (!Array.isArray(banks)) {
+        return [];
+      }
+      return banks;
+    }),
     {
-      select: (data) => data?.data?.banks || data?.banks || [],
       onError: (error) => {
         console.error('Error fetching banks:', error);
       }
@@ -478,13 +484,23 @@ const BankPayments = () => {
     const submissionData = {
       date: formData.date,
       amount: parseFloat(formData.amount),
-      particular: formData.particular,
+      particular: formData.particular || undefined,
       bank: formData.bank,
-      transactionReference: formData.transactionReference,
-      supplier: paymentType === 'supplier' ? formData.supplier : undefined,
-      customer: paymentType === 'customer' ? formData.customer : undefined,
-      notes: formData.notes
+      transactionReference: formData.transactionReference || undefined,
+      notes: formData.notes || undefined
     };
+    
+    // Only include supplier or customer if they have values (not empty strings)
+    if (paymentType === 'supplier' && formData.supplier) {
+      submissionData.supplier = formData.supplier;
+    } else if (paymentType === 'customer' && formData.customer) {
+      submissionData.customer = formData.customer;
+    }
+    
+    // Include expense account if it's an expense payment
+    if (paymentType === 'expense' && selectedExpenseAccount?._id) {
+      submissionData.expenseAccount = selectedExpenseAccount._id;
+    }
 
     createMutation.mutate(submissionData);
   };
@@ -966,7 +982,10 @@ const BankPayments = () => {
                   step="0.01"
                   min="0"
                   value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                    setFormData(prev => ({ ...prev, amount: value }));
+                  }}
                   className="input w-full"
                   placeholder="0.00"
                   required
@@ -1676,8 +1695,12 @@ const BankPayments = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                      setFormData(prev => ({ ...prev, amount: value }));
+                    }}
                     className="input w-full"
                     placeholder="0.00"
                     required

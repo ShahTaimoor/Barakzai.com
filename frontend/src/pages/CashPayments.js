@@ -941,7 +941,10 @@ const CashPayments = () => {
                   step="0.01"
                   min="0"
                   value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                    setFormData(prev => ({ ...prev, amount: value }));
+                  }}
                   className="input w-full"
                   placeholder="0.00"
                   required
@@ -1564,8 +1567,12 @@ const CashPayments = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                      setFormData(prev => ({ ...prev, amount: value }));
+                    }}
                     className="input w-full"
                     placeholder="0.00"
                     required

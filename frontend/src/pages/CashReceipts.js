@@ -479,7 +479,7 @@ const CashReceipts = () => {
     // Clean up form data - remove empty strings and only send fields with values
     const cleanedData = {
       date: formData.date || new Date().toISOString().split('T')[0],
-      amount: formData.amount,
+      amount: parseFloat(formData.amount) || 0,
       particular: formData.particular || undefined,
       notes: formData.notes || undefined,
       paymentMethod: 'cash'
@@ -499,7 +499,7 @@ const CashReceipts = () => {
     // Clean up form data - remove empty strings and only send fields with values
     const cleanedData = {
       date: formData.date,
-      amount: formData.amount,
+      amount: parseFloat(formData.amount) || 0,
       particular: formData.particular || undefined,
       notes: formData.notes || undefined
     };
@@ -842,12 +842,15 @@ const CashReceipts = () => {
                 </label>
                 <input
                   type="number"
-                  step="1"
+                  step="0.01"
                   min="0"
                   value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                    setFormData(prev => ({ ...prev, amount: value }));
+                  }}
                   className="input w-full"
-                  placeholder="0"
+                  placeholder="0.00"
                   required
                 />
               </div>
@@ -1336,11 +1339,15 @@ const CashReceipts = () => {
                   </label>
                   <input
                     type="number"
-                    step="1"
+                    step="0.01"
+                    min="0"
                     value={formData.amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                      setFormData(prev => ({ ...prev, amount: value }));
+                    }}
                     className="input w-full"
-                    placeholder="0"
+                    placeholder="0.00"
                     required
                   />
                 </div>
@@ -1429,11 +1436,15 @@ const CashReceipts = () => {
                   </label>
                   <input
                     type="number"
-                    step="1"
+                    step="0.01"
+                    min="0"
                     value={formData.amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                      setFormData(prev => ({ ...prev, amount: value }));
+                    }}
                     className="input w-full"
-                    placeholder="0"
+                    placeholder="0.00"
                     required
                   />
                 </div>
