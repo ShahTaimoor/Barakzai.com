@@ -3,12 +3,10 @@ import { Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
 import { Package, MessageCircle, Mail, Globe } from 'lucide-react';
-import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
-import { testConnection } from '../services/api';
+import { LoadingButton } from '../components/LoadingSpinner';
 
 export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
   const { login, isAuthenticated } = useAuth();
   const { register, handleSubmit, formState: { errors } } = useForm();
 
@@ -23,12 +21,6 @@ export const Login = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleTestConnection = async () => {
-    setConnectionStatus('Testing...');
-    const result = await testConnection();
-    setConnectionStatus(result);
   };
 
   return (
@@ -102,41 +94,6 @@ export const Login = () => {
           </div>
 
           <div className="text-center space-y-2">
-            <p className="text-sm text-gray-600">
-              Demo credentials: admin@pos.com / admin123
-            </p>
-            
-            {/* Connection Test Section */}
-            <div className="border-t pt-4">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                className="text-xs text-blue-600 hover:text-blue-800 underline"
-              >
-                Test Backend Connection
-              </button>
-              
-              {connectionStatus && (
-                <div className="mt-2 text-xs">
-                  {connectionStatus === 'Testing...' ? (
-                    <span className="text-yellow-600">Testing connection...</span>
-                  ) : connectionStatus.success ? (
-                    <span className="text-green-600">✅ Backend connected successfully!</span>
-                  ) : (
-                    <div className="text-red-600">
-                      <div>❌ Backend connection failed</div>
-                      <div className="text-xs mt-1">
-                        URL: {connectionStatus.url}
-                      </div>
-                      <div className="text-xs">
-                        Error: {connectionStatus.error}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Developer Support Section */}
             <div className="border-t pt-4 mt-4">
               <p className="text-xs text-gray-500 mb-2">
