@@ -2,23 +2,15 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoose = require('mongoose');
-const { seedBasicAccounts } = require('./services/accountSeeder');
+const connectDB = require('./config/db');
 
 // Load environment variables
 require('dotenv').config();
 
 // Set default environment variables if not provided
-// Note: MONGODB_URI must be provided via environment variable or .env file
-// Never hardcode credentials in source code
 process.env.JWT_SECRET = process.env.JWT_SECRET || '';
 process.env.PORT = process.env.PORT || 5000;
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-// MONGODB_URI must be set via environment variable - no default fallback for security
-if (!process.env.MONGODB_URI) {
-  console.error('❌ Error: MONGODB_URI environment variable is required.');
-  console.error('   Please set it in your .env file or as an environment variable.');
-  process.exit(1);
-}
 
 const app = express();
 
@@ -32,9 +24,7 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === '') {
 }
 
 // Strict CORS Configuration
-const envOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
-const defaultOrigins = ['https://sa.wiserconsulting.info'];
-const allowedOrigins = [...defaultOrigins, ...envOrigins];
+const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
 const isDev = (process.env.NODE_ENV || 'development') !== 'production';
 if (!isDev && allowedOrigins.length === 0) {
   console.error('FATAL: FRONTEND_URL or FRONTEND_URLS must be set in production for CORS');
@@ -91,48 +81,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Database connection with serverless optimization
-const mongoUri = process.env.MONGODB_URI;
-
-// Validate connection string has database name
-if (mongoUri && !mongoUri.includes('/pos_system') && !mongoUri.includes('/test')) {
-  console.warn('⚠️  WARNING: Connection string may be missing database name. Adding /pos_system');
-}
-
-// Connection options optimized for serverless
-const mongooseOptions = {
-  serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-  socketTimeoutMS: 45000,
-  dbName: 'pos_system' // Explicitly set database name to prevent defaulting to 'test'
-};
-
-// Database connection helper
-let dbConnected = false;
-
-// Only connect if not already connected (important for serverless)
-if (mongoose.connection.readyState === 0) {
-  mongoose.connect(mongoUri, mongooseOptions)
-    .then(async () => {
-      dbConnected = true;
-      const dbName = mongoose.connection.db.databaseName;
-      console.log(`✅ MongoDB connected successfully to database: ${dbName}`);
-      
-      if (dbName === 'test') {
-        console.error('❌ ERROR: Connected to "test" database instead of "pos_system"!');
-        console.error('💡 Check your MONGODB_URI in .env file - it should end with /pos_system');
-      }
-      
-      await seedBasicAccounts();
-    })
-    .catch(err => {
-      console.error('❌ MongoDB connection error:', err);
-      console.error('💡 Verify that the connection string is correct and accessible.');
-      console.error('💡 For local MongoDB, ensure MongoDB service is running.');
-      console.error('💡 For Atlas, ensure your IP is whitelisted.');
-    });
-} else if (mongoose.connection.readyState === 1) {
-  dbConnected = true;
-}
+// Connect to database
+connectDB().catch(err => {
+  console.error('❌ Failed to initialize database:', err);
+});
 
 // Serve static files for exports (if needed)
 const path = require('path');
