@@ -569,30 +569,20 @@ const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           City *
                         </label>
-                        <div className="flex gap-2">
-                          <select
-                            value={address.city || ''}
-                            onChange={(e) => handleAddressChange(index, 'city', e.target.value)}
-                            className="input flex-1"
-                            required
-                            disabled={citiesLoading}
-                          >
-                            <option value="">Select a city</option>
-                            {citiesData.map((city) => (
-                              <option key={city._id || city.name} value={city.name}>
-                                {city.name}{city.state ? `, ${city.state}` : ''}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => setIsCityModalOpen(true)}
-                            className="btn btn-secondary px-3 py-2 whitespace-nowrap"
-                            title="Add New City"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
+                        <select
+                          value={address.city || ''}
+                          onChange={(e) => handleAddressChange(index, 'city', e.target.value)}
+                          className="input"
+                          required
+                          disabled={citiesLoading}
+                        >
+                          <option value="">Select a city</option>
+                          {citiesData.map((city) => (
+                            <option key={city._id || city.name} value={city.name}>
+                              {city.name}{city.state ? `, ${city.state}` : ''}
+                            </option>
+                          ))}
+                        </select>
                         {citiesLoading && (
                           <p className="text-xs text-gray-500 mt-1">Loading cities...</p>
                         )}
