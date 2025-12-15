@@ -32,7 +32,9 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === '') {
 }
 
 // Strict CORS Configuration
-const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+const envOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+const defaultOrigins = ['https://sa.wiserconsulting.info'];
+const allowedOrigins = [...defaultOrigins, ...envOrigins];
 const isDev = (process.env.NODE_ENV || 'development') !== 'production';
 if (!isDev && allowedOrigins.length === 0) {
   console.error('FATAL: FRONTEND_URL or FRONTEND_URLS must be set in production for CORS');
