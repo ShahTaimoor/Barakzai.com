@@ -188,88 +188,154 @@ InventorySchema.pre('save', function(next) {
   next();
 });
 
-// Static method to update stock
+// Static method to update stock with WriteConflict retry logic
 InventorySchema.statics.updateStock = async function(productId, movement) {
-  let inventory = await this.findOne({ product: productId });
+  const maxRetries = 5;
+  let attempt = 0;
   
-  if (!inventory) {
-    // Create inventory record if it doesn't exist
-    console.log('Creating inventory record for product:', productId);
-    inventory = new this({
-      product: productId,
-      currentStock: 0,
-      reorderPoint: 10,
-      reorderQuantity: 50,
-      status: 'active'
-    });
-    await inventory.save();
+  while (attempt < maxRetries) {
+    try {
+      let inventory = await this.findOne({ product: productId });
+      
+      if (!inventory) {
+        // Create inventory record if it doesn't exist
+        console.log('Creating inventory record for product:', productId);
+        inventory = new this({
+          product: productId,
+          currentStock: 0,
+          reorderPoint: 10,
+          reorderQuantity: 50,
+          status: 'active'
+        });
+        await inventory.save();
+      }
+      
+      // Calculate new stock level
+      let newStock = inventory.currentStock;
+      console.log('Current stock:', newStock, 'Movement type:', movement.type, 'Quantity:', movement.quantity);
+      
+      switch (movement.type) {
+        case 'in':
+        case 'return':
+          newStock += movement.quantity;
+          break;
+        case 'out':
+        case 'damage':
+        case 'theft':
+          newStock -= movement.quantity;
+          break;
+        case 'adjustment':
+          newStock = movement.quantity; // Set to exact amount
+          break;
+        default:
+          break;
+      }
+      
+      console.log('New stock calculated:', newStock);
+      
+      // Ensure stock doesn't go below 0 (unless it's an adjustment)
+      if (movement.type !== 'adjustment' && newStock < 0) {
+        throw new Error('Insufficient stock for this operation');
+      }
+      
+      // Update inventory
+      inventory.currentStock = newStock;
+      inventory.movements.push(movement);
+      
+      console.log('Saving inventory with new stock:', newStock);
+      const savedInventory = await inventory.save();
+      console.log('Inventory saved successfully, final stock:', savedInventory.currentStock);
+      
+      return savedInventory;
+    } catch (error) {
+      // Check if it's a WriteConflict error (code 112)
+      const isWriteConflict = error.code === 112 || error.codeName === 'WriteConflict';
+      
+      if (isWriteConflict && attempt < maxRetries - 1) {
+        attempt++;
+        // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+        const backoffMs = 50 * Math.pow(2, attempt - 1);
+        console.log(`WriteConflict detected on attempt ${attempt}, retrying after ${backoffMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+        continue; // Retry the operation
+      }
+      
+      // If not a WriteConflict or max retries reached, throw the error
+      throw error;
+    }
   }
-  
-  // Calculate new stock level
-  let newStock = inventory.currentStock;
-  console.log('Current stock:', newStock, 'Movement type:', movement.type, 'Quantity:', movement.quantity);
-  
-  switch (movement.type) {
-    case 'in':
-    case 'return':
-      newStock += movement.quantity;
-      break;
-    case 'out':
-    case 'damage':
-    case 'theft':
-      newStock -= movement.quantity;
-      break;
-    case 'adjustment':
-      newStock = movement.quantity; // Set to exact amount
-      break;
-    default:
-      break;
-  }
-  
-  console.log('New stock calculated:', newStock);
-  
-  // Ensure stock doesn't go below 0 (unless it's an adjustment)
-  if (movement.type !== 'adjustment' && newStock < 0) {
-    throw new Error('Insufficient stock for this operation');
-  }
-  
-  // Update inventory
-  inventory.currentStock = newStock;
-  inventory.movements.push(movement);
-  
-  console.log('Saving inventory with new stock:', newStock);
-  const savedInventory = await inventory.save();
-  console.log('Inventory saved successfully, final stock:', savedInventory.currentStock);
-  
-  return savedInventory;
 };
 
-// Static method to reserve stock
+// Static method to reserve stock with WriteConflict retry logic
 InventorySchema.statics.reserveStock = async function(productId, quantity) {
-  const inventory = await this.findOne({ product: productId });
+  const maxRetries = 5;
+  let attempt = 0;
   
-  if (!inventory) {
-    throw new Error('Inventory record not found for product');
+  while (attempt < maxRetries) {
+    try {
+      const inventory = await this.findOne({ product: productId });
+      
+      if (!inventory) {
+        throw new Error('Inventory record not found for product');
+      }
+      
+      if (inventory.availableStock < quantity) {
+        throw new Error('Insufficient available stock');
+      }
+      
+      inventory.reservedStock += quantity;
+      return await inventory.save();
+    } catch (error) {
+      // Check if it's a WriteConflict error (code 112)
+      const isWriteConflict = error.code === 112 || error.codeName === 'WriteConflict';
+      
+      if (isWriteConflict && attempt < maxRetries - 1) {
+        attempt++;
+        // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+        const backoffMs = 50 * Math.pow(2, attempt - 1);
+        console.log(`WriteConflict detected in reserveStock on attempt ${attempt}, retrying after ${backoffMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+        continue; // Retry the operation
+      }
+      
+      // If not a WriteConflict or max retries reached, throw the error
+      throw error;
+    }
   }
-  
-  if (inventory.availableStock < quantity) {
-    throw new Error('Insufficient available stock');
-  }
-  
-  inventory.reservedStock += quantity;
-  return await inventory.save();
 };
 
-// Static method to release reserved stock
+// Static method to release reserved stock with WriteConflict retry logic
 InventorySchema.statics.releaseStock = async function(productId, quantity) {
-  const inventory = await this.findOne({ product: productId });
+  const maxRetries = 5;
+  let attempt = 0;
   
-  if (!inventory) {
-    throw new Error('Inventory record not found for product');
+  while (attempt < maxRetries) {
+    try {
+      const inventory = await this.findOne({ product: productId });
+      
+      if (!inventory) {
+        throw new Error('Inventory record not found for product');
+      }
+      
+      inventory.reservedStock = Math.max(0, inventory.reservedStock - quantity);
+      return await inventory.save();
+    } catch (error) {
+      // Check if it's a WriteConflict error (code 112)
+      const isWriteConflict = error.code === 112 || error.codeName === 'WriteConflict';
+      
+      if (isWriteConflict && attempt < maxRetries - 1) {
+        attempt++;
+        // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+        const backoffMs = 50 * Math.pow(2, attempt - 1);
+        console.log(`WriteConflict detected in releaseStock on attempt ${attempt}, retrying after ${backoffMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+        continue; // Retry the operation
+      }
+      
+      // If not a WriteConflict or max retries reached, throw the error
+      throw error;
+    }
   }
-  
-  inventory.reservedStock = Math.max(0, inventory.reservedStock - quantity);
-  return await inventory.save();
 };
 
 // Static method to get low stock items
