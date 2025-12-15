@@ -55,7 +55,6 @@ export const Inventory = () => {
       limit: itemsPerPage 
     }],
     () => {
-      console.log('Fetching inventory with search term:', searchTerm);
       return inventoryAPI.getInventory({
         search: searchTerm,
         status: statusFilter,
@@ -67,9 +66,6 @@ export const Inventory = () => {
     },
     {
       keepPreviousData: true,
-      onSuccess: (data) => {
-        console.log('Inventory data received:', data);
-      },
       onError: (error) => {
         console.error('Inventory fetch error:', error);
       }
@@ -82,9 +78,6 @@ export const Inventory = () => {
     () => inventoryAPI.getInventorySummary(),
     {
       refetchInterval: 30000, // Refresh every 30 seconds
-      onSuccess: (data) => {
-        console.log('Inventory summary data received:', data);
-      },
       onError: (error) => {
         console.error('Inventory summary fetch error:', error);
       }
@@ -309,7 +302,6 @@ export const Inventory = () => {
   const handleView = (item) => {
     setSelectedProduct(item);
     // Navigate to detailed view or show modal
-    console.log('View inventory details for:', item.product?.name);
   };
 
   if (isLoading) {

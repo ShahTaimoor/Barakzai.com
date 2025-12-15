@@ -642,8 +642,6 @@ export const Settings2 = () => {
     async () => {
       try {
         const response = await usersAPI.getUsers();
-        console.log('🔍 Raw API response:', response);
-        console.log('🔍 Response data:', response?.data);
         return response?.data || response;
       } catch (error) {
         console.error('❌ API call error:', error);
@@ -652,9 +650,6 @@ export const Settings2 = () => {
     },
     {
         onSuccess: (data) => {
-          console.log('✅ Users API response received:', data);
-          console.log('✅ Full response structure:', JSON.stringify(data, null, 2));
-          
           // React Query already extracts response.data from axios
           // Backend returns: { success: true, data: { users: [...] } }
           // So `data` here should be the backend response object
@@ -664,17 +659,14 @@ export const Settings2 = () => {
           // Primary path: data.data.users (backend structure)
           if (data?.data?.users && Array.isArray(data.data.users)) {
             usersArray = data.data.users;
-            console.log('✅ Found users at data.data.users:', usersArray.length);
           } 
           // Fallback: data.users
           else if (data?.users && Array.isArray(data.users)) {
             usersArray = data.users;
-            console.log('✅ Found users at data.users:', usersArray.length);
           } 
           // Fallback: direct array
           else if (Array.isArray(data)) {
             usersArray = data.filter(item => item._id && item.email);
-            console.log('✅ Found users as direct array:', usersArray.length);
           }
           // Deep search fallback
           else {
@@ -697,13 +689,9 @@ export const Settings2 = () => {
               return null;
             };
             usersArray = findUsers(data);
-            if (usersArray) {
-              console.log('✅ Found users via deep search:', usersArray.length);
-            }
           }
           
           if (usersArray && Array.isArray(usersArray)) {
-            console.log(`✅ Setting ${usersArray.length} user(s) to state`);
             setUsers(usersArray);
           } else {
             console.warn('⚠️ No users array found. Response structure:', JSON.stringify(data, null, 2));
@@ -814,7 +802,6 @@ export const Settings2 = () => {
       onSuccess: () => {
         toast.success('User created successfully!');
         resetNewUserForm();
-        console.log('🔄 Refetching users after successful creation...');
         refetchUsers();
       },
       onError: (error) => {
@@ -933,7 +920,6 @@ export const Settings2 = () => {
       logo: companyData.logo
     };
     
-    console.log('📤 Sending company data:', dataToSend);
     saveCompanyMutation.mutate(dataToSend);
   };
 
@@ -1003,7 +989,6 @@ export const Settings2 = () => {
       permissions: permissionsArray
     };
     
-    console.log('Creating user with data:', userDataToSend);
     createUserMutation.mutate(userDataToSend);
   };
 
@@ -1065,7 +1050,6 @@ export const Settings2 = () => {
         userDataToSend.status = newUserData.status;
       }
       
-      console.log('Updating user with data:', userDataToSend);
       updateUserMutation.mutate({
         id: editingUser._id,
         data: userDataToSend
@@ -1231,7 +1215,6 @@ export const Settings2 = () => {
 
   // Load company settings on component mount
   useEffect(() => {
-    console.log('🚀 Component mounted, loading company settings...');
     refetchSettings();
   }, [refetchSettings]);
 

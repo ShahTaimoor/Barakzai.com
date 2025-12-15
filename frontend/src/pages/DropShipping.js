@@ -72,9 +72,6 @@ const DropShipping = () => {
     () => customersAPI.getCustomers({ search: customerSearchTerm, limit: 100 }),
     { 
       keepPreviousData: true,
-      onSuccess: (data) => {
-        console.log('Customers data received:', data);
-      },
       onError: (error) => {
         console.error('Customers fetch error:', error);
       }

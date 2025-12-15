@@ -815,9 +815,6 @@ export const Suppliers = () => {
     () => suppliersAPI.getSuppliers(queryParams),
     {
       keepPreviousData: true,
-      onSuccess: (data) => {
-        console.log('Suppliers data received:', data);
-      },
       onError: (error) => {
         console.error('Suppliers fetch error:', error);
       }
@@ -920,8 +917,6 @@ export const Suppliers = () => {
         isDefault: addr.isDefault || false
       })) || []
     };
-
-    console.log('Sending supplier data:', cleanData);
 
     if (selectedSupplier) {
       updateSupplierMutation.mutate({ id: selectedSupplier._id, data: cleanData });

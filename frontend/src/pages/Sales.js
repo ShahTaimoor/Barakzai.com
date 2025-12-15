@@ -1202,16 +1202,6 @@ export const Sales = ({ tabId, editData }) => {
             // For PDF, open in new tab for preview
             const blob = downloadResponse.data;
             
-            // Debug logging
-            console.log('PDF download response:', {
-              status: downloadResponse.status,
-              contentType,
-              blobType: typeof blob,
-              isBlob: blob instanceof Blob,
-              blobSize: blob instanceof Blob ? blob.size : 'N/A',
-              blobKeys: blob && typeof blob === 'object' ? Object.keys(blob) : 'N/A'
-            });
-            
             // Check if blob is valid
             if (!blob || !(blob instanceof Blob)) {
               // Handle different response types

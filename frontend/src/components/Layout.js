@@ -178,25 +178,16 @@ export const Layout = ({ children }) => {
   const fetchCategories = async () => {
     try {
       setCategoriesLoading(true);
-      console.log('Fetching categories...');
       const response = await categoriesAPI.getCategories();
-      console.log('Categories API response:', response);
       const cats = response?.data?.categories || [];
-      console.log('Categories found:', cats.length, cats);
       setCategories(cats);
       
       // Build category tree
       const tree = buildCategoryTree(cats);
-      console.log('Category tree built:', tree);
       setCategoryTree(tree);
     } catch (error) {
       console.error('Error fetching categories:', error);
       // Show user-friendly error message
-      if (error.response?.status === 401) {
-        console.log('User not authenticated, skipping category fetch');
-      } else {
-        console.log('Failed to fetch categories:', error.message);
-      }
     } finally {
       setCategoriesLoading(false);
     }

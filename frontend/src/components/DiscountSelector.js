@@ -14,11 +14,6 @@ const DiscountSelector = ({
 }) => {
   const [discountCode, setDiscountCode] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-
-  // Debug logging
-  console.log('DiscountSelector rendered with:', {
-    orderDataTotal: orderData?.total,
-    customerDataId: customerData?._id,
     appliedDiscountsCount: appliedDiscounts?.length,
     isLoading
   });

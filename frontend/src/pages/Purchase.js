@@ -118,9 +118,6 @@ const SupplierSearch = ({ selectedSupplier, onSupplierSelect }) => {
     },
     {
       keepPreviousData: true,
-      onSuccess: (data) => {
-        console.log('Suppliers data received in Purchase page:', data);
-      },
       onError: (error) => {
         console.error('Suppliers fetch error in Purchase page:', error);
       }
@@ -650,7 +647,6 @@ export const Purchase = ({ tabId, editData }) => {
 
   const createPurchaseInvoiceMutation = useMutation(purchaseInvoicesAPI.createPurchaseInvoice, {
     onSuccess: (data) => {
-      console.log('Purchase completed successfully:', data);
       queryClient.invalidateQueries('inventory');
       queryClient.invalidateQueries('products');
       queryClient.invalidateQueries(['purchase-invoices']);
@@ -688,7 +684,6 @@ export const Purchase = ({ tabId, editData }) => {
 
   const updatePurchaseInvoiceMutation = useMutation(purchaseInvoicesAPI.updatePurchaseInvoice, {
     onSuccess: (data) => {
-      console.log('Purchase updated successfully:', data);
       queryClient.invalidateQueries('inventory');
       queryClient.invalidateQueries('products');
       queryClient.invalidateQueries(['purchase-invoices']);
@@ -999,10 +994,6 @@ export const Purchase = ({ tabId, editData }) => {
   };
 
   const handleProcessPurchase = () => {
-    console.log('Process Purchase clicked');
-    console.log('Purchase items:', purchaseItems);
-    console.log('Selected supplier:', selectedSupplier);
-    
     if (purchaseItems.length === 0) {
       toast.error('No items to purchase');
       return;
@@ -1062,8 +1053,6 @@ export const Purchase = ({ tabId, editData }) => {
       notes: notes,
       terms: ''
     };
-
-    console.log('Purchase invoice data being sent:', invoiceData);
     
     // Use appropriate mutation based on edit mode
     if (editData?.isEditMode) {
@@ -1488,9 +1477,6 @@ export const Purchase = ({ tabId, editData }) => {
                  {purchaseItems.length > 0 && (
                    <button
                      onClick={() => {
-                       // Debug: Log supplier data to see available fields
-                       console.log('Selected Supplier Data:', selectedSupplier);
-                       
                        const tempOrder = {
                          orderNumber: `PO-${Date.now()}`,
                          orderType: 'purchase',

@@ -164,7 +164,6 @@ const CashReceipts = () => {
     () => customersAPI.getCustomers({ search: '', limit: 100 }),
     {
       select: (data) => {
-        console.log('Customers API response:', data);
         return data?.data?.customers || data?.customers || [];
       },
       onError: (error) => {
@@ -184,16 +183,6 @@ const CashReceipts = () => {
       }
     }
   );
-
-  // Debug customers data
-  console.log('Customers data:', customersData);
-  console.log('Customers loading:', customersLoading);
-  console.log('Customers error:', customersError);
-  
-  // Debug authentication
-  const token = localStorage.getItem('token');
-  console.log('Auth token exists:', !!token);
-  console.log('Auth token preview:', token ? token.substring(0, 20) + '...' : 'No token');
 
   // Sync selectedCustomer with updated customersData when it changes (optimized - only update when balance changes)
   useEffect(() => {

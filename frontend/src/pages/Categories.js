@@ -25,8 +25,6 @@ const CategoryModal = ({ category, isOpen, onClose, onSave, isSubmitting, catego
     isActive: true
   });
 
-  console.log('CategoryModal rendered:', { isOpen, category, categoriesCount: categories.length });
-
   const [errors, setErrors] = useState({});
 
   React.useEffect(() => {
@@ -301,9 +299,6 @@ export const Categories = () => {
     async () => {
       try {
         const response = await categoriesAPI.getCategories({ search: searchTerm });
-        console.log('🔍 Raw Categories API response:', response);
-        console.log('🔍 Response.data:', response?.data);
-        console.log('🔍 Categories in response:', response?.data?.categories);
         // Backend returns: { categories: [], pagination: {} }
         // Axios wraps it: { data: { categories: [], pagination: {} } }
         // Return unwrapped data
@@ -315,11 +310,6 @@ export const Categories = () => {
     },
     {
       keepPreviousData: true,
-      onSuccess: (data) => {
-        console.log('✅ Categories query success - data:', data);
-        console.log('✅ Categories count:', data?.categories?.length || 0);
-        console.log('✅ Full data structure:', JSON.stringify(data, null, 2));
-      },
       onError: (error) => {
         console.error('❌ Categories query failed:', error);
         console.error('❌ Error response:', error?.response);
@@ -330,12 +320,10 @@ export const Categories = () => {
 
   const createMutation = useMutation(
     (categoryData) => {
-      console.log('Creating category with data:', categoryData);
       return categoriesAPI.createCategory(categoryData);
     },
     {
       onSuccess: (response) => {
-        console.log('✅ Category created successfully:', response);
         // Invalidate and refetch categories list
         queryClient.invalidateQueries(['categories']);
         queryClient.refetchQueries(['categories']);
@@ -410,8 +398,6 @@ export const Categories = () => {
       isActive: Boolean(data.isActive)
     };
     
-    console.log('Saving category data:', cleanData);
-    
     if (selectedCategory) {
       updateMutation.mutate({ id: selectedCategory._id, data: cleanData });
     } else {
@@ -442,13 +428,6 @@ export const Categories = () => {
   // react-query unwraps axios, so data is: { categories: [], pagination: {} }
   const categories = data?.categories || data?.data?.categories || [];
   const pagination = data?.pagination || data?.data?.pagination || {};
-  
-  // Debug logging
-  if (data) {
-    console.log('Categories component - Full data:', data);
-    console.log('Categories component - Extracted categories:', categories.length);
-    console.log('Categories component - Categories array:', categories);
-  }
 
   return (
     <div className="space-y-6 w-full">
@@ -462,7 +441,6 @@ export const Categories = () => {
           <div className="flex-shrink-0 flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => {
-                console.log('Add Parent Category button clicked');
                 setSelectedCategory(null);
                 setCategoryType('parent');
                 setIsModalOpen(true);
@@ -474,7 +452,6 @@ export const Categories = () => {
             </button>
             <button
               onClick={() => {
-                console.log('Add Child Category button clicked');
                 setSelectedCategory(null);
                 setCategoryType('child');
                 setIsModalOpen(true);
@@ -536,7 +513,6 @@ export const Categories = () => {
             <div className="mt-6">
               <button
                 onClick={() => {
-                  console.log('Add Category button clicked from empty state');
                   setCategoryType('parent');
                   setIsModalOpen(true);
                 }}

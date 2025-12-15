@@ -197,7 +197,6 @@ export const Dashboard = () => {
   const activeCustomersCount = customersData?.data?.customers?.length || 0;
   
   // Extract counts from API responses
-  console.log('Pending Sales Orders Data:', pendingSalesOrdersData);
   const pendingSalesOrdersCount = pendingSalesOrdersData?.data?.salesOrders?.length || pendingSalesOrdersData?.salesOrders?.length || 0;
   const pendingPurchaseOrdersCount = pendingPurchaseOrdersData?.data?.purchaseOrders?.length || pendingPurchaseOrdersData?.purchaseOrders?.length || 0;
   const cashReceiptsCount = cashReceiptsData?.data?.cashReceipts?.length || 0;
@@ -256,11 +255,9 @@ export const Dashboard = () => {
   
   // Calculate total sales (Sales Orders + Sales Invoices)
   const totalSales = salesOrdersTotal + salesInvoicesTotal;
-  console.log('Dashboard Sales - SO:', salesOrdersTotal, 'SI:', salesInvoicesTotal, 'Total:', totalSales);
   
   // Calculate total purchases (Purchase Orders + Purchase Invoices) - COGS
   const totalPurchases = purchaseOrdersTotal + purchaseInvoicesTotal;
-  console.log('Dashboard Purchases - PO:', purchaseOrdersTotal, 'PI:', purchaseInvoicesTotal, 'Total:', totalPurchases);
   
   // Calculate total discounts from sales orders and sales invoices
   const salesOrdersDiscounts = salesOrdersData?.data?.salesOrders?.reduce((sum, order) => sum + (order.pricing?.discountAmount || 0), 0) || 0;

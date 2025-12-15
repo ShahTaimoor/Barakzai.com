@@ -181,13 +181,6 @@ const GenerateStatementModal = ({ isOpen, onClose, onGenerate }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Debug logging
-    console.log('Form data being submitted:', formData);
-    console.log('Start date:', formData.startDate, 'End date:', formData.endDate);
-    console.log('Start date object:', new Date(formData.startDate));
-    console.log('End date object:', new Date(formData.endDate));
-    console.log('Start > End?', new Date(formData.startDate) > new Date(formData.endDate));
-    
     // Validate dates
     if (!formData.startDate || !formData.endDate) {
       showErrorToast('Please select both start and end dates');
@@ -207,10 +200,8 @@ const GenerateStatementModal = ({ isOpen, onClose, onGenerate }) => {
       const endDate = new Date(formData.endDate);
       endDate.setDate(endDate.getDate() + 1); // Add one day
       adjustedFormData.endDate = endDate.toISOString().split('T')[0];
-      console.log('Adjusted end date for same-day statement:', adjustedFormData.endDate);
     }
     
-    console.log('Validation passed, submitting form data');
     onGenerate(adjustedFormData);
   };
 
@@ -747,7 +738,6 @@ export const PLStatements = () => {
     onSuccess: (response) => {
       showSuccessToast('P&L statement export prepared!');
       // In a real implementation, this would trigger a download
-      console.log('Export data:', response.data);
     },
     onError: (error) => handleApiError(error, 'P&L Statement Export'),
   });
@@ -859,43 +849,11 @@ export const PLStatements = () => {
                            statement.endingInventory || 
                            statement.inventory?.ending || 0;
     
-    // Comprehensive debug logging to see ALL available data
-    console.log('=== FULL STATEMENT DEBUG ===');
-    console.log('Complete statement object:', statement);
-    console.log('Statement keys:', Object.keys(statement));
-    console.log('Revenue structure:', statement.revenue);
-    console.log('Cost of Goods Sold structure:', statement.costOfGoodsSold);
-    console.log('Inventory structure:', statement.inventory);
-    console.log('Purchases structure:', statement.purchases);
-    console.log('=== COGS COMPONENTS DEBUG ===');
-    console.log('Beginning Inventory sources:', {
-      'costOfGoodsSold.beginningInventory': statement.costOfGoodsSold?.beginningInventory,
-      'beginningInventory': statement.beginningInventory,
-      'inventory.beginning': statement.inventory?.beginning,
-      'final value': beginningInventory
-    });
-    console.log('Purchases sources:', {
-      'costOfGoodsSold.purchases.amount': statement.costOfGoodsSold?.purchases?.amount,
-      'costOfGoodsSold.purchases': statement.costOfGoodsSold?.purchases,
-      'purchases.amount': statement.purchases?.amount,
-      'purchases': statement.purchases,
-      'purchaseData.total': statement.purchaseData?.total,
-      'final value': purchases
-    });
-    console.log('Freight In sources:', {
-      'costOfGoodsSold.freightIn': statement.costOfGoodsSold?.freightIn,
-      'freightIn': statement.freightIn,
-      'shipping.freight': statement.shipping?.freight,
-      'final value': freightIn
-    });
-    console.log('=== END DEBUG ===');
-    
     // COGS = Beginning Inventory + Purchases + Freight In - Purchase Returns - Purchase Discounts - Ending Inventory
     let costOfGoodsSold = beginningInventory + purchases + freightIn - purchaseReturns - purchaseDiscounts - endingInventory;
     
     // TEMPORARY FALLBACK: If all COGS components are 0, use sample data for testing
     if (costOfGoodsSold === 0 && beginningInventory === 0 && purchases === 0 && freightIn === 0) {
-      console.log('=== USING TEMPORARY COGS DATA FOR TESTING ===');
       // Override with sample data to test the display
       beginningInventory = 1000;
       purchases = 5000;
@@ -904,15 +862,6 @@ export const PLStatements = () => {
       purchaseDiscounts = 50;
       endingInventory = 800;
       costOfGoodsSold = beginningInventory + purchases + freightIn - purchaseReturns - purchaseDiscounts - endingInventory;
-      console.log('Sample COGS data applied:', {
-        beginningInventory,
-        purchases,
-        freightIn,
-        purchaseReturns,
-        purchaseDiscounts,
-        endingInventory,
-        costOfGoodsSold
-      });
     }
     
     // If COGS is still 0, try to get it from the statement's total COGS field
@@ -1340,7 +1289,6 @@ export const PLStatements = () => {
     
     // TEMPORARY FALLBACK: If all COGS components are 0, use sample data for testing
     if (costOfGoodsSold === 0 && beginningInventory === 0 && purchases === 0 && freightIn === 0) {
-      console.log('=== USING TEMPORARY COGS DATA FOR TESTING (Excel) ===');
       // Override with sample data to test the display
       beginningInventory = 1000;
       purchases = 5000;
@@ -1741,7 +1689,6 @@ export const PLStatements = () => {
                   onExport={handleExportStatement}
                   onShare={(statement) => {
                     // Implement share functionality
-                    console.log('Share statement:', statement);
                     showSuccessToast('Share functionality coming soon!');
                   }}
                 />

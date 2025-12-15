@@ -148,11 +148,9 @@ api.interceptors.response.use(
 // Connection test function
 export const testConnection = async () => {
   try {
-    console.log('🔍 Testing connection to:', API_BASE_URL);
     const response = await axios.get(`${API_BASE_URL.replace('/api', '')}/health`, {
       timeout: 5000
     });
-    console.log('✅ Backend connection successful:', response.status);
     return { success: true, status: response.status };
   } catch (error) {
     console.error('❌ Backend connection failed:', error.message);
@@ -423,7 +421,6 @@ export const paymentAPI = {
 // Inventory API
 export const inventoryAPI = {
   getInventory: (filters = {}) => {
-    console.log('Getting inventory with filters:', filters);
     return api.get('/inventory', { params: filters })
       .catch(error => {
         console.error('Inventory API error:', error.response?.data || error.message);
@@ -445,7 +442,6 @@ export const inventoryAPI = {
       reason: adjustmentData.reason
     }));
     
-    console.log('Bulk adjustment data being sent:', { updates });
     return api.post('/inventory/bulk-update', { updates });
   },
   reserveStock: (productId, quantity) => api.post('/inventory/reserve-stock', { productId, quantity }),

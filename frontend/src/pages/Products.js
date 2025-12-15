@@ -754,14 +754,6 @@ const ProductInvestorsModal = ({ product, isOpen, onClose, onSave }) => {
   // So investorsData.data is the array of investors
   const investors = Array.isArray(investorsData?.data) ? investorsData.data : Array.isArray(investorsData) ? investorsData : [];
 
-  // Debug logging
-  React.useEffect(() => {
-    if (isOpen && investorsData) {
-      console.log('Investors Data:', investorsData);
-      console.log('Extracted Investors:', investors);
-      console.log('Investors Count:', investors.length);
-    }
-  }, [isOpen, investorsData, investors]);
 
   React.useEffect(() => {
     if (product && isOpen) {
@@ -1093,10 +1085,6 @@ export const Products = () => {
     () => productsAPI.getProducts(queryParams),
     {
       keepPreviousData: true,
-      onSuccess: (data) => {
-        console.log('Products query successful, data:', data);
-        console.log('Products count:', data?.data?.products?.length || 0);
-      },
       onError: (error) => {
         console.error('Products query error:', error);
       }
@@ -1172,7 +1160,6 @@ export const Products = () => {
       // Invalidate all product queries to refresh the list
       queryClient.invalidateQueries(['products']);
       showSuccessToast('Product deleted successfully');
-      console.log('Product deleted successfully, invalidating queries');
     },
     onError: (error) => {
       handleApiError(error, 'Product Deletion');
@@ -1235,12 +1222,6 @@ export const Products = () => {
       });
       
       if (existingProduct) {
-        console.log('Duplicate detected:', {
-          inputName: data.name,
-          normalizedInput: normalizedInputName,
-          existingName: existingProduct.name,
-          normalizedExisting: existingProduct.name?.trim().toLowerCase().replace(/\s+/g, ' ')
-        });
         showErrorToast(`A product named "${data.name}" already exists. Please choose a different name.`);
         return;
       }

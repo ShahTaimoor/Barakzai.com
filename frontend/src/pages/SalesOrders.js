@@ -60,9 +60,7 @@ const fetchSalesOrders = async (params = {}) => {
     Object.entries(params).filter(([_, value]) => value !== '' && value != null)
   );
   
-  console.log('Fetching sales orders with params:', cleanParams);
   const response = await salesOrdersAPI.getSalesOrders(cleanParams);
-  console.log('Sales orders response:', response.data);
   return response.data;
 };
 
@@ -1053,7 +1051,6 @@ const totalProfit = useMemo(() => {
       total: total
     };
 
-    console.log('Creating sales order with data:', orderData);
     createMutation.mutate(orderData);
   };
 
@@ -1070,11 +1067,6 @@ const totalProfit = useMemo(() => {
         remainingQuantity: item.remainingQuantity || item.quantity
       }))
     };
-    
-    console.log('Updating sales order with data:', {
-      id: selectedOrder._id,
-      data: cleanedData
-    });
     
     updateMutation.mutate({ id: selectedOrder._id, data: cleanedData });
   };
@@ -1186,16 +1178,6 @@ const totalProfit = useMemo(() => {
           if (exportFormat === 'pdf') {
             // For PDF, open in new tab for preview
             const blob = downloadResponse.data;
-            
-            // Debug logging
-            console.log('PDF download response:', {
-              status: downloadResponse.status,
-              contentType,
-              blobType: typeof blob,
-              isBlob: blob instanceof Blob,
-              blobSize: blob instanceof Blob ? blob.size : 'N/A',
-              blobKeys: blob && typeof blob === 'object' ? Object.keys(blob) : 'N/A'
-            });
             
             // Check if blob is valid
             if (!blob || !(blob instanceof Blob)) {

@@ -90,7 +90,6 @@ const AccountLedger = () => {
   const { data: ledgerData, isLoading: ledgerLoading, refetch: refetchLedger } = useQuery(
     ['ledger-entries', filters],
     () => {
-      console.log('Fetching ledger entries with filters:', filters);
       return accountLedgerAPI.getAllEntries(filters);
     },
     {
@@ -105,7 +104,6 @@ const AccountLedger = () => {
   };
 
   const handleFilterChange = (field, value) => {
-    console.log('Filter change:', field, value);
     setFilters({ ...filters, [field]: value });
   };
 

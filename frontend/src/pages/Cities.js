@@ -204,10 +204,6 @@ export const Cities = () => {
     async () => {
       try {
         const response = await citiesAPI.getCities(queryParams);
-        console.log('🔍 Raw API response:', response);
-        console.log('🔍 Response.data:', response?.data);
-        console.log('🔍 Response.data.data:', response?.data?.data);
-        console.log('🔍 Cities in response:', response?.data?.data?.cities);
         return response.data; // Return the unwrapped axios response
       } catch (err) {
         console.error('❌ API call failed:', err);
@@ -216,11 +212,6 @@ export const Cities = () => {
     },
     {
       keepPreviousData: true,
-      onSuccess: (data) => {
-        console.log('✅ Cities query success - data:', data);
-        console.log('✅ Cities count:', data?.data?.cities?.length || 0);
-        console.log('✅ Full data structure:', JSON.stringify(data, null, 2));
-      },
       onError: (error) => {
         console.error('❌ Fetch cities error:', error);
         console.error('❌ Error response:', error?.response);
@@ -237,7 +228,6 @@ export const Cities = () => {
       toast.success('City created successfully');
       setIsModalOpen(false);
       setSelectedCity(null);
-      console.log('City created:', response);
     },
     onError: (error) => {
       console.error('Create city error:', error);
@@ -308,13 +298,6 @@ export const Cities = () => {
   // So we need: data.data.cities
   const cities = data?.data?.cities || data?.cities || [];
   const pagination = data?.data?.pagination || data?.pagination || {};
-  
-  // Debug logging
-  if (data) {
-    console.log('Cities component - Full data:', data);
-    console.log('Cities component - Extracted cities:', cities.length);
-    console.log('Cities component - Cities array:', cities);
-  }
 
   return (
     <div className="space-y-6">

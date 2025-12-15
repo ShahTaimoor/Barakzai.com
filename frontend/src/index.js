@@ -25,7 +25,7 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
         // Service Worker registered successfully
       })
       .catch((error) => {
-        console.log('Service Worker registration failed:', error);
+        // Service Worker registration failed
       });
   });
 } else if ('serviceWorker' in navigator && process.env.NODE_ENV === 'development') {
@@ -34,9 +34,7 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       registrations.forEach((registration) => {
         registration.unregister().then((success) => {
-          if (success) {
-            console.log('Service Worker unregistered for development');
-          }
+          // Service Worker unregistered for development
         });
       });
     });

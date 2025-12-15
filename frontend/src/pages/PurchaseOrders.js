@@ -774,11 +774,6 @@ export const PurchaseOrders = ({ tabId }) => {
       }))
     };
     
-    console.log('Updating purchase order with data:', {
-      id: selectedOrder._id,
-      data: cleanedData
-    });
-    
     updateMutation.mutate({ id: selectedOrder._id, data: cleanedData });
   };
 
@@ -803,21 +798,12 @@ export const PurchaseOrders = ({ tabId }) => {
   const handleEdit = (order) => {
     setSelectedOrder(order);
     
-    // Debug: Log the order data to see what's being received
-    console.log('Order data received:', order);
-    console.log('Order items:', order.items);
-    
     // Process items to ensure productData is available and costPerUnit is preserved
     const processedItems = (order.items || []).map(item => {
-      console.log('Processing item:', item);
-      console.log('Item costPerUnit:', item.costPerUnit);
-      console.log('Product cost price:', item.product?.pricing?.cost);
-      
       // Use saved costPerUnit, or fallback to product's default cost price if saved cost is 0
       let finalCostPerUnit = item.costPerUnit || 0;
       if (finalCostPerUnit === 0 && item.product?.pricing?.cost) {
         finalCostPerUnit = item.product.pricing.cost;
-        console.log('Using product default cost:', finalCostPerUnit);
       }
       
       return {
@@ -839,9 +825,6 @@ export const PurchaseOrders = ({ tabId }) => {
       terms: order.terms || '',
       isTaxExempt: order.isTaxExempt !== undefined ? order.isTaxExempt : true
     };
-    
-    console.log('Setting formData:', newFormData);
-    console.log('FormData items:', newFormData.items);
     
     setFormData(newFormData);
     

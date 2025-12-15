@@ -156,15 +156,6 @@ const ReturnDetailModal = ({
     const returnData = returnInfo;
     const companyName = companySettings?.data?.companyName || 'Your Company Name';
     
-    // Debug: Log the return data to see what fields are available
-    console.log('Return data for printing:', returnData);
-    console.log('Customer data:', returnData.customer);
-    console.log('Customer firstName:', returnData.customer?.firstName);
-    console.log('Customer lastName:', returnData.customer?.lastName);
-    console.log('Total refund amount:', returnData.totalRefundAmount);
-    console.log('Total restocking fee:', returnData.totalRestockingFee);
-    console.log('Net refund amount:', returnData.netRefundAmount);
-    
     // Create the print content
     const printContent = `
       <!DOCTYPE html>

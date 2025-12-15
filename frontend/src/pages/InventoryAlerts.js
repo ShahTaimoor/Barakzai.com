@@ -85,10 +85,6 @@ const InventoryAlerts = () => {
           }
           showErrorToast(reasonMessage);
         }
-        
-        if (response?.unassignedProducts?.length > 0 && count === 0) {
-          console.log('Unassigned products:', response.unassignedProducts);
-        }
       },
       onError: (error) => {
         showErrorToast(handleApiError(error));
