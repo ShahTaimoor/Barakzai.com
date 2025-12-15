@@ -159,7 +159,7 @@ const PaymentSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-PaymentSchema.index({ paymentId: 1 });
+// paymentId index removed - already has unique: true in field definition
 PaymentSchema.index({ orderId: 1 });
 PaymentSchema.index({ status: 1 });
 PaymentSchema.index({ paymentMethod: 1 });

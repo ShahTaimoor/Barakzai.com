@@ -100,7 +100,7 @@ const StockAdjustmentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-StockAdjustmentSchema.index({ adjustmentNumber: 1 });
+// adjustmentNumber index removed - already has unique: true in field definition
 StockAdjustmentSchema.index({ status: 1 });
 StockAdjustmentSchema.index({ type: 1 });
 StockAdjustmentSchema.index({ requestedBy: 1 });

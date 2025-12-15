@@ -46,16 +46,27 @@ router.post('/clock-in', [
       return res.status(400).json({ message: 'Employee is already clocked in' });
     }
     
-    const session = await Attendance.create({
-      employee: employee._id,
-      user: req.body.employeeId ? null : req.user._id, // Only set if self clock-in
-      clockedInBy: req.body.employeeId ? req.user._id : null, // Set if manager clocking in
-      storeId: req.body.storeId || null,
-      deviceId: req.body.deviceId || null,
-      clockInAt: new Date(),
-      notesIn: req.body.notesIn || '',
-      status: 'open'
-    });
+    let session;
+    try {
+      session = await Attendance.create({
+        employee: employee._id,
+        user: req.body.employeeId ? null : req.user._id, // Only set if self clock-in
+        clockedInBy: req.body.employeeId ? req.user._id : null, // Set if manager clocking in
+        storeId: req.body.storeId || null,
+        deviceId: req.body.deviceId || null,
+        clockInAt: new Date(),
+        notesIn: req.body.notesIn || '',
+        status: 'open'
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Duplicate entry detected'
+        });
+      }
+      throw err;
+    }
     
     await session.populate('employee', 'firstName lastName employeeId');
     res.json({ success: true, data: session });

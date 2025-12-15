@@ -227,7 +227,7 @@ const discountSchema = new mongoose.Schema({
 });
 
 // Indexes
-discountSchema.index({ code: 1 });
+// code index removed - already has unique: true in field definition
 discountSchema.index({ isActive: 1 });
 discountSchema.index({ validFrom: 1, validUntil: 1 });
 discountSchema.index({ type: 1 });

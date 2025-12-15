@@ -18,15 +18,26 @@ router.post('/open', [
     if (existing) {
       return res.status(400).json({ message: 'Till already open for this user' });
     }
-    const session = await TillSession.create({
-      user: req.user._id,
-      storeId: req.body.storeId || null,
-      deviceId: req.body.deviceId || null,
-      openedAt: new Date(),
-      openingAmount: Number(req.body.openingAmount),
-      notesOpen: req.body.notesOpen || '',
-      status: 'open'
-    });
+    let session;
+    try {
+      session = await TillSession.create({
+        user: req.user._id,
+        storeId: req.body.storeId || null,
+        deviceId: req.body.deviceId || null,
+        openedAt: new Date(),
+        openingAmount: Number(req.body.openingAmount),
+        notesOpen: req.body.notesOpen || '',
+        status: 'open'
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Duplicate entry detected'
+        });
+      }
+      throw err;
+    }
     res.json({ success: true, data: session });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error' });

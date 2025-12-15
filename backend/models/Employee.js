@@ -160,7 +160,7 @@ const employeeSchema = new mongoose.Schema({
 });
 
 // Indexes
-employeeSchema.index({ employeeId: 1 });
+// employeeId index removed - already has unique: true and index: true in field definition
 employeeSchema.index({ status: 1 });
 employeeSchema.index({ department: 1 });
 employeeSchema.index({ position: 1 });

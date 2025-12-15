@@ -153,10 +153,9 @@ const customerSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-customerSchema.index({ businessName: 1 });
+// businessName and email indexes removed - already have unique: true in field definitions
 customerSchema.index({ businessType: 1, status: 1 });
 customerSchema.index({ name: 1 });
-customerSchema.index({ email: 1 }); // For email lookups
 customerSchema.index({ phone: 1 }); // For phone lookups
 customerSchema.index({ status: 1, createdAt: -1 }); // For active customers listing
 customerSchema.index({ customerTier: 1, status: 1 }); // For tier-based queries

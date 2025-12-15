@@ -145,7 +145,7 @@ const salesOrderSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-salesOrderSchema.index({ soNumber: 1 });
+// soNumber index removed - already has unique: true in field definition
 salesOrderSchema.index({ customer: 1, status: 1 });
 salesOrderSchema.index({ status: 1, orderDate: -1 });
 salesOrderSchema.index({ createdBy: 1 });

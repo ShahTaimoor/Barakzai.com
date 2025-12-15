@@ -67,7 +67,19 @@ router.post('/', auth, validateAccountCategory, async (req, res) => {
       createdBy: req.user.id
     };
     
-    const category = await AccountCategory.create(categoryData);
+    let category;
+    try {
+      category = await AccountCategory.create(categoryData);
+    } catch (err) {
+      if (err.code === 11000) {
+        const duplicateField = Object.keys(err.keyPattern || {})[0];
+        return res.status(400).json({
+          success: false,
+          message: `${duplicateField} already exists`
+        });
+      }
+      throw err;
+    }
     
     res.status(201).json({
       success: true,

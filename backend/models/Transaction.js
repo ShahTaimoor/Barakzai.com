@@ -198,7 +198,7 @@ const TransactionSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-TransactionSchema.index({ transactionId: 1 });
+// transactionId index removed - already has unique: true in field definition
 TransactionSchema.index({ orderId: 1 });
 TransactionSchema.index({ paymentId: 1 });
 TransactionSchema.index({ status: 1 });

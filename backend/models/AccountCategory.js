@@ -67,7 +67,7 @@ const accountCategorySchema = new mongoose.Schema({
 
 // Index for efficient queries
 accountCategorySchema.index({ accountType: 1, displayOrder: 1 });
-accountCategorySchema.index({ code: 1 });
+// code index removed - already has unique: true in field definition
 
 // Virtual for full category path
 accountCategorySchema.virtual('fullCategoryPath').get(function() {

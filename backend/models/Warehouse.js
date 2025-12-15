@@ -76,7 +76,7 @@ const WarehouseSchema = new mongoose.Schema(
 );
 
 WarehouseSchema.index({ name: 1 });
-WarehouseSchema.index({ code: 1 });
+// code index removed - already has unique: true in field definition
 WarehouseSchema.index({ isActive: 1 });
 WarehouseSchema.index({ isPrimary: 1 });
 

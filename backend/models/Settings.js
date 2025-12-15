@@ -84,7 +84,16 @@ const settingsSchema = new mongoose.Schema({
 settingsSchema.statics.getSettings = async function() {
   let settings = await this.findById('company_settings');
   if (!settings) {
-    settings = await this.create({ _id: 'company_settings' });
+    try {
+      settings = await this.create({ _id: 'company_settings' });
+    } catch (err) {
+      if (err.code === 11000) {
+        // Duplicate key - settings already exists, fetch it
+        settings = await this.findById('company_settings');
+      } else {
+        throw err;
+      }
+    }
   }
   return settings;
 };

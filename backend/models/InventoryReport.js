@@ -299,7 +299,7 @@ const inventoryReportSchema = new mongoose.Schema({
 });
 
 // Indexes
-inventoryReportSchema.index({ reportId: 1 });
+// reportId index removed - already has unique: true in field definition
 inventoryReportSchema.index({ reportType: 1 });
 inventoryReportSchema.index({ startDate: 1, endDate: 1 });
 inventoryReportSchema.index({ generatedBy: 1 });

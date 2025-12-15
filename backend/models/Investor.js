@@ -79,7 +79,7 @@ const investorSchema = new mongoose.Schema({
 });
 
 // Indexes
-investorSchema.index({ email: 1 });
+// email index removed - already has unique: true in field definition
 investorSchema.index({ status: 1 });
 investorSchema.index({ createdAt: -1 });
 

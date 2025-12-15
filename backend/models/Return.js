@@ -329,7 +329,7 @@ const returnSchema = new mongoose.Schema({
 });
 
 // Indexes
-returnSchema.index({ returnNumber: 1 });
+// returnNumber index removed - already has unique: true in field definition
 returnSchema.index({ originalOrder: 1 });
 returnSchema.index({ customer: 1 });
 returnSchema.index({ status: 1 });

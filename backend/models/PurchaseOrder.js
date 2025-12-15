@@ -163,7 +163,7 @@ const purchaseOrderSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-purchaseOrderSchema.index({ poNumber: 1 });
+// poNumber index removed - already has unique: true in field definition
 purchaseOrderSchema.index({ supplier: 1, status: 1 });
 purchaseOrderSchema.index({ status: 1, orderDate: -1 });
 purchaseOrderSchema.index({ createdBy: 1 });

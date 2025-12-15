@@ -41,7 +41,7 @@ const categorySchema = new mongoose.Schema({
 });
 
 // Indexes
-categorySchema.index({ name: 1 });
+// name index removed - already has unique: true in field definition
 categorySchema.index({ parentCategory: 1 });
 categorySchema.index({ isActive: 1 });
 

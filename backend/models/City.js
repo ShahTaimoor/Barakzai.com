@@ -43,7 +43,7 @@ const citySchema = new mongoose.Schema({
 });
 
 // Index for better query performance
-citySchema.index({ name: 1 });
+// name index removed - already has unique: true in field definition
 citySchema.index({ isActive: 1 });
 citySchema.index({ state: 1 });
 

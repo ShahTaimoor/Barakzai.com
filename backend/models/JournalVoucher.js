@@ -131,7 +131,7 @@ journalVoucherSchema.pre('validate', function(next) {
   next();
 });
 
-journalVoucherSchema.index({ voucherNumber: 1 }, { unique: true });
+// voucherNumber index removed - already has unique: true in field definition
 journalVoucherSchema.index({ voucherDate: -1 });
 journalVoucherSchema.index({ status: 1, voucherDate: -1 });
 

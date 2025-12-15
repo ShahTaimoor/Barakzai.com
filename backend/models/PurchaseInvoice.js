@@ -133,7 +133,7 @@ const purchaseInvoiceSchema = new mongoose.Schema({
 });
 
 // Indexes
-purchaseInvoiceSchema.index({ invoiceNumber: 1 });
+// invoiceNumber index removed - already has unique: true in field definition
 purchaseInvoiceSchema.index({ supplier: 1 });
 purchaseInvoiceSchema.index({ status: 1 });
 purchaseInvoiceSchema.index({ createdAt: -1 });

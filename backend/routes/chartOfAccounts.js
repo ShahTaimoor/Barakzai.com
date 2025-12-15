@@ -137,7 +137,7 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    const account = new ChartOfAccounts({
+    const accountData = {
       accountCode,
       accountName,
       accountType,
@@ -153,9 +153,21 @@ router.post('/', auth, async (req, res) => {
       taxRate: taxRate || 0,
       requiresReconciliation: requiresReconciliation || false,
       createdBy: req.user.id
-    });
+    };
 
-    await account.save();
+    let account;
+    try {
+      account = new ChartOfAccounts(accountData);
+      await account.save();
+    } catch (err) {
+      if (err.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Account code already exists'
+        });
+      }
+      throw err;
+    }
 
     res.status(201).json({
       success: true,

@@ -310,7 +310,7 @@ const salesPerformanceSchema = new mongoose.Schema({
 });
 
 // Indexes
-salesPerformanceSchema.index({ reportId: 1 });
+// reportId index removed - already has unique: true in field definition
 salesPerformanceSchema.index({ reportType: 1 });
 salesPerformanceSchema.index({ startDate: 1, endDate: 1 });
 salesPerformanceSchema.index({ generatedBy: 1 });

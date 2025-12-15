@@ -243,7 +243,7 @@ const FinancialStatementSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-FinancialStatementSchema.index({ statementId: 1 });
+// statementId index removed - already has unique: true in field definition
 FinancialStatementSchema.index({ type: 1 });
 FinancialStatementSchema.index({ 'period.startDate': 1, 'period.endDate': 1 });
 FinancialStatementSchema.index({ status: 1 });

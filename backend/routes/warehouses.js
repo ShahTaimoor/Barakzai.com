@@ -229,7 +229,19 @@ router.post(
         await Warehouse.updateMany({}, { $set: { isPrimary: false } });
       }
 
-      const warehouse = await Warehouse.create(payload);
+      let warehouse;
+      try {
+        warehouse = await Warehouse.create(payload);
+      } catch (err) {
+        if (err.code === 11000) {
+          const duplicateField = Object.keys(err.keyPattern || {})[0];
+          return res.status(400).json({
+            success: false,
+            message: `${duplicateField} already exists`
+          });
+        }
+        throw err;
+      }
       res.status(201).json({
         success: true,
         message: 'Warehouse created successfully',

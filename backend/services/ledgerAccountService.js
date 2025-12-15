@@ -33,7 +33,7 @@ const createLedgerAccount = async ({
   session
 }) => {
   const accountCode = await generateSequentialCode(counterKey, prefix, session);
-  const account = new ChartOfAccounts({
+  const accountData = {
     accountCode,
     accountName,
     accountType,
@@ -45,10 +45,39 @@ const createLedgerAccount = async ({
     description: 'Auto-generated party ledger account',
     createdBy: userId || undefined,
     updatedBy: userId || undefined
-  });
+  };
 
-  await account.save({ session });
-  return account;
+  try {
+    const account = new ChartOfAccounts(accountData);
+    await account.save({ session });
+    return account;
+  } catch (err) {
+    if (err.code === 11000) {
+      // Duplicate key error - account already exists, fetch and return it
+      console.log('Duplicate accountCode, fetching existing account:', accountCode);
+      const findQuery = ChartOfAccounts.findOne({ accountCode });
+      if (session) {
+        findQuery.session(session);
+      }
+      const existingAccount = await findQuery;
+      if (existingAccount) {
+        return existingAccount;
+      }
+      // If not found, try upsert approach
+      const updateOptions = session ? { session } : {};
+      await ChartOfAccounts.updateOne(
+        { accountCode },
+        { $setOnInsert: accountData },
+        { upsert: true, ...updateOptions }
+      );
+      const findAfterUpsert = ChartOfAccounts.findOne({ accountCode });
+      if (session) {
+        findAfterUpsert.session(session);
+      }
+      return await findAfterUpsert;
+    }
+    throw err;
+  }
 };
 
 const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => {
@@ -73,9 +102,9 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
   }
   let accountsReceivableAccount = await findQuery;
 
-  // If Accounts Receivable doesn't exist, create it
+  // If Accounts Receivable doesn't exist, create it using upsert to handle duplicates
   if (!accountsReceivableAccount) {
-    accountsReceivableAccount = new ChartOfAccounts({
+    const accountData = {
       accountCode: '1130',
       accountName: 'Accounts Receivable',
       accountType: 'asset',
@@ -86,8 +115,21 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
       isSystemAccount: true,
       description: 'Money owed by customers - General Accounts Receivable account',
       createdBy: userId || undefined
-    });
-    await accountsReceivableAccount.save({ session });
+    };
+    
+    const updateOptions = session ? { session } : {};
+    const result = await ChartOfAccounts.updateOne(
+      { accountCode: '1130' },
+      { $setOnInsert: accountData },
+      { upsert: true, ...updateOptions }
+    );
+    
+    // Fetch the account after upsert
+    const findQuery = ChartOfAccounts.findOne({ accountCode: '1130' });
+    if (session) {
+      findQuery.session(session);
+    }
+    accountsReceivableAccount = await findQuery;
   }
 
   // If customer has an individual account (like "Customer - NAME"), migrate to general account

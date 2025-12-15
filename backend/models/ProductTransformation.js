@@ -123,7 +123,7 @@ const productTransformationSchema = new mongoose.Schema({
 });
 
 // Indexes
-productTransformationSchema.index({ transformationNumber: 1 });
+// transformationNumber index removed - already has unique: true in field definition
 productTransformationSchema.index({ baseProduct: 1, status: 1 });
 productTransformationSchema.index({ targetVariant: 1, status: 1 });
 productTransformationSchema.index({ transformationDate: -1 });

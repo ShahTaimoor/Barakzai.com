@@ -100,7 +100,19 @@ router.post('/', [
       createdBy: req.user._id
     };
     
-    const investor = await Investor.create(investorData);
+    let investor;
+    try {
+      investor = await Investor.create(investorData);
+    } catch (err) {
+      if (err.code === 11000) {
+        const duplicateField = Object.keys(err.keyPattern || {})[0];
+        return res.status(400).json({
+          success: false,
+          message: `${duplicateField} already exists`
+        });
+      }
+      throw err;
+    }
     
     res.status(201).json({
       success: true,

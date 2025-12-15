@@ -99,26 +99,38 @@ class ProfitDistributionService {
             // Calculate company share per investor (company share is the same, but we record it per investor record)
             const companySharePerInvestor = companyShare / investorDetails.length;
             
-            const profitShare = await ProfitShare.create({
-              order: order._id,
-              orderNumber: order.orderNumber,
-              orderDate: order.createdAt || new Date(),
-              product: product._id,
-              productName: product.name,
-              quantity: item.quantity,
-              saleAmount: Math.round(saleAmount * 100) / 100,
-              totalCost: Math.round(totalCost * 100) / 100,
-              totalProfit: Math.round(totalProfit * 100) / 100,
-              investor: invDetail.investor,
-              investorName: invDetail.investorName,
-              investorShare: Math.round(invDetail.shareAmount * 100) / 100,
-              companyShare: Math.round(companySharePerInvestor * 100) / 100,
-              investorSharePercentage: invDetail.sharePercentage,
-              companySharePercentage: companySharePercentage,
-              status: 'calculated',
-              calculatedAt: new Date(),
-              calculatedBy: user?._id || null
-            });
+            let profitShare;
+            try {
+              profitShare = await ProfitShare.create({
+                order: order._id,
+                orderNumber: order.orderNumber,
+                orderDate: order.createdAt || new Date(),
+                product: product._id,
+                productName: product.name,
+                quantity: item.quantity,
+                saleAmount: Math.round(saleAmount * 100) / 100,
+                totalCost: Math.round(totalCost * 100) / 100,
+                totalProfit: Math.round(totalProfit * 100) / 100,
+                investor: invDetail.investor,
+                investorName: invDetail.investorName,
+                investorShare: Math.round(invDetail.shareAmount * 100) / 100,
+                companyShare: Math.round(companySharePerInvestor * 100) / 100,
+                investorSharePercentage: invDetail.sharePercentage,
+                companySharePercentage: companySharePercentage,
+                status: 'calculated',
+                calculatedAt: new Date(),
+                calculatedBy: user?._id || null
+              });
+            } catch (err) {
+              if (err.code === 11000) {
+                console.log('Duplicate profit share record, skipping:', {
+                  order: order.orderNumber,
+                  investor: invDetail.investorName
+                });
+                continue; // Skip this duplicate
+              }
+              throw err;
+            }
 
             distributionResults.profitSharesCreated.push(profitShare._id);
 
