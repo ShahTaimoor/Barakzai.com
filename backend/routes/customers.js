@@ -125,7 +125,8 @@ const upload = multer({
 router.get('/', [
   auth,
   query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('limit').optional().isInt({ min: 1, max: 999999 }),
+  query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
   query('businessType').optional().isIn(['retail', 'wholesale', 'distributor', 'individual']),
   query('status').optional().isIn(['active', 'inactive', 'suspended']),
@@ -139,9 +140,13 @@ router.get('/', [
       return res.status(400).json({ errors: errors.array() });
     }
     
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    // Check if all customers are requested (no pagination)
+    const getAllCustomers = req.query.all === 'true' || req.query.all === true || 
+                          (req.query.limit && parseInt(req.query.limit) >= 999999);
+    
+    const page = getAllCustomers ? 1 : (parseInt(req.query.page) || 1);
+    const limit = getAllCustomers ? 999999 : (parseInt(req.query.limit) || 20);
+    const skip = getAllCustomers ? 0 : ((page - 1) * limit);
     
     // Build filter
     const filter = {};
@@ -207,11 +212,15 @@ router.get('/', [
       }
     }
     
-    const customers = await Customer.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    let query = Customer.find(filter)
+      .sort({ createdAt: -1 });
     
+    // Only apply skip and limit if not getting all customers
+    if (!getAllCustomers) {
+      query = query.skip(skip).limit(limit);
+    }
+    
+    const customers = await query;
     const total = await Customer.countDocuments(filter);
     
     // Transform customer names to uppercase
@@ -219,7 +228,13 @@ router.get('/', [
     
     res.json({
       customers: transformedCustomers,
-      pagination: {
+      pagination: getAllCustomers ? {
+        current: 1,
+        pages: 1,
+        total,
+        hasNext: false,
+        hasPrev: false
+      } : {
         current: page,
         pages: Math.ceil(total / limit),
         total,

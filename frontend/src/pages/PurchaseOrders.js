@@ -219,7 +219,7 @@ export const PurchaseOrders = ({ tabId }) => {
   
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 50
+    limit: 999999 // Get all purchase orders without pagination
   });
 
   const [sortConfig, setSortConfig] = useState({

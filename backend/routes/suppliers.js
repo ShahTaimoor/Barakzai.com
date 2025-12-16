@@ -175,7 +175,8 @@ const deleteSupplierWithLedger = async (supplierId, userId) => {
 router.get('/', [
   auth,
   query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('limit').optional().isInt({ min: 1, max: 999999 }),
+  query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
   query('businessType').optional().custom((value) => {
     if (!value || value === '') return true;
@@ -202,9 +203,13 @@ router.get('/', [
       });
     }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    // Check if all suppliers are requested (no pagination)
+    const getAllSuppliers = req.query.all === 'true' || req.query.all === true || 
+                          (req.query.limit && parseInt(req.query.limit) >= 999999);
+    
+    const page = getAllSuppliers ? 1 : (parseInt(req.query.page) || 1);
+    const limit = getAllSuppliers ? 999999 : (parseInt(req.query.limit) || 20);
+    const skip = getAllSuppliers ? 0 : ((page - 1) * limit);
 
     // Build filter
     const filter = {};
@@ -269,11 +274,15 @@ router.get('/', [
       }
     }
     
-    const suppliers = await Supplier.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    let query = Supplier.find(filter)
+      .sort({ createdAt: -1 });
     
+    // Only apply skip and limit if not getting all suppliers
+    if (!getAllSuppliers) {
+      query = query.skip(skip).limit(limit);
+    }
+    
+    const suppliers = await query;
     const total = await Supplier.countDocuments(filter);
     
     console.log('Suppliers found:', suppliers.length, 'Total:', total);
@@ -284,7 +293,13 @@ router.get('/', [
     
     res.json({
       suppliers: transformedSuppliers,
-      pagination: {
+      pagination: getAllSuppliers ? {
+        current: 1,
+        pages: 1,
+        total,
+        hasNext: false,
+        hasPrev: false
+      } : {
         current: page,
         pages: Math.ceil(total / limit),
         total,

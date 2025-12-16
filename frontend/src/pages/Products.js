@@ -1017,6 +1017,9 @@ export const Products = () => {
   // Combine search term with filters - convert to API format
   const queryParams = {};
   
+  // Set limit to get all products (remove pagination)
+  queryParams.limit = 999999;
+  
   // Only add search if there's a search term
   if (searchTerm && searchTerm.trim()) {
     queryParams.search = searchTerm.trim();

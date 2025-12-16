@@ -35,7 +35,8 @@ const transformProductToUppercase = (product) => {
 router.get('/', [
   auth,
   query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('limit').optional().isInt({ min: 1, max: 999999 }),
+  query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
   query('status').optional().isIn(['draft', 'confirmed', 'partially_invoiced', 'fully_invoiced', 'cancelled', 'closed']),
   query('customer').optional().isMongoId(),
@@ -49,9 +50,13 @@ router.get('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    // Check if all sales orders are requested (no pagination)
+    const getAllSalesOrders = req.query.all === 'true' || req.query.all === true || 
+                             (req.query.limit && parseInt(req.query.limit) >= 999999);
+    
+    const page = getAllSalesOrders ? 1 : (parseInt(req.query.page) || 1);
+    const limit = getAllSalesOrders ? 999999 : (parseInt(req.query.limit) || 20);
+    const skip = getAllSalesOrders ? 0 : ((page - 1) * limit);
 
     // Build filter
     const filter = {};
@@ -108,15 +113,19 @@ router.get('/', [
       })));
     }
     
-    const salesOrders = await SalesOrder.find(filter)
+    let query = SalesOrder.find(filter)
       .populate('customer', 'businessName name firstName lastName email phone businessType customerTier currentBalance pendingBalance advanceBalance')
       .populate('items.product', 'name description pricing inventory')
       .populate('createdBy', 'firstName lastName email')
       .populate('lastModifiedBy', 'firstName lastName email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
     
+    // Only apply skip and limit if not getting all sales orders
+    if (!getAllSalesOrders) {
+      query = query.skip(skip).limit(limit);
+    }
+    
+    const salesOrders = await query;
     const total = await SalesOrder.countDocuments(filter);
     
     console.log(`Found ${salesOrders.length} sales orders out of ${total} total`);
@@ -138,7 +147,13 @@ router.get('/', [
     
     res.json({
       salesOrders,
-      pagination: {
+      pagination: getAllSalesOrders ? {
+        current: 1,
+        pages: 1,
+        total,
+        hasNext: false,
+        hasPrev: false
+      } : {
         current: page,
         pages: Math.ceil(total / limit),
         total,

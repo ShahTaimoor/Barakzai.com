@@ -147,7 +147,8 @@ export const Orders = () => {
     ['orders', { search: searchTerm, status: statusFilter }],
     () => salesAPI.getOrders({ 
       search: searchTerm, 
-      status: statusFilter || undefined 
+      status: statusFilter || undefined,
+      limit: 999999 // Get all orders without pagination
     }),
     {
       keepPreviousData: true,

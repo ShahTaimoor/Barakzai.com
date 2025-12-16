@@ -50,7 +50,8 @@ router.get('/', [
   sanitizeRequest,
   auth,
   query('page').optional({ checkFalsy: true }).isInt({ min: 1 }),
-  query('limit').optional({ checkFalsy: true }).isInt({ min: 1, max: 10000 }),
+  query('limit').optional({ checkFalsy: true }).isInt({ min: 1, max: 999999 }),
+  query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional({ checkFalsy: true }).trim(),
   query('category').optional({ checkFalsy: true }).isMongoId(),
   query('categories').optional({ checkFalsy: true }).custom((value) => {
@@ -110,9 +111,13 @@ router.get('/', [
       });
     }
     
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    // Check if all products are requested (no pagination)
+    const getAllProducts = req.query.all === 'true' || req.query.all === true || 
+                          (req.query.limit && parseInt(req.query.limit) >= 999999);
+    
+    const page = getAllProducts ? 1 : (parseInt(req.query.page) || 1);
+    const limit = getAllProducts ? 999999 : (parseInt(req.query.limit) || 20);
+    const skip = getAllProducts ? 0 : ((page - 1) * limit);
     
     // Build filter
     const filter = {};
@@ -248,13 +253,17 @@ router.get('/', [
       }
     }
     
-    const products = await Product.find(filter)
+    let query = Product.find(filter)
       .populate('category', 'name')
       .populate('investors.investor', 'name email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
     
+    // Only apply skip and limit if not getting all products
+    if (!getAllProducts) {
+      query = query.skip(skip).limit(limit);
+    }
+    
+    const products = await query;
     const total = await Product.countDocuments(filter);
     
     // Transform product names to uppercase
@@ -262,7 +271,13 @@ router.get('/', [
     
     res.json({
       products: transformedProducts,
-      pagination: {
+      pagination: getAllProducts ? {
+        current: 1,
+        pages: 1,
+        total,
+        hasNext: false,
+        hasPrev: false
+      } : {
         current: page,
         pages: Math.ceil(total / limit),
         total,

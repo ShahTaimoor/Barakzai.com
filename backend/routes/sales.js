@@ -39,7 +39,8 @@ const transformProductToUppercase = (product) => {
 router.get('/', [
   auth,
   query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('limit').optional().isInt({ min: 1, max: 999999 }),
+  query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
   query('productSearch').optional().trim(),
   query('status').optional().isIn(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned']),
@@ -54,9 +55,13 @@ router.get('/', [
       return res.status(400).json({ errors: errors.array() });
     }
     
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    // Check if all orders are requested (no pagination)
+    const getAllOrders = req.query.all === 'true' || req.query.all === true || 
+                        (req.query.limit && parseInt(req.query.limit) >= 999999);
+    
+    const page = getAllOrders ? 1 : (parseInt(req.query.page) || 1);
+    const limit = getAllOrders ? 999999 : (parseInt(req.query.limit) || 20);
+    const skip = getAllOrders ? 0 : ((page - 1) * limit);
     
     // Build filter
     const filter = {};
@@ -150,14 +155,18 @@ router.get('/', [
       }
     }
     
-    const orders = await Sales.find(filter)
+    let query = Sales.find(filter)
       .populate('customer', 'firstName lastName businessName email phone address pendingBalance')
       .populate('items.product', 'name description pricing')
       .populate('createdBy', 'firstName lastName')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
     
+    // Only apply skip and limit if not getting all orders
+    if (!getAllOrders) {
+      query = query.skip(skip).limit(limit);
+    }
+    
+    const orders = await query;
     const total = await Sales.countDocuments(filter);
     
     // Transform names to uppercase
@@ -176,7 +185,13 @@ router.get('/', [
     
     res.json({
       orders,
-      pagination: {
+      pagination: getAllOrders ? {
+        current: 1,
+        pages: 1,
+        total,
+        hasNext: false,
+        hasPrev: false
+      } : {
         current: page,
         pages: Math.ceil(total / limit),
         total,

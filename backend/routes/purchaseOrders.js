@@ -31,7 +31,8 @@ const transformProductToUppercase = (product) => {
 router.get('/', [
   auth,
   query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('limit').optional().isInt({ min: 1, max: 999999 }),
+  query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
   query('status').optional().isIn(['draft', 'confirmed', 'partially_received', 'fully_received', 'cancelled', 'closed']),
   query('supplier').optional().isMongoId(),
@@ -44,9 +45,13 @@ router.get('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    // Check if all purchase orders are requested (no pagination)
+    const getAllPurchaseOrders = req.query.all === 'true' || req.query.all === true || 
+                                (req.query.limit && parseInt(req.query.limit) >= 999999);
+    
+    const page = getAllPurchaseOrders ? 1 : (parseInt(req.query.page) || 1);
+    const limit = getAllPurchaseOrders ? 999999 : (parseInt(req.query.limit) || 20);
+    const skip = getAllPurchaseOrders ? 0 : ((page - 1) * limit);
 
     // Build filter
     const filter = {};
@@ -84,15 +89,19 @@ router.get('/', [
       }
     }
     
-    const purchaseOrders = await PurchaseOrder.find(filter)
+    let query = PurchaseOrder.find(filter)
       .populate('supplier', 'companyName contactPerson email phone businessType currentBalance pendingBalance')
       .populate('items.product', 'name description pricing inventory')
       .populate('createdBy', 'firstName lastName email')
       .populate('lastModifiedBy', 'firstName lastName email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
     
+    // Only apply skip and limit if not getting all purchase orders
+    if (!getAllPurchaseOrders) {
+      query = query.skip(skip).limit(limit);
+    }
+    
+    const purchaseOrders = await query;
     const total = await PurchaseOrder.countDocuments(filter);
     
     // Transform names to uppercase
@@ -111,7 +120,13 @@ router.get('/', [
     
     res.json({
       purchaseOrders,
-      pagination: {
+      pagination: getAllPurchaseOrders ? {
+        current: 1,
+        pages: 1,
+        total,
+        hasNext: false,
+        hasPrev: false
+      } : {
         current: page,
         pages: Math.ceil(total / limit),
         total,

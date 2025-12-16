@@ -807,6 +807,7 @@ export const Suppliers = () => {
 
   const queryParams = { 
     search: searchTerm,
+    limit: 999999, // Get all suppliers without pagination
     ...filters
   };
 

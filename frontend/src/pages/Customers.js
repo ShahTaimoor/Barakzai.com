@@ -813,6 +813,7 @@ export const Customers = () => {
 
   const queryParams = { 
     search: searchTerm,
+    limit: 999999, // Get all customers without pagination
     ...filters
   };
 
