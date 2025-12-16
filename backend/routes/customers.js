@@ -10,6 +10,8 @@ const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
 const { auth, requirePermission } = require('../middleware/auth');
 const ledgerAccountService = require('../services/ledgerAccountService');
+const { retryMongoTransaction, isDuplicateKeyError } = require('../utils/retry');
+const { preventDuplicates } = require('../middleware/duplicatePrevention');
 
 // Helper function to transform customer names to uppercase
 const transformCustomerToUppercase = (customer) => {
@@ -576,11 +578,12 @@ router.put('/:id/credit-limit', [
 });
 
 // @route   POST /api/customers
-// @desc    Create a new customer
+// @desc    Create a new customer with retry logic for WriteConflict errors
 // @access  Private
 router.post('/', [
   auth,
   requirePermission('create_customers'),
+  preventDuplicates({ windowMs: 10000 }), // Prevent duplicate submissions within 10 seconds
   body('name').trim().isLength({ min: 1 }).withMessage('Name is required'),
   body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Valid email is required'),
   body('phone').optional().trim(),
@@ -604,54 +607,133 @@ router.post('/', [
       createdBy: req.user._id
     };
 
-    const customerId = await runWithOptionalTransaction(async (session) => {
-      let newCustomer = new Customer(customerData);
-      applyOpeningBalance(newCustomer, openingBalance);
-      await newCustomer.save(session ? { session } : undefined);
+    // Wrap the transaction operation with retry logic for WriteConflict errors
+    const customerId = await retryMongoTransaction(async () => {
+      return await runWithOptionalTransaction(async (session) => {
+        let newCustomer = new Customer(customerData);
+        applyOpeningBalance(newCustomer, openingBalance);
+        
+        // Use atomic save operation
+        await newCustomer.save(session ? { session } : undefined);
 
-      await ledgerAccountService.syncCustomerLedgerAccount(newCustomer, session ? {
-        session,
-        userId: req.user._id
-      } : {
-        userId: req.user._id
-      });
+        // Sync ledger account (also wrapped in retry if needed)
+        await ledgerAccountService.syncCustomerLedgerAccount(newCustomer, session ? {
+          session,
+          userId: req.user._id
+        } : {
+          userId: req.user._id
+        });
 
-      return newCustomer._id;
-    }, 'create customer');
+        return newCustomer._id;
+      }, 'create customer');
+    }, {
+      maxRetries: 5,
+      initialDelay: 100,
+      maxDelay: 3000
+    });
 
     const customer = await Customer.findById(customerId).populate('ledgerAccount', 'accountCode accountName');
 
     if (!customer) {
       console.error('Create customer error: Newly created customer not found after transaction', { customerId });
-      return res.status(500).json({ message: 'Server error' });
+      return res.status(500).json({ 
+        success: false,
+        error: {
+          message: 'Customer created but could not be retrieved',
+          code: 'CUSTOMER_RETRIEVAL_ERROR'
+        }
+      });
     }
 
     res.status(201).json({
+      success: true,
       message: 'Customer created successfully',
       customer
     });
   } catch (error) {
-    console.error('Create customer error:', error);
-    if (error.code === 11000) {
-      if (error.keyPattern && error.keyPattern.businessName) {
-        return res.status(400).json({ message: 'Business name already exists' });
+    console.error('Create customer error:', {
+      name: error.name,
+      code: error.code,
+      codeName: error.codeName,
+      message: error.message,
+      keyPattern: error.keyPattern,
+      keyValue: error.keyValue
+    });
+
+    // Handle duplicate key errors (11000) - return HTTP 409 Conflict
+    if (isDuplicateKeyError(error)) {
+      let message = 'A customer with this information already exists';
+      let field = 'unknown';
+
+      if (error.keyPattern) {
+        if (error.keyPattern.businessName) {
+          message = 'A customer with this business name already exists';
+          field = 'businessName';
+        } else if (error.keyPattern.email) {
+          message = 'A customer with this email already exists';
+          field = 'email';
+        } else if (error.keyPattern.phone) {
+          message = 'A customer with this phone number already exists';
+          field = 'phone';
+        }
       }
-      if (error.keyPattern && error.keyPattern.email) {
-        return res.status(400).json({ message: 'Email already exists' });
-      }
-      return res.status(400).json({ message: 'Duplicate field value' });
+
+      return res.status(409).json({
+        success: false,
+        error: {
+          message,
+          field,
+          code: 'DUPLICATE_ENTRY',
+          codeName: 'DuplicateKey',
+          keyValue: error.keyValue
+        }
+      });
     }
-    res.status(500).json({ message: 'Server error' });
+
+    // Handle WriteConflict errors that weren't retried successfully
+    if (error.code === 112 || error.codeName === 'WriteConflict') {
+      return res.status(409).json({
+        success: false,
+        error: {
+          message: 'A concurrent update conflict occurred. Please try again.',
+          code: 'WRITE_CONFLICT',
+          retryable: true
+        }
+      });
+    }
+
+    // Handle other MongoDB errors
+    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Database error occurred. Please try again.',
+          code: 'DATABASE_ERROR',
+          ...(process.env.NODE_ENV === 'development' && { details: error.message })
+        }
+      });
+    }
+
+    // Default error response
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'An unexpected error occurred while creating the customer',
+        code: 'INTERNAL_SERVER_ERROR',
+        ...(process.env.NODE_ENV === 'development' && { details: error.message })
+      }
+    });
   }
 });
 
 // @route   PUT /api/customers/:id
-// @desc    Update a customer
+// @desc    Update a customer with retry logic for WriteConflict errors
 // @access  Private
 router.put('/:id', [
   auth,
   validateCustomerIdParam,
   requirePermission('edit_customers'),
+  preventDuplicates({ windowMs: 10000 }), // Prevent duplicate submissions within 10 seconds
   body('name').optional().trim().isLength({ min: 1 }).withMessage('Name cannot be empty'),
   body('email').optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('Valid email is required'),
   body('phone').optional().trim(),
@@ -668,60 +750,141 @@ router.put('/:id', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const updatedCustomerId = await runWithOptionalTransaction(async (session) => {
-      const customerQuery = session ? Customer.findById(req.params.id).session(session) : Customer.findById(req.params.id);
-      const customer = await customerQuery;
+    // Wrap the transaction operation with retry logic for WriteConflict errors
+    const updatedCustomerId = await retryMongoTransaction(async () => {
+      return await runWithOptionalTransaction(async (session) => {
+        const customerQuery = session ? Customer.findById(req.params.id).session(session) : Customer.findById(req.params.id);
+        const customer = await customerQuery;
 
-      if (!customer) {
-        return null;
-      }
+        if (!customer) {
+          return null;
+        }
 
-      const openingBalance = parseOpeningBalance(req.body.openingBalance);
+        const openingBalance = parseOpeningBalance(req.body.openingBalance);
 
-      Object.assign(customer, {
-        ...req.body,
-        lastModifiedBy: req.user._id
-      });
-      applyOpeningBalance(customer, openingBalance);
+        Object.assign(customer, {
+          ...req.body,
+          lastModifiedBy: req.user._id
+        });
+        applyOpeningBalance(customer, openingBalance);
 
-      await customer.save(session ? { session } : undefined);
-      await ledgerAccountService.syncCustomerLedgerAccount(customer, session ? {
-        session,
-        userId: req.user._id
-      } : {
-        userId: req.user._id
-      });
+        await customer.save(session ? { session } : undefined);
+        await ledgerAccountService.syncCustomerLedgerAccount(customer, session ? {
+          session,
+          userId: req.user._id
+        } : {
+          userId: req.user._id
+        });
 
-      return customer._id;
-    }, 'update customer');
+        return customer._id;
+      }, 'update customer');
+    }, {
+      maxRetries: 5,
+      initialDelay: 100,
+      maxDelay: 3000
+    });
 
     if (!updatedCustomerId) {
-      return res.status(404).json({ message: 'Customer not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: {
+          message: 'Customer not found',
+          code: 'NOT_FOUND'
+        }
+      });
     }
 
     const updatedCustomer = await Customer.findById(updatedCustomerId).populate('ledgerAccount', 'accountCode accountName');
 
     if (!updatedCustomer) {
       console.error('Update customer error: Customer not found after save', { updatedCustomerId });
-      return res.status(500).json({ message: 'Server error' });
+      return res.status(500).json({ 
+        success: false,
+        error: {
+          message: 'Customer updated but could not be retrieved',
+          code: 'CUSTOMER_RETRIEVAL_ERROR'
+        }
+      });
     }
 
     res.json({
+      success: true,
       message: 'Customer updated successfully',
       customer: updatedCustomer
     });
   } catch (error) {
-    console.error('Update customer error:', error);
-    if (error.code === 11000) {
-      if (error.keyPattern && error.keyPattern.businessName) {
-        return res.status(400).json({ message: 'Business name already exists' });
+    console.error('Update customer error:', {
+      name: error.name,
+      code: error.code,
+      codeName: error.codeName,
+      message: error.message,
+      keyPattern: error.keyPattern,
+      keyValue: error.keyValue
+    });
+
+    // Handle duplicate key errors (11000) - return HTTP 409 Conflict
+    if (isDuplicateKeyError(error)) {
+      let message = 'A customer with this information already exists';
+      let field = 'unknown';
+
+      if (error.keyPattern) {
+        if (error.keyPattern.businessName) {
+          message = 'A customer with this business name already exists';
+          field = 'businessName';
+        } else if (error.keyPattern.email) {
+          message = 'A customer with this email already exists';
+          field = 'email';
+        } else if (error.keyPattern.phone) {
+          message = 'A customer with this phone number already exists';
+          field = 'phone';
+        }
       }
-      if (error.keyPattern && error.keyPattern.email) {
-        return res.status(400).json({ message: 'Email already exists' });
-      }
-      return res.status(400).json({ message: 'Duplicate field value' });
+
+      return res.status(409).json({
+        success: false,
+        error: {
+          message,
+          field,
+          code: 'DUPLICATE_ENTRY',
+          codeName: 'DuplicateKey',
+          keyValue: error.keyValue
+        }
+      });
     }
-    res.status(500).json({ message: 'Server error' });
+
+    // Handle WriteConflict errors that weren't retried successfully
+    if (error.code === 112 || error.codeName === 'WriteConflict') {
+      return res.status(409).json({
+        success: false,
+        error: {
+          message: 'A concurrent update conflict occurred. Please try again.',
+          code: 'WRITE_CONFLICT',
+          retryable: true
+        }
+      });
+    }
+
+    // Handle other MongoDB errors
+    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Database error occurred. Please try again.',
+          code: 'DATABASE_ERROR',
+          ...(process.env.NODE_ENV === 'development' && { details: error.message })
+        }
+      });
+    }
+
+    // Default error response
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'An unexpected error occurred while updating the customer',
+        code: 'INTERNAL_SERVER_ERROR',
+        ...(process.env.NODE_ENV === 'development' && { details: error.message })
+      }
+    });
   }
 });
 

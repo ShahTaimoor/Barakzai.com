@@ -833,7 +833,27 @@ export const Customers = () => {
       setSelectedCustomer(null);
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create customer');
+      // Handle conflict errors (409) - duplicate entries or write conflicts
+      if (error.response?.status === 409) {
+        const errorData = error.response?.data?.error || error.response?.data;
+        const message = errorData?.message || 'A conflict occurred. This may be a duplicate request.';
+        
+        if (errorData?.code === 'DUPLICATE_ENTRY') {
+          toast.error(message, {
+            duration: 5000,
+            icon: '⚠️'
+          });
+        } else if (errorData?.retryable) {
+          toast.error('A concurrent update conflict occurred. Please try again.', {
+            duration: 4000,
+            icon: '🔄'
+          });
+        } else {
+          toast.error(message);
+        }
+      } else {
+        toast.error(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to create customer');
+      }
     },
   });
 
@@ -877,6 +897,12 @@ export const Customers = () => {
   };
 
   const handleSave = (data) => {
+    // Prevent double-submission by checking if mutation is already in progress
+    if (createMutation.isLoading || updateMutation.isLoading) {
+      toast.error('Please wait for the current request to complete');
+      return;
+    }
+
     if (selectedCustomer) {
       updateMutation.mutate({ id: selectedCustomer._id, data });
     } else {

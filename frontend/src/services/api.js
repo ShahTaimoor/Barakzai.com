@@ -27,12 +27,36 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token and sanitize data
+// Request interceptor to add auth token, idempotency key, and sanitize data
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Add idempotency key for POST/PUT/PATCH requests if not already present
+    if (['POST', 'PUT', 'PATCH'].includes(config.method?.toUpperCase())) {
+      if (!config.headers['Idempotency-Key'] && !config.headers['idempotency-key']) {
+        // Generate idempotency key from request data (synchronous)
+        const dataString = JSON.stringify(config.data || {});
+        const urlString = config.url || '';
+        const methodString = config.method || '';
+        const combined = dataString + urlString + methodString + Date.now();
+        
+        // Simple hash function (synchronous)
+        let hash = 0;
+        for (let i = 0; i < combined.length; i++) {
+          const char = combined.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash; // Convert to 32-bit integer
+        }
+        
+        // Convert to hex string and use first 32 characters
+        const hashHex = Math.abs(hash).toString(16).padStart(8, '0');
+        const idempotencyKey = `${hashHex}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+        config.headers['Idempotency-Key'] = idempotencyKey.substring(0, 64);
+      }
     }
     
     // Ensure relative URLs combine with baseURL
@@ -92,6 +116,21 @@ api.interceptors.response.use(
       });
     }
     
+    // Handle conflict errors (409) - duplicate entries, write conflicts
+    if (error.response?.status === 409) {
+      const errorData = error.response.data?.error || error.response.data;
+      const errorMessage = errorData?.message || 'A conflict occurred. This may be a duplicate request.';
+      
+      return Promise.reject({
+        ...error,
+        message: errorMessage,
+        code: errorData?.code || 'CONFLICT',
+        retryable: errorData?.retryable || false,
+        field: errorData?.field,
+        type: 'conflict'
+      });
+    }
+
     // Handle server errors
     if (error.response?.status >= 500) {
       console.error('Server Error:', error.response.data);

@@ -125,22 +125,40 @@ const errorHandler = (err, req, res, next) => {
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 
-  // Handle MongoDB duplicate key error (11000)
+  // Handle MongoDB duplicate key error (11000) - return HTTP 409 Conflict
   if (isDuplicateKeyError(err)) {
     const formatted = formatDuplicateKeyMessage(err);
-    return res.status(formatted.statusCode).json({
+    // Ensure status code is 409 for duplicate key errors
+    formatted.statusCode = 409;
+    return res.status(409).json({
       success: false,
       error: formatted
     });
   }
 
-  // Handle MongoDB WriteConflict error (112)
+  // Handle MongoDB WriteConflict error (112) and TransientTransactionError - return HTTP 409 Conflict
   if (isWriteConflictError(err)) {
     const formatted = formatWriteConflictMessage(err);
-    return res.status(formatted.statusCode).json({
+    formatted.statusCode = 409;
+    return res.status(409).json({
       success: false,
       error: formatted
     });
+  }
+
+  // Handle TransientTransactionError (may not have code 112 but has errorLabels)
+  if (err.errorLabels && Array.isArray(err.errorLabels)) {
+    if (err.errorLabels.includes('TransientTransactionError')) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          message: 'A concurrent transaction conflict occurred. Please retry your operation.',
+          code: 'TRANSIENT_TRANSACTION_ERROR',
+          statusCode: 409,
+          retryable: true
+        }
+      });
+    }
   }
 
   // Handle Mongoose validation errors
