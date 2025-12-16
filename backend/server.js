@@ -44,11 +44,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Idempotency key middleware - prevents duplicate requests
-const { preventDuplicates } = require('./middleware/duplicatePrevention');
-app.use(preventDuplicates({
-  windowMs: 60000, // 60 second window for idempotency
-  requireIdempotencyKey: false // Auto-generate if not provided, but allow explicit keys
-}));
+// DISABLED: Commented out to allow duplicate requests
+// const { preventDuplicates } = require('./middleware/duplicatePrevention');
+// app.use(preventDuplicates({
+//   windowMs: 60000, // 60 second window for idempotency
+//   requireIdempotencyKey: false // Auto-generate if not provided, but allow explicit keys
+// }));
 
 // Middleware to check database connection before handling API requests (except health check)
 app.use((req, res, next) => {
