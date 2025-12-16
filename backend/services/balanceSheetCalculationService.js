@@ -4,6 +4,8 @@ const Product = require('../models/Product');
 const Customer = require('../models/Customer');
 const Inventory = require('../models/Inventory');
 const Payment = require('../models/Payment');
+const ChartOfAccounts = require('../models/ChartOfAccounts');
+const Transaction = require('../models/Transaction');
 
 class BalanceSheetCalculationService {
   constructor() {
@@ -598,16 +600,116 @@ class BalanceSheetCalculationService {
     }
   }
 
+  // Calculate account balance from transactions
+  async calculateAccountBalance(accountCode, statementDate) {
+    try {
+      const account = await ChartOfAccounts.findOne({ accountCode, isActive: true });
+      if (!account) {
+        return 0;
+      }
+
+      // Get opening balance
+      let balance = account.openingBalance || 0;
+
+      // Calculate balance from transactions up to statement date
+      const transactions = await Transaction.aggregate([
+        {
+          $match: {
+            accountCode: accountCode,
+            createdAt: { $lte: statementDate },
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalDebits: { $sum: { $ifNull: ['$debitAmount', 0] } },
+            totalCredits: { $sum: { $ifNull: ['$creditAmount', 0] } }
+          }
+        }
+      ]);
+
+      if (transactions.length > 0) {
+        const totals = transactions[0];
+        // For equity accounts (credit normal balance), balance increases with credits
+        if (account.normalBalance === 'credit') {
+          balance = balance + totals.totalCredits - totals.totalDebits;
+        } else {
+          balance = balance + totals.totalDebits - totals.totalCredits;
+        }
+      }
+
+      return balance;
+    } catch (error) {
+      console.error(`Error calculating balance for account ${accountCode}:`, error);
+      return 0;
+    }
+  }
+
   // Calculate contributed capital
   async calculateContributedCapital(statementDate) {
-    // This would typically come from capital tracking system
-    // For now, return default values (would need to be configured)
-    return {
-      commonStock: 10000, // Default startup capital
-      preferredStock: 0,
-      additionalPaidInCapital: 0,
-      total: 10000
-    };
+    try {
+      // Get all owner equity accounts from Chart of Accounts
+      // Exclude system accounts (parent accounts) as they don't have direct balances
+      const ownerEquityAccounts = await ChartOfAccounts.find({
+        accountType: 'equity',
+        accountCategory: 'owner_equity',
+        isActive: true,
+        isSystemAccount: { $ne: true } // Exclude parent/system accounts
+      });
+
+      let commonStock = 0;
+      let preferredStock = 0;
+      let additionalPaidInCapital = 0;
+
+      // Calculate balances for each equity account
+      for (const account of ownerEquityAccounts) {
+        const balance = await this.calculateAccountBalance(account.accountCode, statementDate);
+        
+        // Map accounts to balance sheet categories based on account name/code
+        // Common stock typically uses codes like 3101, 3102, etc.
+        // Preferred stock uses codes like 3103, 3104, etc.
+        // Additional paid-in capital uses codes like 3105, 3106, etc.
+        const accountCodeNum = parseInt(account.accountCode);
+        const accountNameLower = account.accountName.toLowerCase();
+
+        if (accountNameLower.includes('common stock') || 
+            accountNameLower.includes('common') ||
+            (accountCodeNum >= 3101 && accountCodeNum < 3103)) {
+          commonStock += balance;
+        } else if (accountNameLower.includes('preferred stock') || 
+                   accountNameLower.includes('preferred') ||
+                   (accountCodeNum >= 3103 && accountCodeNum < 3105)) {
+          preferredStock += balance;
+        } else if (accountNameLower.includes('paid-in') || 
+                   accountNameLower.includes('additional') ||
+                   accountNameLower.includes('capital') ||
+                   (accountCodeNum >= 3105 && accountCodeNum < 3200)) {
+          additionalPaidInCapital += balance;
+        } else {
+          // Default: treat as common stock if it's owner equity
+          commonStock += balance;
+        }
+      }
+
+      const total = commonStock + preferredStock + additionalPaidInCapital;
+
+      return {
+        commonStock,
+        preferredStock,
+        additionalPaidInCapital,
+        total
+      };
+    } catch (error) {
+      console.error('Error calculating contributed capital:', error);
+      // Return zeros instead of hardcoded default
+      return {
+        commonStock: 0,
+        preferredStock: 0,
+        additionalPaidInCapital: 0,
+        total: 0
+      };
+    }
   }
 
   // Calculate retained earnings
@@ -652,13 +754,53 @@ class BalanceSheetCalculationService {
 
   // Calculate other equity
   async calculateOtherEquity(statementDate) {
-    // This would typically come from equity tracking system
-    // For now, return default values (would need to be configured)
-    return {
-      treasuryStock: 0,
-      accumulatedOtherComprehensiveIncome: 0,
-      total: 0
-    };
+    try {
+      // Get equity accounts that are not owner_equity or retained_earnings
+      // Exclude system accounts (parent accounts) as they don't have direct balances
+      const otherEquityAccounts = await ChartOfAccounts.find({
+        accountType: 'equity',
+        accountCategory: { $nin: ['owner_equity', 'retained_earnings'] },
+        isActive: true,
+        isSystemAccount: { $ne: true } // Exclude parent/system accounts
+      });
+
+      let treasuryStock = 0;
+      let accumulatedOtherComprehensiveIncome = 0;
+
+      // Calculate balances for each equity account
+      for (const account of otherEquityAccounts) {
+        const balance = await this.calculateAccountBalance(account.accountCode, statementDate);
+        
+        // Map accounts to balance sheet categories based on account name
+        const accountNameLower = account.accountName.toLowerCase();
+
+        if (accountNameLower.includes('treasury') || 
+            accountNameLower.includes('treasury stock')) {
+          treasuryStock += balance;
+        } else if (accountNameLower.includes('comprehensive') || 
+                   accountNameLower.includes('other comprehensive')) {
+          accumulatedOtherComprehensiveIncome += balance;
+        } else {
+          // Default: treat as other comprehensive income
+          accumulatedOtherComprehensiveIncome += balance;
+        }
+      }
+
+      const total = treasuryStock + accumulatedOtherComprehensiveIncome;
+
+      return {
+        treasuryStock,
+        accumulatedOtherComprehensiveIncome,
+        total
+      };
+    } catch (error) {
+      console.error('Error calculating other equity:', error);
+      return {
+        treasuryStock: 0,
+        accumulatedOtherComprehensiveIncome: 0,
+        total: 0
+      };
+    }
   }
 
   // Get previous period date
