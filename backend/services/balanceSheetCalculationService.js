@@ -131,12 +131,43 @@ class BalanceSheetCalculationService {
         prefix = `BS-M${year}${month}`;
     }
 
-    // Find the next sequence number
-    const count = await BalanceSheet.countDocuments({
-      statementNumber: { $regex: `^${prefix}` }
+    // Find all existing statement numbers with this prefix
+    const existingSheets = await BalanceSheet.find({
+      statementNumber: { $regex: `^${prefix}-` }
+    }).select('statementNumber').lean();
+
+    // Extract sequence numbers and find the maximum
+    let maxSequence = 0;
+    const sequenceRegex = new RegExp(`^${prefix}-(\\d+)$`);
+    
+    existingSheets.forEach(sheet => {
+      const match = sheet.statementNumber.match(sequenceRegex);
+      if (match) {
+        const sequence = parseInt(match[1], 10);
+        if (sequence > maxSequence) {
+          maxSequence = sequence;
+        }
+      }
     });
 
-    return `${prefix}-${String(count + 1).padStart(3, '0')}`;
+    // Generate next sequence number
+    const nextSequence = maxSequence + 1;
+    const statementNumber = `${prefix}-${String(nextSequence).padStart(3, '0')}`;
+
+    // Double-check that this number doesn't exist (safety check)
+    const exists = await BalanceSheet.findOne({ statementNumber });
+    if (exists) {
+      // If it exists, try incrementing until we find a free number
+      let attemptSequence = nextSequence + 1;
+      let attemptNumber = `${prefix}-${String(attemptSequence).padStart(3, '0')}`;
+      while (await BalanceSheet.findOne({ statementNumber: attemptNumber })) {
+        attemptSequence++;
+        attemptNumber = `${prefix}-${String(attemptSequence).padStart(3, '0')}`;
+      }
+      return attemptNumber;
+    }
+
+    return statementNumber;
   }
 
   // Calculate assets
