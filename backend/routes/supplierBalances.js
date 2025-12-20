@@ -3,8 +3,7 @@ const { body, param, query } = require('express-validator');
 const Supplier = require('../models/Supplier');
 const PurchaseOrder = require('../models/PurchaseOrder');
 const SupplierBalanceService = require('../services/supplierBalanceService');
-const auth = require('../middleware/auth');
-const { requirePermission } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 

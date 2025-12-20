@@ -252,7 +252,6 @@ router.post('/', [
       try {
         const SupplierBalanceService = require('../services/supplierBalanceService');
         await SupplierBalanceService.recordPayment(supplier, amount, order);
-        console.log(`Updated supplier ${supplier} balance with bank payment of ${amount}`);
       } catch (error) {
         console.error('Error updating supplier balance for bank payment:', error);
         // Don't fail the bank payment creation if balance update fails
@@ -267,7 +266,6 @@ router.post('/', [
       try {
         const CustomerBalanceService = require('../services/customerBalanceService');
         await CustomerBalanceService.recordRefund(customer, amount, order);
-        console.log(`Updated customer ${customer} balance with bank payment (refund) of ${amount}`);
       } catch (error) {
         console.error('Error updating customer balance for bank payment:', error);
         // Don't fail the bank payment creation if balance update fails
@@ -278,7 +276,6 @@ router.post('/', [
     try {
       const AccountingService = require('../services/accountingService');
       await AccountingService.recordBankPayment(bankPayment);
-      console.log(`Created accounting entries for bank payment ${bankPayment._id}`);
     } catch (error) {
       console.error('Error creating accounting entries for bank payment:', error);
       // Don't fail the bank payment creation if accounting fails

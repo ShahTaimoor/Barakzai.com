@@ -251,16 +251,6 @@ router.get('/:returnId', [
       }
     }
     
-    // Debug: Log the return data to see if amounts are present
-    console.log('Return data fetched for ID:', returnId);
-    console.log('Total refund amount:', returnRequest.totalRefundAmount);
-    console.log('Total restocking fee:', returnRequest.totalRestockingFee);
-    console.log('Net refund amount:', returnRequest.netRefundAmount);
-    console.log('Items with amounts:', returnRequest.items.map(item => ({
-      product: item.product?.name,
-      refundAmount: item.refundAmount,
-      restockingFee: item.restockingFee
-    })));
 
     res.json(returnRequest);
   } catch (error) {

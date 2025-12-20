@@ -9,14 +9,12 @@ const router = express.Router();
 // @access  Private
 router.post('/update-invoice-prefix', auth, async (req, res) => {
   try {
-    console.log('Starting invoice prefix update...');
     
     // Find all orders with ORD- prefix
     const ordersToUpdate = await Sales.find({
       orderNumber: { $regex: '^ORD-' }
     });
     
-    console.log(`Found ${ordersToUpdate.length} orders to update`);
     
     if (ordersToUpdate.length === 0) {
       return res.json({
@@ -39,7 +37,6 @@ router.post('/update-invoice-prefix', auth, async (req, res) => {
       // Check if the new order number already exists
       const existingOrder = await Sales.findOne({ orderNumber: newOrderNumber });
       if (existingOrder) {
-        console.log(`Warning: Order number ${newOrderNumber} already exists. Skipping ${oldOrderNumber}`);
         updates.push({
           oldNumber: oldOrderNumber,
           newNumber: newOrderNumber,
@@ -55,7 +52,6 @@ router.post('/update-invoice-prefix', auth, async (req, res) => {
         orderNumber: newOrderNumber
       });
       
-      console.log(`Updated: ${oldOrderNumber} → ${newOrderNumber}`);
       updates.push({
         oldNumber: oldOrderNumber,
         newNumber: newOrderNumber,

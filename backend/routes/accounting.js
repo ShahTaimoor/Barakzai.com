@@ -4,8 +4,7 @@ const AccountingService = require('../services/accountingService');
 const Transaction = require('../models/Transaction');
 const ChartOfAccounts = require('../models/ChartOfAccounts');
 const BalanceSheet = require('../models/BalanceSheet');
-const auth = require('../middleware/auth');
-const { requirePermission, requireAnyPermission } = require('../middleware/auth');
+const { auth, requirePermission, requireAnyPermission } = require('../middleware/auth');
 
 const router = express.Router();
 

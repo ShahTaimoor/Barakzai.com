@@ -19,34 +19,18 @@ router.post('/register', [
   body('status').optional().isIn(['active', 'inactive']).withMessage('Invalid status')
 ], async (req, res) => {
   try {
-    console.log('🔍 Registration request received:', {
-      body: req.body,
-      user: req.user ? { id: req.user._id, email: req.user.email, role: req.user.role } : 'No user'
-    });
-    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
     
     // Check if user has permission to create users
     if (!req.user.hasPermission('manage_users')) {
-      console.log('❌ Permission denied. User permissions:', req.user.permissions);
       return res.status(403).json({ message: 'Access denied' });
     }
     
     const { firstName, lastName, email, password, role, phone, department, permissions, status } = req.body;
-    console.log('✅ Extracted data:', { firstName, lastName, email, role, permissions, status });
-    
     // Try to create user atomically; avoid race conditions causing 500s on unique email
-    console.log('🔄 Creating new user with data:', {
-      firstName,
-      lastName,
-      email,
-      role,
-      permissions: permissions || []
-    });
     
     let user;
     try {

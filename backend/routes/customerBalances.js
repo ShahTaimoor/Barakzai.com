@@ -3,15 +3,14 @@ const { body, param, query } = require('express-validator');
 const Customer = require('../models/Customer');
 const Sales = require('../models/Sales');
 const CustomerBalanceService = require('../services/customerBalanceService');
-const auth = require('../middleware/auth');
-const { requirePermission } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Get customer balance summary
 router.get('/:customerId', [
   auth, 
-  // requirePermission('view_customers'), // Temporarily disabled
+  requirePermission('view_customers'),
   param('customerId').isMongoId().withMessage('Invalid customer ID')
 ], async (req, res) => {
   try {

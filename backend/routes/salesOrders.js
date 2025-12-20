@@ -101,17 +101,6 @@ router.get('/', [
       }
     }
     
-    console.log('Sales Orders filter:', JSON.stringify(filter, null, 2));
-    console.log('Query params:', req.query);
-    
-    // Debug: Check what payment statuses exist in the database
-    if (req.query.paymentStatus) {
-      const allOrders = await SalesOrder.find({}).select('soNumber payment.status');
-      console.log('All sales orders with payment status:', allOrders.map(so => ({
-        soNumber: so.soNumber,
-        paymentStatus: so.payment?.status || 'undefined'
-      })));
-    }
     
     let query = SalesOrder.find(filter)
       .populate('customer', 'businessName name firstName lastName email phone businessType customerTier currentBalance pendingBalance advanceBalance')
@@ -127,8 +116,6 @@ router.get('/', [
     
     const salesOrders = await query;
     const total = await SalesOrder.countDocuments(filter);
-    
-    console.log(`Found ${salesOrders.length} sales orders out of ${total} total`);
     
     // Transform names to uppercase and add displayName to each customer
     salesOrders.forEach(so => {
@@ -223,11 +210,9 @@ router.post('/', [
   body('isTaxExempt').optional().isBoolean().withMessage('Tax exempt must be a boolean')
 ], async (req, res) => {
   try {
-    console.log('Sales Order creation request body:', JSON.stringify(req.body, null, 2));
     
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Sales Order validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
     
@@ -383,7 +368,6 @@ router.put('/:id/confirm', [
           success: true
         });
         
-        console.log(`Stock updated for product ${item.product}: -${item.quantity}, new stock: ${inventoryUpdate.currentStock}`);
       } catch (inventoryError) {
         console.error(`Failed to update inventory for product ${item.product}:`, inventoryError.message);
         inventoryUpdates.push({
@@ -482,7 +466,6 @@ router.put('/:id/cancel', [
             success: true
           });
           
-          console.log(`Stock restored for product ${item.product}: +${item.quantity}, new stock: ${inventoryUpdate.currentStock}`);
         } catch (inventoryError) {
           console.error(`Failed to restore inventory for product ${item.product}:`, inventoryError.message);
           inventoryUpdates.push({
@@ -615,7 +598,6 @@ router.get('/:id/convert', auth, async (req, res) => {
 // @access  Private
 router.post('/export/excel', [auth, requirePermission('view_sales_orders')], async (req, res) => {
   try {
-    console.log('Excel export request received:', req.body);
     const { filters = {} } = req.body;
     
     // Build query based on filters (similar to GET endpoint)
@@ -722,7 +704,6 @@ router.post('/export/excel', [auth, requirePermission('view_sales_orders')], asy
     const exportsDir = path.join(__dirname, '../exports');
     if (!fs.existsSync(exportsDir)) {
       fs.mkdirSync(exportsDir, { recursive: true });
-      console.log('Created exports directory:', exportsDir);
     }
     
     // Generate unique filename with timestamp
@@ -730,9 +711,7 @@ router.post('/export/excel', [auth, requirePermission('view_sales_orders')], asy
     const filename = `sales_orders_${timestamp}.xlsx`;
     const filepath = path.join(exportsDir, filename);
     
-    console.log('Writing Excel file to:', filepath);
     XLSX.writeFile(workbook, filepath);
-    console.log('Excel file created successfully:', filename);
     
     res.json({
       message: 'Sales orders exported successfully',
@@ -1209,8 +1188,6 @@ router.get('/download/:filename', [auth, requirePermission('view_sales_orders')]
     const exportsDir = path.join(__dirname, '../exports');
     const filepath = path.join(exportsDir, filename);
     
-    console.log('Download request for:', filename);
-    console.log('File path:', filepath);
     
     if (!fs.existsSync(filepath)) {
       console.error('File not found:', filepath);

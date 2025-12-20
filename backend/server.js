@@ -44,7 +44,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Idempotency key middleware - prevents duplicate requests
-// DISABLED: Commented out to allow duplicate requests
+// DISABLED: Commented out to allow duplicate requests during development/testing
+// TODO: Re-enable in production for better request deduplication and prevent duplicate submissions
+// Note: This middleware uses in-memory storage - consider Redis for production scaling
 // const { preventDuplicates } = require('./middleware/duplicatePrevention');
 // app.use(preventDuplicates({
 //   windowMs: 60000, // 60 second window for idempotency
@@ -143,9 +145,9 @@ app.use('/api/tills', require('./routes/tills'));
 app.use('/api/investors', require('./routes/investors'));
 app.use('/api/drop-shipping', require('./routes/dropShipping'));
 app.use('/api/journal-vouchers', require('./routes/journalVouchers'));
-// app.use('/api/customer-balances', require('./routes/customerBalances')); // Temporarily disabled
-// app.use('/api/supplier-balances', require('./routes/supplierBalances')); // Temporarily disabled
-// app.use('/api/accounting', require('./routes/accounting')); // Temporarily disabled
+app.use('/api/customer-balances', require('./routes/customerBalances'));
+app.use('/api/supplier-balances', require('./routes/supplierBalances'));
+app.use('/api/accounting', require('./routes/accounting'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

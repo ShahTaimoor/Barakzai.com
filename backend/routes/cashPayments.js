@@ -227,7 +227,6 @@ router.post('/', [
       try {
         const SupplierBalanceService = require('../services/supplierBalanceService');
         await SupplierBalanceService.recordPayment(supplier, amount, order);
-        console.log(`Updated supplier ${supplier} balance with cash payment of ${amount}`);
       } catch (error) {
         console.error('Error updating supplier balance for cash payment:', error);
         // Don't fail the cash payment creation if balance update fails
@@ -242,7 +241,6 @@ router.post('/', [
       try {
         const CustomerBalanceService = require('../services/customerBalanceService');
         await CustomerBalanceService.recordRefund(customer, amount, order);
-        console.log(`Updated customer ${customer} balance with cash payment (refund) of ${amount}`);
       } catch (error) {
         console.error('Error updating customer balance for cash payment:', error);
         // Don't fail the cash payment creation if balance update fails
@@ -253,7 +251,6 @@ router.post('/', [
     try {
       const AccountingService = require('../services/accountingService');
       await AccountingService.recordCashPayment(cashPayment);
-      console.log(`Created accounting entries for cash payment ${cashPayment._id}`);
     } catch (error) {
       console.error('Error creating accounting entries for cash payment:', error);
       // Don't fail the cash payment creation if accounting fails

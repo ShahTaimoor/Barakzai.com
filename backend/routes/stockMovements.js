@@ -39,7 +39,7 @@ const decodeHtmlEntities = (str) => {
 // Get all stock movements with filtering and pagination
 router.get('/', [
   auth, 
-  // requirePermission('view_inventory'), // Temporarily disabled
+  requirePermission('view_inventory'),
   query('page').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional({ checkFalsy: true }).isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('search').optional({ checkFalsy: true }).trim(),
@@ -198,7 +198,7 @@ router.get('/', [
 // Get stock movements for a specific product
 router.get('/product/:productId', [
   auth, 
-  // requirePermission('view_inventory'), // Temporarily disabled
+  requirePermission('view_inventory'),
   param('productId').isMongoId().withMessage('Invalid product ID'),
   query('dateFrom').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid date format'),
   query('dateTo').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid date format'),
@@ -424,7 +424,7 @@ router.post('/:id/reverse', [
 // Get stock movement statistics
 router.get('/stats/overview', [
   auth, 
-  // requirePermission('view_inventory'), // Temporarily disabled
+  requirePermission('view_inventory'),
   query('dateFrom').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid date format'),
   query('dateTo').optional({ checkFalsy: true }).isISO8601().withMessage('Invalid date format')
 ], async (req, res) => {

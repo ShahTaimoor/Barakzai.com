@@ -154,7 +154,9 @@ const balanceSheetSchema = new mongoose.Schema({
     generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     generatedAt: { type: Date, default: Date.now },
     version: { type: Number, default: 1 },
-    notes: { type: String, default: '' }
+    notes: { type: String, default: '' },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: { type: Date }
   },
 
   // AUDIT TRAIL

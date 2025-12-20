@@ -503,7 +503,6 @@ router.get('/all-entries', [
   try {
     const { startDate, endDate, accountCode, accountName, export: exportFormat } = req.query;
     
-    console.log('Account Ledger Search - Parameters:', { startDate, endDate, accountCode, accountName });
 
     const { start, end } = clampDateRange(startDate, endDate);
     const dateFilter = {};
@@ -675,10 +674,8 @@ router.get('/all-entries', [
     // Filter entries by account name if provided
     let filteredEntries = allEntries;
     
-    console.log('Total entries before filtering:', allEntries.length);
     
     if (accountName) {
-      console.log('Filtering by account name:', accountName);
       filteredEntries = filteredEntries.filter(entry => {
         const accountMatch = entry.accountName && entry.accountName.toLowerCase().includes(accountName.toLowerCase());
         const customerMatch = entry.customer && entry.customer.toLowerCase().includes(accountName.toLowerCase());
@@ -686,18 +683,8 @@ router.get('/all-entries', [
         const descriptionMatch = entry.description && entry.description.toLowerCase().includes(accountName.toLowerCase());
         
         const matches = accountMatch || customerMatch || supplierMatch || descriptionMatch;
-        if (matches) {
-          console.log('Match found:', { 
-            accountName: entry.accountName, 
-            customer: entry.customer, 
-            supplier: entry.supplier, 
-            description: entry.description 
-          });
-        }
-        
         return matches;
       });
-      console.log('Entries after filtering:', filteredEntries.length);
     }
 
     // Get account info and calculate opening balance if specific account

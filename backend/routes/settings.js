@@ -29,9 +29,6 @@ router.get('/company', auth, async (req, res) => {
 // @access  Private (Admin only)
 router.put('/company', auth, async (req, res) => {
   try {
-    console.log('📥 Received PUT /api/settings/company request');
-    console.log('Request body:', req.body);
-    console.log('User:', req.user?.email);
     
     const {
       companyName,
@@ -70,9 +67,7 @@ router.put('/company', auth, async (req, res) => {
     if (fiscalYearStart) updates.fiscalYearStart = fiscalYearStart;
     if (defaultTaxRate !== undefined) updates.defaultTaxRate = defaultTaxRate;
 
-    console.log('📝 Updates to apply:', updates);
     const settings = await Settings.updateSettings(updates);
-    console.log('✅ Settings saved successfully:', settings);
 
     res.json({
       success: true,

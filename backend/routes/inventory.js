@@ -70,7 +70,6 @@ router.get('/', [
   handleValidationErrors,
 ], async (req, res) => {
   try {
-    console.log('Inventory GET request with query:', req.query);
     const { page = 1, limit = 10, search, status, lowStock, warehouse } = req.query;
     const skip = (page - 1) * limit;
 
@@ -113,11 +112,9 @@ router.get('/', [
     }
     
     const allProducts = await Product.find(productFilter).select('_id name description pricing category status inventory');
-    console.log('Found products:', allProducts.length);
     
     // Get existing inventory records
     const existingInventory = await Inventory.aggregate(pipeline);
-    console.log('Found inventory records:', existingInventory.length);
     
     // Create a map of existing inventory records by product ID
     const inventoryMap = new Map();
@@ -177,9 +174,6 @@ router.get('/', [
     const endIndex = skip + parseInt(limit);
     const paginatedResults = filteredResults.slice(startIndex, endIndex);
     
-    console.log('Combined results count:', combinedResults.length);
-    console.log('Filtered results count:', filteredResults.length);
-    console.log('Paginated results count:', paginatedResults.length);
     
     res.json({
       inventory: paginatedResults,

@@ -1,0 +1,1 @@
+import{c as n,b3 as o}from"./index-jd7Ax_Ed.js";const m=(s={})=>{var t;const e=n("companySettings",o.getCompanySettings,{staleTime:3e5,cacheTime:6e5,...s}),a=((t=e.data)==null?void 0:t.data)||{};return{...e,companyInfo:a}};export{m as u};

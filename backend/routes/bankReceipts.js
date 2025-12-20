@@ -230,7 +230,6 @@ router.post('/', [
       try {
         const CustomerBalanceService = require('../services/customerBalanceService');
         await CustomerBalanceService.recordPayment(customer, amount, order);
-        console.log(`Updated customer ${customer} balance with bank receipt of ${amount}`);
       } catch (error) {
         console.error('Error updating customer balance for bank receipt:', error);
         // Don't fail the bank receipt creation if balance update fails
@@ -243,7 +242,6 @@ router.post('/', [
       try {
         const SupplierBalanceService = require('../services/supplierBalanceService');
         await SupplierBalanceService.recordPayment(supplier, amount, order);
-        console.log(`Updated supplier ${supplier} balance with bank receipt of ${amount}`);
       } catch (error) {
         console.error('Error updating supplier balance for bank receipt:', error);
         // Don't fail the bank receipt creation if balance update fails
@@ -254,7 +252,6 @@ router.post('/', [
     try {
       const AccountingService = require('../services/accountingService');
       await AccountingService.recordBankReceipt(bankReceipt);
-      console.log(`Created accounting entries for bank receipt ${bankReceipt._id}`);
     } catch (error) {
       console.error('Error creating accounting entries for bank receipt:', error);
       // Don't fail the bank receipt creation if accounting fails

@@ -47,7 +47,6 @@ router.post('/generate', [
 ], async (req, res) => {
   try {
     // Debug: Log the request body to understand what's being sent
-    console.log('Inventory report generation request:', JSON.stringify(req.body, null, 2));
     
     const report = await inventoryReportService.generateInventoryReport(
       req.body,
@@ -537,10 +536,8 @@ router.get('/quick/summary', [
   try {
     // Debug: Check total products count
     const totalProductsCount = await Product.countDocuments();
-    console.log('Total products in database:', totalProductsCount);
     
     const activeProductsCount = await Product.countDocuments({ status: 'active' });
-    console.log('Active products count:', activeProductsCount);
 
     // Get overall inventory summary
     const summary = await Product.aggregate([
@@ -592,7 +589,6 @@ router.get('/quick/summary', [
       }
     ]);
 
-    console.log('Aggregation result:', summary);
     
     const summaryData = summary[0] || {
       totalProducts: 0,
@@ -602,7 +598,6 @@ router.get('/quick/summary', [
       overstockedProducts: 0
     };
     
-    console.log('Final summary data:', summaryData);
 
     res.json({
       summary: summaryData,

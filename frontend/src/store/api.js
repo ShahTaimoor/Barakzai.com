@@ -1,0 +1,51 @@
+import { createApi } from '@reduxjs/toolkit/query/react';
+import axiosBaseQuery from './axiosBaseQuery';
+
+const BASE_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/`
+  : '';
+
+export const api = createApi({
+  reducerPath: 'api',
+  baseQuery: axiosBaseQuery({ baseUrl: BASE_URL }),
+  tagTypes: [
+    'Auth',
+    'Sales',
+    'Accounting',
+    'Products',
+    'Customers',
+    'Suppliers',
+    'Categories',
+    'Cities',
+    'Orders',
+    'Inventory',
+    'Settings',
+    'Reports',
+    'Health',
+    'ChartOfAccounts',
+    'PurchaseOrders',
+    'PurchaseInvoices',
+    'SalesOrders',
+    'BankReceipts',
+    'BankPayments',
+    'Banks',
+    'CashReceipts',
+    'CashPayments',
+    'Warehouses',
+    'RecurringExpenses',
+    'Returns',
+    'Discounts',
+    'JournalVouchers',
+    'Users',
+    'Payments',
+  ],
+  endpoints: (builder) => ({
+    health: builder.query({
+      query: () => ({ url: 'health', method: 'get' }),
+      providesTags: ['Health'],
+    }),
+  }),
+});
+
+export const { useHealthQuery } = api;
+

@@ -325,9 +325,6 @@ router.post('/', [
   body('pricing.wholesale').isFloat({ min: 0 }).withMessage('Wholesale price must be a positive number')
 ], async (req, res) => {
   try {
-    console.log('Product creation request body:', req.body);
-    console.log('User ID:', req.user._id);
-    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.error('Validation errors:', errors.array());
@@ -340,16 +337,11 @@ router.post('/', [
       lastModifiedBy: req.user._id
     };
     
-    console.log('Product data to create:', productData);
-    console.log('Product name being created:', productData.name);
-    console.log('Product name length:', productData.name?.length);
-    
     const product = new Product(productData);
     await product.save();
     
     // Automatically create inventory record for the new product
     try {
-      console.log('Creating inventory record for product:', product.name);
       const Inventory = require('../models/Inventory');
       const inventoryRecord = new Inventory({
         product: product._id,
@@ -365,9 +357,7 @@ router.post('/', [
         movements: [],
         createdBy: req.user._id
       });
-      console.log('Inventory record data:', inventoryRecord);
       await inventoryRecord.save();
-      console.log('Inventory record created successfully for product:', product.name);
     } catch (inventoryError) {
       console.error('Error creating inventory record:', inventoryError);
       console.error('Inventory error details:', {
@@ -392,20 +382,7 @@ router.post('/', [
     });
     
     if (error.code === 11000) {
-      console.log('Duplicate key error detected:', {
-        attemptedName: req.body.name,
-        errorMessage: error.message,
-        errorKeyPattern: error.keyPattern,
-        errorKeyValue: error.keyValue
-      });
       
-      // Try to find the existing product to provide more details
-      try {
-        const existingProduct = await Product.findOne({ name: req.body.name });
-        console.log('Found existing product:', existingProduct);
-      } catch (findError) {
-        console.log('Could not find existing product:', findError);
-      }
       
       return res.status(400).json({ 
         message: 'A product with this name already exists. Please choose a different name.',
@@ -863,8 +840,6 @@ router.post('/export/excel', [auth, requirePermission('view_products')], async (
 
     // Debug: Log first product data to see what we're working with
     if (products.length > 0) {
-      console.log('First product raw data:', JSON.stringify(products[0], null, 2));
-      console.log('First product processed data:', JSON.stringify(excelData[0], null, 2));
     }
     
     // Create Excel workbook with proper options
@@ -922,7 +897,6 @@ router.post('/export/excel', [auth, requirePermission('view_products')], async (
         throw new Error('Excel file was created but is empty');
       }
       
-      console.log(`Excel file created successfully: ${filepath}, size: ${stats.size} bytes`);
       
     } catch (xlsxError) {
       console.error('XLSX write error:', xlsxError);
@@ -946,7 +920,6 @@ router.post('/export/excel', [auth, requirePermission('view_products')], async (
       
       fs.writeFileSync(csvFilepath, csvContent, 'utf8');
       
-      console.log(`Fallback CSV file created: ${csvFilepath}`);
       
       // Return CSV file info instead
       res.json({

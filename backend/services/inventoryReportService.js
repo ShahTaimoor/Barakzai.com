@@ -115,7 +115,11 @@ class InventoryReportService {
         matchCriteria.category = { $in: filters.categories };
       }
 
-      // Note: Supplier filtering removed as Product model doesn't have supplier field
+      // TODO: Supplier filtering is currently disabled because Product model doesn't have a supplier field.
+      // Products can be sourced from multiple suppliers, so implementing this would require:
+      // 1. Adding a suppliers array field to Product model (or a junction table for many-to-many relationship)
+      // 2. Updating product creation/editing to allow supplier assignment
+      // 3. Consider if this should filter by primary supplier, all suppliers, or require all selected suppliers
       // if (filters.suppliers && filters.suppliers.length > 0) {
       //   matchCriteria.supplier = { $in: filters.suppliers };
       // }
@@ -299,7 +303,11 @@ class InventoryReportService {
       if (filters.categories && filters.categories.length > 0) {
         matchCriteria.category = { $in: filters.categories };
       }
-      // Note: Supplier filtering removed as Product model doesn't have supplier field
+      // TODO: Supplier filtering is currently disabled because Product model doesn't have a supplier field.
+      // Products can be sourced from multiple suppliers, so implementing this would require:
+      // 1. Adding a suppliers array field to Product model (or a junction table for many-to-many relationship)
+      // 2. Updating product creation/editing to allow supplier assignment
+      // 3. Consider if this should filter by primary supplier, all suppliers, or require all selected suppliers
       // if (filters.suppliers && filters.suppliers.length > 0) {
       //   matchCriteria.supplier = { $in: filters.suppliers };
       // }
@@ -491,8 +499,11 @@ class InventoryReportService {
     try {
       const { startDate, endDate } = report;
 
-      // Note: Supplier performance data disabled as Product model doesn't have supplier field
-      // This would need to be implemented differently if supplier tracking is needed
+      // TODO: Supplier performance data is currently disabled because Product model doesn't have a supplier field.
+      // To implement supplier performance tracking, consider:
+      // 1. Adding supplier relationships to Product model (see supplier filtering TODO above)
+      // 2. Tracking supplier performance through PurchaseOrder/PurchaseInvoice data instead
+      // 3. Creating a separate SupplierProduct junction table to track which suppliers provide which products
       report.supplierPerformance = [];
       // Don't save here - will be saved at the end
     } catch (error) {

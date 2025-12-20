@@ -218,9 +218,7 @@ router.post('/', [
             { $inc: { pendingBalance: purchaseOrder.total } },
             { new: true }
           );
-          console.log(`Updated supplier ${purchaseOrder.supplier} pending balance by ${purchaseOrder.total}. New balance: ${updateResult.pendingBalance}`);
         } else {
-          console.log(`Supplier ${purchaseOrder.supplier} not found, skipping pending balance update`);
         }
       } catch (error) {
         console.error('Error updating supplier pending balance:', error);
@@ -414,9 +412,6 @@ router.put('/:id', [
               { $inc: { pendingBalance: totalDifference } },
               { new: true }
             );
-            console.log(`Adjusted supplier ${updatedPO.supplier} balance by ${totalDifference}`);
-            console.log(`- Old total: ${oldTotal}, New total: ${updatedPO.total}`);
-            console.log(`- New pendingBalance: ${updateResult.pendingBalance}`);
           }
           
           // If supplier changed, remove balance from old supplier
@@ -426,7 +421,6 @@ router.put('/:id', [
               { $inc: { pendingBalance: -oldTotal } },
               { new: true }
             );
-            console.log(`Removed ${oldTotal} from old supplier ${oldSupplier} balance`);
           }
         }
       } catch (error) {
@@ -487,7 +481,6 @@ router.put('/:id/confirm', [
           success: true
         });
         
-        console.log(`Stock updated for product ${item.product}: +${item.quantity}, new stock: ${inventoryUpdate.currentStock}`);
       } catch (inventoryError) {
         console.error(`Failed to update inventory for product ${item.product}:`, inventoryError.message);
         inventoryUpdates.push({
@@ -523,12 +516,7 @@ router.put('/:id/confirm', [
             },
             { new: true }
           );
-          console.log(`Updated supplier ${purchaseOrder.supplier} balance after PO confirmation:`);
-          console.log(`- Moved ${purchaseOrder.pricing.total} from pendingBalance to currentBalance (outstanding)`);
-          console.log(`- New pendingBalance: ${updateResult.pendingBalance}`);
-          console.log(`- New currentBalance: ${updateResult.currentBalance}`);
         } else {
-          console.log(`Supplier ${purchaseOrder.supplier} not found, skipping balance update`);
         }
       } catch (error) {
         console.error('Error updating supplier balance on PO confirmation:', error);
@@ -547,7 +535,6 @@ router.put('/:id/confirm', [
     try {
       const AccountingService = require('../services/accountingService');
       await AccountingService.recordPurchase(purchaseOrder);
-      console.log(`Created accounting entries for purchase order ${purchaseOrder.poNumber}`);
     } catch (error) {
       console.error('Error creating accounting entries for purchase order:', error);
       // Don't fail the confirmation if accounting fails
@@ -626,7 +613,6 @@ router.put('/:id/cancel', [
             success: true
           });
           
-          console.log(`Stock reduced for product ${item.product}: -${item.quantity}, new stock: ${inventoryUpdate.currentStock}`);
         } catch (inventoryError) {
           console.error(`Failed to reduce inventory for product ${item.product}:`, inventoryError.message);
           inventoryUpdates.push({
@@ -667,12 +653,7 @@ router.put('/:id/cancel', [
               },
               { new: true }
             );
-            console.log(`Reversed supplier ${purchaseOrder.supplier} balance after PO cancellation:`);
-            console.log(`- Moved ${purchaseOrder.pricing.total} from currentBalance back to pendingBalance`);
-            console.log(`- New pendingBalance: ${updateResult.pendingBalance}`);
-            console.log(`- New currentBalance: ${updateResult.currentBalance}`);
           } else {
-            console.log(`Supplier ${purchaseOrder.supplier} not found, skipping balance reversal`);
           }
         } catch (error) {
           console.error('Error reversing supplier balance on PO cancellation:', error);
@@ -767,11 +748,7 @@ router.delete('/:id', [
             { $inc: { pendingBalance: -purchaseOrder.total } },
             { new: true }
           );
-          console.log(`Cleaned up supplier ${purchaseOrder.supplier} pending balance after PO deletion:`);
-          console.log(`- Removed ${purchaseOrder.total} from pendingBalance`);
-          console.log(`- New pendingBalance: ${updateResult.pendingBalance}`);
         } else {
-          console.log(`Supplier ${purchaseOrder.supplier} not found, skipping balance cleanup`);
         }
       } catch (error) {
         console.error('Error cleaning up supplier pending balance on PO deletion:', error);
@@ -797,7 +774,6 @@ router.delete('/:id', [
               performedBy: req.user._id,
               notes: `Inventory rolled back due to deletion of purchase order ${purchaseOrder.poNumber}`
             });
-            console.log(`Restored ${item.quantity} units of product ${item.product} to inventory`);
           } catch (error) {
             console.error(`Failed to restore inventory for product ${item.product}:`, error);
           }

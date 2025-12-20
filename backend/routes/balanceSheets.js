@@ -171,11 +171,11 @@ router.put('/:balanceSheetId/status', [
       notes || `Status changed to ${status}`
     );
 
-    // Note: Approval tracking would need to be added to the model schema
-    // if (status === 'approved') {
-    //   balanceSheet.metadata.approvedBy = req.user._id;
-    //   balanceSheet.metadata.approvedAt = new Date();
-    // }
+    // Track approval information in metadata when status is approved
+    if (status === 'approved' && balanceSheet.metadata) {
+      balanceSheet.metadata.approvedBy = req.user._id;
+      balanceSheet.metadata.approvedAt = new Date();
+    }
 
     res.json({
       message: 'Balance sheet status updated successfully',

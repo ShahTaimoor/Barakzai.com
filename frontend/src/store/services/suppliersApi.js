@@ -1,0 +1,110 @@
+import { api } from '../api';
+
+export const suppliersApi = api.injectEndpoints({
+  endpoints: (builder) => ({
+    getSuppliers: builder.query({
+      query: (params) => ({
+        url: 'suppliers',
+        method: 'get',
+        params,
+      }),
+      providesTags: (result) =>
+        result?.data?.suppliers
+          ? [
+              ...result.data.suppliers.map(({ _id, id }) => ({
+                type: 'Suppliers',
+                id: _id || id,
+              })),
+              { type: 'Suppliers', id: 'LIST' },
+            ]
+          : [{ type: 'Suppliers', id: 'LIST' }],
+    }),
+    createSupplier: builder.mutation({
+      query: (data) => ({
+        url: 'suppliers',
+        method: 'post',
+        data,
+      }),
+      invalidatesTags: [{ type: 'Suppliers', id: 'LIST' }],
+    }),
+    updateSupplier: builder.mutation({
+      query: ({ id, data }) => ({
+        url: `suppliers/${id}`,
+        method: 'put',
+        data,
+      }),
+      invalidatesTags: (_r, _e, { id }) => [
+        { type: 'Suppliers', id },
+        { type: 'Suppliers', id: 'LIST' },
+      ],
+    }),
+    deleteSupplier: builder.mutation({
+      query: (id) => ({
+        url: `suppliers/${id}`,
+        method: 'delete',
+      }),
+      invalidatesTags: (_r, _e, id) => [
+        { type: 'Suppliers', id },
+        { type: 'Suppliers', id: 'LIST' },
+      ],
+    }),
+    checkEmail: builder.query({
+      query: ({ email, excludeId }) => ({
+        url: `suppliers/check-email/${encodeURIComponent(email)}`,
+        method: 'get',
+        params: excludeId ? { excludeId } : undefined,
+      }),
+    }),
+    checkCompanyName: builder.query({
+      query: ({ companyName, excludeId }) => ({
+        url: `suppliers/check-company-name/${encodeURIComponent(companyName)}`,
+        method: 'get',
+        params: excludeId ? { excludeId } : undefined,
+      }),
+    }),
+    checkContactName: builder.query({
+      query: ({ contactName, excludeId }) => ({
+        url: `suppliers/check-contact-name/${encodeURIComponent(contactName)}`,
+        method: 'get',
+        params: excludeId ? { excludeId } : undefined,
+      }),
+    }),
+    getActiveSuppliers: builder.query({
+      query: () => ({
+        url: 'suppliers/active/list',
+        method: 'get',
+      }),
+      providesTags: [{ type: 'Suppliers', id: 'ACTIVE' }],
+    }),
+    getSupplier: builder.query({
+      query: (id) => ({
+        url: `suppliers/${id}`,
+        method: 'get',
+      }),
+      providesTags: (_r, _e, id) => [{ type: 'Suppliers', id }],
+    }),
+    searchSuppliers: builder.query({
+      query: (searchTerm) => ({
+        url: `suppliers/search/${encodeURIComponent(searchTerm)}`,
+        method: 'get',
+      }),
+      providesTags: [{ type: 'Suppliers', id: 'SEARCH' }],
+    }),
+  }),
+  overrideExisting: false,
+});
+
+export const {
+  useGetSuppliersQuery,
+  useCreateSupplierMutation,
+  useUpdateSupplierMutation,
+  useDeleteSupplierMutation,
+  useLazyCheckEmailQuery,
+  useLazyCheckCompanyNameQuery,
+  useLazyCheckContactNameQuery,
+  useGetActiveSuppliersQuery,
+  useGetSupplierQuery,
+  useSearchSuppliersQuery,
+  useLazySearchSuppliersQuery,
+} = suppliersApi;
+

@@ -239,7 +239,6 @@ router.post('/', [
           const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
           const newInvoiceNumber = `${invoiceData.invoiceNumber}-${timestamp}-${random}`;
           
-          console.log(`Duplicate invoice number detected, retrying with: ${newInvoiceNumber}`);
           invoiceData.invoiceNumber = newInvoiceNumber;
           invoice = new PurchaseInvoice(invoiceData);
         } else {
@@ -256,7 +255,6 @@ router.post('/', [
     
     for (const item of items) {
       try {
-        console.log(`Attempting to update inventory for product ${item.product} with quantity ${item.quantity}`);
         
         const inventoryUpdate = await inventoryService.updateStock({
           productId: item.product,
@@ -277,7 +275,6 @@ router.post('/', [
           success: true
         });
         
-        console.log(`Stock updated for product ${item.product}: +${item.quantity}, new stock: ${inventoryUpdate.currentStock}`);
       } catch (inventoryError) {
         console.error(`Failed to update inventory for product ${item.product}:`, inventoryError);
         console.error('Full error details:', {
@@ -310,10 +307,6 @@ router.post('/', [
     // Logic: 
     // 1. Add invoice total to pendingBalance (we owe this amount)
     // 2. Record payment which will reduce pendingBalance and handle overpayments (add to advanceBalance)
-    console.log('=== SUPPLIER BALANCE UPDATE DEBUG ===');
-    console.log('Payment data received:', JSON.stringify(payment, null, 2));
-    console.log('Pricing total:', pricing.total);
-    console.log('Supplier ID:', supplier);
     
     if (supplier && pricing && pricing.total > 0) {
       try {
@@ -328,20 +321,13 @@ router.post('/', [
             { $inc: { pendingBalance: pricing.total } },
             { new: true }
           );
-          console.log(`Added invoice total ${pricing.total} to supplier ${supplier} pendingBalance`);
           
           // Step 2: Record payment (this will reduce pendingBalance and handle overpayments)
           const amountPaid = payment?.amount || payment?.paidAmount || 0;
           if (amountPaid > 0) {
             await SupplierBalanceService.recordPayment(supplier, amountPaid, invoice._id);
-            console.log(`Recorded payment of ${amountPaid} for supplier ${supplier}`);
-            
-            // Log final balance state
-            const updatedSupplier = await Supplier.findById(supplier);
-            console.log(`Final supplier balance - Pending: ${updatedSupplier.pendingBalance}, Advance: ${updatedSupplier.advanceBalance}`);
           }
         } else {
-          console.log(`Supplier ${supplier} not found, skipping balance update`);
         }
       } catch (error) {
         console.error('Error updating supplier balance on purchase invoice creation:', error);
@@ -582,7 +568,6 @@ router.put('/:id', [
                 },
                 { new: true }
               );
-              console.log(`Reversed old payment ${oldAmountPaid} for supplier ${oldSupplier} (pending: +${pendingRestored}, advance: -${advanceToRemove})`);
             }
             
             // Remove old invoice total from pendingBalance
@@ -591,7 +576,6 @@ router.put('/:id', [
               { $inc: { pendingBalance: -oldTotal } },
               { new: true }
             );
-            console.log(`Removed old invoice total ${oldTotal} from supplier ${oldSupplier} pendingBalance`);
           }
         }
         
@@ -605,17 +589,11 @@ router.put('/:id', [
               { $inc: { pendingBalance: updatedInvoice.pricing.total } },
               { new: true }
             );
-            console.log(`Added new invoice total ${updatedInvoice.pricing.total} to supplier ${updatedInvoice.supplier} pendingBalance`);
             
             // Record new payment (handles overpayments correctly)
             const newAmountPaid = updatedInvoice.payment?.amount || updatedInvoice.payment?.paidAmount || 0;
             if (newAmountPaid > 0) {
               await SupplierBalanceService.recordPayment(updatedInvoice.supplier, newAmountPaid, updatedInvoice._id);
-              console.log(`Recorded new payment ${newAmountPaid} for supplier ${updatedInvoice.supplier}`);
-              
-              // Log final balance state
-              const finalSupplier = await Supplier.findById(updatedInvoice.supplier);
-              console.log(`Final supplier balance - Pending: ${finalSupplier.pendingBalance}, Advance: ${finalSupplier.advanceBalance}`);
             }
           }
         }
@@ -658,7 +636,6 @@ router.delete('/:id', [
       return res.status(400).json({ message: 'Cannot delete paid or closed invoices' });
     }
     
-    console.log(`Deleting purchase invoice ${invoice.invoiceNumber}...`);
     
     // ROLLBACK INVENTORY - Subtract the quantities that were added
     const inventoryService = require('../services/inventoryService');
@@ -667,7 +644,6 @@ router.delete('/:id', [
     if (invoice.status === 'confirmed') {
       for (const item of invoice.items) {
         try {
-          console.log(`Rolling back inventory for product ${item.product}: -${item.quantity}`);
           
           const inventoryRollback = await inventoryService.updateStock({
             productId: item.product,
@@ -688,7 +664,6 @@ router.delete('/:id', [
             success: true
           });
           
-          console.log(`✓ Inventory rolled back for product ${item.product}: -${item.quantity}`);
         } catch (error) {
           console.error(`Failed to rollback inventory for product ${item.product}:`, error);
           inventoryRollbacks.push({
@@ -726,7 +701,6 @@ router.delete('/:id', [
               },
               { new: true }
             );
-            console.log(`✓ Reversed payment ${amountPaid} for supplier ${invoice.supplier} (pending: +${pendingRestored}, advance: -${advanceToRemove})`);
           }
           
           // Remove invoice total from pendingBalance
@@ -735,10 +709,7 @@ router.delete('/:id', [
             { $inc: { pendingBalance: -invoice.pricing.total } },
             { new: true }
           );
-          console.log(`✓ Rolled back supplier ${invoice.supplier} invoice total ${invoice.pricing.total}`);
-          console.log(`  Final pending balance: ${updateResult.pendingBalance}, advance balance: ${updateResult.advanceBalance || 0}`);
         } else {
-          console.log(`Supplier ${invoice.supplier} not found, skipping balance rollback`);
         }
       } catch (error) {
         console.error('Error rolling back supplier balance:', error);
@@ -749,7 +720,6 @@ router.delete('/:id', [
     // Delete the invoice
     await PurchaseInvoice.findByIdAndDelete(req.params.id);
     
-    console.log(`✓ Purchase invoice ${invoice.invoiceNumber} deleted successfully`);
     
     res.json({ 
       message: 'Purchase invoice deleted successfully',
@@ -879,9 +849,7 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
       .sort({ createdAt: -1 })
       .lean();
     
-    console.log(`Found ${invoices.length} purchase invoices for export`);
     if (invoices.length > 0) {
-      console.log('Sample invoice:', JSON.stringify(invoices[0], null, 2));
     }
     
     // Ensure exports directory exists

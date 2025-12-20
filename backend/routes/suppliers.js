@@ -285,8 +285,6 @@ router.get('/', [
     const suppliers = await query;
     const total = await Supplier.countDocuments(filter);
     
-    console.log('Suppliers found:', suppliers.length, 'Total:', total);
-    console.log('Filter used:', filter);
     
     // Transform supplier names to uppercase
     const transformedSuppliers = suppliers.map(transformSupplierToUppercase);
@@ -336,7 +334,7 @@ router.get('/:id', auth, async (req, res) => {
 // @access  Private
 router.post('/', [
   auth,
-  // requirePermission('create_suppliers'), // Temporarily disabled for testing
+  requirePermission('create_suppliers'),
   body('companyName').trim().isLength({ min: 1 }).withMessage('Company name is required'),
   body('contactPerson.name').trim().isLength({ min: 1 }).withMessage('Contact name is required'),
   body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -349,11 +347,9 @@ router.post('/', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
     
-    console.log('Creating supplier with data:', req.body);
     
     // Clean up empty strings
     const cleanData = { ...req.body };
@@ -633,7 +629,6 @@ router.post('/', [
       createdBy: req.user._id
     }, req.user._id);
 
-    console.log('Supplier created successfully:', supplier._id, supplier.companyName);
 
     res.status(201).json({
       message: 'Supplier created successfully',

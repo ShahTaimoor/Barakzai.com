@@ -324,16 +324,6 @@ router.post('/', [
     
     const { customer, items, orderType, payment, notes, isTaxExempt } = req.body;
     
-    // Log the payment data for debugging
-    console.log('Order creation request - Payment data:', {
-      method: payment?.method,
-      amount: payment?.amount,
-      remainingBalance: payment?.remainingBalance,
-      isPartialPayment: payment?.isPartialPayment,
-      isAdvancePayment: payment?.isAdvancePayment,
-      advanceAmount: payment?.advanceAmount
-    });
-    
     // Validate customer if provided
     let customerData = null;
     if (customer) {
@@ -487,7 +477,6 @@ router.post('/', [
           success: true
         });
         
-        console.log(`Reduced inventory for product ${item.product} by ${item.quantity}. New stock: ${inventoryUpdate.currentStock}`);
       } catch (error) {
         console.error(`Error updating inventory for product ${item.product}:`, error);
         // Rollback successful inventory updates
@@ -550,14 +539,12 @@ router.post('/', [
       createdBy: req.user._id
     };
     
-    console.log('Creating order with data:', JSON.stringify(orderData, null, 2));
     
     const order = new Sales(orderData);
     await order.save();
 
     try {
       await StockMovementService.trackSalesOrder(order, req.user);
-      console.log(`Stock movements recorded for sales invoice ${order.orderNumber}`);
     } catch (movementError) {
       console.error('Error recording stock movements for sales order:', movementError);
       console.error('Movement error details:', {
@@ -582,7 +569,6 @@ router.post('/', [
       }
     }
     
-    console.log('Order created successfully:', order._id);
     
     // Update customer balance for sales invoices
     // Logic: 
@@ -604,20 +590,13 @@ router.post('/', [
               { $inc: { pendingBalance: orderData.pricing.total } },
               { new: true }
             );
-            console.log(`Added invoice total ${orderData.pricing.total} to customer ${customer} pendingBalance`);
           }
           
           // Step 2: Record payment (this will reduce pendingBalance and handle overpayments)
           if (amountPaid > 0) {
             await CustomerBalanceService.recordPayment(customer, amountPaid, order._id);
-            console.log(`Recorded payment of ${amountPaid} for customer ${customer}`);
-            
-            // Log final balance state
-            const updatedCustomer = await Customer.findById(customer);
-            console.log(`Final customer balance - Pending: ${updatedCustomer.pendingBalance}, Advance: ${updatedCustomer.advanceBalance || 0}`);
           }
         } else {
-          console.log(`Customer ${customer} not found, skipping balance update`);
         }
       } catch (error) {
         console.error('Error updating customer balance on sales order creation:', error);
@@ -631,7 +610,6 @@ router.post('/', [
     try {
       const AccountingService = require('../services/accountingService');
       await AccountingService.recordSale(order);
-      console.log(`Created accounting entries for sales order ${order.orderNumber}`);
     } catch (error) {
       console.error('Error creating accounting entries for sales order:', error);
       // Don't fail the order creation if accounting fails
@@ -711,12 +689,8 @@ router.put('/:id/status', [
               },
               { new: true }
             );
-            console.log(`Order ${order.orderNumber} confirmed - moved ${unpaidAmount} from pendingBalance to currentBalance`);
-            console.log(`- New pendingBalance: ${updateResult.pendingBalance}`);
-            console.log(`- New currentBalance: ${updateResult.currentBalance}`);
           }
         } else {
-          console.log(`Customer ${order.customer} not found, skipping balance update on confirmation`);
         }
       } catch (error) {
         console.error('Error updating customer balance on order confirmation:', error);
@@ -749,11 +723,9 @@ router.put('/:id/status', [
                   pendingBalance: unpaidAmount,  // Add back to pending
                   currentBalance: -unpaidAmount  // Remove from current
                 };
-                console.log(`Order ${order.orderNumber} cancelled (was confirmed) - moved ${unpaidAmount} from currentBalance back to pendingBalance`);
               } else {
                 // If order was not confirmed, it was still in pendingBalance, so just remove it
                 balanceUpdate = { pendingBalance: -unpaidAmount };
-                console.log(`Order ${order.orderNumber} cancelled (was not confirmed) - removed ${unpaidAmount} from customer pending balance`);
               }
               
               const updateResult = await Customer.findByIdAndUpdate(
@@ -761,11 +733,8 @@ router.put('/:id/status', [
                 { $inc: balanceUpdate },
                 { new: true }
               );
-              console.log(`- New pendingBalance: ${updateResult.pendingBalance}`);
-              console.log(`- New currentBalance: ${updateResult.currentBalance}`);
             }
           } else {
-            console.log(`Customer ${order.customer} not found, skipping balance reversal`);
           }
         } catch (error) {
           console.error('Error reversing customer balance on cancellation:', error);
@@ -1086,13 +1055,6 @@ router.put('/:id', [
               { $inc: balanceUpdate },
               { new: true }
             );
-            console.log(`Adjusted customer ${order.customer} balance by ${balanceDifference}`);
-            console.log(`- Order was confirmed: ${wasConfirmed}`);
-            console.log(`- Balance field updated: ${wasConfirmed ? 'currentBalance' : 'pendingBalance'}`);
-            console.log(`- Old total: ${oldTotal}, New total: ${order.pricing.total}`);
-            console.log(`- Old balance added: ${oldBalanceAdded}, New balance to add: ${newBalanceToAdd}`);
-            console.log(`- New pendingBalance: ${updateResult.pendingBalance}`);
-            console.log(`- New currentBalance: ${updateResult.currentBalance}`);
           }
           
           // If customer changed, remove balance from old customer
@@ -1113,7 +1075,6 @@ router.put('/:id', [
                 { $inc: oldBalanceUpdate },
                 { new: true }
               );
-              console.log(`Removed ${oldBalanceAdded} from old customer ${oldCustomer} balance`);
             }
           }
         }
@@ -1197,11 +1158,6 @@ router.post('/:id/payment', [
         
         const Customer = require('../models/Customer');
         const updatedCustomer = await Customer.findById(order.customer);
-        console.log(`Updated customer ${order.customer} balance after payment:`);
-        console.log(`- Payment amount: ${amount}`);
-        console.log(`- Remaining balance before payment: ${remainingBalance}`);
-        console.log(`- New pendingBalance: ${updatedCustomer.pendingBalance}`);
-        console.log(`- New advanceBalance: ${updatedCustomer.advanceBalance || 0}`);
       } catch (error) {
         console.error('Error updating customer balance on payment:', error);
         // Don't fail the payment if customer update fails
@@ -1270,7 +1226,6 @@ router.delete('/:id', [
               },
               { new: true }
             );
-            console.log(`✓ Reversed payment ${amountPaid} for customer ${order.customer} (pending: +${pendingRestored}, advance: -${advanceToRemove})`);
           }
           
           // Remove invoice total from pendingBalance
@@ -1279,10 +1234,7 @@ router.delete('/:id', [
             { $inc: { pendingBalance: -order.pricing.total } },
             { new: true }
           );
-          console.log(`✓ Rolled back customer ${order.customer} invoice total ${order.pricing.total}`);
-          console.log(`  Final pending balance: ${updateResult.pendingBalance}, advance balance: ${updateResult.advanceBalance || 0}`);
         } else {
-          console.log(`Customer ${order.customer} not found, skipping balance rollback`);
         }
       } catch (error) {
         console.error('Error rolling back customer balance:', error);
@@ -1306,7 +1258,6 @@ router.delete('/:id', [
             performedBy: req.user._id,
             notes: `Inventory restored due to deletion of order ${order.orderNumber}`
           });
-          console.log(`Restored ${item.quantity} units of product ${item.product} to inventory`);
         } catch (error) {
           console.error(`Failed to restore inventory for product ${item.product}:`, error);
           // Continue with other items
@@ -1436,7 +1387,6 @@ router.get('/period/summary', [
 // @access  Private
 router.post('/export/excel', [auth, requirePermission('view_orders')], async (req, res) => {
   try {
-    console.log('Excel export request received:', req.body);
     const { filters = {} } = req.body;
     
     // Build query based on filters
@@ -1558,7 +1508,6 @@ router.post('/export/excel', [auth, requirePermission('view_orders')], async (re
     const exportsDir = path.join(__dirname, '../exports');
     if (!fs.existsSync(exportsDir)) {
       fs.mkdirSync(exportsDir, { recursive: true });
-      console.log('Created exports directory:', exportsDir);
     }
     
     // Generate unique filename with timestamp
@@ -1566,9 +1515,7 @@ router.post('/export/excel', [auth, requirePermission('view_orders')], async (re
     const filename = `sales_${timestamp}.xlsx`;
     const filepath = path.join(exportsDir, filename);
     
-    console.log('Writing Excel file to:', filepath);
     XLSX.writeFile(workbook, filepath);
-    console.log('Excel file created successfully:', filename);
     
     res.json({
       message: 'Orders exported successfully',
