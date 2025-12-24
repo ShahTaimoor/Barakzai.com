@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Plus,
   Search,
@@ -11,7 +10,13 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
-import { productVariantsAPI, productsAPI } from '../services/api';
+import {
+  useGetVariantsQuery,
+  useCreateVariantMutation,
+  useUpdateVariantMutation,
+  useDeleteVariantMutation,
+} from '../store/services/productVariantsApi';
+import { useGetProductsQuery } from '../store/services/productsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
@@ -20,7 +25,6 @@ import ValidatedInput, { ValidatedSelect } from '../components/ValidatedInput';
 import { useFormValidation } from '../hooks/useFormValidation';
 
 const ProductVariants = () => {
-  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBaseProduct, setSelectedBaseProduct] = useState('');
   const [variantTypeFilter, setVariantTypeFilter] = useState('');
@@ -28,51 +32,33 @@ const ProductVariants = () => {
   const [editingVariant, setEditingVariant] = useState(null);
 
   // Fetch variants
-  const { data: variantsData, isLoading: variantsLoading, refetch } = useQuery(
-    ['productVariants', selectedBaseProduct, variantTypeFilter, searchTerm],
-    () => productVariantsAPI.getVariants({
-      baseProduct: selectedBaseProduct || undefined,
-      variantType: variantTypeFilter || undefined,
-      search: searchTerm || undefined
-    }),
-    {
-      select: (data) => ({
-        variants: data?.variants || []
-      })
-    }
-  );
+  const { data: variantsData, isLoading: variantsLoading, refetch } = useGetVariantsQuery({
+    baseProduct: selectedBaseProduct || undefined,
+    variantType: variantTypeFilter || undefined,
+    search: searchTerm || undefined
+  });
 
   // Fetch products for base product selector
-  const { data: productsData } = useQuery(
-    ['products', 'all'],
-    () => productsAPI.getProducts({}),
-    {
-      select: (data) => ({
-        products: data?.data?.products || []
-      })
-    }
-  );
+  const { data: productsData } = useGetProductsQuery({});
 
-  const variants = variantsData?.variants || [];
-  const products = productsData?.products || [];
+  const variants = variantsData?.variants || variantsData?.data?.variants || [];
+  const products = productsData?.products || productsData?.data?.products || [];
 
   // Delete mutation
-  const deleteMutation = useMutation(
-    (id) => productVariantsAPI.deleteVariant(id),
-    {
-      onSuccess: () => {
-        showSuccessToast('Variant deleted successfully');
-        queryClient.invalidateQueries('productVariants');
-        refetch();
-      },
-      onError: (error) => {
-        handleApiError(error, 'ProductVariants');
-      }
+  const [deleteVariant, { isLoading: isDeleting }] = useDeleteVariantMutation();
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteVariant(id).unwrap();
+      showSuccessToast('Variant deleted successfully');
+      refetch();
+    } catch (error) {
+      handleApiError(error, 'ProductVariants');
     }
-  );
+  };
 
   const { isDeleteDialogOpen, itemToDelete, openDeleteDialog, closeDeleteDialog, confirmDelete } = useDeleteConfirmation(
-    deleteMutation.mutate
+    handleDelete
   );
 
   const handleEdit = (variant) => {
@@ -251,7 +237,6 @@ const ProductVariants = () => {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           onSuccess={() => {
-            queryClient.invalidateQueries('productVariants');
             refetch();
           }}
         />
@@ -271,7 +256,8 @@ const ProductVariants = () => {
 
 // Variant Modal Component
 const VariantModal = ({ variant, products, isOpen, onClose, onSuccess }) => {
-  const queryClient = useQueryClient();
+  const [createVariant, { isLoading: isCreating }] = useCreateVariantMutation();
+  const [updateVariant, { isLoading: isUpdating }] = useUpdateVariantMutation();
   const [formData, setFormData] = useState({
     baseProduct: '',
     variantName: '',
@@ -351,44 +337,24 @@ const VariantModal = ({ variant, products, isOpen, onClose, onSuccess }) => {
     }
   }, [formData.baseProduct, formData.transformationCost, products, variant]);
 
-  const createMutation = useMutation(
-    (data) => productVariantsAPI.createVariant(data),
-    {
-      onSuccess: () => {
-        showSuccessToast('Variant created successfully');
-        onClose();
-        onSuccess();
-      },
-      onError: (error) => {
-        handleApiError(error, 'ProductVariants');
-      }
-    }
-  );
-
-  const updateMutation = useMutation(
-    ({ id, data }) => productVariantsAPI.updateVariant(id, data),
-    {
-      onSuccess: () => {
-        showSuccessToast('Variant updated successfully');
-        onClose();
-        onSuccess();
-      },
-      onError: (error) => {
-        handleApiError(error, 'ProductVariants');
-      }
-    }
-  );
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (variant) {
-      updateMutation.mutate({ id: variant._id, data: formData });
-    } else {
-      createMutation.mutate(formData);
+    try {
+      if (variant) {
+        await updateVariant({ id: variant._id, ...formData }).unwrap();
+        showSuccessToast('Variant updated successfully');
+      } else {
+        await createVariant(formData).unwrap();
+        showSuccessToast('Variant created successfully');
+      }
+      onClose();
+      onSuccess();
+    } catch (error) {
+      handleApiError(error, 'ProductVariants');
     }
   };
 
-  const isSubmitting = createMutation.isLoading || updateMutation.isLoading;
+  const isSubmitting = isCreating || isUpdating;
 
   if (!isOpen) return null;
 

@@ -40,8 +40,7 @@ import toast from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
 import MobileNavigation from './MobileNavigation';
 import { useResponsive } from './ResponsiveContainer';
-import { useQuery } from 'react-query';
-import { inventoryAlertsAPI } from '../services/api';
+import { useGetAlertSummaryQuery } from '../store/services/inventoryAlertsApi';
 
 const navigation = [
   // Dashboard
@@ -120,17 +119,12 @@ const navigation = [
 
 // Inventory Alerts Badge Component
 const InventoryAlertsBadge = ({ onNavigate }) => {
-  const { data: summaryData } = useQuery(
-    'inventoryAlertsSummary',
-    () => inventoryAlertsAPI.getAlertSummary(),
-    {
-      refetchInterval: 60000, // Refetch every minute
-      retry: 1,
-      onError: () => {} // Silently fail
-    }
-  );
+  const { data: summaryData } = useGetAlertSummaryQuery(undefined, {
+    pollingInterval: 60000, // Refetch every minute
+    skip: false,
+  });
 
-  const summary = summaryData?.data || {};
+  const summary = summaryData?.data || summaryData || {};
   const criticalCount = summary.critical || 0;
   const outOfStockCount = summary.outOfStock || 0;
   const totalAlerts = summary.total || 0;

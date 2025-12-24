@@ -8,44 +8,51 @@ import {
   X,
   HelpCircle
 } from 'lucide-react';
-import { customersAPI } from '../services/api';
+import {
+  useExportExcelMutation,
+  useImportExcelMutation,
+  useDownloadTemplateQuery,
+  useLazyDownloadExportFileQuery,
+} from '../store/services/customersApi';
 import { LoadingButton } from './LoadingSpinner';
 import { handleApiError, showSuccessToast, showErrorToast, showWarningToast } from '../utils/errorHandler';
 import toast from 'react-hot-toast';
 
 const CustomerImportExport = ({ onImportComplete, filters = {} }) => {
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importResults, setImportResults] = useState(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  
+  const [exportExcel, { isLoading: isExporting }] = useExportExcelMutation();
+  const [importExcel, { isLoading: isImporting }] = useImportExcelMutation();
+  const { refetch: downloadTemplate } = useDownloadTemplateQuery(undefined, { skip: true });
+  const [downloadExportFile] = useLazyDownloadExportFileQuery();
 
   const handleExportExcel = async () => {
     try {
-      setIsExporting(true);
-      const response = await customersAPI.exportExcel(filters);
+      const response = await exportExcel(filters).unwrap();
       
-      // Download the file
-      const downloadResponse = await customersAPI.downloadFile(response.data.filename);
+      // Backend returns JSON with downloadUrl, so we need to download the file
+      if (response.downloadUrl) {
+        const filename = response.filename || 'customers.xlsx';
+        const fileResponse = await downloadExportFile(filename).unwrap();
+        
+        // Create blob and download
+        const blob = fileResponse instanceof Blob ? fileResponse : new Blob([fileResponse]);
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
       
-      // Create blob and download
-      const blob = new Blob([downloadResponse.data], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', response.data.filename);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      showSuccessToast(`Exported ${response.data.recordCount} customers to Excel`);
+      showSuccessToast(`Exported ${response.recordCount || 0} customers to Excel`);
     } catch (error) {
       handleApiError(error, 'Excel Export');
-    } finally {
-      setIsExporting(false);
     }
   };
 
@@ -80,35 +87,34 @@ const CustomerImportExport = ({ onImportComplete, filters = {} }) => {
     }
 
     try {
-      setIsImporting(true);
-      const response = await customersAPI.importExcel(importFile);
+      const response = await importExcel(importFile).unwrap();
       
-      setImportResults(response.data.results);
+      setImportResults(response?.results || response);
       
-      if (response.data.results.success > 0) {
-        showSuccessToast(`Successfully imported ${response.data.results.success} customers`);
+      if (response?.results?.success > 0 || response?.success > 0) {
+        const successCount = response?.results?.success || response?.success;
+        showSuccessToast(`Successfully imported ${successCount} customers`);
         if (onImportComplete) {
           onImportComplete();
         }
       }
       
-      if (response.data.results.errors.length > 0) {
-        showWarningToast(`${response.data.results.errors.length} customers failed to import`);
+      const errors = response?.results?.errors || response?.errors || [];
+      if (errors.length > 0) {
+        showWarningToast(`${errors.length} customers failed to import`);
       }
       
     } catch (error) {
       handleApiError(error, 'Customer Import');
-    } finally {
-      setIsImporting(false);
     }
   };
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await customersAPI.downloadTemplate();
+      const response = await downloadTemplate();
       
       // Create blob and download
-      const blob = new Blob([response.data], { 
+      const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { 
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
       });
       const link = document.createElement('a');
@@ -119,6 +125,7 @@ const CustomerImportExport = ({ onImportComplete, filters = {} }) => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
       
       showSuccessToast('Template downloaded successfully');
     } catch (error) {

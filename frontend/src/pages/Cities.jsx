@@ -449,7 +449,7 @@ export const Cities = () => {
             setIsModalOpen(false);
             setSelectedCity(null);
           }}
-          isSubmitting={createMutation.isLoading || updateMutation.isLoading}
+          isSubmitting={creating || updating}
         />
       )}
 

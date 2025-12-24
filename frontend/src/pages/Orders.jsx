@@ -10,7 +10,8 @@ import {
   XCircle,
   Trash2,
   Edit,
-  Printer
+  Printer,
+  Calendar
 } from 'lucide-react';
 import {
   useGetOrdersQuery,
@@ -129,6 +130,8 @@ const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
 export const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [fromDate, setFromDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // 30 days ago
+  const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]); // Today
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -147,11 +150,18 @@ export const Orders = () => {
   const [newProductQuantity, setNewProductQuantity] = useState(1);
   const [newProductRate, setNewProductRate] = useState(0);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  
+  // Mutations
+  const [updateOrder] = useUpdateOrderMutation();
+  const [deleteOrder] = useDeleteOrderMutation();
+  
   // Fetch orders
-  const { data: ordersResponse, isLoading, error } = useGetOrdersQuery(
+  const { data: ordersResponse, isLoading, error, refetch: refetchOrders } = useGetOrdersQuery(
     { 
       search: searchTerm, 
       status: statusFilter || undefined,
+      dateFrom: fromDate || undefined,
+      dateTo: toDate || undefined,
       limit: 999999 // Get all orders without pagination
     }
   );
@@ -184,7 +194,7 @@ export const Orders = () => {
       limit: 50 
     },
     {
-      skip: !showProductModal,
+      skip: !showEditModal && !showProductModal, // Fetch products when edit modal or product modal is open
     }
   );
 
@@ -210,6 +220,16 @@ export const Orders = () => {
     }
   );
 
+  // Extract customers from response
+  const customers = React.useMemo(() => {
+    if (!customersResponse) return [];
+    if (customersResponse?.data?.customers) return customersResponse.data.customers;
+    if (customersResponse?.customers) return customersResponse.customers;
+    if (customersResponse?.data?.data?.customers) return customersResponse.data.data.customers;
+    if (Array.isArray(customersResponse)) return customersResponse;
+    return [];
+  }, [customersResponse]);
+
   // Handlers
   const handleDeleteOrder = async (orderId) => {
     try {
@@ -233,41 +253,42 @@ export const Orders = () => {
 
   // Event handlers
   const handleEdit = (order) => {
-    // Get component info for Sales page
-    const componentInfo = getComponentInfo('/sales');
-    if (componentInfo) {
-      // Create a new tab for editing the sales invoice
-      const newTabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Prepare the order data to pass to the Sales page
-      const orderData = {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        customer: order.customer,
-        items: order.items || [],
-        notes: order.notes || '',
-        orderType: order.orderType || 'retail',
-        isTaxExempt: order.pricing?.isTaxExempt !== undefined ? order.pricing.isTaxExempt : true,
-        payment: order.payment || null,
-        isEditMode: true
-      };
-      
-      openTab({
-        title: `Edit Sales - ${order.orderNumber}`,
-        path: '/sales',
-        component: componentInfo.component,
-        icon: componentInfo.icon,
-        allowMultiple: true,
-        props: { 
-          tabId: newTabId,
-          editData: orderData
-        }
-      });
-      
-      showSuccessToast(`Opening ${order.orderNumber} for editing...`);
-    } else {
-      showErrorToast('Sales page not found');
+    // Initialize edit form with order data
+    setSelectedOrder(order);
+    
+    // Format items for editing (ensure product ID is available)
+    const formattedItems = (order.items || []).map(item => ({
+      product: item.product?._id || item.product || null,
+      productName: item.product?.name || 'Unknown Product',
+      quantity: item.quantity || 1,
+      unitPrice: item.unitPrice || 0,
+      total: item.total || (item.quantity * item.unitPrice) || 0
+    }));
+    
+    // Ensure customer is ID string, not object
+    let customerId = null;
+    if (order.customer) {
+      customerId = typeof order.customer === 'object' 
+        ? (order.customer._id || order.customer.id || order.customer)
+        : order.customer;
     }
+    
+    setEditFormData({
+      notes: order.notes || '',
+      items: formattedItems,
+      customer: customerId,
+      orderType: order.orderType || 'retail'
+    });
+    
+    // Reset product selection fields
+    setSelectedProduct(null);
+    setNewProductQuantity(1);
+    setNewProductRate(0);
+    setProductSearchTerm('');
+    setCustomerSearchTerm(order.customerInfo?.name || '');
+    
+    // Open edit modal
+    setShowEditModal(true);
   };
 
   const handlePrint = (order) => {
@@ -428,11 +449,8 @@ export const Orders = () => {
     }
 
     const newItem = {
-      product: {
-        _id: selectedProduct._id,
-        name: selectedProduct.name,
-        description: selectedProduct.description
-      },
+      product: selectedProduct._id, // Store product ID for backend
+      productName: selectedProduct.name, // Store name for display
       quantity: newProductQuantity,
       unitPrice: newProductRate,
       total: newProductQuantity * newProductRate
@@ -482,31 +500,56 @@ export const Orders = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1 relative min-w-0">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by invoice number, customer name, or amount..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10 w-full"
-          />
+      <div className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <div className="flex-1 relative min-w-0">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by invoice number, customer name, or amount..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input pl-10 w-full"
+            />
+          </div>
+          <div className="flex-shrink-0">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input min-w-[120px]"
+            >
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="processing">Processing</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
         </div>
-        <div className="flex-shrink-0">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="input min-w-[120px]"
-          >
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+        
+        {/* Date Filters */}
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">From Date:</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="input"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">To Date:</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="input"
+            />
+          </div>
         </div>
       </div>
 
@@ -910,7 +953,29 @@ export const Orders = () => {
               {/* Edit Form */}
               <form onSubmit={(e) => {
                 e.preventDefault();
-                handleUpdateOrder(selectedOrder._id, editFormData);
+                // Format items for backend - ensure product is ID, not object
+                const formattedItems = editFormData.items.map(item => ({
+                  product: item.product?._id || item.product, // Extract ID if object, otherwise use as-is
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice
+                }));
+                
+                // Ensure customer is ID string, not object
+                let customerId = null;
+                if (editFormData.customer) {
+                  customerId = typeof editFormData.customer === 'object' 
+                    ? (editFormData.customer._id || editFormData.customer.id || editFormData.customer)
+                    : editFormData.customer;
+                }
+                
+                const updateData = {
+                  notes: editFormData.notes,
+                  items: formattedItems,
+                  orderType: editFormData.orderType,
+                  customer: customerId || undefined // Only include if not null
+                };
+                
+                handleUpdateOrder(selectedOrder._id, updateData);
                 setShowEditModal(false);
               }}>
 
@@ -959,6 +1024,9 @@ export const Orders = () => {
                                 onClick={() => {
                                   setProductSearchTerm(product.name);
                                   setSelectedProduct(product);
+                                  // Auto-fill rate with retail price when product is selected
+                                  const defaultRate = product.pricing?.retail || 0;
+                                  setNewProductRate(defaultRate);
                                 }}
                                 className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                               >
@@ -970,6 +1038,29 @@ export const Orders = () => {
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+                        {productSearchTerm && products?.length === 0 && (
+                          <div className="mt-2 p-2 text-sm text-gray-500 text-center">
+                            No products found matching "{productSearchTerm}"
+                          </div>
+                        )}
+                        {/* Show selected product info */}
+                        {selectedProduct && (
+                          <div className="mt-2 p-2 bg-blue-50 rounded border">
+                            <div className="text-sm font-medium text-blue-900">
+                              Selected: {selectedProduct.name}
+                            </div>
+                            <div className="text-xs text-blue-700 mt-1">
+                              Stock: {selectedProduct.inventory?.currentStock || 0} | 
+                              Retail: {Math.round(selectedProduct.pricing?.retail || 0)} | 
+                              Wholesale: {Math.round(selectedProduct.pricing?.wholesale || 0)}
+                            </div>
+                            {newProductRate === 0 && (
+                              <div className="text-xs text-orange-600 mt-1">
+                                ⚠ Rate is 0 - please enter a rate or select a product again
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1065,7 +1156,7 @@ export const Orders = () => {
                         {editFormData.items?.map((item, index) => (
                           <tr key={index}>
                             <td className="border border-gray-300 px-4 py-2">
-                              {item.product?.name || 'Unknown Product'}
+                              {item.productName || item.product?.name || 'Unknown Product'}
                             </td>
                             <td className="border border-gray-300 px-4 py-2">
                               <input
@@ -1231,11 +1322,8 @@ export const Orders = () => {
                             onClick={() => {
                               // Add product to cart
                               const newItem = {
-                                product: {
-                                  _id: product._id,
-                                  name: product.name,
-                                  description: product.description
-                                },
+                                product: product._id, // Store product ID for backend
+                                productName: product.name, // Store name for display
                                 quantity: 1,
                                 unitPrice: product.pricing?.retail || 0,
                                 total: product.pricing?.retail || 0

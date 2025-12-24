@@ -291,6 +291,57 @@ router.get('/', [
   }
 });
 
+// @route   GET /api/products/:id/last-purchase-price
+// @desc    Get last purchase price for a product
+// @access  Private
+router.get('/:id/last-purchase-price', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const PurchaseInvoice = require('../models/PurchaseInvoice');
+    
+    // Find the most recent purchase invoice item for this product
+    const lastPurchase = await PurchaseInvoice.findOne({
+      'items.product': id,
+      invoiceType: 'purchase'
+    })
+      .sort({ createdAt: -1 })
+      .select('items invoiceNumber createdAt')
+      .lean();
+    
+    if (!lastPurchase) {
+      return res.json({
+        success: true,
+        message: 'No purchase history found for this product',
+        lastPurchasePrice: null
+      });
+    }
+    
+    // Find the item for this product in the invoice
+    const productItem = lastPurchase.items.find(
+      item => item.product.toString() === id.toString()
+    );
+    
+    if (!productItem) {
+      return res.json({
+        success: true,
+        message: 'Product not found in last purchase',
+        lastPurchasePrice: null
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Last purchase price retrieved successfully',
+      lastPurchasePrice: productItem.unitCost,
+      invoiceNumber: lastPurchase.invoiceNumber,
+      purchaseDate: lastPurchase.createdAt
+    });
+  } catch (error) {
+    console.error('Get last purchase price error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // @route   GET /api/products/:id
 // @desc    Get single product
 // @access  Private
@@ -1365,57 +1416,6 @@ router.delete('/:id/investors/:investorId', [
       message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
-  }
-});
-
-// @route   GET /api/products/:id/last-purchase-price
-// @desc    Get last purchase price for a product
-// @access  Private
-router.get('/:id/last-purchase-price', auth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const PurchaseInvoice = require('../models/PurchaseInvoice');
-    
-    // Find the most recent purchase invoice item for this product
-    const lastPurchase = await PurchaseInvoice.findOne({
-      'items.product': id,
-      invoiceType: 'purchase'
-    })
-      .sort({ createdAt: -1 })
-      .select('items invoiceNumber createdAt')
-      .lean();
-    
-    if (!lastPurchase) {
-      return res.json({
-        success: true,
-        message: 'No purchase history found for this product',
-        lastPurchasePrice: null
-      });
-    }
-    
-    // Find the item for this product in the invoice
-    const productItem = lastPurchase.items.find(
-      item => item.product.toString() === id.toString()
-    );
-    
-    if (!productItem) {
-      return res.json({
-        success: true,
-        message: 'Product not found in last purchase',
-        lastPurchasePrice: null
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Last purchase price retrieved successfully',
-      lastPurchasePrice: productItem.unitCost,
-      invoiceNumber: lastPurchase.invoiceNumber,
-      purchaseDate: lastPurchase.createdAt
-    });
-  } catch (error) {
-    console.error('Get last purchase price error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

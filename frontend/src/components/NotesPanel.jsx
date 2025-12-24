@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import {
@@ -16,7 +15,14 @@ import {
   User,
   Tag
 } from 'lucide-react';
-import { notesAPI } from '../services/api';
+import {
+  useGetNotesQuery,
+  useCreateNoteMutation,
+  useUpdateNoteMutation,
+  useDeleteNoteMutation,
+  useGetNoteHistoryQuery,
+  useSearchUsersQuery,
+} from '../store/services/notesApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import toast from 'react-hot-toast';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -52,38 +58,33 @@ const NotesPanel = ({
   const [mentionUsers, setMentionUsers] = useState([]);
   
   const quillRef = useRef(null);
-  const queryClient = useQueryClient();
 
   // Fetch notes
-  const { data: notesData, isLoading: notesLoading, refetch } = useQuery(
-    ['notes', entityType, entityId, searchTerm, filterPrivate],
-    () => notesAPI.getNotes({
+  const { data: notesData, isLoading: notesLoading, refetch } = useGetNotesQuery(
+    {
       entityType,
       entityId,
       search: searchTerm || undefined,
       isPrivate: filterPrivate !== null ? filterPrivate : undefined
-    }),
+    },
     {
-      enabled: !!entityType && !!entityId,
-      keepPreviousData: true
+      skip: !entityType || !entityId,
     }
   );
 
-  const notes = notesData?.notes || [];
+  const notes = notesData?.notes || notesData?.data?.notes || [];
 
   // Fetch users for mentions
-  const { data: usersData } = useQuery(
-    ['mentionUsers', mentionQuery],
-    () => notesAPI.searchUsers(mentionQuery),
+  const { data: usersData } = useSearchUsersQuery(
+    mentionQuery,
     {
-      enabled: mentionQuery.length >= 2,
-      staleTime: 30000
+      skip: mentionQuery.length < 2,
     }
   );
 
   useEffect(() => {
     if (usersData) {
-      setMentionUsers(usersData);
+      setMentionUsers(usersData?.data || usersData || []);
       setShowMentions(mentionQuery.length >= 2);
     }
   }, [usersData, mentionQuery]);
@@ -98,49 +99,19 @@ const NotesPanel = ({
   }, [notes]);
 
   // Create note mutation
-  const createMutation = useMutation(notesAPI.createNote, {
-    onSuccess: () => {
-      queryClient.invalidateQueries(['notes', entityType, entityId]);
-      resetForm();
-      showSuccessToast('Note created successfully');
-    },
-    onError: (error) => {
-      handleApiError(error, 'Create Note');
-    }
-  });
+  const [createNote, { isLoading: isCreatingNote }] = useCreateNoteMutation();
 
   // Update note mutation
-  const updateMutation = useMutation(
-    ({ id, data }) => notesAPI.updateNote(id, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['notes', entityType, entityId]);
-        resetForm();
-        showSuccessToast('Note updated successfully');
-      },
-      onError: (error) => {
-        handleApiError(error, 'Update Note');
-      }
-    }
-  );
+  const [updateNote, { isLoading: isUpdatingNote }] = useUpdateNoteMutation();
 
   // Delete note mutation
-  const deleteMutation = useMutation(notesAPI.deleteNote, {
-    onSuccess: () => {
-      queryClient.invalidateQueries(['notes', entityType, entityId]);
-      showSuccessToast('Note deleted successfully');
-    },
-    onError: (error) => {
-      handleApiError(error, 'Delete Note');
-    }
-  });
+  const [deleteNote, { isLoading: isDeletingNote }] = useDeleteNoteMutation();
 
   // Fetch note history
-  const { data: historyData, isLoading: historyLoading } = useQuery(
-    ['noteHistory', selectedNoteId],
-    () => notesAPI.getNoteHistory(selectedNoteId),
+  const { data: historyData, isLoading: historyLoading } = useGetNoteHistoryQuery(
+    selectedNoteId,
     {
-      enabled: !!selectedNoteId && showHistory
+      skip: !selectedNoteId || !showHistory
     }
   );
 
@@ -170,7 +141,7 @@ const NotesPanel = ({
     setIsCreating(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!noteContent.trim()) {
       toast.error('Note content cannot be empty');
       return;
@@ -186,16 +157,30 @@ const NotesPanel = ({
       tags
     };
 
-    if (editingNoteId) {
-      updateMutation.mutate({ id: editingNoteId, data: noteData });
-    } else {
-      createMutation.mutate(noteData);
+    try {
+      if (editingNoteId) {
+        await updateNote({ id: editingNoteId, ...noteData }).unwrap();
+        showSuccessToast('Note updated successfully');
+      } else {
+        await createNote(noteData).unwrap();
+        showSuccessToast('Note created successfully');
+      }
+      resetForm();
+      refetch();
+    } catch (error) {
+      handleApiError(error, editingNoteId ? 'Update Note' : 'Create Note');
     }
   };
 
-  const handleDelete = (noteId) => {
+  const handleDelete = async (noteId) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
-      deleteMutation.mutate(noteId);
+      try {
+        await deleteNote(noteId).unwrap();
+        showSuccessToast('Note deleted successfully');
+        refetch();
+      } catch (error) {
+        handleApiError(error, 'Delete Note');
+      }
     }
   };
 
@@ -563,7 +548,7 @@ const NotesPanel = ({
                   </button>
                   <button
                     onClick={handleSave}
-                    disabled={createMutation.isLoading || updateMutation.isLoading}
+                    disabled={isCreatingNote || isUpdatingNote}
                     className="px-4 py-2 text-sm text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50"
                   >
                     {editingNoteId ? 'Update' : 'Create'} Note

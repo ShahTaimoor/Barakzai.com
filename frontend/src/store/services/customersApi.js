@@ -85,6 +85,39 @@ export const customersApi = api.injectEndpoints({
       }),
       providesTags: [{ type: 'Customers', id: 'CITIES' }],
     }),
+    exportExcel: builder.mutation({
+      query: (params) => ({
+        url: 'customers/export/excel',
+        method: 'post',
+        data: params,
+      }),
+    }),
+    downloadExportFile: builder.query({
+      query: (filename) => ({
+        url: `customers/download/${filename}`,
+        method: 'get',
+        responseType: 'blob',
+      }),
+    }),
+    importExcel: builder.mutation({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return {
+          url: 'customers/import/excel',
+          method: 'post',
+          data: formData,
+        };
+      },
+      invalidatesTags: [{ type: 'Customers', id: 'LIST' }],
+    }),
+    downloadTemplate: builder.query({
+      query: () => ({
+        url: 'customers/export/template',
+        method: 'get',
+        responseType: 'blob',
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -92,6 +125,7 @@ export const customersApi = api.injectEndpoints({
 export const {
   useGetCustomersQuery,
   useGetCustomerQuery,
+  useLazyGetCustomerQuery,
   useLazyGetCustomersQuery,
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
@@ -101,5 +135,9 @@ export const {
   useLazyCheckEmailQuery,
   useLazyCheckBusinessNameQuery,
   useCitiesQuery,
+  useExportExcelMutation,
+  useImportExcelMutation,
+  useDownloadTemplateQuery,
+  useLazyDownloadExportFileQuery,
 } = customersApi;
 

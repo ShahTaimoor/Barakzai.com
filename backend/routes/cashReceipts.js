@@ -20,7 +20,16 @@ router.get('/', [
   query('dateFrom').optional().isISO8601().withMessage('DateFrom must be a valid date'),
   query('dateTo').optional().isISO8601().withMessage('DateTo must be a valid date'),
   query('voucherCode').optional().isString().trim().withMessage('Voucher code must be a string'),
-  query('amount').optional().isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
+  query('amount')
+    .optional()
+    .custom((value) => {
+      if (value === '' || value === null || value === undefined) {
+        return true; // Allow empty values for optional query params
+      }
+      const numValue = parseFloat(value);
+      return !isNaN(numValue) && numValue >= 0;
+    })
+    .withMessage('Amount must be a positive number'),
   query('particular').optional().isString().trim().withMessage('Particular must be a string')
 ], async (req, res) => {
   try {
@@ -161,7 +170,15 @@ router.post('/', [
   auth,
   requirePermission('create_orders'),
   body('date').optional().isISO8601().withMessage('Date must be a valid date'),
-  body('amount').isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
+  body('amount')
+    .custom((value) => {
+      if (value === '' || value === null || value === undefined) {
+        return false;
+      }
+      const numValue = parseFloat(value);
+      return !isNaN(numValue) && numValue >= 0;
+    })
+    .withMessage('Amount must be a positive number'),
   body('particular').optional().isString().trim().isLength({ max: 500 }).withMessage('Particular must be less than 500 characters'),
   body('order').optional({ checkFalsy: true }).isMongoId().withMessage('Invalid order ID'),
   body('customer').optional({ checkFalsy: true }).isMongoId().withMessage('Invalid customer ID'),

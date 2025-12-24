@@ -89,13 +89,23 @@ const returnSchema = new mongoose.Schema({
   },
   originalOrder: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Sales',
+    // Can reference Sales, SalesOrder, PurchaseInvoice, or PurchaseOrder
     required: true
   },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Customer',
-    required: true
+    required: false  // Optional for purchase returns
+  },
+  supplier: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Supplier',
+    required: false  // Optional for sales returns
+  },
+  origin: {
+    type: String,
+    enum: ['sales', 'purchase'],
+    default: 'sales'
   },
   returnType: {
     type: String,
@@ -332,10 +342,19 @@ const returnSchema = new mongoose.Schema({
 // returnNumber index removed - already has unique: true in field definition
 returnSchema.index({ originalOrder: 1 });
 returnSchema.index({ customer: 1 });
+returnSchema.index({ supplier: 1 });
 returnSchema.index({ status: 1 });
 returnSchema.index({ returnDate: -1 });
 returnSchema.index({ requestedBy: 1 });
 returnSchema.index({ 'items.product': 1 });
+
+// Validation: Either customer or supplier must be provided
+returnSchema.pre('validate', function(next) {
+  if (!this.customer && !this.supplier) {
+    this.invalidate('customer', 'Either customer or supplier must be provided');
+  }
+  next();
+});
 
 // Virtual for return age in days
 returnSchema.virtual('ageInDays').get(function() {
@@ -392,72 +411,63 @@ returnSchema.statics.getReturnStats = async function(period = {}) {
     };
   }
   
-  const stats = await this.aggregate([
+  // First, get basic stats
+  const basicStats = await this.aggregate([
     { $match: match },
     {
       $group: {
         _id: null,
         totalReturns: { $sum: 1 },
         totalRefundAmount: { $sum: '$netRefundAmount' },
-        averageRefundAmount: { $avg: '$netRefundAmount' },
-        byStatus: {
-          $push: '$status'
-        },
-        byType: {
-          $push: '$returnType'
-        }
-      }
-    },
-    {
-      $project: {
-        totalReturns: 1,
-        totalRefundAmount: 1,
-        averageRefundAmount: { $round: ['$averageRefundAmount', 2] },
-        statusBreakdown: {
-          $reduce: {
-            input: '$byStatus',
-            initialValue: {},
-            in: {
-              $mergeObjects: [
-                '$$value',
-                {
-                  $let: {
-                    vars: { status: '$$this' },
-                    in: { $arrayToObject: [{ k: '$$status', v: { $add: [{ $ifNull: [{ $getField: { field: '$$status', input: '$$value' } }, 0] }, 1] } }] }
-                  }
-                }
-              ]
-            }
-          }
-        },
-        typeBreakdown: {
-          $reduce: {
-            input: '$byType',
-            initialValue: {},
-            in: {
-              $mergeObjects: [
-                '$$value',
-                {
-                  $let: {
-                    vars: { type: '$$this' },
-                    in: { $arrayToObject: [{ k: '$$type', v: { $add: [{ $ifNull: [{ $getField: { field: '$$type', input: '$$value' } }, 0] }, 1] } }] }
-                  }
-                }
-              ]
-            }
-          }
-        }
+        averageRefundAmount: { $avg: '$netRefundAmount' }
       }
     }
   ]);
-  
-  return stats[0] || {
+
+  // Get status breakdown
+  const statusBreakdown = await this.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: '$status',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  // Get type breakdown
+  const typeBreakdown = await this.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: '$returnType',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+
+  // Convert breakdowns to objects
+  const statusObj = {};
+  statusBreakdown.forEach(item => {
+    statusObj[item._id] = item.count;
+  });
+
+  const typeObj = {};
+  typeBreakdown.forEach(item => {
+    typeObj[item._id] = item.count;
+  });
+
+  const stats = basicStats[0] || {
     totalReturns: 0,
     totalRefundAmount: 0,
-    averageRefundAmount: 0,
-    statusBreakdown: {},
-    typeBreakdown: {}
+    averageRefundAmount: 0
   };
+
+  stats.statusBreakdown = statusObj;
+  stats.typeBreakdown = typeObj;
+  stats.averageRefundAmount = stats.averageRefundAmount ? Math.round(stats.averageRefundAmount * 100) / 100 : 0;
+  
+  return stats;
 };
 
 // Method to add communication log

@@ -120,6 +120,13 @@ export const inventoryApi = api.injectEndpoints({
       }),
       providesTags: [{ type: 'Inventory', id: 'REPORTS' }],
     }),
+    getReport: builder.query({
+      query: (id) => ({
+        url: `inventory-reports/${id}`,
+        method: 'get',
+      }),
+      providesTags: (_r, _e, id) => [{ type: 'Inventory', id: `REPORT_${id}` }],
+    }),
     getQuickSummary: builder.query({
       query: () => ({
         url: 'inventory-reports/quick-summary',
@@ -192,6 +199,7 @@ export const {
   useCreateStockMovementAdjustmentMutation,
   useReverseStockMovementMutation,
   useGetReportsQuery,
+  useGetReportQuery,
   useGetQuickSummaryQuery,
   useGetQuickStockLevelsQuery,
   useGetQuickTurnoverRatesQuery,

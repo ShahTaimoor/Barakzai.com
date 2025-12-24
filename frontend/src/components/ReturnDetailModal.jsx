@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from 'react-query';
 import { 
   X, 
   CheckCircle, 
@@ -18,7 +17,8 @@ import {
   Send,
   Printer
 } from 'lucide-react';
-import { returnsAPI, settingsAPI } from '../services/api';
+import { useGetReturnQuery } from '../store/services/returnsApi';
+import { useGetCompanySettingsQuery } from '../store/services/settingsApi';
 import { handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
@@ -46,30 +46,17 @@ const ReturnDetailModal = ({
   });
 
   // Fetch detailed return data
-  const { data: detailedReturn, isLoading: detailLoading } = useQuery(
-    ['return', returnData?._id],
-    () => returnsAPI.getReturn(returnData._id),
+  const { data: detailedReturn, isLoading: detailLoading } = useGetReturnQuery(
+    returnData?._id,
     {
-      enabled: !!returnData?._id && isOpen,
-      initialData: returnData,
-      onError: (error) => {
-        handleApiError(error, 'Fetch Return Details');
-      }
+      skip: !returnData?._id || !isOpen,
     }
   );
 
   // Fetch company settings
-  const { data: companySettings } = useQuery(
-    'company-settings',
-    () => settingsAPI.getCompanySettings(),
-    {
-      onError: (error) => {
-        console.error('Error fetching company settings:', error);
-      }
-    }
-  );
+  const { data: companySettings } = useGetCompanySettingsQuery();
 
-  const returnInfo = detailedReturn?.data || returnData;
+  const returnInfo = detailedReturn?.data || detailedReturn || returnData;
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -154,7 +141,7 @@ const ReturnDetailModal = ({
     
     // Get the return data and company settings
     const returnData = returnInfo;
-    const companyName = companySettings?.data?.companyName || 'Your Company Name';
+    const companyName = companySettings?.data?.companyName || companySettings?.companyName || 'Your Company Name';
     
     // Create the print content
     const printContent = `
@@ -190,7 +177,7 @@ const ReturnDetailModal = ({
         <div class="header">
           <div class="company-name">${companyName}</div>
           <div class="company-details" style="font-size: 10px; color: #666; margin-top: 5px;">
-            ${companySettings?.data?.address || ''} | ${companySettings?.data?.contactNumber || ''} | ${companySettings?.data?.email || ''}
+            ${companySettings?.data?.address || companySettings?.address || ''} | ${companySettings?.data?.contactNumber || companySettings?.contactNumber || ''} | ${companySettings?.data?.email || companySettings?.email || ''}
           </div>
           <div class="document-title">RETURN DOCUMENT</div>
         </div>

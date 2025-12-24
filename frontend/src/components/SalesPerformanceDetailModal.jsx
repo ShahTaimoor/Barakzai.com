@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from 'react-query';
 import {
   X,
   BarChart3,
@@ -25,7 +24,7 @@ import {
   Percent,
   Activity
 } from 'lucide-react';
-import { salesPerformanceAPI } from '../services/api';
+import { useGetReportQuery } from '../store/services/salesPerformanceApi';
 import { LoadingSpinner, LoadingCard } from '../components/LoadingSpinner';
 
 const SalesPerformanceDetailModal = ({ isOpen, onClose, report, onDelete, onExport }) => {
@@ -33,14 +32,10 @@ const SalesPerformanceDetailModal = ({ isOpen, onClose, report, onDelete, onExpo
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Fetch detailed report data
-  const { data: detailedReport, isLoading, error } = useQuery(
-    ['salesPerformanceReport', report?.reportId],
-    () => salesPerformanceAPI.getReport(report.reportId),
+  const { data: detailedReport, isLoading, error } = useGetReportQuery(
+    report?.reportId,
     {
-      enabled: !!report?.reportId && isOpen,
-      onError: (error) => {
-        console.error('Error fetching report details:', error);
-      }
+      skip: !report?.reportId || !isOpen,
     }
   );
 

@@ -59,16 +59,33 @@ router.get('/', [
     const filter = {};
     
     if (req.query.search) {
+      const searchTerm = req.query.search.trim();
       const searchConditions = [
-        { invoiceNumber: { $regex: req.query.search, $options: 'i' } },
-        { notes: { $regex: req.query.search, $options: 'i' } },
-        { 'supplierInfo.companyName': { $regex: req.query.search, $options: 'i' } },
-        { 'supplierInfo.name': { $regex: req.query.search, $options: 'i' } }
+        { invoiceNumber: { $regex: searchTerm, $options: 'i' } },
+        { notes: { $regex: searchTerm, $options: 'i' } },
+        { 'supplierInfo.companyName': { $regex: searchTerm, $options: 'i' } },
+        { 'supplierInfo.name': { $regex: searchTerm, $options: 'i' } }
       ];
       
+      // Search in Supplier collection and match by supplier ID
+      const supplierMatches = await Supplier.find({
+        $or: [
+          { companyName: { $regex: searchTerm, $options: 'i' } },
+          { name: { $regex: searchTerm, $options: 'i' } },
+          { businessName: { $regex: searchTerm, $options: 'i' } },
+          { email: { $regex: searchTerm, $options: 'i' } },
+          { 'contactPerson.name': { $regex: searchTerm, $options: 'i' } }
+        ]
+      }).select('_id').lean();
+      
+      if (supplierMatches.length > 0) {
+        const supplierIds = supplierMatches.map(s => s._id);
+        searchConditions.push({ supplier: { $in: supplierIds } });
+      }
+      
       // If search term is numeric, also search in pricing.total
-      if (!isNaN(req.query.search)) {
-        searchConditions.push({ 'pricing.total': parseFloat(req.query.search) });
+      if (!isNaN(searchTerm)) {
+        searchConditions.push({ 'pricing.total': parseFloat(searchTerm) });
       }
       
       filter.$or = searchConditions;

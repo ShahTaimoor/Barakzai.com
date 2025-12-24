@@ -25,6 +25,7 @@ import {
   useGetStatementQuery,
   useGenerateStatementMutation,
   useDeleteStatementMutation,
+  useUpdateStatementMutation,
   useUpdateStatementStatusMutation,
   useExportStatementMutation,
 } from '../store/services/plStatementsApi';
@@ -1422,8 +1423,22 @@ export const PLStatements = () => {
     }));
   };
 
-  const statements = statementsData?.data?.statements || [];
-  const pagination = statementsData?.data?.pagination || {};
+  // Extract statements and pagination
+  // Backend returns: { statements: [...], pagination: {...} }
+  // RTK Query wraps it as: { data: { statements: [...], pagination: {...} } }
+  const statements = Array.isArray(statementsData?.data?.statements) 
+    ? statementsData.data.statements 
+    : Array.isArray(statementsData?.statements) 
+    ? statementsData.statements 
+    : [];
+    
+  const pagination = statementsData?.data?.pagination || statementsData?.pagination || {
+    current: 1,
+    pages: 1,
+    total: 0,
+    hasNext: false,
+    hasPrev: false,
+  };
 
   return (
     <AsyncErrorBoundary>

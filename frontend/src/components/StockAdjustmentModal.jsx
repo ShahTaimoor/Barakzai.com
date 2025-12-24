@@ -6,8 +6,7 @@ import { useFormValidation } from '../hooks/useFormValidation';
 import { validateRequired, validatePositiveNumber } from '../utils/validation';
 import { LoadingButton } from './LoadingSpinner';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
-import { productsAPI } from '../services/api';
-import { useQuery } from 'react-query';
+import { useGetProductsQuery } from '../store/services/productsApi';
 import { useCreateStockAdjustmentMutation } from '../store/services/inventoryApi';
 import { SearchableDropdown } from './SearchableDropdown';
 import { formatCurrency } from '../utils/formatters';
@@ -40,14 +39,14 @@ const StockAdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
   );
 
   // Fetch products for search
-  const { data: products, isLoading: productsLoading } = useQuery(
-    ['products', { search: productSearchTerm }],
-    () => productsAPI.getProducts({ search: productSearchTerm, limit: 20 }),
+  const { data: productsResponse, isLoading: productsLoading } = useGetProductsQuery(
+    { search: productSearchTerm, limit: 20 },
     {
-      enabled: productSearchTerm.length > 0,
-      keepPreviousData: true,
+      skip: productSearchTerm.length === 0,
     }
   );
+
+  const products = productsResponse?.data?.products || productsResponse?.products || [];
 
   // Create stock adjustment mutation
   const [createStockAdjustment, { isLoading: creating }] = useCreateStockAdjustmentMutation();

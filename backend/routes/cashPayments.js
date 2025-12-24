@@ -21,7 +21,16 @@ router.get('/', [
   query('dateFrom').optional().isISO8601().withMessage('DateFrom must be a valid date'),
   query('dateTo').optional().isISO8601().withMessage('DateTo must be a valid date'),
   query('voucherCode').optional().isString().trim().withMessage('Voucher code must be a string'),
-  query('amount').optional().isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
+  query('amount')
+    .optional()
+    .custom((value) => {
+      if (value === '' || value === null || value === undefined) {
+        return true; // Allow empty values for optional query params
+      }
+      const numValue = parseFloat(value);
+      return !isNaN(numValue) && numValue >= 0;
+    })
+    .withMessage('Amount must be a positive number'),
   query('particular').optional().isString().trim().withMessage('Particular must be a string')
 ], async (req, res) => {
   try {

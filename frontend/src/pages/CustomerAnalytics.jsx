@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from 'react-query';
 import { 
   Users, 
   TrendingUp, 
@@ -20,7 +19,7 @@ import {
   XCircle,
   Sparkles
 } from 'lucide-react';
-import { customerAnalyticsAPI } from '../services/api';
+import { useGetSummaryQuery, useGetAnalyticsQuery } from '../store/services/customerAnalyticsApi';
 import { formatCurrency } from '../utils/formatters';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { showErrorToast, handleApiError } from '../utils/errorHandler';
@@ -33,35 +32,37 @@ const CustomerAnalytics = () => {
   });
 
   // Fetch analytics summary
-  const { data: summaryData, isLoading: summaryLoading, refetch: refetchSummary } = useQuery(
-    'customerAnalyticsSummary',
-    () => customerAnalyticsAPI.getSummary(),
-    {
-      refetchInterval: 300000, // Refetch every 5 minutes
-      onError: (error) => {
-        showErrorToast(handleApiError(error));
-      }
-    }
-  );
+  const { data: summaryData, isLoading: summaryLoading, refetch: refetchSummary, error: summaryError } = useGetSummaryQuery(undefined, {
+    pollingInterval: 300000, // Refetch every 5 minutes
+    skip: false,
+  });
 
   // Fetch full analytics with filters
-  const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics } = useQuery(
-    ['customerAnalytics', filters],
-    () => customerAnalyticsAPI.getAnalytics({
-      segment: filters.segment || undefined,
-      churnRisk: filters.churnRisk || undefined,
-      minOrders: filters.minOrders || undefined
-    }),
-    {
-      refetchInterval: 300000,
-      onError: (error) => {
-        showErrorToast(handleApiError(error));
-      }
-    }
-  );
+  const { data: analyticsData, isLoading: analyticsLoading, refetch: refetchAnalytics, error: analyticsError } = useGetAnalyticsQuery({
+    segment: filters.segment || undefined,
+    churnRisk: filters.churnRisk || undefined,
+    minOrders: filters.minOrders || undefined
+  }, {
+    pollingInterval: 300000,
+    skip: false,
+  });
 
-  const summary = summaryData?.data || {};
-  const analytics = analyticsData?.data || {};
+  // Handle errors
+  React.useEffect(() => {
+    if (summaryError) {
+      showErrorToast(handleApiError(summaryError));
+    }
+  }, [summaryError]);
+
+  React.useEffect(() => {
+    if (analyticsError) {
+      showErrorToast(handleApiError(analyticsError));
+    }
+  }, [analyticsError]);
+
+
+  const summary = summaryData?.data || summaryData || {};
+  const analytics = analyticsData?.data || analyticsData || {};
 
   const segmentColors = {
     VIP: 'bg-purple-100 text-purple-800 border-purple-300',

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { 
   Clock, 
   LogIn, 
@@ -17,7 +16,16 @@ import {
   TrendingUp,
   BarChart3
 } from 'lucide-react';
-import { attendanceAPI, usersAPI } from '../services/api';
+import {
+  useGetStatusQuery,
+  useGetMyAttendanceQuery,
+  useGetTeamAttendanceQuery,
+  useClockInMutation,
+  useClockOutMutation,
+  useStartBreakMutation,
+  useEndBreakMutation,
+} from '../store/services/attendanceApi';
+import { useGetUsersQuery } from '../store/services/usersApi';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
@@ -26,7 +34,6 @@ import toast from 'react-hot-toast';
 
 const Attendance = () => {
   const { user, hasPermission } = useAuth();
-  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState('my'); // 'my' or 'team'
   const [showTeamView, setShowTeamView] = useState(false);
   const [filters, setFilters] = useState({
@@ -46,135 +53,127 @@ const Attendance = () => {
   }, [hasPermission]);
 
   // Fetch current status
-  const { data: statusData, isLoading: statusLoading, refetch: refetchStatus } = useQuery(
-    'attendance-status',
-    () => attendanceAPI.getStatus().then(res => res.data),
+  const { data: statusData, isLoading: statusLoading, refetch: refetchStatus, error: statusError } = useGetStatusQuery(
+    undefined,
     {
-      refetchInterval: 30000, // Refetch every 30 seconds
-      onError: (error) => handleApiError(error, 'Failed to fetch attendance status')
+      pollingInterval: 30000, // Refetch every 30 seconds
     }
   );
+
+  useEffect(() => {
+    if (statusError) {
+      handleApiError(statusError, 'Failed to fetch attendance status');
+    }
+  }, [statusError]);
 
   const currentSession = statusData?.data;
 
   // Fetch my attendance
-  const { data: myAttendanceData, isLoading: myAttendanceLoading, refetch: refetchMyAttendance } = useQuery(
-    ['my-attendance', filters],
-    () => attendanceAPI.getMyAttendance({
+  const { data: myAttendanceData, isLoading: myAttendanceLoading, refetch: refetchMyAttendance, error: myAttendanceError } = useGetMyAttendanceQuery(
+    {
       startDate: filters.startDate,
       endDate: filters.endDate,
       limit: 50
-    }).then(res => res.data),
+    },
     {
-      enabled: viewMode === 'my',
-      onError: (error) => handleApiError(error, 'Failed to fetch attendance')
+      skip: viewMode !== 'my',
     }
   );
 
+  useEffect(() => {
+    if (myAttendanceError) {
+      handleApiError(myAttendanceError, 'Failed to fetch attendance');
+    }
+  }, [myAttendanceError]);
+
   // Fetch team attendance
-  const { data: teamAttendanceData, isLoading: teamAttendanceLoading, refetch: refetchTeamAttendance } = useQuery(
-    ['team-attendance', filters],
-    () => attendanceAPI.getTeamAttendance({
+  const { data: teamAttendanceData, isLoading: teamAttendanceLoading, refetch: refetchTeamAttendance, error: teamAttendanceError } = useGetTeamAttendanceQuery(
+    {
       startDate: filters.startDate,
       endDate: filters.endDate,
       userId: filters.userId || undefined,
       status: filters.status || undefined,
       limit: 50
-    }).then(res => res.data),
+    },
     {
-      enabled: viewMode === 'team' && hasPermission('view_team_attendance'),
-      onError: (error) => handleApiError(error, 'Failed to fetch team attendance')
+      skip: viewMode !== 'team' || !hasPermission('view_team_attendance'),
     }
   );
+
+  useEffect(() => {
+    if (teamAttendanceError) {
+      handleApiError(teamAttendanceError, 'Failed to fetch team attendance');
+    }
+  }, [teamAttendanceError]);
 
   // Fetch users for team view filter
-  const { data: usersData } = useQuery(
-    'users-list',
-    () => usersAPI.getUsers({ limit: 100 }).then(res => res.data?.users || []),
+  const { data: usersDataResponse } = useGetUsersQuery(
+    { limit: 100 },
     {
-      enabled: viewMode === 'team' && hasPermission('view_team_attendance'),
-      staleTime: 5 * 60 * 1000
+      skip: viewMode !== 'team' || !hasPermission('view_team_attendance'),
     }
   );
+
+  const usersData = usersDataResponse?.data?.users || usersDataResponse?.users || [];
 
   // Clock in mutation
-  const clockInMutation = useMutation(
-    (data) => attendanceAPI.clockIn(data),
-    {
-      onSuccess: (response) => {
-        showSuccessToast('Clocked in successfully');
-        setNotesIn('');
-        queryClient.invalidateQueries('attendance-status');
-        queryClient.invalidateQueries('my-attendance');
-      },
-      onError: (error) => {
-        handleApiError(error, 'Failed to clock in');
-      }
-    }
-  );
+  const [clockInMutation, { isLoading: clockInLoading }] = useClockInMutation();
 
   // Clock out mutation
-  const clockOutMutation = useMutation(
-    (data) => attendanceAPI.clockOut(data),
-    {
-      onSuccess: (response) => {
-        showSuccessToast('Clocked out successfully');
-        setNotesOut('');
-        queryClient.invalidateQueries('attendance-status');
-        queryClient.invalidateQueries('my-attendance');
-      },
-      onError: (error) => {
-        handleApiError(error, 'Failed to clock out');
-      }
-    }
-  );
+  const [clockOutMutation, { isLoading: clockOutLoading }] = useClockOutMutation();
 
   // Start break mutation
-  const startBreakMutation = useMutation(
-    (type) => attendanceAPI.startBreak(type),
-    {
-      onSuccess: () => {
-        showSuccessToast('Break started');
-        queryClient.invalidateQueries('attendance-status');
-      },
-      onError: (error) => {
-        handleApiError(error, 'Failed to start break');
-      }
-    }
-  );
+  const [startBreakMutation, { isLoading: startBreakLoading }] = useStartBreakMutation();
 
   // End break mutation
-  const endBreakMutation = useMutation(
-    () => attendanceAPI.endBreak(),
-    {
-      onSuccess: () => {
-        showSuccessToast('Break ended');
-        queryClient.invalidateQueries('attendance-status');
-      },
-      onError: (error) => {
-        handleApiError(error, 'Failed to end break');
-      }
+  const [endBreakMutation, { isLoading: endBreakLoading }] = useEndBreakMutation();
+
+  const handleClockIn = async () => {
+    try {
+      await clockInMutation({
+        notesIn: notesIn.trim() || undefined
+      }).unwrap();
+      showSuccessToast('Clocked in successfully');
+      setNotesIn('');
+      refetchStatus();
+      refetchMyAttendance();
+    } catch (error) {
+      handleApiError(error, 'Failed to clock in');
     }
-  );
-
-  const handleClockIn = () => {
-    clockInMutation.mutate({
-      notesIn: notesIn.trim() || undefined
-    });
   };
 
-  const handleClockOut = () => {
-    clockOutMutation.mutate({
-      notesOut: notesOut.trim() || undefined
-    });
+  const handleClockOut = async () => {
+    try {
+      await clockOutMutation({
+        notesOut: notesOut.trim() || undefined
+      }).unwrap();
+      showSuccessToast('Clocked out successfully');
+      setNotesOut('');
+      refetchStatus();
+      refetchMyAttendance();
+    } catch (error) {
+      handleApiError(error, 'Failed to clock out');
+    }
   };
 
-  const handleStartBreak = (type = 'break') => {
-    startBreakMutation.mutate(type);
+  const handleStartBreak = async (type = 'break') => {
+    try {
+      await startBreakMutation({ type }).unwrap();
+      showSuccessToast('Break started');
+      refetchStatus();
+    } catch (error) {
+      handleApiError(error, 'Failed to start break');
+    }
   };
 
-  const handleEndBreak = () => {
-    endBreakMutation.mutate();
+  const handleEndBreak = async () => {
+    try {
+      await endBreakMutation().unwrap();
+      showSuccessToast('Break ended');
+      refetchStatus();
+    } catch (error) {
+      handleApiError(error, 'Failed to end break');
+    }
   };
 
   const formatDuration = (minutes) => {
@@ -277,10 +276,10 @@ const Attendance = () => {
                   </div>
                   <button
                     onClick={handleEndBreak}
-                    disabled={endBreakMutation.isLoading}
+                    disabled={endBreakLoading}
                     className="btn btn-warning"
                   >
-                    {endBreakMutation.isLoading ? <LoadingSpinner size="sm" /> : 'End Break'}
+                    {endBreakLoading ? <LoadingSpinner size="sm" /> : 'End Break'}
                   </button>
                 </div>
               )}
@@ -290,19 +289,19 @@ const Attendance = () => {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleStartBreak('break')}
-                    disabled={startBreakMutation.isLoading}
+                    disabled={startBreakLoading}
                     className="btn btn-secondary flex-1"
                   >
                     <Coffee className="h-4 w-4 mr-2" />
-                    {startBreakMutation.isLoading ? 'Starting...' : 'Start Break'}
+                    {startBreakLoading ? 'Starting...' : 'Start Break'}
                   </button>
                   <button
                     onClick={() => handleStartBreak('lunch')}
-                    disabled={startBreakMutation.isLoading}
+                    disabled={startBreakLoading}
                     className="btn btn-secondary flex-1"
                   >
                     <Coffee className="h-4 w-4 mr-2" />
-                    {startBreakMutation.isLoading ? 'Starting...' : 'Lunch Break'}
+                    {startBreakLoading ? 'Starting...' : 'Lunch Break'}
                   </button>
                 </div>
               )}
@@ -323,11 +322,11 @@ const Attendance = () => {
                 </div>
                 <button
                   onClick={handleClockOut}
-                  disabled={clockOutMutation.isLoading}
+                  disabled={clockOutLoading}
                   className="btn btn-danger w-full"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
-                  {clockOutMutation.isLoading ? 'Clocking Out...' : 'Clock Out'}
+                  {clockOutLoading ? 'Clocking Out...' : 'Clock Out'}
                 </button>
               </div>
             </div>
@@ -351,11 +350,11 @@ const Attendance = () => {
               </div>
               <button
                 onClick={handleClockIn}
-                disabled={clockInMutation.isLoading}
+                disabled={clockInLoading}
                 className="btn btn-primary w-full"
               >
                 <LogIn className="h-4 w-4 mr-2" />
-                {clockInMutation.isLoading ? 'Clocking In...' : 'Clock In'}
+                {clockInLoading ? 'Clocking In...' : 'Clock In'}
               </button>
             </div>
           )}

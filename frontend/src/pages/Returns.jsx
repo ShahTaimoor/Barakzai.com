@@ -64,18 +64,17 @@ const Returns = () => {
     }
   });
 
-  // Fetch return statistics
+  // Fetch return statistics - show all stats if no date filter, or filtered stats if dates provided
   const { 
     data: statsData, 
     isLoading: statsLoading 
   } = useGetReturnStatsQuery(
-    {
-      startDate: filters.startDate,
-      endDate: filters.endDate
-    },
-    {
-      skip: !filters.startDate || !filters.endDate,
-    }
+    filters.startDate && filters.endDate
+      ? {
+          startDate: filters.startDate,
+          endDate: filters.endDate
+        }
+      : {}
   );
 
   // Fetch company settings
@@ -408,9 +407,15 @@ const Returns = () => {
     return <LoadingSpinner message="Loading returns..." />;
   }
 
-  const returns = returnsData?.data?.returns || [];
-  const pagination = returnsData?.data?.pagination || {};
-  const stats = statsData?.data || {};
+  const returns = returnsData?.data?.returns || returnsData?.returns || [];
+  const pagination = returnsData?.data?.pagination || returnsData?.pagination || {};
+  // Handle stats data - RTK Query wraps in data, but also handle direct response
+  const stats = statsData?.data || statsData || {
+    totalReturns: 0,
+    pendingReturns: 0,
+    totalRefundAmount: 0,
+    returnRate: 0
+  };
 
   return (
     <ResponsiveContainer className="space-y-6">
@@ -557,15 +562,19 @@ const Returns = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {returnItem.customer?.name || returnItem.customer?.businessName || 'N/A'}
+                          {returnItem.origin === 'purchase' 
+                            ? (returnItem.supplier?.companyName || returnItem.supplier?.name || returnItem.supplier?.businessName || 'N/A')
+                            : (returnItem.customer?.name || returnItem.customer?.businessName || 'N/A')}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {returnItem.customer?.email || 'N/A'}
+                          {returnItem.origin === 'purchase'
+                            ? (returnItem.supplier?.email || 'N/A')
+                            : (returnItem.customer?.email || 'N/A')}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {returnItem.originalOrder?.orderNumber}
+                          {returnItem.originalOrder?.orderNumber || returnItem.originalOrder?.soNumber || returnItem.originalOrder?.invoiceNumber || returnItem.originalOrder?.poNumber || 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500">
                           {returnItem.items?.length || 0} items

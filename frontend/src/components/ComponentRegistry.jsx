@@ -17,6 +17,7 @@ const componentLoader = {
   '/returns': () => import('../pages/Returns').then(module => module.default),
   '/sales-orders': () => import('../pages/SalesOrders').then(module => module.SalesOrders),
   '/purchase-orders': () => import('../pages/PurchaseOrders').then(module => module.PurchaseOrders),
+  '/purchase-invoices': () => import('../pages/PurchaseInvoices').then(module => module.default || module.PurchaseInvoices),
   '/reports': () => import('../pages/Reports').then(module => module.Reports),
   '/pl-statements': () => import('../pages/PLStatements').then(module => module.PLStatements),
   '/balance-sheets': () => import('../pages/BalanceSheets').then(module => module.default),
@@ -106,6 +107,11 @@ export const componentRegistry = {
   '/purchase-orders': {
     title: 'Purchase Orders',
     icon: 'FileText',
+    allowMultiple: true
+  },
+  '/purchase-invoices': {
+    title: 'Purchase Invoices',
+    icon: 'Search',
     allowMultiple: true
   },
   '/reports': {

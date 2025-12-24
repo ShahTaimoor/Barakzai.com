@@ -63,6 +63,8 @@ export const salesOrdersApi = api.injectEndpoints({
       invalidatesTags: (_r, _e, id) => [
         { type: 'Orders', id },
         { type: 'Orders', id: 'LIST' },
+        { type: 'Products', id: 'LIST' }, // Invalidate products to update stock levels
+        { type: 'Inventory', id: 'LIST' }, // Invalidate inventory cache
       ],
     }),
     cancelSalesOrder: builder.mutation({
@@ -73,6 +75,8 @@ export const salesOrdersApi = api.injectEndpoints({
       invalidatesTags: (_r, _e, id) => [
         { type: 'Orders', id },
         { type: 'Orders', id: 'LIST' },
+        { type: 'Products', id: 'LIST' }, // Invalidate products to update stock levels
+        { type: 'Inventory', id: 'LIST' }, // Invalidate inventory cache
       ],
     }),
     closeSalesOrder: builder.mutation({

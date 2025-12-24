@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from 'react-query';
 import { Tag, Percent, DollarSign, CheckCircle, AlertCircle, X } from 'lucide-react';
-import { discountsAPI } from '../services/api';
+import { useCheckApplicableDiscountsMutation } from '../store/services/discountsApi';
 import { showSuccessToast, showErrorToast } from '../utils/errorHandler';
 
 const DiscountSelector = ({ 
@@ -14,27 +13,29 @@ const DiscountSelector = ({
 }) => {
   const [discountCode, setDiscountCode] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-    appliedDiscountsCount: appliedDiscounts?.length,
-    isLoading
-  });
 
   // Fetch applicable discounts
-  const { 
-    data: applicableDiscountsData, 
-    isLoading: discountsLoading 
-  } = useQuery(
-    ['applicable-discounts', orderData, customerData],
-    () => discountsAPI.checkApplicableDiscounts(orderData, customerData),
-    {
-      enabled: !!orderData && typeof orderData === 'object' && orderData.total > 0,
-      onError: (error) => {
-        console.error('Error fetching applicable discounts:', error);
-        // Don't show error toast for this as it's not critical
-      }
-    }
-  );
+  const [checkApplicableDiscounts, { isLoading: discountsLoading }] = useCheckApplicableDiscountsMutation();
+  const [applicableDiscounts, setApplicableDiscounts] = useState([]);
 
-  const applicableDiscounts = applicableDiscountsData?.data?.applicableDiscounts || [];
+  useEffect(() => {
+    const fetchApplicableDiscounts = async () => {
+      if (!!orderData && typeof orderData === 'object' && orderData.total > 0) {
+        try {
+          const result = await checkApplicableDiscounts({ orderData, customerData }).unwrap();
+          setApplicableDiscounts(result?.data?.applicableDiscounts || []);
+        } catch (error) {
+          console.error('Error fetching applicable discounts:', error);
+          // Don't show error toast for this as it's not critical
+          setApplicableDiscounts([]);
+        }
+      } else {
+        setApplicableDiscounts([]);
+      }
+    };
+
+    fetchApplicableDiscounts();
+  }, [orderData, customerData, checkApplicableDiscounts]);
 
   const handleApplyDiscount = async () => {
     if (!discountCode.trim()) {

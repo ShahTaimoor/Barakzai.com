@@ -17,6 +17,7 @@ import {
   useGetLedgerEntriesQuery,
   useGetAccountsListQuery,
   useGetAllEntriesQuery,
+  useExportLedgerMutation,
 } from '../store/services/accountLedgerApi';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { handleApiError } from '../utils/errorHandler';
@@ -68,6 +69,7 @@ const AccountLedger = () => {
   const [accountSearchQuery, setAccountSearchQuery] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportLedger] = useExportLedgerMutation();
 
   // Close export menu when clicking outside
   React.useEffect(() => {
@@ -143,42 +145,26 @@ const AccountLedger = () => {
       setIsExporting(true);
       setShowExportMenu(false);
 
-      // Build export URL with current filters
-      const params = new URLSearchParams();
+      // Build export params with current filters
+      const params = {
+        export: format,
+      };
       
       // Add filters that have values
-      if (filters.startDate) params.append('startDate', filters.startDate);
-      if (filters.endDate) params.append('endDate', filters.endDate);
-      if (filters.accountCode) params.append('accountCode', filters.accountCode);
-      if (filters.accountName) params.append('accountName', filters.accountName);
-      params.append('export', format);
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.accountCode) params.accountCode = filters.accountCode;
+      if (filters.accountName) params.accountName = filters.accountName;
 
-      const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/?$/, '');
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${API_BASE_URL}/api/account-ledger/all-entries?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const result = await exportLedger(params).unwrap();
 
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-
-      // Get filename from Content-Disposition header or generate one
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `account-ledger-${selectedAccount?.accountCode || 'all'}-${new Date().toISOString().split('T')[0]}.${format}`;
-      
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
-      }
+      // Get filename - generate one based on format and account
+      const formatExtension = format === 'excel' ? 'xlsx' : format;
+      let filename = `account-ledger-${selectedAccount?.accountCode || 'all'}-${new Date().toISOString().split('T')[0]}.${formatExtension}`;
 
       // Create blob and download
-      const blob = await response.blob();
+      // RTK Query with responseType: 'blob' returns the blob directly
+      const blob = result instanceof Blob ? result : new Blob([result]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

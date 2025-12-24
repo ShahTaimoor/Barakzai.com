@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { recommendationsAPI } from '../services/api';
+import { useTrackBehaviorMutation } from '../store/services/recommendationsApi';
 
 // Generate a unique session ID
 const generateSessionId = () => {
@@ -20,6 +20,7 @@ const useBehaviorTracking = () => {
   const sessionId = useRef(getSessionId());
   const trackingQueue = useRef([]);
   const isTracking = useRef(false);
+  const [trackBehaviorMutation] = useTrackBehaviorMutation();
 
   // Track user behavior
   const trackBehavior = async (behaviorData) => {
@@ -50,7 +51,7 @@ const useBehaviorTracking = () => {
       const behaviorData = trackingQueue.current.shift();
       
       try {
-        await recommendationsAPI.trackBehavior(behaviorData);
+        await trackBehaviorMutation(behaviorData).unwrap();
       } catch (error) {
         console.error('Error tracking behavior:', error);
         // Re-queue failed tracking if it's important

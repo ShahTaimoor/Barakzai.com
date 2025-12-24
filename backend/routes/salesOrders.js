@@ -38,8 +38,8 @@ router.get('/', [
   query('limit').optional().isInt({ min: 1, max: 999999 }),
   query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
-  query('status').optional().isIn(['draft', 'confirmed', 'partially_invoiced', 'fully_invoiced', 'cancelled', 'closed']),
-  query('customer').optional().isMongoId(),
+  query('status').optional({ checkFalsy: true }).isIn(['draft', 'confirmed', 'partially_invoiced', 'fully_invoiced', 'cancelled', 'closed']),
+  query('customer').optional({ checkFalsy: true }).isMongoId(),
   query('fromDate').optional().isISO8601(),
   query('toDate').optional().isISO8601(),
   query('orderNumber').optional().trim()
@@ -62,10 +62,30 @@ router.get('/', [
     const filter = {};
     
     if (req.query.search) {
-      filter.$or = [
-        { soNumber: { $regex: req.query.search, $options: 'i' } },
-        { notes: { $regex: req.query.search, $options: 'i' } }
+      const searchTerm = req.query.search.trim();
+      const searchConditions = [
+        { soNumber: { $regex: searchTerm, $options: 'i' } },
+        { notes: { $regex: searchTerm, $options: 'i' } }
       ];
+      
+      // Search in Customer collection and match by customer ID
+      const Customer = require('../models/Customer');
+      const customerMatches = await Customer.find({
+        $or: [
+          { businessName: { $regex: searchTerm, $options: 'i' } },
+          { name: { $regex: searchTerm, $options: 'i' } },
+          { firstName: { $regex: searchTerm, $options: 'i' } },
+          { lastName: { $regex: searchTerm, $options: 'i' } },
+          { email: { $regex: searchTerm, $options: 'i' } }
+        ]
+      }).select('_id').lean();
+      
+      if (customerMatches.length > 0) {
+        const customerIds = customerMatches.map(c => c._id);
+        searchConditions.push({ customer: { $in: customerIds } });
+      }
+      
+      filter.$or = searchConditions;
     }
     
     if (req.query.status) {

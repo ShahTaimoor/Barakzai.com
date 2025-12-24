@@ -10,7 +10,9 @@ import {
   XCircle,
   Clock,
   DollarSign,
-  Printer
+  Printer,
+  Filter,
+  Calendar
 } from 'lucide-react';
 import {
   useGetPurchaseInvoicesQuery,
@@ -119,14 +121,33 @@ const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onP
 export const PurchaseInvoices = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // 30 days ago
+  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]); // Today
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   
   const { openTab } = useTab();
 
+  // Build query params
+  const queryParams = React.useMemo(() => {
+    const params = {
+      search: searchTerm || undefined,
+      status: statusFilter || undefined,
+    };
+    
+    if (dateFrom) {
+      params.dateFrom = dateFrom;
+    }
+    if (dateTo) {
+      params.dateTo = dateTo;
+    }
+    
+    return params;
+  }, [searchTerm, statusFilter, dateFrom, dateTo]);
+
   // Fetch purchase invoices
   const { data, isLoading, error, refetch } = useGetPurchaseInvoicesQuery(
-    { search: searchTerm, status: statusFilter || undefined },
+    queryParams,
     { refetchOnMountOrArgChange: true }
   );
 
@@ -475,10 +496,14 @@ export const PurchaseInvoices = () => {
     setShowViewModal(true);
   };
 
-  const handleExport = () => {
   const handleExport = async (format = 'csv') => {
     try {
-      const payload = { search: searchTerm, status: statusFilter || undefined };
+      const payload = {
+        search: searchTerm || undefined,
+        status: statusFilter || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+      };
       let response;
       if (format === 'excel') {
         response = await exportExcelMutation(payload).unwrap();
@@ -528,8 +553,17 @@ export const PurchaseInvoices = () => {
       handleApiError(error, 'Purchase Invoice Export');
     }
   };
-    showErrorToast('Export functionality not yet implemented');
-  };
+
+  // Memoize invoices data - must be before conditional returns to follow Rules of Hooks
+  const invoices = React.useMemo(() => {
+    if (!data) return [];
+    if (data?.data?.invoices) return data.data.invoices;
+    if (data?.invoices) return data.invoices;
+    if (data?.data?.data?.invoices) return data.data.data.invoices;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.data)) return data.data;
+    return [];
+  }, [data]);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -546,8 +580,6 @@ export const PurchaseInvoices = () => {
     );
   }
 
-  const invoices = data?.data?.invoices || [];
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -561,32 +593,79 @@ export const PurchaseInvoices = () => {
         </button>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1 relative min-w-0">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by invoice number, supplier name, or amount..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10 w-full"
-          />
+      {/* Filters */}
+      <div className="card">
+        <div className="card-header">
+          <div className="flex items-center space-x-2">
+            <Filter className="h-5 w-5 text-gray-400" />
+            <h3 className="text-lg font-medium text-gray-900">Filters</h3>
+          </div>
         </div>
-        <div className="flex-shrink-0">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="input min-w-[120px]"
-          >
-            <option value="">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="received">Received</option>
-            <option value="paid">Paid</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="closed">Closed</option>
-          </select>
+        <div className="card-content">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Invoice number, supplier, amount..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="input pl-10 w-full h-[42px]"
+                />
+              </div>
+            </div>
+
+            {/* Date From */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                From Date
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="input h-[42px]"
+              />
+            </div>
+
+            {/* Date To */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                To Date
+              </label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="input h-[42px]"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input h-[42px]"
+              >
+                <option value="">All Status</option>
+                <option value="draft">Draft</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="received">Received</option>
+                <option value="paid">Paid</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -596,7 +675,7 @@ export const PurchaseInvoices = () => {
           <FileText className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No purchase invoices found</h3>
           <p className="mt-1 text-sm text-gray-500">
-            {searchTerm || statusFilter ? 'Try adjusting your search terms.' : 'No purchase invoices have been created yet.'}
+            {searchTerm || statusFilter || dateFrom || dateTo ? 'Try adjusting your filters.' : 'No purchase invoices have been created yet.'}
           </p>
         </div>
       ) : (

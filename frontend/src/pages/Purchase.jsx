@@ -170,7 +170,7 @@ const SupplierSearch = ({ selectedSupplier, onSupplierSelect }) => {
   );
 };
 
-const ProductSearch = ({ onAddProduct }) => {
+const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -183,13 +183,21 @@ const ProductSearch = ({ onAddProduct }) => {
   // Removed auto-focus on mount to let supplier selection be focused first
 
   // Fetch all active products for client-side fuzzy search
-  const { data: productsData, isLoading, error } = useGetProductsQuery(
+  const { data: productsData, isLoading, error, refetch: refetchProducts } = useGetProductsQuery(
     { limit: 100, status: 'active' },
     {
       keepPreviousData: true,
-      staleTime: 30000, // Cache for 30 seconds
+      staleTime: 0, // Always consider data stale to get fresh stock levels
+      refetchOnMountOrArgChange: true, // Refetch when component mounts or params change
     }
   );
+
+  // Expose refetch function to parent component via callback
+  useEffect(() => {
+    if (onRefetchReady && refetchProducts && typeof refetchProducts === 'function') {
+      onRefetchReady(refetchProducts);
+    }
+  }, [onRefetchReady, refetchProducts]);
 
   // Extract products array from RTK Query response
   const allProducts = React.useMemo(() => {
@@ -429,6 +437,9 @@ export const Purchase = ({ tabId, editData }) => {
   
   const { updateTabTitle, getActiveTab, openTab } = useTab();
 
+  // Store refetch function from ProductSearch component
+  const [refetchProducts, setRefetchProducts] = useState(null);
+
   // RTK Query hooks
   const [searchSuppliers, { data: suppliersSearchResult, isLoading: suppliersLoading, refetch: refetchSuppliers }] = useLazySearchSuppliersQuery();
   const { data: banksData } = useGetBanksQuery();
@@ -492,11 +503,13 @@ export const Purchase = ({ tabId, editData }) => {
     }
   }, [editData?.invoiceId]); // Only depend on invoiceId to prevent multiple executions
 
-  // Fetch complete supplier data when in edit mode and supplier is set
-  const { data: completeSupplierData } = useGetSupplierQuery(
+  // Fetch complete supplier data when supplier is selected (for immediate balance updates)
+  const { data: completeSupplierData, refetch: refetchSupplier } = useGetSupplierQuery(
     selectedSupplier?._id,
     {
-      skip: !selectedSupplier?._id || !editData?.isEditMode,
+      skip: !selectedSupplier?._id,
+      staleTime: 0, // Always consider data stale to get fresh balance information
+      refetchOnMountOrArgChange: true, // Refetch when component mounts or params change
     }
   );
 
@@ -670,8 +683,42 @@ export const Purchase = ({ tabId, editData }) => {
       
       toast.success(`Purchase invoice created successfully! Invoice ${invoiceNumber} created and ${successCount} products added to inventory.`);
       
+      // Immediately refetch products to update stock and prices
+      if (refetchProducts && typeof refetchProducts === 'function') {
+        try {
+          refetchProducts();
+        } catch (error) {
+          console.warn('Failed to refetch products:', error);
+        }
+      }
+      
+      // Immediately refetch supplier to update outstanding balance (BEFORE clearing supplier)
+      if (refetchSupplier && typeof refetchSupplier === 'function') {
+        try {
+          refetchSupplier().then((result) => {
+            // Update supplier state immediately with fresh data
+            if (result?.data?.data) {
+              setSelectedSupplier(result.data.data);
+            }
+          }).catch((error) => {
+            console.warn('Failed to refetch supplier:', error);
+          });
+        } catch (error) {
+          console.warn('Failed to call refetchSupplier:', error);
+        }
+      }
+      
+      // Also trigger supplier search to update suppliers list (for the useEffect that syncs balances)
+      if (selectedSupplier && searchSuppliers) {
+        const searchTerm = selectedSupplier.companyName || selectedSupplier.name || '';
+        if (searchTerm) {
+          searchSuppliers(searchTerm);
+        }
+      }
+      
       setPurchaseItems([]);
-      setSelectedSupplier(null);
+      // Don't clear selectedSupplier immediately - let it update from refetched data
+      // setSelectedSupplier(null);
       setAmountPaid(0);
       setPaymentMethod('cash');
       setInvoiceNumber('');
@@ -698,6 +745,50 @@ export const Purchase = ({ tabId, editData }) => {
       const successCount = inventoryUpdates.filter(update => update.success).length;
       
       toast.success(`Purchase invoice updated successfully! Invoice ${invoiceNumber} updated and ${successCount} products adjusted in inventory.`);
+      
+      // Immediately refetch products to update stock and prices
+      if (refetchProducts && typeof refetchProducts === 'function') {
+        try {
+          refetchProducts();
+        } catch (error) {
+          console.warn('Failed to refetch products:', error);
+        }
+      }
+      
+      // Immediately refetch supplier to update outstanding balance
+      // Only refetch if supplier is selected (query is not skipped)
+      if (selectedSupplier?._id && refetchSupplier && typeof refetchSupplier === 'function') {
+        try {
+          refetchSupplier().then((result) => {
+            // Update supplier state immediately with fresh data
+            if (result?.data?.data) {
+              setSelectedSupplier(result.data.data);
+            }
+          }).catch((error) => {
+            // Ignore "Cannot refetch a query that has not been started yet" errors
+            if (!error?.message?.includes('has not been started')) {
+              console.warn('Failed to refetch supplier:', error);
+            }
+          });
+        } catch (error) {
+          // Ignore "Cannot refetch a query that has not been started yet" errors
+          if (!error?.message?.includes('has not been started')) {
+            console.warn('Failed to call refetchSupplier:', error);
+          }
+        }
+      }
+      
+      // Also trigger supplier search to update suppliers list (for the useEffect that syncs balances)
+      if (selectedSupplier && searchSuppliers) {
+        try {
+          const searchTerm = selectedSupplier.companyName || selectedSupplier.name || '';
+          if (searchTerm) {
+            searchSuppliers(searchTerm);
+          }
+        } catch (error) {
+          console.warn('Failed to search suppliers:', error);
+        }
+      }
     } catch (error) {
       toast.error(error?.data?.message || error?.message || 'Failed to update purchase');
     }
@@ -1210,7 +1301,7 @@ export const Purchase = ({ tabId, editData }) => {
         <div className="card-content">
           {/* Product Search */}
           <div className="mb-6">
-            <ProductSearch onAddProduct={addToPurchase} />
+            <ProductSearch onAddProduct={addToPurchase} onRefetchReady={setRefetchProducts} />
           </div>
 
           {/* Cart Items */}

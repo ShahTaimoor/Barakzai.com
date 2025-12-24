@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate } from '../utils/formatters';
-import { customersAPI, suppliersAPI, banksAPI } from '../services/api';
+import { useGetCustomersQuery } from '../store/services/customersApi';
+import { useGetSuppliersQuery } from '../store/services/suppliersApi';
+import { useGetBanksQuery } from '../store/services/banksApi';
 import {
   useGetBankReceiptsQuery,
   useCreateBankReceiptMutation,
@@ -80,46 +82,35 @@ const BankReceipts = () => {
   } = useGetBankReceiptsQuery({ ...filters, ...pagination, sortConfig }, { refetchOnMountOrArgChange: true });
 
   // Fetch customers for dropdown
-  const { data: customersData, isLoading: customersLoading, error: customersError } = useQuery(
-    ['customers', { search: '', limit: 100 }],
-    () => customersAPI.getCustomers({ search: '', limit: 100 }),
-    {
-      select: (data) => data?.data?.customers || data?.customers || [],
-      onError: () => {
-        // Error handled by RTK Query
-      }
-    }
+  const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
+    { search: '', limit: 100 },
+    { skip: false }
   );
+  const customers = React.useMemo(() => {
+    return customersData?.data?.customers || customersData?.customers || [];
+  }, [customersData]);
 
   // Fetch suppliers for dropdown
-  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError } = useQuery(
-    ['suppliers', { search: '', limit: 100 }],
-    () => suppliersAPI.getSuppliers({ search: '', limit: 100 }),
-    {
-      select: (data) => data?.data?.suppliers || data?.suppliers || [],
-      onError: () => {
-        // Error handled by RTK Query
-      }
-    }
+  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError, refetch: refetchSuppliers } = useGetSuppliersQuery(
+    { search: '', limit: 100 },
+    { skip: false }
   );
+  const suppliers = React.useMemo(() => {
+    return suppliersData?.data?.suppliers || suppliersData?.suppliers || [];
+  }, [suppliersData]);
 
   // Fetch banks for dropdown
-  const { data: banksData, isLoading: banksLoading, error: banksError } = useQuery(
-    ['banks', { isActive: true }],
-    () => banksAPI.getBanks({ isActive: true }).then((res) => {
-      // Axios response structure: res.data = { success: true, data: { banks: [...] } }
-      const banks = res?.data?.data?.banks || res?.data?.banks || res?.banks || [];
-      if (!Array.isArray(banks)) {
-        return [];
-      }
-      return banks;
-    }),
-    {
-      onError: () => {
-        // Error handled by RTK Query
-      }
-    }
+  const { data: banksData, isLoading: banksLoading, error: banksError } = useGetBanksQuery(
+    { isActive: true },
+    { skip: false }
   );
+  const banks = React.useMemo(() => {
+    const banksList = banksData?.data?.banks || banksData?.banks || [];
+    if (!Array.isArray(banksList)) {
+      return [];
+    }
+    return banksList;
+  }, [banksData]);
 
   // Mutations
   const [createBankReceipt, { isLoading: creating }] = useCreateBankReceiptMutation();
@@ -144,7 +135,7 @@ const BankReceipts = () => {
   };
 
   const handleCustomerSelect = (customerId) => {
-    const customer = customersData?.find(c => c._id === customerId);
+    const customer = customers?.find(c => c._id === customerId);
     setSelectedCustomer(customer);
     setFormData(prev => ({ ...prev, customer: customerId }));
   };
@@ -158,7 +149,7 @@ const BankReceipts = () => {
   };
 
   const handleSupplierSelect = (supplierId) => {
-    const supplier = suppliersData?.find(s => s._id === supplierId);
+    const supplier = suppliers?.find(s => s._id === supplierId);
     setSelectedSupplier(supplier);
     setFormData(prev => ({ ...prev, supplier: supplierId, customer: '' }));
     setSelectedCustomer(null);
@@ -209,6 +200,12 @@ const BankReceipts = () => {
         resetForm();
         showSuccessToast('Bank receipt created successfully');
         refetch();
+        // Refetch customer/supplier data to update balances immediately
+        if (paymentType === 'customer' && formData.customer) {
+          refetchCustomers();
+        } else if (paymentType === 'supplier' && formData.supplier) {
+          refetchSuppliers();
+        }
       })
       .catch((error) => {
         showErrorToast(handleApiError(error));
@@ -403,7 +400,7 @@ const BankReceipts = () => {
                 </div>
                 {customerSearchTerm && (
                   <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                    {customersData?.filter(customer => 
+                    {customers?.filter(customer => 
                       (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                       (customer.phone || '').includes(customerSearchTerm)
                     ).map((customer) => {
@@ -489,7 +486,7 @@ const BankReceipts = () => {
                   </div>
                   {supplierSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {suppliersData?.filter(supplier => 
+                      {suppliers?.filter(supplier => 
                         (supplier.companyName || supplier.name || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
                         (supplier.phone || '').includes(supplierSearchTerm)
                       ).map((supplier) => (
@@ -599,7 +596,7 @@ const BankReceipts = () => {
                   required
                 >
                   <option value="">Select bank account...</option>
-                  {banksData?.map((bank) => (
+                  {banks?.map((bank) => (
                     <option key={bank._id} value={bank._id}>
                       {bank.bankName} - {bank.accountNumber} {bank.accountName ? `(${bank.accountName})` : ''}
                     </option>
@@ -667,11 +664,11 @@ const BankReceipts = () => {
             </button>
             <button
               onClick={handleCreate}
-              disabled={createMutation.isLoading}
+              disabled={creating}
               className="btn btn-primary flex items-center space-x-2"
             >
               <Save className="h-4 w-4" />
-              <span>{createMutation.isLoading ? 'Saving...' : 'Save Receipt'}</span>
+              <span>{creating ? 'Saving...' : 'Save Receipt'}</span>
             </button>
           </div>
         </div>
@@ -976,7 +973,7 @@ const BankReceipts = () => {
                   </div>
                   {customerSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {customersData?.filter(customer => 
+                      {customers?.filter(customer => 
                         (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                         (customer.phone || '').includes(customerSearchTerm)
                       ).map((customer) => {
@@ -1032,7 +1029,7 @@ const BankReceipts = () => {
                     required
                   >
                     <option value="">Select bank account...</option>
-                    {banksData?.map((bank) => (
+                    {banks?.map((bank) => (
                       <option key={bank._id} value={bank._id}>
                         {bank.bankName} - {bank.accountNumber} {bank.accountName ? `(${bank.accountName})` : ''}
                       </option>
@@ -1141,11 +1138,11 @@ const BankReceipts = () => {
                 </button>
                 <button
                   onClick={handleCreate}
-                  disabled={createMutation.isLoading}
+                  disabled={creating}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" />
-                  <span>{createMutation.isLoading ? 'Saving...' : 'Save Receipt'}</span>
+                  <span>{creating ? 'Saving...' : 'Save Receipt'}</span>
                 </button>
               </div>
             </div>

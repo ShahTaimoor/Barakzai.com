@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from 'react-query';
 import { 
   AlertTriangle, 
   TrendingDown,
@@ -15,7 +14,7 @@ import {
   AlertCircle,
   Info
 } from 'lucide-react';
-import { anomalyDetectionAPI } from '../services/api';
+import { useGetAnomaliesQuery, useGetSummaryQuery } from '../store/services/anomalyDetectionApi';
 import { formatCurrency } from '../utils/formatters';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { showErrorToast, handleApiError } from '../utils/errorHandler';
@@ -29,34 +28,28 @@ const AnomalyDetection = () => {
   });
 
   // Fetch anomalies
-  const { data: anomaliesData, isLoading, error, refetch } = useQuery(
-    ['anomalyDetection', filters],
-    () => anomalyDetectionAPI.getAnomalies({
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      type: filters.type || undefined,
-      severity: filters.severity || undefined
-    }),
-    {
-      refetchInterval: 60000, // Refetch every minute
-      onError: (error) => {
-        showErrorToast(handleApiError(error));
-      }
+  const { data: anomaliesData, isLoading, error, refetch } = useGetAnomaliesQuery({
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    type: filters.type || undefined,
+    severity: filters.severity || undefined
+  }, {
+    pollingInterval: 60000, // Refetch every minute
+  });
+
+  React.useEffect(() => {
+    if (error) {
+      showErrorToast(handleApiError(error));
     }
-  );
+  }, [error]);
 
   // Fetch summary
-  const { data: summaryData } = useQuery(
-    'anomalyDetectionSummary',
-    () => anomalyDetectionAPI.getSummary(),
-    {
-      refetchInterval: 60000,
-      onError: () => {} // Silently fail
-    }
-  );
+  const { data: summaryData } = useGetSummaryQuery(undefined, {
+    pollingInterval: 60000,
+  });
 
-  const anomalies = anomaliesData?.data?.anomalies || [];
-  const summary = summaryData?.data || {};
+  const anomalies = anomaliesData?.data?.anomalies || anomaliesData?.anomalies || [];
+  const summary = summaryData?.data || summaryData || {};
 
   const severityColors = {
     critical: 'bg-red-100 text-red-800 border-red-300',

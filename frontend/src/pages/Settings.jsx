@@ -59,6 +59,7 @@ export const Settings2 = () => {
     logo: null,
     taxRegistrationNumber: ''
   });
+  const [savingCompanySettings, setSavingCompanySettings] = useState(false);
 
   // User Management State
   const [users, setUsers] = useState([]);

@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { X, Search, Plus, Minus, AlertCircle } from 'lucide-react';
-import { returnsAPI, salesAPI, purchaseInvoicesAPI } from '../services/api';
+import { 
+  useGetEligibleItemsQuery,
+  useCreateReturnMutation 
+} from '../store/services/returnsApi';
+import { useGetOrdersQuery } from '../store/services/salesApi';
+import { useGetSalesOrdersQuery } from '../store/services/salesOrdersApi';
+import { useGetPurchaseInvoicesQuery } from '../store/services/purchaseInvoicesApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
@@ -21,61 +26,34 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
   const [orderSearch, setOrderSearch] = useState('');
   const [showOrderSearch, setShowOrderSearch] = useState(false);
 
-  const queryClient = useQueryClient();
-
-  // Search for orders
-  const ordersQueryKey = useMemo(() => {
-    const origin = isPurchaseReturn ? 'purchase' : 'sales';
-    return ['returns-orders-search', origin, orderSearch];
-  }, [isPurchaseReturn, orderSearch]);
-
-  const { data: ordersData, isLoading: ordersLoading } = useQuery(
-    ordersQueryKey,
-    () => {
-      const params = {
-        search: orderSearch,
-        limit: 10
-      };
-
-      if (isPurchaseReturn) {
-        return purchaseInvoicesAPI.getPurchaseInvoices(params);
-      }
-
-      return salesAPI.getOrders({ ...params, type: 'sales' });
-    },
-    {
-      enabled: orderSearch.length > 2,
-      keepPreviousData: true,
-      onError: (error) => handleApiError(error, 'Order Search')
-    }
+  // Search for orders - for sales returns, search both Sales and SalesOrders
+  const { data: salesData, isLoading: salesLoading } = useGetOrdersQuery(
+    { search: orderSearch, limit: 10 },
+    { skip: isPurchaseReturn || orderSearch.length < 1 }
   );
+  
+  const { data: salesOrdersData, isLoading: salesOrdersLoading } = useGetSalesOrdersQuery(
+    { search: orderSearch, limit: 10 },
+    { skip: isPurchaseReturn || orderSearch.length < 1 }
+  );
+  
+  const { data: purchaseInvoicesData, isLoading: purchaseInvoicesLoading } = useGetPurchaseInvoicesQuery(
+    { search: orderSearch, limit: 10 },
+    { skip: !isPurchaseReturn || orderSearch.length < 1 }
+  );
+  
+  const ordersLoading = isPurchaseReturn 
+    ? purchaseInvoicesLoading 
+    : (salesLoading || salesOrdersLoading);
 
   // Get eligible items for selected order
-  const { data: eligibleItemsData, isLoading: eligibleItemsLoading } = useQuery(
-    ['eligible-items', selectedOrder?._id, defaultReturnType],
-    () => returnsAPI.getEligibleItems(selectedOrder._id, { origin: defaultReturnType }),
-    {
-      enabled: !!selectedOrder,
-      onError: (error) => {
-        handleApiError(error, 'Fetch Eligible Items');
-      }
-    }
+  const { data: eligibleItemsData, isLoading: eligibleItemsLoading } = useGetEligibleItemsQuery(
+    selectedOrder?._id ? { orderId: selectedOrder._id, isPurchase: isPurchaseReturn } : null,
+    { skip: !selectedOrder?._id }
   );
 
   // Create return mutation
-  const createReturnMutation = useMutation(
-    (data) => returnsAPI.createReturn(data),
-    {
-      onSuccess: () => {
-        showSuccessToast('Return request created successfully');
-        queryClient.invalidateQueries(['returns']);
-        onSuccess();
-      },
-      onError: (error) => {
-        handleApiError(error, 'Create Return');
-      }
-    }
-  );
+  const [createReturn, { isLoading: isCreatingReturn }] = useCreateReturnMutation();
 
   useEffect(() => {
     if (isOpen) {
@@ -102,11 +80,14 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
   };
 
   const handleAddItem = (orderItem, availableQuantity) => {
+    // Handle different price field names for sales vs purchase
+    const itemPrice = orderItem.price || orderItem.unitPrice || orderItem.unitCost || orderItem.totalCost / (orderItem.quantity || 1) || 0;
+    
     const newItem = {
       product: orderItem.product._id,
       originalOrderItem: orderItem._id,
       quantity: 1,
-      originalPrice: orderItem.price || 0,
+      originalPrice: itemPrice,
       returnReason: 'changed_mind',
       condition: 'good',
       action: 'refund',
@@ -137,7 +118,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!selectedOrder) {
@@ -166,26 +147,42 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
       }
     }
 
-    createReturnMutation.mutate(formData);
+    try {
+      await createReturn(formData).unwrap();
+      showSuccessToast('Return request created successfully');
+      onSuccess();
+    } catch (error) {
+      handleApiError(error, 'Create Return');
+    }
   };
 
   const orders = useMemo(() => {
-    if (!ordersData?.data) return [];
-
     if (isPurchaseReturn) {
-      return ordersData.data.purchaseInvoices || ordersData.data.invoices || ordersData.data;
+      if (!purchaseInvoicesData) return [];
+      return purchaseInvoicesData.data?.purchaseInvoices || purchaseInvoicesData.purchaseInvoices || purchaseInvoicesData.data || [];
     }
 
-    return ordersData.data.orders || ordersData.data;
-  }, [ordersData, isPurchaseReturn]);
-  const eligibleItems = eligibleItemsData?.data?.eligibleItems || [];
+    // Combine Sales and SalesOrders for sales returns
+    const salesOrders = salesData?.items || salesData?.data?.items || salesData?.data || [];
+    const salesOrderList = salesOrdersData?.data?.salesOrders || salesOrdersData?.salesOrders || salesOrdersData?.data || [];
+    
+    // Combine and deduplicate by _id
+    const combined = [...salesOrders, ...salesOrderList];
+    const uniqueOrders = combined.filter((order, index, self) => 
+      index === self.findIndex((o) => o._id === order._id)
+    );
+    
+    return uniqueOrders;
+  }, [salesData, salesOrdersData, purchaseInvoicesData, isPurchaseReturn]);
+  const eligibleItems = eligibleItemsData?.data?.eligibleItems || eligibleItemsData?.eligibleItems || [];
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-        <div className="flex items-center justify-between mb-4">
+      <div className={`relative top-20 mx-auto p-0 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white flex flex-col ${selectedOrder ? 'max-h-[90vh]' : ''}`}>
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 flex-shrink-0">
           <h3 className="text-lg font-medium text-gray-900">Create Return Request</h3>
           <button
             onClick={onClose}
@@ -195,7 +192,9 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Scrollable Content - Only scroll when order is selected */}
+        <div className={`${selectedOrder ? 'overflow-y-auto flex-1' : ''} p-5`}>
+          <form id="return-form" onSubmit={handleSubmit} className="space-y-6">
           {/* Order Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -248,6 +247,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
 
                         const orderTotal = order.total ?? order.grandTotal ?? order.amount ?? 0;
                         const orderDate = order.createdAt || order.invoiceDate || order.orderDate;
+                        const orderNumber = order.orderNumber || order.soNumber || order.invoiceNumber || order.poNumber || 'N/A';
 
                         return (
                           <button
@@ -264,7 +264,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                                 {partyName}
                               </span>
                               <span className="text-sm text-gray-600">
-                                {order.orderNumber}
+                                {orderNumber}
                               </span>
                               <span className="text-sm font-medium text-gray-900">
                                 ${orderTotal.toFixed(2)}
@@ -281,7 +281,9 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
               <div className="p-3 bg-gray-50 rounded-lg border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium">{selectedOrder.orderNumber}</div>
+                    <div className="font-medium">
+                      {selectedOrder.orderNumber || selectedOrder.soNumber || selectedOrder.invoiceNumber || selectedOrder.poNumber || 'N/A'}
+                    </div>
                     <div className="text-sm text-gray-500">
                         {(() => {
                         const supplier = selectedOrder.supplier || selectedOrder.purchaseInvoice?.supplier;
@@ -384,7 +386,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                               <div className="font-medium">{item.orderItem.product.name}</div>
                               <div className="text-sm text-gray-500">
                                 Available: {item.availableQuantity} • 
-                                Price: ${item.orderItem.price?.toFixed(2)}
+                                Price: ${(item.orderItem.price || item.orderItem.unitPrice || item.orderItem.unitCost || 0).toFixed(2)}
                               </div>
                             </div>
                             <button
@@ -542,28 +544,33 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
             </>
           )}
 
-          {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={createReturnMutation.isLoading || !selectedOrder || formData.items.length === 0}
-              className="btn btn-primary"
-            >
-              {createReturnMutation.isLoading ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                'Create Return Request'
-              )}
-            </button>
+          </form>
+        </div>
+
+        {/* Footer - Fixed - Only show when order is selected */}
+        {selectedOrder && (
+          <div className="flex justify-end space-x-3 p-5 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="return-form"
+            disabled={isCreatingReturn || !selectedOrder || formData.items.length === 0}
+            className="btn btn-primary"
+          >
+            {isCreatingReturn ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              'Create Return Request'
+            )}
+          </button>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );

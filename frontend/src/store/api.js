@@ -38,6 +38,7 @@ export const api = createApi({
     'JournalVouchers',
     'Users',
     'Payments',
+    'Recommendations',
   ],
   endpoints: (builder) => ({
     health: builder.query({

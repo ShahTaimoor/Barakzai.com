@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from 'react-query';
 import { 
   X, 
   Tag, 
@@ -14,8 +13,15 @@ import {
   HelpCircle,
   RefreshCw
 } from 'lucide-react';
-import { discountsAPI, productsAPI, categoriesAPI, customersAPI } from '../services/api';
-import { showSuccessToast, showErrorToast } from '../utils/errorHandler';
+import {
+  useCreateDiscountMutation,
+  useGenerateCodeSuggestionsMutation,
+  useCheckCodeAvailabilityQuery,
+} from '../store/services/discountsApi';
+import { useGetProductsQuery } from '../store/services/productsApi';
+import { useGetCategoriesQuery } from '../store/services/categoriesApi';
+import { useGetCustomersQuery } from '../store/services/customersApi';
+import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
@@ -53,16 +59,22 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
     }
   });
   
-  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState('basic');
   const [codeSuggestions, setCodeSuggestions] = useState([]);
   const [showCodeSuggestions, setShowCodeSuggestions] = useState(false);
 
   // Fetch data for dropdowns
-  const { data: products } = useQuery('products', () => productsAPI.getProducts({ limit: 1000 }));
-  const { data: categories } = useQuery('categories', () => categoriesAPI.getCategories({ limit: 1000 }));
-  const { data: customers } = useQuery('customers', () => customersAPI.getCustomers({ limit: 1000 }));
+  const { data: productsData } = useGetProductsQuery({ limit: 1000 });
+  const { data: categoriesData } = useGetCategoriesQuery({ limit: 1000 });
+  const { data: customersData } = useGetCustomersQuery({ limit: 1000 });
+  
+  const products = productsData?.data?.products || productsData?.products || [];
+  const categories = categoriesData?.data?.categories || categoriesData?.categories || [];
+  const customers = customersData?.data?.customers || customersData?.customers || [];
+  
+  const [createDiscount, { isLoading: isCreating }] = useCreateDiscountMutation();
+  const [generateCodeSuggestionsMutation] = useGenerateCodeSuggestionsMutation();
 
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: Tag },
@@ -103,8 +115,11 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
 
   const generateCodeSuggestions = async () => {
     try {
-      const response = await discountsAPI.generateCodeSuggestions(formData.name, formData.type);
-      setCodeSuggestions(response.data.suggestions);
+      const response = await generateCodeSuggestionsMutation({
+        name: formData.name,
+        type: formData.type
+      }).unwrap();
+      setCodeSuggestions(response?.suggestions || response?.data?.suggestions || []);
     } catch (error) {
       console.error('Error generating code suggestions:', error);
     }
@@ -179,7 +194,6 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
       return;
     }
 
-    setIsLoading(true);
     try {
       // Prepare data for submission
       const submitData = {
@@ -198,14 +212,11 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
         }
       };
 
-      await discountsAPI.createDiscount(submitData);
+      await createDiscount(submitData).unwrap();
       showSuccessToast('Discount created successfully');
       onSuccess();
     } catch (error) {
-      console.error('Error creating discount:', error);
-      showErrorToast(error.response?.data?.message || 'Failed to create discount');
-    } finally {
-      setIsLoading(false);
+      handleApiError(error, 'Create Discount');
     }
   };
 
@@ -272,21 +283,27 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
     setShowCodeSuggestions(false);
   };
 
-  const checkCodeAvailability = async (code) => {
-    if (code.length < 3) return;
-    
-    try {
-      const response = await discountsAPI.checkCodeAvailability(code);
-      if (!response.data.available) {
-        setErrors(prev => ({
-          ...prev,
-          code: 'This code is already taken'
-        }));
-      }
-    } catch (error) {
-      console.error('Error checking code availability:', error);
+  const { data: codeAvailabilityData } = useCheckCodeAvailabilityQuery(
+    formData.code,
+    { skip: formData.code.length < 3 }
+  );
+  
+  useEffect(() => {
+    if (codeAvailabilityData && !codeAvailabilityData.available) {
+      setErrors(prev => ({
+        ...prev,
+        code: 'This code is already taken'
+      }));
+    } else if (codeAvailabilityData && codeAvailabilityData.available) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        if (newErrors.code === 'This code is already taken') {
+          delete newErrors.code;
+        }
+        return newErrors;
+      });
     }
-  };
+  }, [codeAvailabilityData]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -315,7 +332,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
-            disabled={isLoading}
+            disabled={isCreating}
           >
             <X className="h-6 w-6" />
           </button>
@@ -362,7 +379,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       errors.name ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="e.g., Summer Sale 2024"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   />
                   {errors.name && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -384,22 +401,20 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       onChange={(e) => {
                         const value = e.target.value.toUpperCase();
                         handleChange('code', value);
-                        if (value.length >= 3) {
-                          checkCodeAvailability(value);
-                        }
+                        // Code availability is checked automatically via useCheckCodeAvailabilityQuery
                       }}
                       onFocus={() => setShowCodeSuggestions(true)}
                       className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                         errors.code ? 'border-red-300' : 'border-gray-300'
                       }`}
                       placeholder="e.g., SUMMER2024"
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                     <button
                       type="button"
                       onClick={generateCodeSuggestions}
                       className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-                      disabled={isLoading}
+                      disabled={isCreating}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </button>
@@ -441,7 +456,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   rows={3}
                   placeholder="Describe the discount..."
-                  disabled={isLoading}
+                  disabled={isCreating}
                 />
               </div>
 
@@ -455,7 +470,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                     value={formData.type}
                     onChange={(e) => handleChange('type', e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   >
                     <option value="percentage">Percentage</option>
                     <option value="fixed_amount">Fixed Amount</option>
@@ -481,7 +496,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                             errors.value ? 'border-red-300' : 'border-gray-300'
                           }`}
                           placeholder="10"
-                          disabled={isLoading}
+                          disabled={isCreating}
                         />
                         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                           <Percent className="h-4 w-4 text-gray-400" />
@@ -502,7 +517,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                             errors.value ? 'border-red-300' : 'border-gray-300'
                           }`}
                           placeholder="10.00"
-                          disabled={isLoading}
+                          disabled={isCreating}
                         />
                       </>
                     )}
@@ -534,7 +549,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       onChange={(e) => handleChange('maximumDiscount', e.target.value)}
                       className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       placeholder="50.00"
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
@@ -560,7 +575,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                     onChange={(e) => handleChange('minimumOrderAmount', parseFloat(e.target.value) || 0)}
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="0.00"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   />
                 </div>
               </div>
@@ -582,7 +597,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                         errors.validFrom ? 'border-red-300' : 'border-gray-300'
                       }`}
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                   </div>
                   {errors.validFrom && (
@@ -608,7 +623,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                         errors.validUntil ? 'border-red-300' : 'border-gray-300'
                       }`}
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                   </div>
                   {errors.validUntil && (
@@ -633,7 +648,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.applicableTo}
                   onChange={(e) => handleChange('applicableTo', e.target.value)}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  disabled={isLoading}
+                  disabled={isCreating}
                 >
                   <option value="all">All Orders</option>
                   <option value="products">Specific Products</option>
@@ -656,7 +671,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                           checked={formData.applicableProducts.includes(product._id)}
                           onChange={(e) => handleArrayChange('applicableProducts', product._id, e.target.checked)}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          disabled={isLoading}
+                          disabled={isCreating}
                         />
                         <span className="text-sm text-gray-900">
                           {product.name} ({product.category || 'N/A'})
@@ -687,7 +702,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                           checked={formData.applicableCategories.includes(category._id)}
                           onChange={(e) => handleArrayChange('applicableCategories', category._id, e.target.checked)}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          disabled={isLoading}
+                          disabled={isCreating}
                         />
                         <span className="text-sm text-gray-900">{category.name}</span>
                       </label>
@@ -716,7 +731,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                           checked={formData.applicableCustomers.includes(customer._id)}
                           onChange={(e) => handleArrayChange('applicableCustomers', customer._id, e.target.checked)}
                           className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          disabled={isLoading}
+                          disabled={isCreating}
                         />
                         <span className="text-sm text-gray-900">
                           {customer.displayName} ({customer.email})
@@ -746,7 +761,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                         checked={formData.customerTiers.includes(tier.value)}
                         onChange={(e) => handleArrayChange('customerTiers', tier.value, e.target.checked)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        disabled={isLoading}
+                        disabled={isCreating}
                       />
                       <span className="text-sm text-gray-900 capitalize">{tier.label}</span>
                     </label>
@@ -767,7 +782,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                         checked={formData.businessTypes.includes(type.value)}
                         onChange={(e) => handleArrayChange('businessTypes', type.value, e.target.checked)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        disabled={isLoading}
+                        disabled={isCreating}
                       />
                       <span className="text-sm text-gray-900 capitalize">{type.label}</span>
                     </label>
@@ -791,7 +806,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                     value={formData.conditions.minimumQuantity}
                     onChange={(e) => handleConditionChange('minimumQuantity', parseInt(e.target.value) || 1)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   />
                 </div>
 
@@ -808,7 +823,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       errors.maximumQuantity ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="Leave empty for no limit"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   />
                   {errors.maximumQuantity && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -838,7 +853,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                           handleConditionChange('daysOfWeek', newDays);
                         }}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        disabled={isLoading}
+                        disabled={isCreating}
                       />
                       <span className="text-sm text-gray-900">{day.label}</span>
                     </label>
@@ -861,7 +876,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       value={formData.conditions.timeOfDay.start}
                       onChange={(e) => handleTimeChange('start', e.target.value)}
                       className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                   </div>
                   <div>
@@ -873,7 +888,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       value={formData.conditions.timeOfDay.end}
                       onChange={(e) => handleTimeChange('end', e.target.value)}
                       className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                   </div>
                 </div>
@@ -891,7 +906,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       checked={formData.conditions.firstTimeCustomersOnly}
                       onChange={(e) => handleConditionChange('firstTimeCustomersOnly', e.target.checked)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                     <span className="text-sm text-gray-900">First-time customers only</span>
                   </label>
@@ -901,7 +916,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       checked={formData.conditions.returningCustomersOnly}
                       onChange={(e) => handleConditionChange('returningCustomersOnly', e.target.checked)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      disabled={isLoading}
+                      disabled={isCreating}
                     />
                     <span className="text-sm text-gray-900">Returning customers only</span>
                   </label>
@@ -925,7 +940,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                     onChange={(e) => handleChange('usageLimit', e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     placeholder="Leave empty for unlimited"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   />
                 </div>
 
@@ -942,7 +957,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                       errors.usageLimitPerCustomer ? 'border-red-300' : 'border-gray-300'
                     }`}
                     placeholder="Leave empty for unlimited"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   />
                   {errors.usageLimitPerCustomer && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -961,7 +976,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                     checked={formData.combinableWithOtherDiscounts}
                     onChange={(e) => handleChange('combinableWithOtherDiscounts', e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    disabled={isLoading}
+                    disabled={isCreating}
                   />
                   <span className="text-sm font-medium text-gray-700">
                     Combinable with other discounts
@@ -984,7 +999,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                   onChange={(e) => handleChange('priority', parseInt(e.target.value) || 0)}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   placeholder="0"
-                  disabled={isLoading}
+                  disabled={isCreating}
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Higher numbers have higher priority when multiple discounts apply
@@ -1006,7 +1021,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                     }
                   }}
                   className="btn btn-secondary"
-                  disabled={isLoading}
+                  disabled={isCreating}
                 >
                   Previous
                 </button>
@@ -1021,7 +1036,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                     }
                   }}
                   className="btn btn-secondary"
-                  disabled={isLoading}
+                  disabled={isCreating}
                 >
                   Next
                 </button>
@@ -1032,16 +1047,16 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                 type="button"
                 onClick={onClose}
                 className="btn btn-secondary"
-                disabled={isLoading}
+                disabled={isCreating}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={isLoading}
+                disabled={isCreating}
               >
-                {isLoading ? (
+                {isCreating ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Creating...

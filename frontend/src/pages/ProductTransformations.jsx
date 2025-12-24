@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Plus,
   Search,
@@ -13,45 +12,37 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
-import { productTransformationsAPI, productVariantsAPI, productsAPI } from '../services/api';
+import {
+  useGetTransformationsQuery,
+  useCreateTransformationMutation,
+} from '../store/services/productTransformationsApi';
+import { useGetVariantsByBaseProductQuery } from '../store/services/productVariantsApi';
+import { useGetProductsQuery } from '../store/services/productsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import ValidatedInput, { ValidatedSelect } from '../components/ValidatedInput';
 
 const ProductTransformations = () => {
-  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBaseProduct, setSelectedBaseProduct] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch transformations
-  const { data: transformationsData, isLoading: transformationsLoading, refetch } = useQuery(
-    ['productTransformations', selectedBaseProduct, statusFilter],
-    () => productTransformationsAPI.getTransformations({
-      baseProduct: selectedBaseProduct || undefined,
-      status: statusFilter || undefined
-    }),
-    {
-      select: (data) => ({
-        transformations: data?.transformations || []
-      })
-    }
-  );
+  const { data: transformationsData, isLoading: transformationsLoading, refetch } = useGetTransformationsQuery({
+    baseProduct: selectedBaseProduct || undefined,
+    status: statusFilter || undefined
+  });
+  const transformations = React.useMemo(() => {
+    return transformationsData?.data?.transformations || transformationsData?.transformations || [];
+  }, [transformationsData]);
 
   // Fetch products for base product selector
-  const { data: productsData } = useQuery(
-    ['products', 'all'],
-    () => productsAPI.getProducts({}),
-    {
-      select: (data) => ({
-        products: data?.data?.products || []
-      })
-    }
-  );
+  const { data: productsData } = useGetProductsQuery({});
+  const products = React.useMemo(() => {
+    return productsData?.data?.products || productsData?.products || [];
+  }, [productsData]);
 
-  const transformations = transformationsData?.transformations || [];
-  const products = productsData?.products || [];
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -217,9 +208,6 @@ const ProductTransformations = () => {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           onSuccess={() => {
-            queryClient.invalidateQueries('productTransformations');
-            queryClient.invalidateQueries('productVariants');
-            queryClient.invalidateQueries('products');
             refetch();
           }}
         />
@@ -230,7 +218,6 @@ const ProductTransformations = () => {
 
 // Transformation Modal Component
 const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
-  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     baseProduct: '',
     targetVariant: '',
@@ -243,20 +230,16 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
   const [selectedVariantData, setSelectedVariantData] = useState(null);
 
   // Fetch variants when base product is selected
-  const { data: variantsData } = useQuery(
-    ['productVariants', formData.baseProduct],
-    () => productVariantsAPI.getVariantsByBaseProduct(formData.baseProduct),
-    {
-      enabled: !!formData.baseProduct,
-      select: (data) => ({
-        variants: data?.variants || []
-      })
-    }
+  // Fetch variants when base product is selected
+  const { data: variantsData } = useGetVariantsByBaseProductQuery(
+    formData.baseProduct,
+    { skip: !formData.baseProduct }
   );
 
   React.useEffect(() => {
-    if (variantsData?.variants) {
-      setAvailableVariants(variantsData.variants);
+    const variants = variantsData?.data?.variants || variantsData?.variants || [];
+    if (variants.length > 0) {
+      setAvailableVariants(variants);
     }
   }, [variantsData]);
 
@@ -281,33 +264,26 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
     }
   }, [formData.targetVariant, availableVariants]);
 
-  const createMutation = useMutation(
-    (data) => productTransformationsAPI.createTransformation(data),
-    {
-      onSuccess: () => {
-        showSuccessToast('Transformation completed successfully');
-        onClose();
-        onSuccess();
-        setFormData({
-          baseProduct: '',
-          targetVariant: '',
-          quantity: 1,
-          unitTransformationCost: 0,
-          notes: ''
-        });
-      },
-      onError: (error) => {
-        handleApiError(error, 'ProductTransformations');
-      }
-    }
-  );
+  const [createTransformation, { isLoading: isSubmitting }] = useCreateTransformationMutation();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    try {
+      await createTransformation(formData).unwrap();
+      showSuccessToast('Transformation completed successfully');
+      onClose();
+      onSuccess();
+      setFormData({
+        baseProduct: '',
+        targetVariant: '',
+        quantity: 1,
+        unitTransformationCost: 0,
+        notes: ''
+      });
+    } catch (error) {
+      handleApiError(error, 'ProductTransformations');
+    }
   };
-
-  const isSubmitting = createMutation.isLoading;
 
   // Calculate total cost
   const totalCost = formData.quantity * formData.unitTransformationCost;

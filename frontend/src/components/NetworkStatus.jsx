@@ -1,55 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { WifiOff } from 'lucide-react';
 import { showWarningToast, showSuccessToast } from '../utils/errorHandler';
+import { useHealthQuery } from '../store/api';
 
 const NetworkStatus = () => {
-  const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
+  const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  const failureCountRef = useRef(0);
+  const lastSuccessTimeRef = useRef(Date.now());
+  
+  // Use RTK Query health check with polling every 30 seconds
+  const { data, error, isLoading, isError, isSuccess } = useHealthQuery(undefined, {
+    pollingInterval: 30000, // Poll every 30 seconds
+    refetchOnMountOrArgChange: true,
+    skip: false,
+    // Don't show error toasts for health check failures
+    errorPolicy: 'all',
+  });
+
+  // Determine if backend is online - consider it online if we have data or if it's still loading (initial load)
+  const isBackendOnline = (isSuccess && data) || (isLoading && !wasOffline);
 
   useEffect(() => {
-    // Check backend server connection
-    const checkBackendConnection = async () => {
-      try {
-        const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/?$/, '');
-        const response = await fetch(`${API_BASE_URL}/health`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000) // 5 second timeout
-        });
-        
-        if (response.ok) {
-          if (!isBackendOnline) {
-            setIsBackendOnline(true);
-            if (wasOffline) {
-              showSuccessToast('Backend server connection restored!');
-              setWasOffline(false);
-            }
-          }
-        } else {
-          throw new Error('Backend not responding');
-        }
-      } catch (error) {
-        if (isBackendOnline) {
-          setIsBackendOnline(false);
-          setWasOffline(true);
-          showWarningToast('Backend server is not reachable. Please ensure the server is running.');
-        }
+    // Track consecutive failures
+    if (isError && !isLoading) {
+      failureCountRef.current += 1;
+      // Only show offline after 2 consecutive failures to avoid false positives
+      if (failureCountRef.current >= 2 && !wasOffline) {
+        setWasOffline(true);
+        setShowOfflineBanner(true);
+        showWarningToast('Backend server is not reachable. Please ensure the server is running.');
       }
-    };
+    } else if (isSuccess && data) {
+      // Reset failure count on success
+      failureCountRef.current = 0;
+      lastSuccessTimeRef.current = Date.now();
+      
+      // Show restored message only if we were previously offline
+      if (wasOffline) {
+        setWasOffline(false);
+        setShowOfflineBanner(false);
+        showSuccessToast('Backend server connection restored!');
+      }
+    }
+  }, [isError, isSuccess, isLoading, data, wasOffline]);
 
-    // Check immediately on mount
-    checkBackendConnection();
-
-    // Then check every 30 seconds
-    const interval = setInterval(checkBackendConnection, 30000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [isBackendOnline, wasOffline]);
-
-  if (isBackendOnline) {
-    return null; // Don't show anything when backend is online
+  // Don't show banner during initial load or when backend is online
+  if (!showOfflineBanner || isBackendOnline) {
+    return null;
   }
 
   return (

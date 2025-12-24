@@ -3,11 +3,21 @@ import { api } from '../api';
 export const returnsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getReturns: builder.query({
-      query: (params) => ({
-        url: 'returns',
-        method: 'get',
-        params,
-      }),
+      query: (params) => {
+        // Remove empty string values from params to avoid validation errors
+        const cleanParams = {};
+        Object.keys(params || {}).forEach(key => {
+          const value = params[key];
+          if (value !== '' && value !== null && value !== undefined) {
+            cleanParams[key] = value;
+          }
+        });
+        return {
+          url: 'returns',
+          method: 'get',
+          params: cleanParams,
+        };
+      },
       providesTags: (result) =>
         result?.data?.returns || result?.data
           ? [
@@ -89,11 +99,13 @@ export const returnsApi = api.injectEndpoints({
       providesTags: [{ type: 'Returns', id: 'TRENDS' }],
     }),
     getEligibleItems: builder.query({
-      query: (orderId) => ({
-        url: `returns/order/${orderId}/eligible-items`,
+      query: ({ orderId, isPurchase = false }) => ({
+        url: isPurchase 
+          ? `returns/purchase-order/${orderId}/eligible-items`
+          : `returns/order/${orderId}/eligible-items`,
         method: 'get',
       }),
-      providesTags: (_r, _e, orderId) => [{ type: 'Returns', id: `ELIGIBLE_${orderId}` }],
+      providesTags: (_r, _e, { orderId }) => [{ type: 'Returns', id: `ELIGIBLE_${orderId}` }],
     }),
     deleteReturn: builder.mutation({
       query: (returnId) => ({

@@ -14,7 +14,6 @@ import {
   Settings,
   Warehouse
 } from 'lucide-react';
-import { inventoryAPI } from '../services/api';
 import {
   useGetInventoryQuery,
   useGetInventorySummaryQuery,
@@ -80,7 +79,7 @@ export const Inventory = () => {
   });
 
   const {
-    data: warehouseList = [],
+    data: warehousesData,
     isLoading: warehouseListLoading,
     error: warehouseListError,
   } = useGetWarehousesQuery(
@@ -88,10 +87,15 @@ export const Inventory = () => {
     { refetchOnMountOrArgChange: true, staleTime: 5 * 60 * 1000 }
   );
 
+  // Extract warehouses array from RTK Query response
+  const warehouseList = useMemo(() => {
+    return warehousesData?.data?.warehouses || warehousesData?.warehouses || warehousesData?.data || warehousesData || [];
+  }, [warehousesData]);
+
   const warehouseOptions = useMemo(() => {
     const options = [
       { value: '', label: 'All Warehouses' },
-      ...(warehouseList || []).map((warehouse) => ({
+      ...(Array.isArray(warehouseList) ? warehouseList : []).map((warehouse) => ({
         value: warehouse.name,
         label: warehouse.code ? `${warehouse.name} (${warehouse.code})` : warehouse.name,
       })),

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useMutation, useQuery } from 'react-query';
 import { toast } from 'react-hot-toast';
 import {
   X,
@@ -15,7 +14,9 @@ import {
   Info
 } from 'lucide-react';
 
-import { inventoryReportsAPI, categoriesAPI, suppliersAPI } from '../services/api';
+import { useCreateReportMutation } from '../store/services/inventoryApi';
+import { useGetCategoriesQuery } from '../store/services/categoriesApi';
+import { useGetSuppliersQuery } from '../store/services/suppliersApi';
 import { handleApiError } from '../utils/errorHandler';
 
 const CreateInventoryReportModal = ({ onClose, onSuccess }) => {
@@ -52,18 +53,13 @@ const CreateInventoryReportModal = ({ onClose, onSuccess }) => {
   });
 
   // Fetch categories and suppliers for filters
-  const { data: categories } = useQuery('categories', () => categoriesAPI.getCategories({ limit: 1000 }));
-  const { data: suppliers } = useQuery('suppliers', () => suppliersAPI.getSuppliers({ limit: 1000 }));
-
-  const generateReportMutation = useMutation(inventoryReportsAPI.generateReport, {
-    onSuccess: () => {
-      toast.success('Inventory report generated successfully');
-      onSuccess();
-    },
-    onError: (error) => {
-      handleApiError(error, 'Generate Report');
-    }
-  });
+  const { data: categoriesData } = useGetCategoriesQuery({ limit: 1000 });
+  const { data: suppliersData } = useGetSuppliersQuery({ limit: 1000 });
+  
+  const categories = categoriesData?.data?.categories || categoriesData?.categories || [];
+  const suppliers = suppliersData?.data?.suppliers || suppliersData?.suppliers || [];
+  
+  const [createReport, { isLoading: isGenerating }] = useCreateReportMutation();
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -94,9 +90,15 @@ const CreateInventoryReportModal = ({ onClose, onSuccess }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    generateReportMutation.mutate(formData);
+    try {
+      await createReport(formData).unwrap();
+      toast.success('Inventory report generated successfully');
+      onSuccess();
+    } catch (error) {
+      handleApiError(error, 'Generate Report');
+    }
   };
 
   const getDateRange = (periodType) => {
@@ -506,10 +508,10 @@ const CreateInventoryReportModal = ({ onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={generateReportMutation.isLoading}
+              disabled={isGenerating}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {generateReportMutation.isLoading ? 'Generating...' : 'Generate Report'}
+              {isGenerating ? 'Generating...' : 'Generate Report'}
             </button>
           </div>
         </form>

@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import React, { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { 
   Plus, 
@@ -19,7 +18,16 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Checkbox } from '../components/Checkbox';
-import { investorsAPI } from '../services/api';
+import {
+  useGetInvestorsQuery,
+  useCreateInvestorMutation,
+  useUpdateInvestorMutation,
+  useDeleteInvestorMutation,
+  useRecordPayoutMutation,
+  useRecordInvestmentMutation,
+  useGetInvestorProductsQuery,
+  useGetProfitSharesQuery,
+} from '../store/services/investorsApi';
 import toast from 'react-hot-toast';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage } from '../components/LoadingSpinner';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
@@ -285,7 +293,6 @@ export const Investors = ({ tabId }) => {
   const [showPayoutModal, setShowPayoutModal] = useState(null);
   const [showInvestmentModal, setShowInvestmentModal] = useState(null);
   const [showProductsModal, setShowProductsModal] = useState(null);
-  const queryClient = useQueryClient();
   const { updateTabTitle } = useTab();
 
   const queryParams = { 
@@ -293,82 +300,21 @@ export const Investors = ({ tabId }) => {
     status: statusFilter || undefined
   };
 
-  const { data, isLoading, error } = useQuery(
-    ['investors', queryParams],
-    () => investorsAPI.getInvestors(queryParams).then(res => res.data),
-    {
-      keepPreviousData: true,
-      staleTime: 0, // Always fetch fresh data
-    }
-  );
+  const { data, isLoading, error } = useGetInvestorsQuery(queryParams, {
+    keepPreviousData: true,
+  });
 
   // Backend returns: { success: true, data: [investors] }
-  const investors = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  const investors = useMemo(() => {
+    const investorsList = data?.data?.investors || data?.data || data?.investors || data || [];
+    return Array.isArray(investorsList) ? investorsList : [];
+  }, [data]);
 
-  const createMutation = useMutation(investorsAPI.createInvestor, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('investors');
-      toast.success('Investor created successfully');
-      setIsModalOpen(false);
-      setSelectedInvestor(null);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create investor');
-    },
-  });
-
-  const updateMutation = useMutation(
-    ({ id, data }) => investorsAPI.updateInvestor(id, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('investors');
-        toast.success('Investor updated successfully');
-        setIsModalOpen(false);
-        setSelectedInvestor(null);
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to update investor');
-      },
-    }
-  );
-
-  const deleteMutation = useMutation(investorsAPI.deleteInvestor, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('investors');
-      toast.success('Investor deleted successfully');
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to delete investor');
-    },
-  });
-
-  const payoutMutation = useMutation(
-    ({ id, amount }) => investorsAPI.recordPayout(id, amount),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('investors');
-        toast.success('Payout recorded successfully');
-        setShowPayoutModal(null);
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to record payout');
-      },
-    }
-  );
-
-  const investmentMutation = useMutation(
-    ({ id, amount, notes }) => investorsAPI.recordInvestment(id, amount, notes),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('investors');
-        toast.success('Investment recorded successfully');
-        setShowInvestmentModal(null);
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to record investment');
-      },
-    }
-  );
+  const [createInvestor, { isLoading: creating }] = useCreateInvestorMutation();
+  const [updateInvestor, { isLoading: updating }] = useUpdateInvestorMutation();
+  const [deleteInvestor, { isLoading: deleting }] = useDeleteInvestorMutation();
+  const [recordPayout, { isLoading: recordingPayout }] = useRecordPayoutMutation();
+  const [recordInvestment, { isLoading: recordingInvestment }] = useRecordInvestmentMutation();
 
   const { confirmation, confirmDelete, handleConfirm, handleCancel } = useDeleteConfirmation();
 
@@ -377,18 +323,33 @@ export const Investors = ({ tabId }) => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (investor) => {
+  const handleDelete = async (investor) => {
     const investorName = investor.name || investor.email || 'Unknown Investor';
     confirmDelete(investorName, 'Investor', async () => {
-      deleteMutation.mutate(investor._id);
+      try {
+        await deleteInvestor(investor._id).unwrap();
+        toast.success('Investor deleted successfully');
+      } catch (error) {
+        toast.error(error?.data?.message || error?.message || 'Failed to delete investor');
+      }
     });
   };
 
-  const handleSave = (data) => {
-    if (selectedInvestor) {
-      updateMutation.mutate({ id: selectedInvestor._id, data });
-    } else {
-      createMutation.mutate(data);
+  const handleSave = async (data) => {
+    try {
+      if (selectedInvestor) {
+        await updateInvestor({ id: selectedInvestor._id, ...data }).unwrap();
+        toast.success('Investor updated successfully');
+        setIsModalOpen(false);
+        setSelectedInvestor(null);
+      } else {
+        await createInvestor(data).unwrap();
+        toast.success('Investor created successfully');
+        setIsModalOpen(false);
+        setSelectedInvestor(null);
+      }
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || 'Failed to save investor');
     }
   };
 
@@ -623,7 +584,7 @@ export const Investors = ({ tabId }) => {
             setIsModalOpen(false);
             setSelectedInvestor(null);
           }}
-          isSubmitting={createMutation.isLoading || updateMutation.isLoading}
+          isSubmitting={creating || updating}
         />
       )}
 
@@ -639,11 +600,17 @@ export const Investors = ({ tabId }) => {
       {showPayoutModal && (
         <PayoutModal
           investor={showPayoutModal}
-          onSave={(amount) => {
-            payoutMutation.mutate({ id: showPayoutModal._id, amount });
+          onSave={async (amount) => {
+            try {
+              await recordPayout({ id: showPayoutModal._id, amount }).unwrap();
+              toast.success('Payout recorded successfully');
+              setShowPayoutModal(null);
+            } catch (error) {
+              toast.error(error?.data?.message || error?.message || 'Failed to record payout');
+            }
           }}
           onCancel={() => setShowPayoutModal(null)}
-          isSubmitting={payoutMutation.isLoading}
+          isSubmitting={recordingPayout}
         />
       )}
 
@@ -651,11 +618,17 @@ export const Investors = ({ tabId }) => {
       {showInvestmentModal && (
         <InvestmentModal
           investor={showInvestmentModal}
-          onSave={(amount, notes) => {
-            investmentMutation.mutate({ id: showInvestmentModal._id, amount, notes });
+          onSave={async (amount, notes) => {
+            try {
+              await recordInvestment({ id: showInvestmentModal._id, amount, notes }).unwrap();
+              toast.success('Investment recorded successfully');
+              setShowInvestmentModal(null);
+            } catch (error) {
+              toast.error(error?.data?.message || error?.message || 'Failed to record investment');
+            }
           }}
           onCancel={() => setShowInvestmentModal(null)}
-          isSubmitting={investmentMutation.isLoading}
+          isSubmitting={recordingInvestment}
         />
       )}
 
@@ -681,13 +654,14 @@ export const Investors = ({ tabId }) => {
 
 // Investor Products Modal Component
 const InvestorProductsModal = ({ investor, onClose }) => {
-  const { data, isLoading } = useQuery(
-    ['investor-products', investor._id],
-    () => investorsAPI.getInvestorProducts(investor._id).then(res => res.data),
-    { enabled: !!investor }
-  );
+  const { data, isLoading } = useGetInvestorProductsQuery(investor._id, {
+    skip: !investor,
+  });
 
-  const products = Array.isArray(data?.data) ? data.data : [];
+  const products = useMemo(() => {
+    const productsList = data?.data?.products || data?.data || data?.products || data || [];
+    return Array.isArray(productsList) ? productsList : [];
+  }, [data]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -816,12 +790,14 @@ const InvestorProductsModal = ({ investor, onClose }) => {
 
 // Profit Shares Modal Component
 const ProfitSharesModal = ({ investorId, onClose }) => {
-  const { data, isLoading } = useQuery(
-    ['investor-profit-shares', investorId],
-    () => investorsAPI.getProfitShares(investorId).then(res => res.data)
-  );
+  const { data, isLoading } = useGetProfitSharesQuery({ id: investorId }, {
+    skip: !investorId,
+  });
 
-  const profitShares = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  const profitShares = useMemo(() => {
+    const sharesList = data?.data?.profitShares || data?.data || data?.profitShares || data || [];
+    return Array.isArray(sharesList) ? sharesList : [];
+  }, [data]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

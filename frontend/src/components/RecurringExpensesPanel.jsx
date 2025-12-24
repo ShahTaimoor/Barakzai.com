@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import {
   Calendar,
   Bell,
@@ -11,7 +10,15 @@ import {
   RefreshCw,
   Banknote
 } from 'lucide-react';
-import { recurringExpensesAPI, banksAPI } from '../services/api';
+import {
+  useGetUpcomingExpensesQuery,
+  useGetRecurringExpensesQuery,
+  useCreateRecurringExpenseMutation,
+  useRecordPaymentMutation,
+  useDeactivateRecurringExpenseMutation,
+  useSnoozeRecurringExpenseMutation,
+} from '../store/services/expensesApi';
+import { useGetBanksQuery } from '../store/services/banksApi';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 
@@ -61,7 +68,6 @@ const getPayeeLabel = (expense) => {
 };
 
 const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => {
-  const queryClient = useQueryClient();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState(defaultFormState);
   const [reminderWindow, setReminderWindow] = useState(7);
@@ -69,33 +75,27 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
   const {
     data: upcomingData,
     isLoading: upcomingLoading,
-    isFetching: upcomingFetching
-  } = useQuery(
-    ['recurringExpensesUpcoming', reminderWindow],
-    () => recurringExpensesAPI.getUpcoming({ days: reminderWindow }),
+    isFetching: upcomingFetching,
+    refetch: refetchUpcoming
+  } = useGetUpcomingExpensesQuery(
+    { days: reminderWindow },
     {
-      keepPreviousData: true,
-      refetchInterval: 60_000
+      pollingInterval: 60_000
     }
   );
 
   const {
     data: activeData,
     isLoading: activeLoading
-  } = useQuery(
-    ['recurringExpensesList'],
-    () => recurringExpensesAPI.getRecurringExpenses({ status: 'active' }),
-    {
-      keepPreviousData: true
-    }
+  } = useGetRecurringExpensesQuery(
+    { status: 'active' }
   );
 
   const {
     data: banksData,
     isLoading: banksLoading
-  } = useQuery(
-    ['banks', { isActive: true }],
-    () => banksAPI.getBanks({ isActive: true }),
+  } = useGetBanksQuery(
+    { isActive: true },
     {
       staleTime: 5 * 60_000
     }
@@ -128,69 +128,51 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
     setFormData(defaultFormState);
   };
 
-  const invalidateQueries = () => {
-    queryClient.invalidateQueries('recurringExpensesUpcoming');
-    queryClient.invalidateQueries('recurringExpensesList');
-    queryClient.invalidateQueries('cashPayments');
-    queryClient.invalidateQueries('bankPayments');
+  const [createRecurringExpense] = useCreateRecurringExpenseMutation();
+  const [recordPayment] = useRecordPaymentMutation();
+  const [deactivateRecurringExpense] = useDeactivateRecurringExpenseMutation();
+  const [snoozeRecurringExpense] = useSnoozeRecurringExpenseMutation();
+
+  const handleCreateRecurringExpense = async (payload) => {
+    try {
+      await createRecurringExpense(payload).unwrap();
+      showSuccessToast('Recurring expense created');
+      setShowCreateForm(false);
+      resetForm();
+    } catch (error) {
+      handleApiError(error, 'Create Recurring Expense');
+    }
   };
 
-  const createRecurringMutation = useMutation(
-    (payload) => recurringExpensesAPI.createRecurringExpense(payload),
-    {
-      onSuccess: () => {
-        showSuccessToast('Recurring expense created');
-        invalidateQueries();
-        setShowCreateForm(false);
-        resetForm();
-      },
-      onError: (error) => {
-        showErrorToast(handleApiError(error));
+  const handleRecordPayment = async (id, payload) => {
+    try {
+      const response = await recordPayment({ id, ...payload }).unwrap();
+      showSuccessToast('Payment recorded successfully');
+      if (typeof onPaymentRecorded === 'function') {
+        onPaymentRecorded(response?.data || response);
       }
+    } catch (error) {
+      handleApiError(error, 'Record Payment');
     }
-  );
+  };
 
-  const recordPaymentMutation = useMutation(
-    ({ id, payload }) => recurringExpensesAPI.recordPayment(id, payload),
-    {
-      onSuccess: (response) => {
-        showSuccessToast('Payment recorded successfully');
-        invalidateQueries();
-        if (typeof onPaymentRecorded === 'function') {
-          onPaymentRecorded(response?.data);
-        }
-      },
-      onError: (error) => {
-        showErrorToast(handleApiError(error));
-      }
+  const handleDeactivate = async (id) => {
+    try {
+      await deactivateRecurringExpense(id).unwrap();
+      showSuccessToast('Recurring expense deactivated');
+    } catch (error) {
+      handleApiError(error, 'Deactivate Recurring Expense');
     }
-  );
+  };
 
-  const deactivateMutation = useMutation(
-    (id) => recurringExpensesAPI.deactivateRecurringExpense(id),
-    {
-      onSuccess: () => {
-        showSuccessToast('Recurring expense deactivated');
-        invalidateQueries();
-      },
-      onError: (error) => {
-        showErrorToast(handleApiError(error));
-      }
+  const handleSnooze = async (id, payload) => {
+    try {
+      await snoozeRecurringExpense({ id, ...payload }).unwrap();
+      showSuccessToast('Reminder updated');
+    } catch (error) {
+      handleApiError(error, 'Snooze Recurring Expense');
     }
-  );
-
-  const snoozeMutation = useMutation(
-    ({ id, payload }) => recurringExpensesAPI.snoozeRecurringExpense(id, payload),
-    {
-      onSuccess: () => {
-        showSuccessToast('Reminder updated');
-        invalidateQueries();
-      },
-      onError: (error) => {
-        showErrorToast(handleApiError(error));
-      }
-    }
-  );
+  };
 
   const handleExpenseSelect = (accountId) => {
     const selectedAccount = expenseAccountOptions.find((account) => account._id === accountId);
@@ -222,35 +204,23 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
       startFromDate: formData.startFromDate || undefined
     };
 
-    createRecurringMutation.mutate(payload);
+    handleCreateRecurringExpense(payload);
   };
 
-  const handleRecordPayment = (expense) => {
-    recordPaymentMutation.mutate({
-      id: expense._id,
-      payload: {
-        paymentType: expense.defaultPaymentType,
-        notes: `Recurring payment for ${expense.name}`
-      }
+  const handleRecordPaymentClick = (expense) => {
+    handleRecordPayment(expense._id, {
+      paymentType: expense.defaultPaymentType,
+      notes: `Recurring payment for ${expense.name}`
     });
   };
 
-  const handleSnooze = (expense, days = 3) => {
-    snoozeMutation.mutate({
-      id: expense._id,
-      payload: { snoozeDays: days }
-    });
+  const handleSnoozeClick = (expense, days = 3) => {
+    handleSnooze(expense._id, { snoozeDays: days });
   };
 
-  const handleDeactivate = (expenseId) => {
-    deactivateMutation.mutate(expenseId);
+  const handleDeactivateClick = (expenseId) => {
+    handleDeactivate(expenseId);
   };
-
-  const isSubmitting =
-    createRecurringMutation.isLoading ||
-    recordPaymentMutation.isLoading ||
-    deactivateMutation.isLoading ||
-    snoozeMutation.isLoading;
 
   return (
     <div className="card">
@@ -278,7 +248,7 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
           </select>
           <button
             type="button"
-            onClick={() => queryClient.invalidateQueries('recurringExpensesUpcoming')}
+            onClick={() => refetchUpcoming()}
             className="btn btn-light flex items-center space-x-1"
             disabled={upcomingFetching}
           >
@@ -428,16 +398,16 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                     setShowCreateForm(false);
                     resetForm();
                   }}
-                  disabled={createRecurringMutation.isLoading}
+                  disabled={false}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={isSubmitting || !formData.amount || !formData.expenseAccount}
+                  disabled={!formData.amount || !formData.expenseAccount}
                 >
-                  {createRecurringMutation.isLoading ? 'Saving...' : 'Save Recurring Expense'}
+                  Save Recurring Expense
                 </button>
               </div>
             </form>
@@ -509,8 +479,8 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                             <button
                               type="button"
                               className="btn btn-secondary flex items-center space-x-1"
-                              onClick={() => handleSnooze(expense, 3)}
-                              disabled={isSubmitting}
+                              onClick={() => handleSnoozeClick(expense, 3)}
+                              disabled={false}
                             >
                               <Clock className="h-4 w-4" />
                               <span>Snooze 3d</span>
@@ -518,8 +488,8 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                             <button
                               type="button"
                               className="btn btn-primary flex items-center space-x-1"
-                              onClick={() => handleRecordPayment(expense)}
-                              disabled={isSubmitting}
+                              onClick={() => handleRecordPaymentClick(expense)}
+                              disabled={false}
                             >
                               <Banknote className="h-4 w-4" />
                               <span>Record Payment</span>
@@ -564,7 +534,7 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                       <button
                         type="button"
                         className="btn btn-light text-xs"
-                        onClick={() => handleSnooze(expense, 30)}
+                        onClick={() => handleSnoozeClick(expense, 30)}
                         disabled={isSubmitting}
                       >
                         Skip Month
@@ -572,7 +542,7 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                       <button
                         type="button"
                         className="btn btn-danger text-xs"
-                        onClick={() => handleDeactivate(expense._id)}
+                        onClick={() => handleDeactivateClick(expense._id)}
                         disabled={isSubmitting}
                       >
                         Deactivate

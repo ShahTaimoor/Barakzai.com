@@ -32,7 +32,17 @@ export const purchaseOrdersApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'Orders', id: 'PO_LIST' }],
+      invalidatesTags: (result, error, arg) => {
+        const tags = [
+          { type: 'Orders', id: 'PO_LIST' },
+          { type: 'Suppliers', id: 'LIST' }, // Invalidate suppliers to refresh outstanding balance
+        ];
+        // Invalidate specific supplier if we have the supplier ID
+        if (arg?.supplier) {
+          tags.push({ type: 'Suppliers', id: arg.supplier });
+        }
+        return tags;
+      },
     }),
     updatePurchaseOrder: builder.mutation({
       query: ({ id, ...data }) => ({
@@ -40,10 +50,18 @@ export const purchaseOrdersApi = api.injectEndpoints({
         method: 'put',
         data,
       }),
-      invalidatesTags: (_res, _err, { id }) => [
-        { type: 'Orders', id },
-        { type: 'Orders', id: 'PO_LIST' },
-      ],
+      invalidatesTags: (_res, _err, { id, supplier }) => {
+        const tags = [
+          { type: 'Orders', id },
+          { type: 'Orders', id: 'PO_LIST' },
+          { type: 'Suppliers', id: 'LIST' }, // Invalidate suppliers to refresh outstanding balance
+        ];
+        // Invalidate specific supplier if we have the supplier ID
+        if (supplier) {
+          tags.push({ type: 'Suppliers', id: supplier });
+        }
+        return tags;
+      },
     }),
     deletePurchaseOrder: builder.mutation({
       query: (id) => ({

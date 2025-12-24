@@ -40,7 +40,6 @@ import toast from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
 import MobileNavigation from './MobileNavigation';
 import { useResponsive } from './ResponsiveContainer';
-import { categoriesAPI } from '../services/api';
 import { WhatsAppFloat } from './WhatsAppFloat';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
@@ -163,42 +162,34 @@ const CategoryTreeItem = ({ category, subcategories, isActive, level = 0 }) => {
   );
 };
 
+import { useGetCategoriesQuery } from '../store/services/categoriesApi';
+
 export const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [categories, setCategories] = useState([]);
   const [categoryTree, setCategoryTree] = useState([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
   const { isInstallable, handleInstallClick } = usePWAInstall();
 
-  // Function to fetch categories
-  const fetchCategories = async () => {
-    try {
-      setCategoriesLoading(true);
-      const response = await categoriesAPI.getCategories();
-      const cats = response?.data?.categories || [];
-      setCategories(cats);
-      
-      // Build category tree
-      const tree = buildCategoryTree(cats);
-      setCategoryTree(tree);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      // Show user-friendly error message
-    } finally {
-      setCategoriesLoading(false);
-    }
-  };
+  // Fetch categories using Redux
+  const { data: categoriesData, isLoading: categoriesLoading, refetch: refetchCategories } = useGetCategoriesQuery(
+    {},
+    { skip: !user }
+  );
 
-  // Fetch categories when user is authenticated
+  const categories = categoriesData?.data?.categories || categoriesData?.categories || [];
+
+  // Build category tree when categories change
   useEffect(() => {
-    if (user) {
-      fetchCategories();
+    if (categories.length > 0) {
+      const tree = buildCategoryTree(categories);
+      setCategoryTree(tree);
+    } else {
+      setCategoryTree([]);
     }
-  }, [user]);
+  }, [categories]);
 
   // Build hierarchical category tree
   const buildCategoryTree = (categories) => {
@@ -297,7 +288,7 @@ export const Layout = ({ children }) => {
                         <div className="px-2 py-1 text-xs text-gray-500 italic flex items-center justify-between">
                           <span>No categories yet</span>
                           <button
-                            onClick={fetchCategories}
+                            onClick={() => refetchCategories()}
                             className="ml-2 text-gray-400 hover:text-gray-600"
                             title="Refresh categories"
                           >
@@ -376,7 +367,7 @@ export const Layout = ({ children }) => {
                         <div className="px-2 py-1 text-xs text-gray-500 italic flex items-center justify-between">
                           <span>No categories yet</span>
                           <button
-                            onClick={fetchCategories}
+                            onClick={() => refetchCategories()}
                             className="ml-2 text-gray-400 hover:text-gray-600"
                             title="Refresh categories"
                           >

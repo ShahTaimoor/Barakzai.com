@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate } from '../utils/formatters';
-import { suppliersAPI, customersAPI, chartOfAccountsAPI } from '../services/api';
 import PrintModal from '../components/PrintModal';
 import {
   useGetBankPaymentsQuery,
@@ -94,22 +93,28 @@ const BankPayments = () => {
   } = useGetBankPaymentsQuery({ ...filters, ...pagination, sortConfig }, { refetchOnMountOrArgChange: true });
 
   // Fetch suppliers for dropdown
-  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError } = useGetSuppliersQuery(
+  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError, refetch: refetchSuppliers } = useGetSuppliersQuery(
     { search: '', limit: 100 },
     { refetchOnMountOrArgChange: true }
   );
 
   // Fetch customers for dropdown
-  const { data: customersData, isLoading: customersLoading, error: customersError } = useGetCustomersQuery(
+  const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
     { search: '', limit: 100 },
     { refetchOnMountOrArgChange: true }
   );
+  const customers = React.useMemo(() => {
+    return customersData?.data?.customers || customersData?.customers || customersData || [];
+  }, [customersData]);
 
   // Fetch banks for dropdown
   const { data: banksData, isLoading: banksLoading, error: banksError } = useGetBanksQuery(
     { isActive: true },
     { refetchOnMountOrArgChange: true }
   );
+  const banks = React.useMemo(() => {
+    return banksData?.data?.banks || banksData?.banks || banksData || [];
+  }, [banksData]);
 
   // Fetch expense accounts from Chart of Accounts
   const { data: expenseAccountsData, isLoading: expenseAccountsLoading } = useGetAccountsQuery(
@@ -136,8 +141,8 @@ const BankPayments = () => {
 
   // Update selected customer when customers data changes
   useEffect(() => {
-    if (selectedCustomer && customersData) {
-      const updatedCustomer = customersData.find(c => c._id === selectedCustomer._id);
+    if (selectedCustomer && customers) {
+      const updatedCustomer = customers.find(c => c._id === selectedCustomer._id);
       if (updatedCustomer && (
         updatedCustomer.pendingBalance !== selectedCustomer.pendingBalance ||
         updatedCustomer.advanceBalance !== selectedCustomer.advanceBalance ||
@@ -315,7 +320,7 @@ const BankPayments = () => {
   };
 
   const handleCustomerKeyDown = (e) => {
-    const filteredCustomers = customersData?.filter(customer => {
+    const filteredCustomers = (customers || []).filter(customer => {
       const displayName = customer.displayName || customer.businessName || customer.name || 
         `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
       return (
@@ -431,6 +436,12 @@ const BankPayments = () => {
         resetForm();
         showSuccessToast('Bank payment created successfully');
         refetch();
+        // Refetch customer/supplier data to update balances immediately
+        if (paymentType === 'customer' && formData.customer) {
+          refetchCustomers();
+        } else if (paymentType === 'supplier' && formData.supplier) {
+          refetchSuppliers();
+        }
       })
       .catch((error) => {
         showErrorToast(handleApiError(error));
@@ -737,7 +748,7 @@ const BankPayments = () => {
                   </div>
                   {customerSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {customersData?.filter(customer => {
+                      {(customers || []).filter(customer => {
                         const displayName = customer.displayName || customer.businessName || customer.name || 
                           `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
                         return (
@@ -1012,7 +1023,7 @@ const BankPayments = () => {
                   required
                 >
                   <option value="">Select bank account...</option>
-                  {banksData?.map((bank) => (
+                  {(banks || []).map((bank) => (
                     <option key={bank._id} value={bank._id}>
                       {bank.bankName} - {bank.accountNumber} {bank.accountName ? `(${bank.accountName})` : ''}
                     </option>
@@ -1487,7 +1498,7 @@ const BankPayments = () => {
                     </div>
                     {customerSearchTerm && (
                       <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                        {customersData?.filter(customer => 
+                        {(customers || []).filter(customer => 
                           (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                           (customer.phone || '').includes(customerSearchTerm)
                         ).map((customer) => (
@@ -1634,7 +1645,7 @@ const BankPayments = () => {
                     required
                   >
                     <option value="">Select bank account...</option>
-                    {banksData?.map((bank) => (
+                    {(banks || []).map((bank) => (
                       <option key={bank._id} value={bank._id}>
                         {bank.bankName} - {bank.accountNumber} {bank.accountName ? `(${bank.accountName})` : ''}
                       </option>

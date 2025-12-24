@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
 import {
   Truck,
   Plus,
@@ -14,14 +13,15 @@ import {
   ArrowRight,
   Phone
 } from 'lucide-react';
-import { dropShippingAPI, suppliersAPI, customersAPI, productsAPI } from '../services/api';
+import { useCreateTransactionMutation } from '../store/services/dropShippingApi';
+import { useLazySearchSuppliersQuery, useGetActiveSuppliersQuery } from '../store/services/suppliersApi';
+import { useGetCustomersQuery } from '../store/services/customersApi';
+import { useGetProductsQuery } from '../store/services/productsApi';
 import { SearchableDropdown } from '../components/SearchableDropdown';
 import { LoadingButton } from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 const DropShipping = () => {
-  const queryClient = useQueryClient();
-
   // Supplier Section
   const [supplier, setSupplier] = useState(null);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
@@ -55,52 +55,52 @@ const DropShipping = () => {
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Queries - Always enabled so users can see options when typing
-  const { data: suppliersData } = useQuery(
-    ['suppliers-drop-shipping', { search: supplierSearchTerm }],
-    () => {
-      if (supplierSearchTerm.length > 0) {
-        return suppliersAPI.searchSuppliers(supplierSearchTerm);
-      } else {
-        return suppliersAPI.getActiveSuppliers();
-      }
-    },
+  const [searchSuppliers] = useLazySearchSuppliersQuery();
+  const { data: activeSuppliersData } = useGetActiveSuppliersQuery(undefined, { skip: supplierSearchTerm.length > 0 });
+  
+  const [suppliersData, setSuppliersData] = React.useState(null);
+  
+  React.useEffect(() => {
+    if (supplierSearchTerm.length > 0) {
+      searchSuppliers(supplierSearchTerm).then(({ data }) => {
+        setSuppliersData(data);
+      });
+    } else {
+      setSuppliersData(activeSuppliersData);
+    }
+  }, [supplierSearchTerm, activeSuppliersData, searchSuppliers]);
+
+  const { data: customersData } = useGetCustomersQuery(
+    { search: customerSearchTerm, limit: 100 },
     { keepPreviousData: true }
   );
+  const customers = React.useMemo(() => {
+    return customersData?.data?.customers || customersData?.customers || [];
+  }, [customersData]);
 
-  const { data: customersData } = useQuery(
-    ['customers-drop-shipping', { search: customerSearchTerm }],
-    () => customersAPI.getCustomers({ search: customerSearchTerm, limit: 100 }),
+  const { data: productsData } = useGetProductsQuery(
+    { search: productSearchTerm, limit: 50 },
     { 
+      skip: productSearchTerm.length === 0,
       keepPreviousData: true,
-      onError: (error) => {
-        // Error handled by query
-      }
     }
   );
-
-  const { data: productsData } = useQuery(
-    ['products-drop-shipping', { search: productSearchTerm }],
-    () => productsAPI.getProducts({ search: productSearchTerm, limit: 50 }),
-    { 
-      keepPreviousData: true,
-      enabled: productSearchTerm.length > 0, // Products only when searching
-      select: (data) => {
-        return data?.data?.products || data?.products || [];
-      }
-    }
-  );
+  const products = React.useMemo(() => {
+    return productsData?.data?.products || productsData?.products || [];
+  }, [productsData]);
 
   // Mutations
-  const createMutation = useMutation(dropShippingAPI.createTransaction, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('drop-shipping');
+  const [createTransaction, { isLoading: creating }] = useCreateTransactionMutation();
+
+  const handleCreateTransaction = async (data) => {
+    try {
+      await createTransaction(data).unwrap();
       toast.success('Drop shipping transaction created successfully');
       handleReset();
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create transaction');
+    } catch (error) {
+      toast.error(error?.data?.message || error?.message || 'Failed to create transaction');
     }
-  });
+  };
 
   // Handlers
   const handleSupplierSelect = (selectedSupplier) => {
@@ -283,7 +283,7 @@ const DropShipping = () => {
       }
     };
 
-    createMutation.mutate(transactionData);
+    handleCreateTransaction(transactionData);
   };
 
   const handleReset = () => {
@@ -355,7 +355,7 @@ const DropShipping = () => {
               </div>
               <SearchableDropdown
                 placeholder="Select supplier..."
-                items={suppliersData?.data?.suppliers || suppliersData?.suppliers || []}
+                items={suppliersData?.data?.suppliers || suppliersData?.suppliers || suppliersData || []}
                 onSelect={handleSupplierSelect}
                 onSearch={setSupplierSearchTerm}
                 displayKey={(supplier) => supplier.companyName}
@@ -488,7 +488,7 @@ const DropShipping = () => {
               </div>
               <SearchableDropdown
                 placeholder="Select customer..."
-                items={customersData?.data?.customers || customersData?.customers || []}
+                items={customers}
                 onSelect={handleCustomerSelect}
                 onSearch={setCustomerSearchTerm}
                 displayKey={(customer) => customer.displayName || customer.name}
@@ -578,7 +578,7 @@ const DropShipping = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
               <SearchableDropdown
                 placeholder="--Select--"
-                items={productsData || []}
+                items={products}
                 onSelect={handleProductSelect}
                 onSearch={setProductSearchTerm}
                 displayKey={(product) => product.name}
@@ -742,7 +742,7 @@ const DropShipping = () => {
       <div className="mt-6 flex gap-4">
         <LoadingButton
           onClick={handleSave}
-          isLoading={createMutation.isLoading}
+          isLoading={creating}
           className="btn btn-primary"
         >
           <Save className="h-4 w-4 mr-2" />

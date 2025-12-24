@@ -32,7 +32,18 @@ export const purchaseInvoicesApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'Orders', id: 'PI_LIST' }],
+      invalidatesTags: (result, error, arg) => {
+        const tags = [
+          { type: 'Orders', id: 'PI_LIST' },
+          { type: 'Products', id: 'LIST' }, // Invalidate products to refresh stock and prices
+          { type: 'Suppliers', id: 'LIST' }, // Invalidate suppliers to refresh outstanding balance
+        ];
+        // Invalidate specific supplier if we have the supplier ID
+        if (arg?.supplier) {
+          tags.push({ type: 'Suppliers', id: arg.supplier });
+        }
+        return tags;
+      },
     }),
     updatePurchaseInvoice: builder.mutation({
       query: ({ id, ...data }) => ({
@@ -40,10 +51,19 @@ export const purchaseInvoicesApi = api.injectEndpoints({
         method: 'put',
         data,
       }),
-      invalidatesTags: (_res, _err, { id }) => [
-        { type: 'Orders', id },
-        { type: 'Orders', id: 'PI_LIST' },
-      ],
+      invalidatesTags: (_res, _err, { id, supplier }) => {
+        const tags = [
+          { type: 'Orders', id },
+          { type: 'Orders', id: 'PI_LIST' },
+          { type: 'Products', id: 'LIST' }, // Invalidate products to refresh stock and prices
+          { type: 'Suppliers', id: 'LIST' }, // Invalidate suppliers to refresh outstanding balance
+        ];
+        // Invalidate specific supplier if we have the supplier ID
+        if (supplier) {
+          tags.push({ type: 'Suppliers', id: supplier });
+        }
+        return tags;
+      },
     }),
     deletePurchaseInvoice: builder.mutation({
       query: (id) => ({
@@ -63,6 +83,8 @@ export const purchaseInvoicesApi = api.injectEndpoints({
       invalidatesTags: (_r, _e, id) => [
         { type: 'Orders', id },
         { type: 'Orders', id: 'PI_LIST' },
+        { type: 'Products', id: 'LIST' }, // Invalidate products to refresh stock and prices
+        { type: 'Suppliers', id: 'LIST' }, // Invalidate suppliers to refresh outstanding balance
       ],
     }),
     cancelPurchaseInvoice: builder.mutation({

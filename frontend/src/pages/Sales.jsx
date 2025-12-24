@@ -22,11 +22,10 @@ import {
   XCircle,
   ArrowUpDown
 } from 'lucide-react';
-import { useGetProductsQuery } from '../store/services/productsApi';
-import { useLazySearchCustomersQuery } from '../store/services/customersApi';
+import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery, useGetLastPurchasePricesMutation } from '../store/services/productsApi';
+import { useGetCustomersQuery, useLazySearchCustomersQuery } from '../store/services/customersApi';
 import { useCreateSaleMutation, useUpdateOrderMutation } from '../store/services/salesApi';
 import { useGetBanksQuery } from '../store/services/banksApi';
-import { productsAPI } from '../services/api'; // Keep for getLastPurchasePrice
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
 import { SearchableDropdown } from '../components/SearchableDropdown';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
@@ -47,26 +46,38 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import { Camera } from 'lucide-react';
 
 // ProductSearch Component
-const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPurchasePriceFetched, hasCostPricePermission, priceType }) => {
+const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPurchasePriceFetched, hasCostPricePermission, priceType, onRefetchReady }) => {
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [customRate, setCustomRate] = useState('');
   const [calculatedRate, setCalculatedRate] = useState(0);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [searchKey, setSearchKey] = useState(0); // Key to force re-render
   const [lastPurchasePrice, setLastPurchasePrice] = useState(null);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const productSearchRef = useRef(null);
 
   // Fetch all products (or a larger set) for client-side fuzzy search
-  const { data: productsData, isLoading: productsLoading, error: productsError } = useGetProductsQuery(
+  const [getLastPurchasePrice] = useLazyGetLastPurchasePriceQuery();
+  const [getLastPurchasePrices] = useGetLastPurchasePricesMutation();
+  
+  const { data: productsData, isLoading: productsLoading, error: productsError, refetch: refetchProducts } = useGetProductsQuery(
     { limit: 100, status: 'active' },
     {
       keepPreviousData: true,
-      staleTime: 30000, // Cache for 30 seconds
+      staleTime: 0, // Always consider data stale to get fresh stock levels
+      refetchOnMountOrArgChange: true, // Refetch when component mounts or params change
     }
   );
+
+  // Expose refetch function to parent component via callback
+  useEffect(() => {
+    if (onRefetchReady && refetchProducts && typeof refetchProducts === 'function') {
+      onRefetchReady(refetchProducts);
+    }
+  }, [onRefetchReady, refetchProducts]);
 
   // Extract products array from RTK Query response
   const allProducts = React.useMemo(() => {
@@ -112,11 +123,11 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
     // Fetch last purchase price (always, for loss alerts)
     if (product._id) {
       try {
-        const response = await productsAPI.getLastPurchasePrice(product._id);
-        if (response.data && response.data.lastPurchasePrice !== null) {
-          setLastPurchasePrice(response.data.lastPurchasePrice);
+        const response = await getLastPurchasePrice(product._id).unwrap();
+        if (response && response.lastPurchasePrice !== null) {
+          setLastPurchasePrice(response.lastPurchasePrice);
           if (onLastPurchasePriceFetched) {
-            onLastPurchasePriceFetched(product._id, response.data.lastPurchasePrice);
+            onLastPurchasePriceFetched(product._id, response.lastPurchasePrice);
           }
         } else {
           setLastPurchasePrice(null);
@@ -173,6 +184,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
       return;
     }
     
+    setIsAddingToCart(true);
     try {
       // Use the rate from the input field
       const unitPrice = parseInt(customRate) || Math.round(calculatedRate);
@@ -227,6 +239,8 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
       toast.success(`${selectedProduct.name} added to cart at ${priceLabel} price: ${Math.round(unitPrice)}`);
     } catch (error) {
       handleApiError(error, 'Product Price Check');
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
@@ -385,16 +399,17 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
           
           {/* Add Button - 1 column */}
           <div className="col-span-1 flex items-end">
-            <button
+            <LoadingButton
               type="button"
               onClick={handleAddToCart}
+              isLoading={isAddingToCart}
               className="w-full btn btn-primary flex items-center justify-center px-3 py-2"
-              disabled={!selectedProduct}
+              disabled={!selectedProduct || isAddingToCart}
               title="Add to cart (or press Enter in Quantity/Rate fields - focus returns to search)"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add
-            </button>
+            </LoadingButton>
           </div>
         </div>
       </div>
@@ -426,6 +441,9 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
 };
 
 export const Sales = ({ tabId, editData }) => {
+  // Store refetch function from ProductSearch component
+  const [refetchProducts, setRefetchProducts] = useState(null);
+  
   const [cart, setCart] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -443,6 +461,9 @@ export const Sales = ({ tabId, editData }) => {
   const [autoGenerateInvoice, setAutoGenerateInvoice] = useState(true);
   const [notes, setNotes] = useState('');
   const [isLoadingLastPrices, setIsLoadingLastPrices] = useState(false);
+  const [isRestoringPrices, setIsRestoringPrices] = useState(false);
+  const [isClearingCart, setIsClearingCart] = useState(false);
+  const [isRemovingFromCart, setIsRemovingFromCart] = useState({});
   const [originalPrices, setOriginalPrices] = useState({}); // Store original prices before applying last prices
   const [isLastPricesApplied, setIsLastPricesApplied] = useState(false);
   const [priceStatus, setPriceStatus] = useState({}); // Track price change status: 'updated', 'not-found', 'unchanged'
@@ -584,10 +605,38 @@ export const Sales = ({ tabId, editData }) => {
     }
   }, [editData?.orderId]); // Only depend on orderId to prevent multiple executions
 
-  // RTK Query hooks are already defined above, just need to extract data
+  // RTK Query hooks
+  const { data: banksData, isLoading: banksLoading } = useGetBanksQuery(
+    { isActive: true },
+    { staleTime: 5 * 60_000 }
+  );
+  
+  const { data: customersData, isLoading: customersLoading, refetch: refetchCustomers } = useGetCustomersQuery(
+    { limit: 1000 },
+    { 
+      staleTime: 0, // Always consider data stale to get fresh credit information
+      refetchOnMountOrArgChange: true // Refetch when component mounts or params change
+    }
+  );
+  
+  // Lazy query hooks for fetching last purchase prices
+  const [getLastPurchasePrice] = useLazyGetLastPurchasePriceQuery();
+  const [getLastPurchasePrices] = useGetLastPurchasePricesMutation();
+  
+  // Sales mutations
+  const [createSale, { isLoading: isCreatingSale }] = useCreateSaleMutation();
+  const [updateOrder, { isLoading: isUpdatingOrder }] = useUpdateOrderMutation();
+  
+  // Extract customers array from RTK Query response
+  const customers = useMemo(() => {
+    return customersData?.data?.customers || customersData?.customers || customersData?.data || customersData || [];
+  }, [customersData]);
 
   const activeBanks = useMemo(
-    () => (banksData || []).filter((bank) => bank.isActive !== false),
+    () => {
+      const banks = banksData?.data?.banks || banksData?.banks || [];
+      return banks.filter((bank) => bank.isActive !== false);
+    },
     [banksData]
   );
 
@@ -602,8 +651,8 @@ export const Sales = ({ tabId, editData }) => {
 
   // Update selected customer when customers data changes (e.g., after cash receipt updates balance)
   useEffect(() => {
-    if (selectedCustomer && customers?.data?.customers) {
-      const updatedCustomer = customers.data.customers.find(
+    if (selectedCustomer && customers && customers.length > 0) {
+      const updatedCustomer = customers.find(
         c => c._id === selectedCustomer._id
       );
       if (updatedCustomer && (
@@ -617,7 +666,7 @@ export const Sales = ({ tabId, editData }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // Note: selectedCustomer is intentionally excluded from deps to prevent infinite loops.
     // We only want to sync when the customers list updates, not when selectedCustomer changes.
-  }, [customers?.data?.customers]);
+  }, [customers]);
 
   const subtotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   const codeDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + discount.amount, 0);
@@ -683,11 +732,11 @@ export const Sales = ({ tabId, editData }) => {
       if (productIds.length === 0) return;
       
       try {
-        const response = await productsAPI.getLastPurchasePrices(productIds);
-        if (response.data && response.data.prices) {
+        const response = await getLastPurchasePrices({ productIds }).unwrap();
+        if (response && response.prices) {
           const pricesMap = {};
-          Object.keys(response.data.prices).forEach(productId => {
-            pricesMap[productId] = response.data.prices[productId].lastPurchasePrice;
+          Object.keys(response.prices).forEach(productId => {
+            pricesMap[productId] = response.prices[productId].lastPurchasePrice;
           });
           setLastPurchasePrices(prev => ({ ...prev, ...pricesMap }));
         }
@@ -725,12 +774,13 @@ export const Sales = ({ tabId, editData }) => {
       
       // New item added - fetch its last purchase price (always, for loss alerts)
       if (newItem.product._id) {
-        productsAPI.getLastPurchasePrice(newItem.product._id)
-          .then(response => {
-            if (response.data && response.data.lastPurchasePrice !== null) {
+        getLastPurchasePrice(newItem.product._id)
+          .unwrap()
+          .then((response) => {
+            if (response && response.lastPurchasePrice !== null) {
               setLastPurchasePrices(prev => ({
                 ...prev,
-                [newItem.product._id]: response.data.lastPurchasePrice
+                [newItem.product._id]: response.lastPurchasePrice
               }));
             }
           })
@@ -967,60 +1017,70 @@ export const Sales = ({ tabId, editData }) => {
       return;
     }
 
-    // Restore original prices
-    let restoredCount = 0;
-    const restoredCart = cart.map(cartItem => {
-      const productId = cartItem.product._id.toString();
-      if (originalPrices[productId] !== undefined) {
-        restoredCount++;
-        return {
-          ...cartItem,
-          unitPrice: originalPrices[productId]
-        };
-      }
-      return cartItem;
-    });
+    setIsRestoringPrices(true);
+    try {
+      // Restore original prices
+      let restoredCount = 0;
+      const restoredCart = cart.map(cartItem => {
+        const productId = cartItem.product._id.toString();
+        if (originalPrices[productId] !== undefined) {
+          restoredCount++;
+          return {
+            ...cartItem,
+            unitPrice: originalPrices[productId]
+          };
+        }
+        return cartItem;
+      });
 
       setCart(restoredCart);
       setIsLastPricesApplied(false);
       setOriginalPrices({});
       setPriceStatus({});
-
+      
       if (restoredCount > 0) {
         showSuccessToast(`Restored original prices for ${restoredCount} product(s).`);
       } else {
         showErrorToast('No matching products found to restore');
       }
+    } finally {
+      setIsRestoringPrices(false);
+    }
   };
 
   const { confirmation: clearConfirmation, confirmClear, handleConfirm: handleClearConfirm, handleCancel: handleClearCancel } = useClearConfirmation();
   
   const handleClearCart = () => {
     if (cart.length > 0) {
+      setIsClearingCart(true);
       confirmClear(cart.length, 'items', async () => {
-        setCart([]);
-        setSelectedCustomer(null);
-        setCustomerSearchTerm('');
-        setAppliedDiscounts([]);
-        setIsTaxExempt(true);
-        setDirectDiscount({ type: 'amount', value: 0 });
-        setIsAdvancePayment(false);
-        setInvoiceNumber('');
-        setPaymentMethod('cash');
-        setSelectedBankAccount('');
-        setAmountPaid(0);
-        setOriginalPrices({});
-        setIsLastPricesApplied(false);
-        setPriceStatus({});
-        setPriceType('wholesale');
-        
-        // Reset tab title to default
-        const activeTab = getActiveTab();
-        if (activeTab) {
-          updateTabTitle(activeTab.id, 'Sales');
+        try {
+          setCart([]);
+          setSelectedCustomer(null);
+          setCustomerSearchTerm('');
+          setAppliedDiscounts([]);
+          setIsTaxExempt(true);
+          setDirectDiscount({ type: 'amount', value: 0 });
+          setIsAdvancePayment(false);
+          setInvoiceNumber('');
+          setPaymentMethod('cash');
+          setSelectedBankAccount('');
+          setAmountPaid(0);
+          setOriginalPrices({});
+          setIsLastPricesApplied(false);
+          setPriceStatus({});
+          setPriceType('wholesale');
+          
+          // Reset tab title to default
+          const activeTab = getActiveTab();
+          if (activeTab) {
+            updateTabTitle(activeTab.id, 'Sales');
+          }
+          
+          toast.success('Cart cleared');
+        } finally {
+          setIsClearingCart(false);
         }
-        
-        toast.success('Cart cleared');
       });
     }
   };
@@ -1277,6 +1337,100 @@ export const Sales = ({ tabId, editData }) => {
     }
   };
 
+  const handleCreateOrder = async (orderData) => {
+    try {
+      const result = await createSale({ payload: orderData }).unwrap();
+      showSuccessToast('Sale created successfully');
+      
+      // Immediately refetch products to update stock levels
+      if (refetchProducts && typeof refetchProducts === 'function') {
+        try {
+          refetchProducts();
+        } catch (error) {
+          console.warn('Failed to refetch products:', error);
+        }
+      }
+      
+      // Immediately refetch customers to update credit information
+      if (refetchCustomers && typeof refetchCustomers === 'function') {
+        try {
+          refetchCustomers();
+        } catch (error) {
+          console.warn('Failed to refetch customers:', error);
+        }
+      }
+      
+      // Reset cart and form
+      setCart([]);
+      // Don't reset selectedCustomer immediately - let it update from refetched data
+      // setSelectedCustomer(null);
+      setAmountPaid(0);
+      setAppliedDiscounts([]);
+      setDirectDiscount({ type: 'amount', value: 0 });
+      setNotes('');
+      setInvoiceNumber('');
+      setLastPurchasePrices({});
+      setOriginalPrices({});
+      setIsLastPricesApplied(false);
+      setPriceStatus({});
+      
+      // Show print modal if order was created
+      if (result?.order) {
+        setCurrentOrder(result.order);
+        setShowPrintModal(true);
+      }
+    } catch (error) {
+      handleApiError(error, 'Create Sale');
+    }
+  };
+
+  const handleUpdateOrder = async (orderId, updateData) => {
+    try {
+      const result = await updateOrder({ id: orderId, ...updateData }).unwrap();
+      showSuccessToast('Order updated successfully');
+      
+      // Immediately refetch products to update stock levels
+      if (refetchProducts && typeof refetchProducts === 'function') {
+        try {
+          refetchProducts();
+        } catch (error) {
+          console.warn('Failed to refetch products:', error);
+        }
+      }
+      
+      // Immediately refetch customers to update credit information
+      if (refetchCustomers && typeof refetchCustomers === 'function') {
+        try {
+          refetchCustomers();
+        } catch (error) {
+          console.warn('Failed to refetch customers:', error);
+        }
+      }
+      
+      // Reset cart and form
+      setCart([]);
+      // Don't reset selectedCustomer immediately - let it update from refetched data
+      // setSelectedCustomer(null);
+      setAmountPaid(0);
+      setAppliedDiscounts([]);
+      setDirectDiscount({ type: 'amount', value: 0 });
+      setNotes('');
+      setInvoiceNumber('');
+      setLastPurchasePrices({});
+      setOriginalPrices({});
+      setIsLastPricesApplied(false);
+      setPriceStatus({});
+      
+      // Show print modal if order was updated
+      if (result?.order) {
+        setCurrentOrder(result.order);
+        setShowPrintModal(true);
+      }
+    } catch (error) {
+      handleApiError(error, 'Update Order');
+    }
+  };
+
   const handleCheckout = () => {
     if (cart.length === 0) {
       showErrorToast({ message: 'Cart is empty' });
@@ -1479,7 +1633,7 @@ export const Sales = ({ tabId, editData }) => {
             </div>
             <SearchableDropdown
               placeholder="Search customers by name, email, or business..."
-              items={customers?.data?.customers || []}
+              items={customers || []}
               onSelect={handleCustomerSelect}
               onSearch={setCustomerSearchTerm}
               selectedItem={selectedCustomer}
@@ -1645,14 +1799,15 @@ export const Sales = ({ tabId, editData }) => {
                         Apply Last Prices
                       </LoadingButton>
                     ) : (
-                      <button
+                      <LoadingButton
                         onClick={handleRestoreCurrentPrices}
+                        isLoading={isRestoringPrices}
                         className="btn btn-secondary btn-sm flex items-center space-x-2"
                         title="Restore original/current prices"
                       >
                         <RotateCcw className="h-4 w-4" />
                         <span>Restore Current Prices</span>
-                      </button>
+                      </LoadingButton>
                     )}
                   </>
                 )}
@@ -1668,6 +1823,7 @@ export const Sales = ({ tabId, editData }) => {
                 showCostPrice={showCostPrice}
                 hasCostPricePermission={hasPermission('view_cost_prices')}
                 priceType={priceType}
+                onRefetchReady={setRefetchProducts}
                 onLastPurchasePriceFetched={(productId, price) => {
                   setLastPurchasePrices(prev => ({
                     ...prev,
@@ -1716,6 +1872,37 @@ export const Sales = ({ tabId, editData }) => {
                     )}
                   </div>
                 </div>
+                
+                {/* Table Header Row */}
+                <div className="grid grid-cols-12 gap-4 items-center pb-2 border-b border-gray-300 mb-2">
+                  <div className="col-span-1">
+                    <span className="text-xs font-semibold text-gray-600 uppercase">#</span>
+                  </div>
+                  <div className={`${showCostPrice && hasPermission('view_cost_prices') ? 'col-span-5' : 'col-span-6'}`}>
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Product</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Stock</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Qty</span>
+                  </div>
+                  {showCostPrice && hasPermission('view_cost_prices') && (
+                    <div className="col-span-1">
+                      <span className="text-xs font-semibold text-gray-600 uppercase">Cost</span>
+                    </div>
+                  )}
+                  <div className="col-span-1">
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Rate</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Total</span>
+                  </div>
+                  <div className="col-span-1">
+                    <span className="text-xs font-semibold text-gray-600 uppercase">Action</span>
+                  </div>
+                </div>
+                
                 {cart.map((item, index) => {
                   const totalPrice = item.unitPrice * item.quantity;
                   const isLowStock = item.product.inventory?.currentStock <= item.product.inventory?.reorderPoint;
@@ -1763,7 +1950,13 @@ export const Sales = ({ tabId, editData }) => {
                         
                         {/* Stock - 1 column */}
                         <div className="col-span-1">
-                          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+                          <span className={`text-sm font-semibold px-2 py-1 rounded border block text-center h-8 flex items-center justify-center ${
+                            (item.product.inventory?.currentStock || 0) === 0
+                              ? 'text-red-700 bg-red-50 border-red-200'
+                              : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
+                              ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+                              : 'text-gray-700 bg-gray-100 border-gray-200'
+                          }`}>
                             {item.product.inventory?.currentStock || 0}
                           </span>
                         </div>
@@ -1853,12 +2046,13 @@ export const Sales = ({ tabId, editData }) => {
                         
                         {/* Delete Button - 1 column */}
                         <div className="col-span-1">
-                          <button
+                          <LoadingButton
                             onClick={() => removeFromCart(item.product._id)}
+                            isLoading={isRemovingFromCart[item.product._id]}
                             className="btn btn-danger btn-sm h-8 w-full"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </LoadingButton>
                         </div>
                       </div>
                     </div>
@@ -2182,13 +2376,14 @@ export const Sales = ({ tabId, editData }) => {
               {/* Action Buttons */}
               <div className="flex space-x-3 mt-6">
                 {cart.length > 0 && (
-                  <button
+                  <LoadingButton
                     onClick={handleClearCart}
+                    isLoading={isClearingCart}
                     className="btn btn-secondary flex-1"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Clear Cart
-                  </button>
+                  </LoadingButton>
                 )}
                 {cart.length > 0 && (
                   <button
@@ -2241,7 +2436,7 @@ export const Sales = ({ tabId, editData }) => {
                 )}
                 <LoadingButton
                   onClick={handleCheckout}
-                  isLoading={false}
+                  isLoading={isCreatingSale || isUpdatingOrder}
                   className="btn btn-primary btn-lg flex-2"
                 >
                   <Receipt className="h-4 w-4 mr-2" />

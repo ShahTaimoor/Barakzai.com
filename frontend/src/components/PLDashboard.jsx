@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from 'react-query';
 import {
   TrendingUp,
   TrendingDown,
@@ -13,7 +12,10 @@ import {
   AlertTriangle,
   CheckCircle,
 } from 'lucide-react';
-import { plStatementsAPI } from '../services/api';
+import {
+  useGetTrendsQuery,
+  useGetLatestStatementQuery,
+} from '../store/services/plStatementsApi';
 import { handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingCard } from '../components/LoadingSpinner';
 import { ResponsiveContainer, ResponsiveGrid } from '../components/ResponsiveContainer';
@@ -105,22 +107,23 @@ const PLDashboard = ({ period = { months: 12 }, onPeriodChange }) => {
   const [selectedPeriod, setSelectedPeriod] = useState(period);
 
   // Fetch P&L trends
-  const { data: trendsData, isLoading: trendsLoading, error: trendsError } = useQuery(
-    ['pl-trends', selectedPeriod],
-    () => plStatementsAPI.getTrends(selectedPeriod.months, selectedPeriod.type),
+  const { data: trendsData, isLoading: trendsLoading, error: trendsError } = useGetTrendsQuery(
     {
-      onError: (error) => handleApiError(error, 'P&L Trends'),
+      months: selectedPeriod.months,
+      type: selectedPeriod.type,
     }
   );
 
   // Fetch latest statement
-  const { data: latestStatement, isLoading: latestLoading } = useQuery(
-    ['pl-latest'],
-    () => plStatementsAPI.getLatestStatement('monthly'),
-    {
-      onError: (error) => handleApiError(error, 'Latest P&L Statement'),
-    }
+  const { data: latestStatement, isLoading: latestLoading } = useGetLatestStatementQuery(
+    { periodType: 'monthly' }
   );
+  
+  useEffect(() => {
+    if (trendsError) {
+      handleApiError(trendsError, 'P&L Trends');
+    }
+  }, [trendsError]);
 
   // Process trends data for charts
   const processTrendsData = (data) => {

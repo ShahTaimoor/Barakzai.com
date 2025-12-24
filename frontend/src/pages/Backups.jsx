@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { 
   Database, 
   Download, 
@@ -18,7 +17,19 @@ import {
   Calendar,
   HardDrive
 } from 'lucide-react';
-import { backupsAPI } from '../services/api';
+import {
+  useGetBackupsQuery,
+  useGetBackupStatsQuery,
+  useGetSchedulerStatusQuery,
+  useCreateBackupMutation,
+  useRestoreBackupMutation,
+  useDeleteBackupMutation,
+  useRetryBackupMutation,
+  useVerifyBackupMutation,
+  useStartSchedulerMutation,
+  useStopSchedulerMutation,
+  useTriggerBackupMutation,
+} from '../store/services/backupsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
 import { useResponsive, ResponsiveContainer, ResponsiveGrid } from '../components/ResponsiveContainer';
@@ -354,174 +365,132 @@ export const Backups = () => {
   });
 
   const { isMobile } = useResponsive();
-  const queryClient = useQueryClient();
 
   // Fetch backups
   const { 
     data: backupsData, 
     isLoading: backupsLoading, 
     error: backupsError 
-  } = useQuery(
-    ['backups', filters],
-    () => backupsAPI.getBackups(filters),
-    {
-      keepPreviousData: true,
-      onError: (error) => {
-        handleApiError(error, 'Backups');
-      },
+  } = useGetBackupsQuery(filters, {
+    keepPreviousData: true,
+  });
+
+  React.useEffect(() => {
+    if (backupsError) {
+      handleApiError(backupsError, 'Backups');
     }
-  );
+  }, [backupsError]);
 
   // Fetch backup stats
   const { 
     data: statsData, 
     isLoading: statsLoading 
-  } = useQuery(
-    'backupStats',
-    () => backupsAPI.getBackupStats(30),
-    {
-      onError: (error) => {
-        handleApiError(error, 'Backup Stats');
-      },
+  } = useGetBackupStatsQuery(30);
+
+  React.useEffect(() => {
+    if (statsData?.error) {
+      handleApiError(statsData.error, 'Backup Stats');
     }
-  );
+  }, [statsData?.error]);
 
   // Fetch scheduler status
   const { 
     data: schedulerStatus, 
     isLoading: schedulerLoading 
-  } = useQuery(
-    'schedulerStatus',
-    () => backupsAPI.getSchedulerStatus(),
-    {
-      refetchInterval: 30000, // Refresh every 30 seconds
-      onError: (error) => {
-        handleApiError(error, 'Scheduler Status');
-      },
+  } = useGetSchedulerStatusQuery(undefined, {
+    pollingInterval: 30000, // Refresh every 30 seconds
+  });
+
+  React.useEffect(() => {
+    if (schedulerStatus?.error) {
+      handleApiError(schedulerStatus.error, 'Scheduler Status');
     }
-  );
+  }, [schedulerStatus?.error]);
 
   // Mutations
-  const createBackupMutation = useMutation(backupsAPI.createBackup, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('backups');
-      queryClient.invalidateQueries('backupStats');
+  const [createBackup, { isLoading: creatingBackup }] = useCreateBackupMutation();
+  const [restoreBackup, { isLoading: restoringBackup }] = useRestoreBackupMutation();
+  const [deleteBackup, { isLoading: deletingBackup }] = useDeleteBackupMutation();
+  const [retryBackup, { isLoading: retryingBackup }] = useRetryBackupMutation();
+  const [verifyBackup, { isLoading: verifyingBackup }] = useVerifyBackupMutation();
+  const [startScheduler, { isLoading: startingScheduler }] = useStartSchedulerMutation();
+  const [stopScheduler, { isLoading: stoppingScheduler }] = useStopSchedulerMutation();
+  const [triggerBackup, { isLoading: triggeringBackup }] = useTriggerBackupMutation();
+
+  // Mutation handlers
+  const handleCreateBackup = async (data) => {
+    try {
+      await createBackup(data).unwrap();
       showSuccessToast('Backup created successfully');
       setShowCreateDialog(false);
-    },
-    onError: (error) => {
+    } catch (error) {
       handleApiError(error, 'Create Backup');
-    },
-  });
-
-  const restoreBackupMutation = useMutation(
-    ({ backupId, data }) => backupsAPI.restoreBackup(backupId, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('backups');
-        showSuccessToast('Backup restored successfully');
-      },
-      onError: (error) => {
-        handleApiError(error, 'Restore Backup');
-      },
     }
-  );
+  };
 
-  const deleteBackupMutation = useMutation(
-    ({ backupId, data }) => backupsAPI.deleteBackup(backupId, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('backups');
-        queryClient.invalidateQueries('backupStats');
-        showSuccessToast('Backup deleted successfully');
-      },
-      onError: (error) => {
-        handleApiError(error, 'Delete Backup');
-      },
+  const handleRestoreBackup = async ({ backupId, data }) => {
+    try {
+      await restoreBackup({ backupId, data }).unwrap();
+      showSuccessToast('Backup restored successfully');
+    } catch (error) {
+      handleApiError(error, 'Restore Backup');
     }
-  );
+  };
 
-  const retryBackupMutation = useMutation(backupsAPI.retryBackup, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('backups');
+  const handleDeleteBackup = async (backupId) => {
+    try {
+      await deleteBackup(backupId).unwrap();
+      showSuccessToast('Backup deleted successfully');
+    } catch (error) {
+      handleApiError(error, 'Delete Backup');
+    }
+  };
+
+  const handleRetryBackup = async (backupId) => {
+    try {
+      await retryBackup(backupId).unwrap();
       showSuccessToast('Backup retry initiated');
-    },
-    onError: (error) => {
+    } catch (error) {
       handleApiError(error, 'Retry Backup');
-    },
-  });
+    }
+  };
 
-  const verifyBackupMutation = useMutation(backupsAPI.verifyBackup, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('backups');
+  const handleVerifyBackup = async (backupId) => {
+    try {
+      await verifyBackup(backupId).unwrap();
       showSuccessToast('Backup verification completed');
-    },
-    onError: (error) => {
+    } catch (error) {
       handleApiError(error, 'Verify Backup');
-    },
-  });
+    }
+  };
 
-  const startSchedulerMutation = useMutation(backupsAPI.startScheduler, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('schedulerStatus');
+  const handleStartScheduler = async () => {
+    try {
+      await startScheduler().unwrap();
       showSuccessToast('Scheduler started successfully');
-    },
-    onError: (error) => {
+    } catch (error) {
       handleApiError(error, 'Start Scheduler');
-    },
-  });
+    }
+  };
 
-  const stopSchedulerMutation = useMutation(backupsAPI.stopScheduler, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('schedulerStatus');
+  const handleStopScheduler = async () => {
+    try {
+      await stopScheduler().unwrap();
       showSuccessToast('Scheduler stopped successfully');
-    },
-    onError: (error) => {
+    } catch (error) {
       handleApiError(error, 'Stop Scheduler');
-    },
-  });
+    }
+  };
 
-  const triggerBackupMutation = useMutation(backupsAPI.triggerBackup, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('backups');
+  const handleTriggerBackup = async (data) => {
+    try {
+      await triggerBackup(data).unwrap();
       showSuccessToast('Backup triggered successfully');
-    },
-    onError: (error) => {
+    } catch (error) {
       handleApiError(error, 'Trigger Backup');
-    },
-  });
-
-  const handleCreateBackup = () => {
-    createBackupMutation.mutate(createData);
+    }
   };
 
-  const handleRestore = (backupId, data) => {
-    restoreBackupMutation.mutate({ backupId, data });
-  };
-
-  const handleDelete = (backupId, data) => {
-    deleteBackupMutation.mutate({ backupId, data });
-  };
-
-  const handleRetry = (backupId) => {
-    retryBackupMutation.mutate(backupId);
-  };
-
-  const handleVerify = (backupId) => {
-    verifyBackupMutation.mutate(backupId);
-  };
-
-  const handleStartScheduler = () => {
-    startSchedulerMutation.mutate();
-  };
-
-  const handleStopScheduler = () => {
-    stopSchedulerMutation.mutate();
-  };
-
-  const handleTrigger = (data) => {
-    triggerBackupMutation.mutate(data);
-  };
 
   if (backupsError) {
     return (

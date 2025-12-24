@@ -1,16 +1,9 @@
-import { useQuery } from 'react-query';
-import { settingsAPI } from '../services/api';
+import { useGetCompanySettingsQuery } from '../store/services/settingsApi';
 
 export const useCompanyInfo = (options = {}) => {
-  const queryResult = useQuery(
-    'companySettings',
-    settingsAPI.getCompanySettings,
-    {
-      staleTime: 5 * 60 * 1000,
-      cacheTime: 10 * 60 * 1000,
-      ...options
-    }
-  );
+  const queryResult = useGetCompanySettingsQuery(undefined, {
+    ...options
+  });
 
   const companyInfo = queryResult.data?.data || {};
 

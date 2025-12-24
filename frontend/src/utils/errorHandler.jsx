@@ -27,6 +27,17 @@ export const getErrorMessage = (error) => {
     return ERROR_MESSAGES.unknown;
   }
   
+  // RTK Query error format: error.data.message (from axiosBaseQuery)
+  if (error?.data?.message) {
+    const message = error.data.message;
+    if (typeof message === 'string') {
+      return message;
+    } else if (typeof message === 'object') {
+      return JSON.stringify(message);
+    }
+    return String(message);
+  }
+  
   // If error has a specific message, use it first (most specific)
   if (error?.message) {
     const message = error.message;
@@ -38,7 +49,7 @@ export const getErrorMessage = (error) => {
     return String(message);
   }
   
-  // If error has response data with message, use it (second most specific)
+  // If error has response data with message, use it (for axios errors)
   if (error?.response?.data?.message) {
     const message = error.response.data.message;
     if (typeof message === 'string') {
@@ -91,7 +102,15 @@ export const getErrorSeverity = (error) => {
     }
   }
   
-  // Check HTTP status codes
+  // Check HTTP status codes (RTK Query format: error.status)
+  if (error?.status) {
+    const status = error.status;
+    if (status >= 500) return ERROR_SEVERITY.CRITICAL;
+    if (status >= 400) return ERROR_SEVERITY.MEDIUM;
+    return ERROR_SEVERITY.LOW;
+  }
+  
+  // Check HTTP status codes (axios format: error.response.status)
   if (error?.response?.status) {
     const status = error.response.status;
     if (status >= 500) return ERROR_SEVERITY.CRITICAL;
@@ -196,7 +215,7 @@ export const handleApiError = (error, context = '') => {
       message: safeMessage,
       severity,
       type: error?.type,
-      status: error?.response?.status,
+      status: error?.status || error?.response?.status,
       originalError: error
     });
     
@@ -208,7 +227,7 @@ export const handleApiError = (error, context = '') => {
       message: safeMessage,
       severity,
       type: error?.type,
-      status: error?.response?.status,
+      status: error?.status || error?.response?.status,
       originalError: error
     };
   } catch (e) {

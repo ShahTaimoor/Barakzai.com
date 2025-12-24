@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useMutation } from 'react-query';
 import {
   X,
   BarChart3,
@@ -16,8 +15,8 @@ import {
   AlertCircle,
   Info
 } from 'lucide-react';
-import { salesPerformanceAPI } from '../services/api';
-import { showSuccessToast, showErrorToast } from '../utils/errorHandler';
+import { useGenerateReportMutation } from '../store/services/salesPerformanceApi';
+import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { LoadingButton } from '../components/LoadingSpinner';
 
 const CreateSalesPerformanceReportModal = ({ isOpen, onClose, onSuccess }) => {
@@ -99,15 +98,7 @@ const CreateSalesPerformanceReportModal = ({ isOpen, onClose, onSuccess }) => {
   ];
 
   // Create report mutation
-  const createReportMutation = useMutation(salesPerformanceAPI.generateReport, {
-    onSuccess: (response) => {
-      showSuccessToast('Report generation started successfully');
-      onSuccess(response.data.report);
-    },
-    onError: (error) => {
-      showErrorToast(error.response?.data?.message || 'Failed to create report');
-    }
-  });
+  const [generateReport, { isLoading: isGenerating }] = useGenerateReportMutation();
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -177,7 +168,7 @@ const CreateSalesPerformanceReportModal = ({ isOpen, onClose, onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -190,7 +181,13 @@ const CreateSalesPerformanceReportModal = ({ isOpen, onClose, onSuccess }) => {
       endDate: formData.periodType === 'custom' ? formData.endDate : undefined
     };
 
-    createReportMutation.mutate(config);
+    try {
+      const response = await generateReport(config).unwrap();
+      showSuccessToast('Report generation started successfully');
+      onSuccess(response.data?.report || response.report);
+    } catch (error) {
+      handleApiError(error, 'Generate Report');
+    }
   };
 
   const handleClose = () => {
@@ -588,7 +585,7 @@ const CreateSalesPerformanceReportModal = ({ isOpen, onClose, onSuccess }) => {
               </button>
               <LoadingButton
                 type="submit"
-                isLoading={createReportMutation.isLoading}
+                isLoading={isGenerating}
                 className="btn btn-primary"
               >
                 <BarChart3 className="h-4 w-4 mr-2" />

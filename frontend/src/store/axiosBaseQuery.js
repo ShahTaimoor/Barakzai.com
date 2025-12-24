@@ -101,16 +101,50 @@ const axiosBaseQuery = ({ baseUrl = '' } = {}) => {
   );
 
   // Return RTK Query base query function
-  return async ({ url, method = 'GET', data, params, headers, ...rest }) => {
+  return async ({ url, method = 'GET', data, params, headers, responseType, responseHandler, ...rest }) => {
     try {
-      const result = await axiosInstance({
+      const config = {
         url,
         method,
         data,
         params,
         headers,
         ...rest,
-      });
+      };
+
+      // Handle blob response type
+      if (responseType === 'blob' || responseHandler) {
+        config.responseType = 'blob';
+      }
+
+      const result = await axiosInstance(config);
+
+      // If responseHandler is provided, use it to process the response
+      if (responseHandler && typeof responseHandler === 'function') {
+        const processedData = await responseHandler(result);
+        return {
+          data: processedData,
+          meta: {
+            response: {
+              headers: result.headers,
+              status: result.status,
+            },
+          },
+        };
+      }
+
+      // For blob responses, include headers in meta for filename extraction
+      if (config.responseType === 'blob') {
+        return {
+          data: result.data,
+          meta: {
+            response: {
+              headers: result.headers,
+              status: result.status,
+            },
+          },
+        };
+      }
 
       return {
         data: result.data,

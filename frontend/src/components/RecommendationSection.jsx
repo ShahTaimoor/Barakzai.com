@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation } from 'react-query';
 import { TrendingUp, Sparkles, RefreshCw, Settings, Eye, ShoppingCart } from 'lucide-react';
-import { recommendationsAPI } from '../services/api';
+import { useGenerateRecommendationsMutation } from '../store/services/recommendationsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton } from './LoadingSpinner';
 import ProductRecommendationCard from './ProductRecommendationCard';
@@ -21,39 +20,50 @@ const RecommendationSection = ({
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [currentAlgorithm, setCurrentAlgorithm] = useState(algorithm);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [recommendationsData, setRecommendationsData] = useState(null);
+  const [error, setError] = useState(null);
   const { isMobile } = useResponsive();
 
-  // Generate recommendations
-  const { 
-    data: recommendationsData, 
-    isLoading, 
-    error, 
-    refetch 
-  } = useQuery(
-    ['recommendations', { algorithm: currentAlgorithm, context, limit }],
-    () => recommendationsAPI.generateRecommendations({
-      sessionId,
-      algorithm: currentAlgorithm,
-      context,
-      limit,
-    }),
-    {
-      enabled: true,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
-      onError: (error) => {
-        handleApiError(error, 'Recommendations');
-      },
-    }
-  );
+  // Generate recommendations mutation
+  const [generateRecommendations, { isLoading }] = useGenerateRecommendationsMutation();
+
+  // Fetch recommendations on mount and when algorithm/context changes
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        setError(null);
+        const result = await generateRecommendations({
+          sessionId,
+          algorithm: currentAlgorithm,
+          context,
+          limit,
+        }).unwrap();
+        setRecommendationsData(result);
+      } catch (err) {
+        setError(err);
+        handleApiError(err, 'Recommendations');
+      }
+    };
+
+    fetchRecommendations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAlgorithm, sessionId, limit]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      setError(null);
+      const result = await generateRecommendations({
+        sessionId,
+        algorithm: currentAlgorithm,
+        context,
+        limit,
+      }).unwrap();
+      setRecommendationsData(result);
       showSuccessToast('Recommendations updated');
-    } catch (error) {
-      handleApiError(error, 'Refresh Recommendations');
+    } catch (err) {
+      setError(err);
+      handleApiError(err, 'Refresh Recommendations');
     } finally {
       setIsRefreshing(false);
     }
@@ -98,7 +108,7 @@ const RecommendationSection = ({
         <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to load recommendations</h3>
         <p className="text-gray-500 mb-4">{error.message}</p>
         <button
-          onClick={() => refetch()}
+          onClick={handleRefresh}
           className="btn btn-primary"
         >
           Try Again

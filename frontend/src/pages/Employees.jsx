@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { 
   Plus, 
   Search, 
@@ -19,7 +18,15 @@ import {
   Filter,
   RefreshCw
 } from 'lucide-react';
-import { employeesAPI, usersAPI } from '../services/api';
+import {
+  useGetEmployeesQuery,
+  useCreateEmployeeMutation,
+  useUpdateEmployeeMutation,
+  useDeleteEmployeeMutation,
+  useGetDepartmentsQuery,
+  useGetPositionsQuery,
+} from '../store/services/employeesApi';
+import { useGetUsersQuery } from '../store/services/usersApi';
 import toast from 'react-hot-toast';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import { handleApiError, showSuccessToast } from '../utils/errorHandler';
@@ -59,79 +66,82 @@ const Employees = () => {
     notes: ''
   });
 
-  const queryClient = useQueryClient();
   const { showDeleteDialog, handleDeleteClick, handleDeleteConfirm, handleDeleteCancel, itemToDelete } = useDeleteConfirmation();
 
   // Fetch employees
-  const { data: employeesData, isLoading, refetch } = useQuery(
-    ['employees', { search: searchTerm, status: statusFilter, department: departmentFilter, page: currentPage }],
-    () => employeesAPI.getEmployees({
-      search: searchTerm,
-      status: statusFilter,
-      department: departmentFilter,
-      page: currentPage,
-      limit: 20
-    }),
-    {
-      keepPreviousData: true,
-      onError: (error) => handleApiError(error, 'Failed to fetch employees')
+  const { data: employeesData, isLoading, refetch, error: employeesError } = useGetEmployeesQuery({
+    search: searchTerm,
+    status: statusFilter,
+    department: departmentFilter,
+    page: currentPage,
+    limit: 20
+  }, {
+    keepPreviousData: true,
+  });
+
+  React.useEffect(() => {
+    if (employeesError) {
+      handleApiError(employeesError, 'Failed to fetch employees');
     }
-  );
+  }, [employeesError]);
 
   // Fetch users for linking
-  const { data: usersData } = useQuery(
-    'users-for-employees',
-    () => usersAPI.getUsers({ limit: 100 }).then(res => res.data?.users || []),
+  const { data: usersData } = useGetUsersQuery(
+    { limit: 100 },
     {
-      enabled: showForm,
+      skip: !showForm,
       staleTime: 5 * 60 * 1000
     }
   );
+  const users = React.useMemo(() => {
+    return usersData?.data?.users || usersData?.users || [];
+  }, [usersData]);
 
   // Fetch departments and positions
-  const { data: departmentsData } = useQuery('departments', employeesAPI.getDepartments);
-  const { data: positionsData } = useQuery('positions', employeesAPI.getPositions);
+  const { data: departmentsData } = useGetDepartmentsQuery();
+  const { data: positionsData } = useGetPositionsQuery();
 
-  const employees = employeesData?.data?.employees || [];
-  const pagination = employeesData?.data?.pagination || {};
+  const employees = employeesData?.data?.employees || employeesData?.employees || [];
+  const pagination = employeesData?.data?.pagination || employeesData?.pagination || {};
 
   // Create employee mutation
-  const createMutation = useMutation(
-    employeesAPI.createEmployee,
-    {
-      onSuccess: () => {
-        showSuccessToast('Employee created successfully');
-        queryClient.invalidateQueries('employees');
-        resetForm();
-      },
-      onError: (error) => handleApiError(error, 'Failed to create employee')
-    }
-  );
+  const [createEmployee, { isLoading: creating }] = useCreateEmployeeMutation();
 
   // Update employee mutation
-  const updateMutation = useMutation(
-    ({ id, data }) => employeesAPI.updateEmployee(id, data),
-    {
-      onSuccess: () => {
-        showSuccessToast('Employee updated successfully');
-        queryClient.invalidateQueries('employees');
-        resetForm();
-      },
-      onError: (error) => handleApiError(error, 'Failed to update employee')
-    }
-  );
+  const [updateEmployee, { isLoading: updating }] = useUpdateEmployeeMutation();
 
   // Delete employee mutation
-  const deleteMutation = useMutation(
-    employeesAPI.deleteEmployee,
-    {
-      onSuccess: () => {
-        showSuccessToast('Employee deleted successfully');
-        queryClient.invalidateQueries('employees');
-      },
-      onError: (error) => handleApiError(error, 'Failed to delete employee')
+  const [deleteEmployee, { isLoading: deleting }] = useDeleteEmployeeMutation();
+
+  // Handle mutations with callbacks
+  const handleCreateEmployee = async (data) => {
+    try {
+      await createEmployee(data).unwrap();
+      showSuccessToast('Employee created successfully');
+      resetForm();
+    } catch (error) {
+      handleApiError(error, 'Failed to create employee');
     }
-  );
+  };
+
+  const handleUpdateEmployee = async ({ id, data }) => {
+    try {
+      await updateEmployee({ id, data }).unwrap();
+      showSuccessToast('Employee updated successfully');
+      resetForm();
+    } catch (error) {
+      handleApiError(error, 'Failed to update employee');
+    }
+  };
+
+  const handleDeleteEmployee = async (id) => {
+    try {
+      await deleteEmployee(id).unwrap();
+      showSuccessToast('Employee deleted successfully');
+    } catch (error) {
+      handleApiError(error, 'Failed to delete employee');
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -203,15 +213,15 @@ const Employees = () => {
     if (!data.userAccount) delete data.userAccount;
 
     if (selectedEmployee) {
-      updateMutation.mutate({ id: selectedEmployee._id, data });
+      handleUpdateEmployee({ id: selectedEmployee._id, data });
     } else {
-      createMutation.mutate(data);
+      handleCreateEmployee(data);
     }
   };
 
   const handleDelete = () => {
     if (itemToDelete) {
-      deleteMutation.mutate(itemToDelete._id);
+      handleDeleteEmployee(itemToDelete._id);
     }
   };
 
@@ -591,7 +601,7 @@ const Employees = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
                       <option value="">No User Account</option>
-                      {usersData?.filter(u => !u.employeeLinked).map((user) => (
+                      {users?.filter(u => !u.employeeLinked).map((user) => (
                         <option key={user._id} value={user._id}>
                           {user.firstName} {user.lastName} ({user.email})
                         </option>
@@ -615,9 +625,9 @@ const Employees = () => {
                   <button
                     type="submit"
                     className="btn btn-primary"
-                    disabled={createMutation.isLoading || updateMutation.isLoading}
+                    disabled={creating || updating}
                   >
-                    {createMutation.isLoading || updateMutation.isLoading ? (
+                    {creating || updating ? (
                       <LoadingSpinner size="sm" />
                     ) : selectedEmployee ? (
                       'Update Employee'

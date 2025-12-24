@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Package, TrendingUp, Heart, ShoppingCart, Eye, Star, AlertTriangle } from 'lucide-react';
 import { useResponsive } from './ResponsiveContainer';
-import { recommendationsAPI } from '../services/api';
+import { useTrackInteractionMutation } from '../store/services/recommendationsApi';
 import { handleApiError } from '../utils/errorHandler';
 import { OptimizedImage } from './OptimizedImage';
 
@@ -17,6 +17,7 @@ const ProductRecommendationCard = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const { isMobile } = useResponsive();
+  const [trackInteraction] = useTrackInteractionMutation();
 
   const { product, score, reason } = recommendation;
 
@@ -28,11 +29,12 @@ const ProductRecommendationCard = ({
     try {
       // Track the interaction
       if (recommendation._id) {
-        await recommendationsAPI.trackInteraction(recommendation._id, {
+        await trackInteraction({
+          recommendationId: recommendation._id,
           productId: product._id,
           action: 'add_to_cart',
           position,
-        });
+        }).unwrap();
       }
       
       // Call the parent handler
@@ -50,11 +52,12 @@ const ProductRecommendationCard = ({
     try {
       // Track the interaction
       if (recommendation._id) {
-        await recommendationsAPI.trackInteraction(recommendation._id, {
+        await trackInteraction({
+          recommendationId: recommendation._id,
           productId: product._id,
           action: 'click',
           position,
-        });
+        }).unwrap();
       }
       
       // Call the parent handler
@@ -245,11 +248,12 @@ const ProductRecommendationCard = ({
             onClick={async () => {
               try {
                 if (recommendation._id) {
-                  await recommendationsAPI.trackInteraction(recommendation._id, {
+                  await trackInteraction({
+                    recommendationId: recommendation._id,
                     productId: product._id,
                     action: 'dismiss',
                     position,
-                  });
+                  }).unwrap();
                 }
               } catch (error) {
                 handleApiError(error, 'Dismiss Recommendation');

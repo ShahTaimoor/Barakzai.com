@@ -9,6 +9,7 @@ const Product = require('../models/Product');
 const Customer = require('../models/Customer');
 const CashReceipt = require('../models/CashReceipt');
 const BankReceipt = require('../models/BankReceipt');
+const Inventory = require('../models/Inventory');
 const StockMovementService = require('../services/stockMovementService');
 const { auth, requirePermission } = require('../middleware/auth');
 const { preventPOSDuplicates } = require('../middleware/duplicatePrevention');
@@ -44,9 +45,9 @@ router.get('/', [
   query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
   query('productSearch').optional().trim(),
-  query('status').optional().isIn(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned']),
-  query('paymentStatus').optional().isIn(['pending', 'paid', 'partial', 'refunded']),
-  query('orderType').optional().isIn(['retail', 'wholesale', 'return', 'exchange']),
+  query('status').optional({ checkFalsy: true }).isIn(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned']),
+  query('paymentStatus').optional({ checkFalsy: true }).isIn(['pending', 'paid', 'partial', 'refunded']),
+  query('orderType').optional({ checkFalsy: true }).isIn(['retail', 'wholesale', 'return', 'exchange']),
   query('dateFrom').optional().isISO8601(),
   query('dateTo').optional().isISO8601()
 ], async (req, res) => {
@@ -206,6 +207,70 @@ router.get('/', [
   }
 });
 
+// @route   GET /api/sales/period-summary
+// @desc    Get period summary for comparisons (alternative route with hyphen)
+// @access  Private
+router.get('/period-summary', [
+  auth,
+  query('dateFrom').isISO8601().withMessage('Invalid start date'),
+  query('dateTo').isISO8601().withMessage('Invalid end date')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const dateFrom = new Date(req.query.dateFrom);
+    dateFrom.setHours(0, 0, 0, 0);
+    const dateTo = new Date(req.query.dateTo);
+    dateTo.setDate(dateTo.getDate() + 1);
+    dateTo.setHours(0, 0, 0, 0);
+    
+    const orders = await Sales.find({
+      createdAt: { $gte: dateFrom, $lt: dateTo }
+    });
+    
+    const totalRevenue = orders.reduce((sum, order) => sum + (order.pricing?.total || 0), 0);
+    const totalOrders = orders.length;
+    const totalItems = orders.reduce((sum, order) => 
+      sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0);
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    
+    // Calculate discounts
+    const totalDiscounts = orders.reduce((sum, order) => 
+      sum + (order.pricing?.discountAmount || 0), 0);
+    
+    // Calculate by order type
+    const revenueByType = {
+      retail: orders.filter(o => o.orderType === 'retail')
+        .reduce((sum, order) => sum + (order.pricing?.total || 0), 0),
+      wholesale: orders.filter(o => o.orderType === 'wholesale')
+        .reduce((sum, order) => sum + (order.pricing?.total || 0), 0)
+    };
+    
+    const summary = {
+      total: totalRevenue,
+      totalRevenue,
+      totalOrders,
+      totalItems,
+      averageOrderValue,
+      totalDiscounts,
+      netRevenue: totalRevenue - totalDiscounts,
+      revenueByType,
+      period: {
+        start: req.query.dateFrom,
+        end: req.query.dateTo
+      }
+    };
+    
+    res.json({ data: summary });
+  } catch (error) {
+    console.error('Get period summary error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // @route   GET /api/orders/:id
 // @desc    Get single order
 // @access  Private
@@ -345,9 +410,35 @@ router.post('/', [
         return res.status(400).json({ message: `Product ${item.product} not found` });
       }
       
-      if (product.inventory.currentStock < item.quantity) {
+      // Check actual inventory from Inventory model (source of truth) instead of Product model cache
+      let inventoryRecord = await Inventory.findOne({ product: item.product });
+      let availableStock = 0;
+      
+      // If Inventory record doesn't exist, use Product's stock (will be synced when inventory is updated)
+      if (!inventoryRecord) {
+        availableStock = Number(product.inventory?.currentStock || 0);
+      } else {
+        // Check if Inventory is out of sync with Product
+        const productStock = Number(product.inventory?.currentStock || 0);
+        const inventoryStock = Number(inventoryRecord.currentStock || 0);
+        
+        // If Product has more stock than Inventory, use Product stock (Inventory might be outdated)
+        // This handles cases where stock was updated directly on Product but Inventory wasn't synced
+        if (productStock > inventoryStock) {
+          availableStock = productStock;
+        } else {
+          availableStock = inventoryStock;
+        }
+      }
+      
+      const requestedQuantity = Number(item.quantity);
+      
+      if (availableStock < requestedQuantity) {
         return res.status(400).json({ 
-          message: `Insufficient stock for ${product.name}. Available: ${product.inventory.currentStock}` 
+          message: `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
+          product: product.name,
+          availableStock: availableStock,
+          requestedQuantity: requestedQuantity
         });
       }
       
@@ -447,13 +538,61 @@ router.post('/', [
           return res.status(400).json({ message: `Product ${item.product} not found during inventory update` });
         }
         
+        // Check actual inventory from Inventory model (source of truth) instead of Product model cache
+        let inventoryRecord = await Inventory.findOne({ product: item.product });
+        let availableStock = 0;
+        const productStock = Number(product.inventory?.currentStock || 0);
+        
+        // If Inventory record doesn't exist, create it from Product's stock
+        if (!inventoryRecord) {
+          // Create Inventory record with Product's stock value
+          inventoryRecord = await Inventory.create({
+            product: item.product,
+            productModel: 'Product',
+            currentStock: productStock,
+            reorderPoint: product.inventory?.reorderPoint || 10,
+            reorderQuantity: 50,
+            reservedStock: 0,
+            availableStock: productStock,
+            status: productStock > 0 ? 'active' : 'out_of_stock'
+          });
+          availableStock = productStock;
+        } else {
+          // Check if Inventory is out of sync with Product
+          const inventoryStock = Number(inventoryRecord.currentStock || 0);
+          
+          // If Product has more stock than Inventory, sync Inventory to match Product
+          // This handles cases where stock was updated directly on Product but Inventory wasn't synced
+          if (productStock > inventoryStock) {
+            // Sync Inventory to match Product stock
+            await inventoryService.updateStock({
+              productId: item.product,
+              type: 'adjustment',
+              quantity: productStock,
+              reason: 'Auto-sync from Product model',
+              reference: 'Stock Sync',
+              referenceId: null,
+              referenceModel: 'StockAdjustment',
+              performedBy: req.user._id,
+              notes: `Syncing Inventory model to match Product model stock (${inventoryStock} -> ${productStock})`
+            });
+            // Refresh inventory record
+            inventoryRecord = await Inventory.findOne({ product: item.product });
+            availableStock = productStock;
+          } else {
+            availableStock = inventoryStock;
+          }
+        }
+        
+        const requestedQuantity = Number(item.quantity);
+        
         // Re-check stock availability right before updating (race condition protection)
-        if (product.inventory.currentStock < item.quantity) {
+        if (availableStock < requestedQuantity) {
           return res.status(400).json({ 
-            message: `Insufficient stock for ${product.name}. Available: ${product.inventory.currentStock}, Requested: ${item.quantity}`,
+            message: `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
             product: product.name,
-            availableStock: product.inventory.currentStock,
-            requestedQuantity: item.quantity
+            availableStock: availableStock,
+            requestedQuantity: requestedQuantity
           });
         }
         
@@ -479,6 +618,26 @@ router.post('/', [
         
       } catch (error) {
         console.error(`Error updating inventory for product ${item.product}:`, error);
+        
+        // Get product name and actual stock for better error message
+        let productName = 'Unknown Product';
+        let availableStock = 0;
+        try {
+          const productForError = await Product.findById(item.product);
+          if (productForError) {
+            productName = productForError.name;
+            // Get actual stock from Inventory model (source of truth)
+            const inventoryRecord = await Inventory.findOne({ product: item.product });
+            availableStock = Number(inventoryRecord ? inventoryRecord.currentStock : (productForError.inventory?.currentStock || 0));
+          }
+        } catch (productError) {
+          console.error('Error fetching product for error message:', productError);
+        }
+        
+        // Check if this is an insufficient stock error
+        const isInsufficientStock = error.message && error.message.includes('Insufficient stock');
+        const statusCode = isInsufficientStock ? 400 : 500;
+        
         // Rollback successful inventory updates
         for (const successUpdate of inventoryUpdates) {
           try {
@@ -497,9 +656,16 @@ router.post('/', [
             console.error(`Failed to rollback inventory for product ${successUpdate.productId}:`, rollbackError);
           }
         }
-        return res.status(500).json({ 
-          message: `Failed to update inventory for product`,
-          error: error.message 
+        
+        return res.status(statusCode).json({ 
+          message: isInsufficientStock 
+            ? `Insufficient stock for ${productName}. Available: ${availableStock}, Requested: ${item.quantity}`
+            : `Failed to update inventory for product ${productName}`,
+          error: error.message,
+          product: productName,
+          productId: item.product,
+          availableStock: availableStock,
+          requestedQuantity: item.quantity
         });
       }
     }

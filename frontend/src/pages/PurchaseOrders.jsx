@@ -26,7 +26,8 @@ import {
   Printer,
   ArrowUpDown
 } from 'lucide-react';
-import { suppliersAPI, productsAPI } from '../services/api';
+import { useGetSuppliersQuery, useGetSupplierQuery } from '../store/services/suppliersApi';
+import { useGetProductsQuery } from '../store/services/productsApi';
 import {
   useGetPurchaseOrdersQuery,
   useCreatePurchaseOrderMutation,
@@ -310,44 +311,94 @@ export const PurchaseOrders = ({ tabId }) => {
   }, [showEditModal]);
 
 
+  // Transform filters to match backend API expectations
+  const queryParams = React.useMemo(() => {
+    const params = {
+      ...pagination,
+    };
+
+    // Map fromDate/toDate to dateFrom/dateTo
+    if (filters.fromDate) {
+      params.dateFrom = filters.fromDate;
+    }
+    if (filters.toDate) {
+      params.dateTo = filters.toDate;
+    }
+
+    // Map poNumber to search parameter
+    if (filters.poNumber) {
+      params.search = filters.poNumber;
+    }
+
+    // Include status and supplier if provided
+    if (filters.status) {
+      params.status = filters.status;
+    }
+    if (filters.supplier) {
+      params.supplier = filters.supplier;
+    }
+
+    // Note: sortConfig and paymentStatus are not supported by backend
+    // Sorting is handled client-side if needed
+
+    return params;
+  }, [filters, pagination]);
+
   // Fetch purchase orders
   const {
     data: purchaseOrdersData,
     isLoading,
     error,
     refetch,
-  } = useGetPurchaseOrdersQuery({ ...filters, ...pagination, sortConfig }, { refetchOnMountOrArgChange: true });
+  } = useGetPurchaseOrdersQuery(queryParams, { refetchOnMountOrArgChange: true });
 
   // Fetch suppliers for dropdown
-  const { data: suppliersData, isLoading: suppliersLoading } = useQuery(
-    ['suppliers', { search: '', limit: 100 }],
-    () => suppliersAPI.getSuppliers({ search: '', limit: 100 }),
+  const { data: suppliersData, isLoading: suppliersLoading, refetch: refetchSuppliers } = useGetSuppliersQuery(
+    { search: '', limit: 100 },
+    { 
+      skip: false,
+      staleTime: 0, // Always consider data stale to get fresh balance information
+      refetchOnMountOrArgChange: true, // Refetch when component mounts or params change
+    }
+  );
+  const suppliers = React.useMemo(() => {
+    return suppliersData?.data?.suppliers || suppliersData?.suppliers || [];
+  }, [suppliersData]);
+
+  // Fetch complete supplier data when supplier is selected (for immediate balance updates)
+  const { data: completeSupplierData, refetch: refetchSupplier } = useGetSupplierQuery(
+    selectedSupplier?._id,
     {
-      select: (data) => {
-        return data?.data?.suppliers || data?.suppliers || [];
-      },
-      onError: () => {
-        // Error handled by React Query
-      }
+      skip: !selectedSupplier?._id,
+      staleTime: 0, // Always consider data stale to get fresh balance information
+      refetchOnMountOrArgChange: true, // Refetch when component mounts or params change
     }
   );
 
+  // Update supplier with complete data when fetched
+  useEffect(() => {
+    if (completeSupplierData?.data) {
+      setSelectedSupplier(completeSupplierData.data);
+    }
+  }, [completeSupplierData]);
+
   // Fetch all active products for client-side fuzzy search
-  const { data: allProductsData, isLoading: productsLoading } = useQuery(
-    ['products', 'all-active-po'],
-    () => productsAPI.getProducts({ limit: 100, status: 'active' }),
+  const { data: allProductsData, isLoading: productsLoading } = useGetProductsQuery(
+    { limit: 999999, status: 'active' }, // Get all active products
     {
       keepPreviousData: true,
       staleTime: 30000, // Cache for 30 seconds
-      onError: () => {
-        // Error handled by React Query
-      }
     }
   );
 
   // Apply fuzzy search on client side
-  const allProducts = allProductsData?.data?.products || [];
-  const productsData = useFuzzySearch(
+  const allProducts = React.useMemo(() => {
+    if (allProductsData?.data?.products) return allProductsData.data.products;
+    if (allProductsData?.products) return allProductsData.products;
+    if (allProductsData?.data?.data?.products) return allProductsData.data.data.products;
+    return [];
+  }, [allProductsData]);
+  const fuzzySearchResults = useFuzzySearch(
     allProducts,
     productSearchTerm,
     ['name', 'description', 'brand'],
@@ -357,9 +408,18 @@ export const PurchaseOrders = ({ tabId }) => {
       limit: 50 // Limit results for dropdown
     }
   );
+  
+  // Show limited results when search is empty, all filtered results when searching
+  const productsData = React.useMemo(() => {
+    if (!productSearchTerm || productSearchTerm.trim().length === 0) {
+      // Show first 30 products when no search term
+      return allProducts.slice(0, 30);
+    }
+    return fuzzySearchResults;
+  }, [productSearchTerm, allProducts, fuzzySearchResults]);
 
   // Fetch products for modal (use same cached data with fuzzy search)
-  const modalProductsData = useFuzzySearch(
+  const modalFuzzySearchResults = useFuzzySearch(
     allProducts,
     modalProductSearchTerm,
     ['name', 'description', 'brand'],
@@ -369,6 +429,16 @@ export const PurchaseOrders = ({ tabId }) => {
       limit: 50
     }
   );
+  
+  // Show limited results when search is empty, all filtered results when searching
+  const modalProductsData = React.useMemo(() => {
+    if (!modalProductSearchTerm || modalProductSearchTerm.trim().length === 0) {
+      // Show first 30 products when no search term
+      return allProducts.slice(0, 30);
+    }
+    return modalFuzzySearchResults;
+  }, [modalProductSearchTerm, allProducts, modalFuzzySearchResults]);
+  
   const modalProductsLoading = productsLoading;
 
   // Auto-scroll selected product into view when navigating with keyboard
@@ -409,10 +479,12 @@ export const PurchaseOrders = ({ tabId }) => {
     });
     setSelectedSupplier(null);
     setSupplierSearchTerm('');
-        setSelectedProduct(null);
+    setIsSelectingSupplier(true); // Reset to allow immediate supplier selection
+    setSelectedSupplierIndex(-1);
+    setSelectedProduct(null);
     setProductSearchTerm('');
-        setQuantity(1);
-        setCustomCost('');
+    setQuantity(1);
+    setCustomCost('');
     
     // Reset tab title to default
     if (updateTabTitle && getActiveTab) {
@@ -424,7 +496,7 @@ export const PurchaseOrders = ({ tabId }) => {
   };
 
   const handleSupplierSelect = (supplierId) => {
-    const supplier = suppliersData?.find(s => s._id === supplierId);
+    const supplier = suppliers?.find(s => s._id === supplierId);
     setSelectedSupplier(supplier);
     setFormData(prev => ({ ...prev, supplier: supplierId }));
     setSupplierSearchTerm('');
@@ -461,7 +533,7 @@ export const PurchaseOrders = ({ tabId }) => {
   const handleSupplierKeyDown = (e) => {
     if (!isSelectingSupplier || !supplierSearchTerm || !suppliersData) return;
 
-    const filteredSuppliers = suppliersData.filter(supplier => 
+    const filteredSuppliers = suppliers.filter(supplier => 
       (supplier.companyName || supplier.name || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
       (supplier.phone || '').includes(supplierSearchTerm)
     );
@@ -683,8 +755,19 @@ export const PurchaseOrders = ({ tabId }) => {
     createPurchaseOrderMutation(orderData)
       .unwrap()
       .then(() => {
-        resetForm();
         toast.success('Purchase order created successfully');
+        
+        // Refetch suppliers list to update balances (so new supplier selection works without refresh)
+        if (refetchSuppliers && typeof refetchSuppliers === 'function') {
+          try {
+            refetchSuppliers();
+          } catch (error) {
+            console.warn('Failed to refetch suppliers:', error);
+          }
+        }
+        
+        // Reset form (clears supplier and enables supplier selection UI for next order)
+        resetForm();
         if (updateTabTitle && getActiveTab) {
           const activeTab = getActiveTab();
           if (activeTab) {
@@ -717,6 +800,39 @@ export const PurchaseOrders = ({ tabId }) => {
       .then(() => {
         setShowEditModal(false);
         setSelectedOrder(null);
+        
+        // Immediately refetch supplier to update outstanding balance (BEFORE resetting form)
+        // Only refetch if supplier is selected (query is not skipped)
+        if (selectedSupplier?._id && refetchSupplier && typeof refetchSupplier === 'function') {
+          try {
+            refetchSupplier().then((result) => {
+              // Update supplier state immediately with fresh data
+              if (result?.data?.data) {
+                setSelectedSupplier(result.data.data);
+              }
+            }).catch((error) => {
+              // Ignore "Cannot refetch a query that has not been started yet" errors
+              if (!error?.message?.includes('has not been started')) {
+                console.warn('Failed to refetch supplier:', error);
+              }
+            });
+          } catch (error) {
+            // Ignore "Cannot refetch a query that has not been started yet" errors
+            if (!error?.message?.includes('has not been started')) {
+              console.warn('Failed to call refetchSupplier:', error);
+            }
+          }
+        }
+        
+        // Also refetch suppliers list to update balances
+        if (refetchSuppliers && typeof refetchSuppliers === 'function') {
+          try {
+            refetchSuppliers();
+          } catch (error) {
+            console.warn('Failed to refetch suppliers:', error);
+          }
+        }
+        
         resetForm();
         toast.success('Purchase order updated successfully');
         if (updateTabTitle && getActiveTab) {
@@ -1112,8 +1228,18 @@ export const PurchaseOrders = ({ tabId }) => {
     }
   };
 
-  const purchaseOrders = purchaseOrdersData?.data?.purchaseOrders || [];
-  const paginationInfo = purchaseOrdersData?.data?.pagination || {};
+  // Extract purchase orders data - handle multiple possible response structures
+  const purchaseOrders = React.useMemo(() => {
+    if (!purchaseOrdersData) return [];
+    if (purchaseOrdersData?.data?.purchaseOrders) return purchaseOrdersData.data.purchaseOrders;
+    if (purchaseOrdersData?.purchaseOrders) return purchaseOrdersData.purchaseOrders;
+    if (purchaseOrdersData?.data?.data?.purchaseOrders) return purchaseOrdersData.data.data.purchaseOrders;
+    if (Array.isArray(purchaseOrdersData)) return purchaseOrdersData;
+    if (Array.isArray(purchaseOrdersData?.data)) return purchaseOrdersData.data;
+    return [];
+  }, [purchaseOrdersData]);
+  
+  const paginationInfo = purchaseOrdersData?.data?.pagination || purchaseOrdersData?.pagination || {};
   const { subtotal, tax, total, supplierOutstanding, totalPayables } = calculateTotals();
 
   return (
@@ -1190,7 +1316,7 @@ export const PurchaseOrders = ({ tabId }) => {
                 </div>
           {isSelectingSupplier && supplierSearchTerm && (
             <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-              {suppliersData?.filter(supplier => 
+              {suppliers?.filter(supplier => 
                 (supplier.companyName || supplier.name || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
                 (supplier.phone || '').includes(supplierSearchTerm)
               ).map((supplier, index) => (
@@ -1280,30 +1406,36 @@ export const PurchaseOrders = ({ tabId }) => {
                     />
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   </div>
-                  {productSearchTerm && productsData && (
+                  {productsData && productsData.length > 0 && (
                     <div className="product-list-container mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {productsData.map((product, index) => (
-                        <div
-                          key={product._id}
-                          data-product-index={index}
-                          onClick={() => handleProductSelect(product)}
-                          className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                            index === selectedProductIndex 
-                              ? 'bg-blue-100 text-blue-900' 
-                              : 'hover:bg-gray-100'
-                          }`}
-                        >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="font-medium">{safeRender(product.name)}</div>
-                          <div className="flex items-center space-x-4">
-                            <div className="text-sm text-gray-600">Stock: {product.inventory?.currentStock || 0}</div>
-                            <div className="text-sm text-gray-600">Cost: ${Math.round(product.pricing?.cost || 0)}</div>
+                      {productsData.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                          {productSearchTerm ? 'No products found' : 'Start typing to search products'}
+                        </div>
+                      ) : (
+                        productsData.map((product, index) => (
+                          <div
+                            key={product._id}
+                            data-product-index={index}
+                            onClick={() => handleProductSelect(product)}
+                            className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                              index === selectedProductIndex 
+                                ? 'bg-blue-100 text-blue-900' 
+                                : 'hover:bg-gray-100'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <div className="font-medium">{safeRender(product.name)}</div>
+                              <div className="flex items-center space-x-4">
+                                <div className="text-sm text-gray-600">Stock: {product.inventory?.currentStock || 0}</div>
+                                <div className="text-sm text-gray-600">Cost: ${Math.round(product.pricing?.cost || 0)}</div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        </div>
-                      ))}
-                        </div>
+                        ))
                       )}
+                    </div>
+                  )}
                   </div>
                   
                   {/* Stock - 1 column */}
@@ -1724,9 +1856,9 @@ export const PurchaseOrders = ({ tabId }) => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       {/* Supplier Suggestions */}
-                      {supplierSearchTerm && suppliersData?.suppliers?.length > 0 && (
+                      {supplierSearchTerm && suppliers?.length > 0 && (
                         <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                          {suppliersData.suppliers.slice(0, 5).map((supplier) => (
+                          {suppliers.slice(0, 5).map((supplier) => (
                             <div
                               key={supplier._id}
                               onClick={() => {
@@ -1915,7 +2047,7 @@ export const PurchaseOrders = ({ tabId }) => {
                           autoFocus
                         />
                         {/* Product Suggestions */}
-                        {modalProductSearchTerm && modalProductsData?.length > 0 && (
+                        {modalProductsData && modalProductsData.length > 0 && (
                           <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                             {modalProductsData
                               .slice(0, 5)
@@ -2175,7 +2307,7 @@ export const PurchaseOrders = ({ tabId }) => {
     </div>
         </div>
         <div className="card-content">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
             {/* Date Range */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2231,6 +2363,25 @@ export const PurchaseOrders = ({ tabId }) => {
                 <option value="fully_received">Fully Received</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="closed">Closed</option>
+              </select>
+            </div>
+
+            {/* Supplier Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Supplier
+              </label>
+              <select
+                value={filters.supplier}
+                onChange={(e) => handleFilterChange('supplier', e.target.value)}
+                className="input h-[42px]"
+              >
+                <option value="">All Suppliers</option>
+                {suppliers?.map((supplier) => (
+                  <option key={supplier._id} value={supplier._id}>
+                    {supplier.companyName || supplier.name || 'Unknown'}
+                  </option>
+                ))}
               </select>
             </div>
 

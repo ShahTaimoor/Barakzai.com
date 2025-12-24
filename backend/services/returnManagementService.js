@@ -1,5 +1,8 @@
 const Return = require('../models/Return');
 const Sales = require('../models/Sales');
+const SalesOrder = require('../models/SalesOrder');
+const PurchaseInvoice = require('../models/PurchaseInvoice');
+const PurchaseOrder = require('../models/PurchaseOrder');
 const Product = require('../models/Product');
 const Inventory = require('../models/Inventory');
 const Transaction = require('../models/Transaction');
@@ -22,28 +25,54 @@ class ReturnManagementService {
   // Create a new return request
   async createReturn(returnData, requestedBy) {
     try {
-      // Validate original order
-      const originalOrder = await Sales.findById(returnData.originalOrder)
-        .populate('customer')
-        .populate('items.product');
+      // Validate original order - check if it's a sales return or purchase return
+      const isPurchaseReturn = returnData.origin === 'purchase';
+      
+      let originalOrder;
+      if (isPurchaseReturn) {
+        // Try PurchaseInvoice first, then PurchaseOrder
+        originalOrder = await PurchaseInvoice.findById(returnData.originalOrder)
+          .populate('supplier')
+          .populate('items.product');
+        
+        if (!originalOrder) {
+          originalOrder = await PurchaseOrder.findById(returnData.originalOrder)
+            .populate('supplier')
+            .populate('items.product');
+        }
+      } else {
+        // Try Sales first, then SalesOrder
+        originalOrder = await Sales.findById(returnData.originalOrder)
+          .populate('customer')
+          .populate('items.product');
+        
+        if (!originalOrder) {
+          originalOrder = await SalesOrder.findById(returnData.originalOrder)
+            .populate('customer')
+            .populate('items.product');
+        }
+      }
       
       if (!originalOrder) {
         throw new Error('Original order not found');
       }
 
-      // Check if order is eligible for return
-      const eligibility = await this.checkReturnEligibility(originalOrder, returnData.items);
-      if (!eligibility.eligible) {
-        throw new Error(eligibility.reason);
-      }
+      // Check if order is eligible for return (only for sales returns)
+      if (!isPurchaseReturn) {
+        const eligibility = await this.checkReturnEligibility(originalOrder, returnData.items);
+        if (!eligibility.eligible) {
+          throw new Error(eligibility.reason);
+        }
 
-      // Validate return items
-      await this.validateReturnItems(originalOrder, returnData.items);
+        // Validate return items
+        await this.validateReturnItems(originalOrder, returnData.items);
+      }
 
       // Create return object
       const returnRequest = new Return({
         ...returnData,
-        customer: originalOrder.customer._id,
+        customer: isPurchaseReturn ? null : (originalOrder.customer?._id || originalOrder.customer),
+        supplier: isPurchaseReturn ? (originalOrder.supplier?._id || originalOrder.supplier) : null,
         requestedBy,
         returnDate: new Date(),
         status: 'pending'

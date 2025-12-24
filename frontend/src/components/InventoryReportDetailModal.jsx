@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from 'react-query';
 import {
   X,
   Download,
@@ -25,20 +24,16 @@ import {
   Info
 } from 'lucide-react';
 
-import { inventoryReportsAPI } from '../services/api';
+import { useGetReportQuery } from '../store/services/inventoryApi';
 
 const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onToggleFavorite }) => {
   const [activeTab, setActiveTab] = useState('overview');
 
   // Fetch detailed report data
-  const { data: detailedReport, isLoading } = useQuery(
-    ['inventoryReport', report.reportId],
-    () => inventoryReportsAPI.getReport(report.reportId),
+  const { data: detailedReport, isLoading } = useGetReportQuery(
+    report.reportId,
     {
-      enabled: !!report.reportId,
-      onError: (error) => {
-        console.error('Error fetching report details:', error);
-      }
+      skip: !report.reportId,
     }
   );
 

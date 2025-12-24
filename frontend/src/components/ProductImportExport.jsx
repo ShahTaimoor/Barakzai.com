@@ -12,7 +12,12 @@ import {
   ChevronUp,
   Database
 } from 'lucide-react';
-import { productsAPI } from '../services/api';
+import {
+  useExportCSVMutation,
+  useExportExcelMutation,
+  useImportExcelMutation,
+  useImportCSVMutation,
+} from '../store/services/productsApi';
 import { LoadingButton } from './LoadingSpinner';
 import { handleApiError, showSuccessToast, showErrorToast, showWarningToast } from '../utils/errorHandler';
 import toast from 'react-hot-toast';
@@ -29,28 +34,60 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importType, setImportType] = useState('csv');
 
+  const [exportCSV] = useExportCSVMutation();
+  const [exportExcel] = useExportExcelMutation();
+  const [importExcel] = useImportExcelMutation();
+  const [importCSV] = useImportCSVMutation();
+  
+  // Use axios directly for file downloads since RTK Query lazy hooks might not be generated
+  // This matches the pattern used in other import/export components
+  const downloadFile = async (filename) => {
+    const axios = (await import('axios')).default;
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`/api/products/download/${filename}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      responseType: 'blob'
+    });
+    return { data: response.data };
+  };
+  
+  const downloadTemplate = async () => {
+    const axios = (await import('axios')).default;
+    const token = localStorage.getItem('token');
+    const response = await axios.get('/api/products/template', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      responseType: 'blob'
+    });
+    return { data: response.data };
+  };
+
   const handleExportCSV = async () => {
     try {
       setIsExporting(true);
-      const response = await productsAPI.exportCSV(filters);
+      const response = await exportCSV(filters).unwrap();
       
       // Download the file
-      const downloadResponse = await productsAPI.downloadFile(response.data.filename);
+      const downloadResponse = await downloadFile(response.filename);
+      const blobData = downloadResponse?.data || downloadResponse;
       
       // Create blob and download
-      const blob = new Blob([downloadResponse.data], { 
+      const blob = new Blob([blobData], { 
         type: 'text/csv;charset=utf-8;' 
       });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', response.data.filename);
+      link.setAttribute('download', response.filename);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      showSuccessToast(`Exported ${response.data.recordCount} products to CSV`);
+      showSuccessToast(`Exported ${response.recordCount} products to CSV`);
     } catch (error) {
       handleApiError(error, 'CSV Export');
     } finally {
@@ -61,25 +98,26 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
   const handleExportExcel = async () => {
     try {
       setIsExporting(true);
-      const response = await productsAPI.exportExcel(filters);
+      const response = await exportExcel(filters).unwrap();
       
       // Download the file
-      const downloadResponse = await productsAPI.downloadFile(response.data.filename);
+      const downloadResponse = await downloadFile(response.filename);
+      const blobData = downloadResponse?.data || downloadResponse;
       
       // Create blob and download
-      const blob = new Blob([downloadResponse.data], { 
+      const blob = new Blob([blobData], { 
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
       });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', response.data.filename);
+      link.setAttribute('download', response.filename);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      showSuccessToast(`Exported ${response.data.recordCount} products to Excel`);
+      showSuccessToast(`Exported ${response.recordCount} products to Excel`);
     } catch (error) {
       handleApiError(error, 'Excel Export');
     } finally {
@@ -123,20 +161,21 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
     try {
       setIsImporting(true);
       const response = importType === 'csv' 
-        ? await productsAPI.importCSV(importFile)
-        : await productsAPI.importExcel(importFile);
+        ? await importCSV(importFile).unwrap()
+        : await importExcel(importFile).unwrap();
       
-      setImportResults(response.data.results);
+      setImportResults(response.results || response.data?.results);
       
-      if (response.data.results.success > 0) {
-        showSuccessToast(`Successfully imported ${response.data.results.success} products`);
+      const results = response.results || response.data?.results;
+      if (results?.success > 0) {
+        showSuccessToast(`Successfully imported ${results.success} products`);
         if (onImportComplete) {
           onImportComplete();
         }
       }
       
-      if (response.data.results.errors.length > 0) {
-        showWarningToast(`${response.data.results.errors.length} products failed to import`);
+      if (results?.errors?.length > 0) {
+        showWarningToast(`${results.errors.length} products failed to import`);
       }
       
     } catch (error) {
@@ -148,10 +187,11 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await productsAPI.downloadTemplate();
+      const response = await downloadTemplate();
+      const blobData = response?.data || response;
       
       // Create blob and download
-      const blob = new Blob([response.data], { 
+      const blob = new Blob([blobData], { 
         type: 'text/csv;charset=utf-8;' 
       });
       const link = document.createElement('a');

@@ -17,7 +17,8 @@ import {
   Printer,
   MessageSquare
 } from 'lucide-react';
-import { investorsAPI } from '../services/api';
+import { useGetInvestorsQuery } from '../store/services/investorsApi';
+import { useLinkInvestorsMutation } from '../store/services/productsApi';
 import {
   useGetProductsQuery,
   useCreateProductMutation,
@@ -699,21 +700,16 @@ const ProductInvestorsModal = ({ product, isOpen, onClose, onSave }) => {
   const [linkedInvestors, setLinkedInvestors] = useState([]);
   const [selectedInvestor, setSelectedInvestor] = useState('');
   const [sharePercentage, setSharePercentage] = useState(30);
-  const { data: investorsData, isLoading: investorsLoading } = useQuery(
-    ['investors'],
-    () => investorsAPI.getInvestors({}).then(res => res.data),
+  const { data: investorsData, isLoading: investorsLoading } = useGetInvestorsQuery(
+    {},
     { 
-      enabled: isOpen,
-      refetchOnMount: true,
-      staleTime: 0, // Always fetch fresh data when modal opens
-      cacheTime: 0 // Don't cache to ensure fresh data
+      skip: !isOpen,
+      refetchOnMountOrArgChange: true,
     }
   );
-
-  // Backend returns: { success: true, data: [investors] }
-  // After .then(res => res.data): { success: true, data: [investors] }
-  // So investorsData.data is the array of investors
-  const investors = Array.isArray(investorsData?.data) ? investorsData.data : Array.isArray(investorsData) ? investorsData : [];
+  const investors = React.useMemo(() => {
+    return investorsData?.data?.investors || investorsData?.investors || investorsData || [];
+  }, [investorsData]);
 
 
   React.useEffect(() => {
@@ -1020,6 +1016,7 @@ export const Products = () => {
 
   const [createProduct, { isLoading: creating }] = useCreateProductMutation();
   const [updateProduct, { isLoading: updating }] = useUpdateProductMutation();
+  const [linkInvestors] = useLinkInvestorsMutation();
   const [deleteProduct, { isLoading: deleting }] = useDeleteProductMutation();
   const [bulkUpdateProducts, { isLoading: bulkUpdating }] = useBulkUpdateProductsMutation();
   const [bulkDeleteProducts, { isLoading: bulkDeleting }] = useBulkDeleteProductsMutation();
@@ -1675,7 +1672,7 @@ export const Products = () => {
           }}
           onSave={async (productId, investors) => {
             try {
-              await productsAPI.linkInvestors(productId, investors);
+              await linkInvestors({ productId, investors }).unwrap();
               toast.success('Investors linked successfully!');
               queryClient.invalidateQueries(['products']);
               setIsInvestorsModalOpen(false);

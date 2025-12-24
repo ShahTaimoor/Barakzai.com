@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
 import {
   Calendar,
   Plus,
@@ -10,7 +9,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AsyncSelect from 'react-select/async';
-import { journalVouchersAPI, chartOfAccountsAPI } from '../services/api';
+import { useGetAccountsQuery } from '../store/services/chartOfAccountsApi';
+import { useGetJournalVouchersQuery, useCreateJournalVoucherMutation } from '../store/services/journalVouchersApi';
 import { handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
@@ -102,13 +102,17 @@ export const JournalVouchers = () => {
   const loadAccountOptions = useCallback(async (inputValue) => {
     const searchQuery = inputValue?.trim() || '';
     try {
-      const response = await chartOfAccountsAPI.getAccounts({
-        includePartyAccounts: true,
-        search: searchQuery || undefined
-      });
-      const accounts = extractAccounts(response);
-      updateAccountMap(accounts);
-      const groups = accounts.reduce((acc, account) => {
+      // Use RTK Query's lazy query or fetch directly
+      // For now, we'll use the existing query data and filter
+      const accounts = extractAccounts(accountsResponse);
+      const filteredAccounts = searchQuery 
+        ? accounts.filter(acc => 
+            acc.accountCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            acc.accountName?.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : accounts;
+      updateAccountMap(filteredAccounts);
+      const groups = filteredAccounts.reduce((acc, account) => {
         let groupLabel;
         if (Array.isArray(account.tags) && account.tags.includes('customer')) {
           groupLabel = 'Customer Accounts';
@@ -139,7 +143,7 @@ export const JournalVouchers = () => {
       handleApiError(error, 'Chart of Accounts');
       return [];
     }
-  }, [extractAccounts, updateAccountMap]);
+  }, [extractAccounts, updateAccountMap, accountsResponse]);
 
   const {
     data: vouchersData,

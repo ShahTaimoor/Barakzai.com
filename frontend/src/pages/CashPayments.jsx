@@ -90,13 +90,13 @@ const CashPayments = () => {
   } = useGetCashPaymentsQuery({ ...filters, ...pagination, sortConfig }, { refetchOnMountOrArgChange: true });
 
   // Fetch suppliers for dropdown
-  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError } = useGetSuppliersQuery(
+  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError, refetch: refetchSuppliers } = useGetSuppliersQuery(
     { search: '', limit: 100 },
     { refetchOnMountOrArgChange: true }
   );
 
   // Fetch customers for dropdown
-  const { data: customersData, isLoading: customersLoading, error: customersError } = useGetCustomersQuery(
+  const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
     { search: '', limit: 100 },
     { refetchOnMountOrArgChange: true }
   );
@@ -134,8 +134,8 @@ const CashPayments = () => {
 
   // Update selected customer when customers data changes
   useEffect(() => {
-    if (selectedCustomer && customersData) {
-      const updatedCustomer = customersData.find(c => c._id === selectedCustomer._id);
+    if (selectedCustomer && customers) {
+      const updatedCustomer = customers.find(c => c._id === selectedCustomer._id);
       if (updatedCustomer && (
         updatedCustomer.pendingBalance !== selectedCustomer.pendingBalance ||
         updatedCustomer.advanceBalance !== selectedCustomer.advanceBalance ||
@@ -316,7 +316,7 @@ const CashPayments = () => {
   };
 
   const handleCustomerKeyDown = (e) => {
-    const filteredCustomers = customersData?.filter(customer => {
+    const filteredCustomers = (customers || []).filter(customer => {
       const displayName = customer.displayName || customer.businessName || customer.name || 
         `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
       return (
@@ -415,6 +415,12 @@ const CashPayments = () => {
         resetForm();
         showSuccessToast('Cash payment created successfully');
         refetch();
+        // Refetch customer/supplier data to update balances immediately
+        if (paymentType === 'customer' && formData.customer) {
+          refetchCustomers();
+        } else if (paymentType === 'supplier' && formData.supplier) {
+          refetchSuppliers();
+        }
       })
       .catch((error) => {
         showErrorToast(handleApiError(error));
@@ -719,7 +725,7 @@ const CashPayments = () => {
                   </div>
                   {customerSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {customersData?.filter(customer => {
+                      {(customers || []).filter(customer => {
                         const displayName = customer.displayName || customer.businessName || customer.name || 
                           `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
                         return (
@@ -1433,7 +1439,7 @@ const CashPayments = () => {
                     </div>
                     {customerSearchTerm && (
                       <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                        {customersData?.filter(customer => 
+                        {(customers || []).filter(customer => 
                           (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                           (customer.phone || '').includes(customerSearchTerm)
                         ).map((customer) => (

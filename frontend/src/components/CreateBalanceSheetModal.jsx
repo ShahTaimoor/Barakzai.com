@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { X, Calendar, FileText, AlertCircle } from 'lucide-react';
-import { balanceSheetsAPI } from '../services/api';
-import { showSuccessToast, showErrorToast } from '../utils/errorHandler';
+import { useGenerateBalanceSheetMutation } from '../store/services/balanceSheetsApi';
+import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 
 const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     statementDate: new Date().toISOString().split('T')[0],
     periodType: 'monthly'
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [generateBalanceSheet, { isLoading }] = useGenerateBalanceSheetMutation();
 
   const validateForm = () => {
     const newErrors = {};
@@ -39,20 +39,16 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
       return;
     }
 
-    setIsLoading(true);
     try {
-      const response = await balanceSheetsAPI.generateBalanceSheet({
+      await generateBalanceSheet({
         statementDate: formData.statementDate,
         periodType: formData.periodType
-      });
+      }).unwrap();
 
       showSuccessToast('Balance sheet generated successfully');
       onSuccess();
     } catch (error) {
-      console.error('Error generating balance sheet:', error);
-      showErrorToast(error.response?.data?.message || 'Failed to generate balance sheet');
-    } finally {
-      setIsLoading(false);
+      handleApiError(error, 'Generate Balance Sheet');
     }
   };
 

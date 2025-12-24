@@ -90,6 +90,39 @@ export const suppliersApi = api.injectEndpoints({
       }),
       providesTags: [{ type: 'Suppliers', id: 'SEARCH' }],
     }),
+    exportExcel: builder.mutation({
+      query: (params) => ({
+        url: 'suppliers/export/excel',
+        method: 'post',
+        data: params,
+      }),
+    }),
+    importExcel: builder.mutation({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return {
+          url: 'suppliers/import/excel',
+          method: 'post',
+          data: formData,
+        };
+      },
+      invalidatesTags: [{ type: 'Suppliers', id: 'LIST' }],
+    }),
+    downloadTemplate: builder.query({
+      query: () => ({
+        url: 'suppliers/export/template',
+        method: 'get',
+        responseType: 'blob',
+      }),
+    }),
+    downloadExportFile: builder.query({
+      query: (filename) => ({
+        url: `suppliers/download/${filename}`,
+        method: 'get',
+        responseType: 'blob',
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -106,5 +139,9 @@ export const {
   useGetSupplierQuery,
   useSearchSuppliersQuery,
   useLazySearchSuppliersQuery,
+  useExportExcelMutation,
+  useImportExcelMutation,
+  useDownloadTemplateQuery,
+  useLazyDownloadExportFileQuery,
 } = suppliersApi;
 

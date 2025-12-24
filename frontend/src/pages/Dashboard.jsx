@@ -27,6 +27,7 @@ import {
 import {
   useGetTodaySummaryQuery,
   useGetOrdersQuery,
+  useLazyGetPeriodSummaryQuery,
 } from '../store/services/salesApi';
 import { useGetLowStockItemsQuery, useGetInventorySummaryQuery } from '../store/services/inventoryApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
@@ -75,10 +76,37 @@ export const Dashboard = () => {
   const [activeFromDate, setActiveFromDate] = useState(new Date().toISOString().split('T')[0]);
   const [activeToDate, setActiveToDate] = useState(new Date().toISOString().split('T')[0]);
 
+  // Lazy query for period summary
+  const [getPeriodSummary] = useLazyGetPeriodSummaryQuery();
+
   // Handle search button click
   const handleSearch = () => {
     setActiveFromDate(fromDate);
     setActiveToDate(toDate);
+  };
+
+  // Wrapper function for period summary that matches the expected API format
+  const fetchPeriodSummary = async (params) => {
+    try {
+      const result = await getPeriodSummary(params).unwrap();
+      return {
+        data: {
+          data: result.data || result
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching period summary:', error);
+      return {
+        data: {
+          data: {
+            totalRevenue: 0,
+            totalOrders: 0,
+            averageOrderValue: 0,
+            totalItems: 0
+          }
+        }
+      };
+    }
   };
 
   const { data: todaySummary, isLoading: summaryLoading } = useGetTodaySummaryQuery(undefined, {
@@ -584,7 +612,7 @@ export const Dashboard = () => {
         metrics={[
           {
             title: 'Total Revenue',
-            fetchFunction: (params) => salesAPI.getPeriodSummary(params).then(res => ({
+            fetchFunction: (params) => fetchPeriodSummary(params).then(res => ({
               data: res.data?.data?.totalRevenue || 0
             })),
             format: 'currency',
@@ -593,7 +621,7 @@ export const Dashboard = () => {
           },
           {
             title: 'Total Orders',
-            fetchFunction: (params) => salesAPI.getPeriodSummary(params).then(res => ({
+            fetchFunction: (params) => fetchPeriodSummary(params).then(res => ({
               data: res.data?.data?.totalOrders || 0
             })),
             format: 'number',
@@ -602,7 +630,7 @@ export const Dashboard = () => {
           },
           {
             title: 'Average Order Value',
-            fetchFunction: (params) => salesAPI.getPeriodSummary(params).then(res => ({
+            fetchFunction: (params) => fetchPeriodSummary(params).then(res => ({
               data: res.data?.data?.averageOrderValue || 0
             })),
             format: 'currency',
@@ -611,7 +639,7 @@ export const Dashboard = () => {
           },
           {
             title: 'Total Items Sold',
-            fetchFunction: (params) => salesAPI.getPeriodSummary(params).then(res => ({
+            fetchFunction: (params) => fetchPeriodSummary(params).then(res => ({
               data: res.data?.data?.totalItems || 0
             })),
             format: 'number',
@@ -619,7 +647,7 @@ export const Dashboard = () => {
             iconColor: 'bg-orange-500'
           }
         ]}
-        fetchFunction={(params) => salesAPI.getPeriodSummary(params)}
+        fetchFunction={fetchPeriodSummary}
       />
 
       {/* Quick Actions */}

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate, formatCurrency } from '../utils/formatters';
-import { customersAPI } from '../services/api';
+import { useLazyGetCustomerQuery } from '../store/services/customersApi';
 import {
   useGetCashReceiptsQuery,
   useCreateCashReceiptMutation,
@@ -84,22 +84,30 @@ const CashReceipts = () => {
     refetch,
   } = useGetCashReceiptsQuery({ ...filters, ...pagination, sortConfig }, { refetchOnMountOrArgChange: true });
 
+  const [getCustomer] = useLazyGetCustomerQuery();
+
   // Fetch customers for dropdown
-  const { data: customersData, isLoading: customersLoading, error: customersError } = useGetCustomersQuery(
+  const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
     { search: '', limit: 100 },
     { refetchOnMountOrArgChange: true }
   );
+  const customers = React.useMemo(() => {
+    return customersData?.data?.customers || customersData?.customers || customersData || [];
+  }, [customersData]);
 
   // Fetch suppliers for dropdown
-  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError } = useGetSuppliersQuery(
+  const { data: suppliersData, isLoading: suppliersLoading, error: suppliersError, refetch: refetchSuppliers } = useGetSuppliersQuery(
     { search: '', limit: 100 },
     { refetchOnMountOrArgChange: true }
   );
+  const suppliers = React.useMemo(() => {
+    return suppliersData?.data?.suppliers || suppliersData?.suppliers || suppliersData || [];
+  }, [suppliersData]);
 
   // Sync selectedCustomer with updated customersData when it changes (optimized - only update when balance changes)
   useEffect(() => {
-    if (selectedCustomer?._id && customersData && customersData.length > 0) {
-      const updatedCustomer = customersData.find(c => c._id === selectedCustomer._id);
+    if (selectedCustomer?._id && customers && customers.length > 0) {
+      const updatedCustomer = customers.find(c => c._id === selectedCustomer._id);
       if (updatedCustomer) {
         // Check if any balance-related fields have changed
         const currentPending = selectedCustomer.pendingBalance || 0;
@@ -149,7 +157,7 @@ const CashReceipts = () => {
 
   const handleCustomerSelect = (customerId) => {
     // First set from cache for immediate UI update
-    const customer = customersData?.find(c => c._id === customerId);
+    const customer = customers?.find(c => c._id === customerId);
     if (customer) {
       setSelectedCustomer(customer);
     }
@@ -163,8 +171,8 @@ const CashReceipts = () => {
     // Fetch fresh customer data with debounce to avoid rapid API calls
     customerFetchTimerRef.current = setTimeout(async () => {
       try {
-        const response = await customersAPI.getCustomer(customerId);
-        const freshCustomer = response?.data?.customer || response?.customer || response?.data;
+        const { data: response } = await getCustomer(customerId);
+        const freshCustomer = response?.data?.customer || response?.customer || response?.data || response;
         if (freshCustomer) {
           // Only update if this customer is still selected
           setSelectedCustomer(prev => {
@@ -207,10 +215,10 @@ const CashReceipts = () => {
   };
 
   const handleCustomerKeyDown = (e) => {
-    const filteredCustomers = customersData?.filter(customer => 
+    const filteredCustomers = (customers || []).filter(customer => 
       (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
       (customer.phone || '').includes(customerSearchTerm)
-    ) || [];
+    );
 
     if (!customerSearchTerm || filteredCustomers.length === 0) {
       return;
@@ -250,7 +258,7 @@ const CashReceipts = () => {
   };
 
   const handleSupplierSelect = (supplierId) => {
-    const supplier = suppliersData?.find(s => s._id === supplierId);
+    const supplier = suppliers?.find(s => s._id === supplierId);
     setSelectedSupplier(supplier);
     setFormData(prev => ({ ...prev, supplier: supplierId, customer: '' }));
     setSelectedCustomer(null);
@@ -267,10 +275,10 @@ const CashReceipts = () => {
   };
 
   const handleSupplierKeyDown = (e) => {
-    const filteredSuppliers = suppliersData?.filter(supplier => 
+    const filteredSuppliers = (suppliers || []).filter(supplier => 
       (supplier.companyName || supplier.name || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
       (supplier.phone || '').includes(supplierSearchTerm)
-    ) || [];
+    );
 
     if (!supplierSearchTerm || filteredSuppliers.length === 0) {
       return;
@@ -344,6 +352,12 @@ const CashReceipts = () => {
         resetForm();
         showSuccessToast('Cash receipt created successfully');
         refetch();
+        // Refetch customer/supplier data to update balances immediately
+        if (paymentType === 'customer' && formData.customer) {
+          refetchCustomers();
+        } else if (paymentType === 'supplier' && formData.supplier) {
+          refetchSuppliers();
+        }
       })
       .catch((error) => {
         showErrorToast(handleApiError(error));
@@ -374,6 +388,12 @@ const CashReceipts = () => {
         resetForm();
         showSuccessToast('Cash receipt updated successfully');
         refetch();
+        // Refetch customer/supplier data to update balances immediately
+        if (paymentType === 'customer' && formData.customer) {
+          refetchCustomers();
+        } else if (paymentType === 'supplier' && formData.supplier) {
+          refetchSuppliers();
+        }
       })
       .catch((error) => {
         showErrorToast(handleApiError(error));
@@ -613,7 +633,7 @@ const CashReceipts = () => {
                 </div>
                 {customerSearchTerm && (
                   <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                    {customersData?.filter(customer => 
+                    {(customers || []).filter(customer => 
                       (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                       (customer.phone || '').includes(customerSearchTerm)
                     ).map((customer, index) => {
@@ -703,7 +723,7 @@ const CashReceipts = () => {
                   </div>
                   {supplierSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {suppliersData?.filter(supplier => 
+                      {(suppliers || []).filter(supplier => 
                         (supplier.companyName || supplier.name || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
                         (supplier.phone || '').includes(supplierSearchTerm)
                       ).map((supplier, index) => (
@@ -1197,7 +1217,7 @@ const CashReceipts = () => {
                   </div>
                   {customerSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {customersData?.filter(customer => 
+                      {(customers || []).filter(customer => 
                         (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                         customer.phone?.includes(customerSearchTerm)
                       ).map((customer) => (

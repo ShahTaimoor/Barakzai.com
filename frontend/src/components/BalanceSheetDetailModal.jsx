@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from 'react-query';
 import { 
   X, 
   TrendingUp, 
@@ -14,7 +13,7 @@ import {
   BarChart3,
   PieChart
 } from 'lucide-react';
-import { balanceSheetsAPI } from '../services/api';
+import { useGetComparisonQuery } from '../store/services/balanceSheetsApi';
 import { handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
@@ -36,14 +35,10 @@ const BalanceSheetDetailModal = ({
   const { 
     data: comparisonData, 
     isLoading: comparisonLoading 
-  } = useQuery(
-    ['balance-sheet-comparison', balanceSheet?._id],
-    () => balanceSheetsAPI.getComparison(balanceSheet._id, 'previous'),
+  } = useGetComparisonQuery(
+    { id: balanceSheet?._id, type: 'previous' },
     {
-      enabled: isOpen && !!balanceSheet,
-      onError: (error) => {
-        console.error('Error fetching comparison data:', error);
-      }
+      skip: !isOpen || !balanceSheet?._id,
     }
   );
 

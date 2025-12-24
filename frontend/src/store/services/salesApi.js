@@ -25,7 +25,12 @@ export const salesApi = api.injectEndpoints({
           ? { 'Idempotency-Key': idempotencyKey }
           : undefined,
       }),
-      invalidatesTags: [{ type: 'Sales', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'Sales', id: 'LIST' },
+        { type: 'Products', id: 'LIST' }, // Invalidate products to refresh stock levels
+        { type: 'Inventory', id: 'LIST' }, // Invalidate inventory cache
+        { type: 'Customers', id: 'LIST' }, // Invalidate customers to refresh credit information
+      ],
     }),
     getOrders: builder.query({
       query: (params) => ({
@@ -65,6 +70,9 @@ export const salesApi = api.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'Sales', id },
         { type: 'Sales', id: 'LIST' },
+        { type: 'Products', id: 'LIST' }, // Invalidate products to refresh stock levels
+        { type: 'Inventory', id: 'LIST' }, // Invalidate inventory cache
+        { type: 'Customers', id: 'LIST' }, // Invalidate customers to refresh credit information
       ],
     }),
     deleteOrder: builder.mutation({
@@ -77,6 +85,12 @@ export const salesApi = api.injectEndpoints({
         { type: 'Sales', id: 'LIST' },
       ],
     }),
+    getLastPrices: builder.query({
+      query: (customerId) => ({
+        url: `orders/customer/${customerId}/last-prices`,
+        method: 'get',
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -87,7 +101,10 @@ export const {
   useGetOrdersQuery,
   useGetTodaySummaryQuery,
   useGetPeriodSummaryQuery,
+  useLazyGetPeriodSummaryQuery,
   useUpdateOrderMutation,
   useDeleteOrderMutation,
+  useGetLastPricesQuery,
+  useLazyGetLastPricesQuery,
 } = salesApi;
 
