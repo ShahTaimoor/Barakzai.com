@@ -130,7 +130,7 @@ const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
 export const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [fromDate, setFromDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // 30 days ago
+  const [fromDate, setFromDate] = useState(new Date().toISOString().split('T')[0]); // Today
   const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]); // Today
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
