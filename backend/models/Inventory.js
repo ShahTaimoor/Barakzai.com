@@ -28,6 +28,40 @@ const InventorySchema = new mongoose.Schema({
     default: 0,
     min: 0,
   },
+  // Stock Reservations with expiration
+  reservations: [{
+    reservationId: {
+      type: String,
+      required: true,
+      index: true
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+      index: true
+    },
+    reservedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    referenceType: {
+      type: String,
+      enum: ['cart', 'sales_order', 'manual', 'system'],
+      default: 'cart'
+    },
+    referenceId: {
+      type: mongoose.Schema.Types.ObjectId
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   reorderPoint: {
     type: Number,
     required: true,
@@ -283,6 +317,39 @@ InventorySchema.statics.updateStock = async function(productId, movement) {
       updated.status = 'out_of_stock';
     } else if (updated.status === 'out_of_stock') {
       updated.status = 'active';
+    }
+    
+    // Update cost if provided in movement (for stock in/return)
+    if (movement.cost !== undefined && movement.cost !== null && (movement.type === 'in' || movement.type === 'return')) {
+      const CostingService = require('../services/costingService');
+      const costingService = new CostingService();
+      
+      // Update average cost (this will update inventory.cost.average and save)
+      const newAverageCost = await costingService.updateAverageCost(productId, movement.quantity, movement.cost);
+      
+      // Reload inventory to get updated cost and set lastPurchase
+      const inventoryWithCost = await this.findOne({ product: productId });
+      
+      if (inventoryWithCost) {
+        // Update last purchase cost
+        if (!inventoryWithCost.cost) {
+          inventoryWithCost.cost = {};
+        }
+        inventoryWithCost.cost.lastPurchase = movement.cost;
+        await inventoryWithCost.save();
+        
+        // Sync cost to Product model
+        const Product = require('../models/Product');
+        const product = await Product.findById(productId);
+        if (product) {
+          // Update product pricing.cost with average cost from inventory
+          if (!product.pricing) {
+            product.pricing = {};
+          }
+          product.pricing.cost = newAverageCost;
+          await product.save();
+        }
+      }
     }
     
     await updated.save();

@@ -82,6 +82,31 @@ router.post('/generate', [
   }
 });
 
+// @route   GET /api/pl-statements/summary
+// @desc    Get P&L summary for a period
+// @access  Private (requires 'view_reports' permission)
+// NOTE: This route MUST be defined BEFORE /:statementId to avoid route matching conflicts
+router.get('/summary', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  query('startDate').isISO8601().toDate().withMessage('Valid start date is required'),
+  query('endDate').isISO8601().toDate().withMessage('Valid end date is required'),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const period = { startDate, endDate };
+    const summary = await plCalculationService.getPLSummary(period);
+
+    res.json(summary);
+  } catch (error) {
+    console.error('Error fetching P&L summary:', error);
+    res.status(500).json({ message: 'Server error fetching P&L summary', error: error.message });
+  }
+});
+
 // @route   GET /api/pl-statements
 // @desc    Get list of P&L statements with filters
 // @access  Private (requires 'view_reports' permission)
@@ -246,30 +271,6 @@ router.delete('/:statementId', [
   }
 });
 
-// @route   GET /api/pl-statements/summary
-// @desc    Get P&L summary for a period
-// @access  Private (requires 'view_reports' permission)
-router.get('/summary', [
-  auth,
-  requirePermission('view_reports'),
-  sanitizeRequest,
-  query('startDate').isISO8601().toDate().withMessage('Valid start date is required'),
-  query('endDate').isISO8601().toDate().withMessage('Valid end date is required'),
-  handleValidationErrors,
-], async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    
-    const period = { startDate, endDate };
-    const summary = await plCalculationService.getPLSummary(period);
-
-    res.json(summary);
-  } catch (error) {
-    console.error('Error fetching P&L summary:', error);
-    res.status(500).json({ message: 'Server error fetching P&L summary', error: error.message });
-  }
-});
-
 // @route   GET /api/pl-statements/trends
 // @desc    Get P&L trends over multiple periods
 // @access  Private (requires 'view_reports' permission)
@@ -350,7 +351,7 @@ router.get('/:statementId/comparison', [
 });
 
 // @route   POST /api/pl-statements/:statementId/export
-// @desc    Export P&L statement
+// @desc    Export P&L statement with audit trail
 // @access  Private (requires 'view_reports' permission)
 router.post('/:statementId/export', [
   auth,
@@ -359,18 +360,36 @@ router.post('/:statementId/export', [
   param('statementId').isMongoId().withMessage('Valid Statement ID is required'),
   body('format').optional().isIn(['pdf', 'excel', 'csv']),
   body('includeDetails').optional().isBoolean(),
+  body('purpose').optional().trim().isLength({ max: 500 }).withMessage('Purpose too long'),
+  body('recipient').optional().trim().isLength({ max: 200 }).withMessage('Recipient too long'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
     const { statementId } = req.params;
-    const { format = 'pdf', includeDetails = true } = req.body;
+    const { format = 'pdf', includeDetails = true, purpose, recipient } = req.body;
     
     const statement = await plStatementService.getStatementById(statementId);
     if (!statement) {
       return res.status(404).json({ message: 'P&L statement not found' });
     }
 
+    // CRITICAL: Create export audit trail record
+    const FinancialStatementExport = require('../models/FinancialStatementExport');
+    const exportRecord = new FinancialStatementExport({
+      statementId: statement._id,
+      statementType: 'profit_loss',
+      exportedBy: req.user._id,
+      format: format.toLowerCase(),
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent'),
+      purpose: purpose || 'Internal review',
+      recipient: recipient || null,
+      approvalRequired: false // Can be enhanced with approval workflow
+    });
+    await exportRecord.save();
+
     let exportResult;
+    let fileBuffer;
     
     switch (format.toLowerCase()) {
       case 'excel':
@@ -385,13 +404,38 @@ router.post('/:statementId/export', [
         break;
     }
 
+    // Update export record with file details
+    if (exportResult.buffer) {
+      fileBuffer = exportResult.buffer;
+      exportRecord.fileSize = fileBuffer.length;
+      exportRecord.fileHash = FinancialStatementExport.calculateFileHash(fileBuffer);
+      exportRecord.downloadUrl = `/api/pl-statements/${statementId}/download?format=${format}&exportId=${exportRecord._id}`;
+      await exportRecord.save();
+    }
+
+    // Log to audit trail
+    const auditLogService = require('../services/auditLogService');
+    await auditLogService.logActivity(
+      req.user._id,
+      'FinancialStatement',
+      statementId,
+      'export',
+      `Exported P&L statement as ${format.toUpperCase()}`,
+      null,
+      { exportId: exportRecord._id, format: format.toLowerCase(), purpose, recipient },
+      req
+    );
+
     res.json({
+      success: true,
       message: 'P&L statement exported successfully',
       export: {
+        exportId: exportRecord._id,
         filename: exportResult.filename,
         format: exportResult.format,
         size: exportResult.size,
-        downloadUrl: `/api/pl-statements/${statementId}/download?format=${format}`,
+        downloadUrl: exportRecord.downloadUrl,
+        exportedAt: exportRecord.exportedAt
       },
     });
   } catch (error) {
@@ -399,7 +443,258 @@ router.post('/:statementId/export', [
       return res.status(404).json({ message: 'P&L statement not found' });
     }
     console.error('Error exporting P&L statement:', error);
-    res.status(500).json({ message: 'Server error exporting P&L statement', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error exporting P&L statement', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+});
+
+// @route   GET /api/pl-statements/:statementId/exports
+// @desc    Get all exports for a P&L statement
+// @access  Private (requires 'view_reports' permission)
+router.get('/:statementId/exports', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('statementId').isMongoId().withMessage('Valid Statement ID is required'),
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 })
+], async (req, res) => {
+  try {
+    const FinancialStatementExport = require('../models/FinancialStatementExport');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const exports = await FinancialStatementExport.find({ statementId: req.params.statementId })
+      .populate('exportedBy', 'firstName lastName email')
+      .populate('approvedBy', 'firstName lastName email')
+      .sort({ exportedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await FinancialStatementExport.countDocuments({ statementId: req.params.statementId });
+
+    res.json({
+      success: true,
+      data: exports,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting exports:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting exports',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   GET /api/pl-statements/exports/:exportId
+// @desc    Get export details
+// @access  Private (requires 'view_reports' permission)
+router.get('/exports/:exportId', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('exportId').isMongoId().withMessage('Valid export ID is required')
+], async (req, res) => {
+  try {
+    const FinancialStatementExport = require('../models/FinancialStatementExport');
+    const exportRecord = await FinancialStatementExport.findById(req.params.exportId)
+      .populate('exportedBy', 'firstName lastName email')
+      .populate('approvedBy', 'firstName lastName email')
+      .populate('statementId', 'statementId period status');
+
+    if (!exportRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Export record not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: exportRecord
+    });
+  } catch (error) {
+    console.error('Error getting export details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting export details',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   GET /api/pl-statements/:statementId/versions
+// @desc    Get version history for a P&L statement
+// @access  Private (requires 'view_reports' permission)
+router.get('/:statementId/versions', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('statementId').isMongoId().withMessage('Valid Statement ID is required')
+], async (req, res) => {
+  try {
+    const FinancialStatement = require('../models/FinancialStatement');
+    const statement = await FinancialStatement.findById(req.params.statementId)
+      .populate('versionHistory.changedBy', 'firstName lastName email')
+      .populate('previousVersion');
+
+    if (!statement) {
+      return res.status(404).json({
+        success: false,
+        message: 'P&L statement not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        currentVersion: statement.version,
+        isCurrentVersion: statement.isCurrentVersion,
+        versionHistory: statement.versionHistory || [],
+        previousVersion: statement.previousVersion
+      }
+    });
+  } catch (error) {
+    console.error('Error getting version history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting version history',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   GET /api/pl-statements/:statementId/versions/:versionNumber
+// @desc    Get specific version of a P&L statement
+// @access  Private (requires 'view_reports' permission)
+router.get('/:statementId/versions/:versionNumber', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('statementId').isMongoId().withMessage('Valid Statement ID is required'),
+  param('versionNumber').isInt({ min: 1 }).withMessage('Valid version number is required')
+], async (req, res) => {
+  try {
+    const FinancialStatement = require('../models/FinancialStatement');
+    const statement = await FinancialStatement.findById(req.params.statementId);
+    
+    if (!statement) {
+      return res.status(404).json({
+        success: false,
+        message: 'P&L statement not found'
+      });
+    }
+
+    const versionNumber = parseInt(req.params.versionNumber);
+    const versionHistory = statement.versionHistory || [];
+    const version = versionHistory.find(v => v.version === versionNumber);
+
+    if (!version) {
+      return res.status(404).json({
+        success: false,
+        message: `Version ${versionNumber} not found`
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        version: version.version,
+        changedBy: version.changedBy,
+        changedAt: version.changedAt,
+        changes: version.changes,
+        status: version.status,
+        notes: version.notes
+      }
+    });
+  } catch (error) {
+    console.error('Error getting version:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting version',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   GET /api/pl-statements/:statementId/compare
+// @desc    Compare two versions of a P&L statement
+// @access  Private (requires 'view_reports' permission)
+router.get('/:statementId/compare', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('statementId').isMongoId().withMessage('Valid Statement ID is required'),
+  query('version1').optional().isInt({ min: 1 }).withMessage('Valid version number required'),
+  query('version2').optional().isInt({ min: 1 }).withMessage('Valid version number required')
+], async (req, res) => {
+  try {
+    const FinancialStatement = require('../models/FinancialStatement');
+    const statement = await FinancialStatement.findById(req.params.statementId);
+    
+    if (!statement) {
+      return res.status(404).json({
+        success: false,
+        message: 'P&L statement not found'
+      });
+    }
+
+    const version1 = parseInt(req.query.version1) || statement.version;
+    const version2 = parseInt(req.query.version2) || (statement.version - 1);
+
+    const versionHistory = statement.versionHistory || [];
+    const v1 = versionHistory.find(v => v.version === version1);
+    const v2 = versionHistory.find(v => v.version === version2);
+
+    if (!v1 || !v2) {
+      return res.status(404).json({
+        success: false,
+        message: 'One or both versions not found'
+      });
+    }
+
+    // Compare changes
+    const comparison = {
+      version1: {
+        version: v1.version,
+        changedAt: v1.changedAt,
+        changedBy: v1.changedBy,
+        changes: v1.changes
+      },
+      version2: {
+        version: v2.version,
+        changedAt: v2.changedAt,
+        changedBy: v2.changedBy,
+        changes: v2.changes
+      },
+      differences: v1.changes.filter(change => {
+        const v2Change = v2.changes.find(c => c.field === change.field);
+        return !v2Change || JSON.stringify(v2Change) !== JSON.stringify(change);
+      })
+    };
+
+    res.json({
+      success: true,
+      data: comparison
+    });
+  } catch (error) {
+    console.error('Error comparing versions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error comparing versions',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

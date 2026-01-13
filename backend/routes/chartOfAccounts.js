@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const AccountingService = require('../services/accountingService');
-const { auth } = require('../middleware/auth');
+const { auth, requirePermission } = require('../middleware/auth');
 const ledgerAccountService = require('../services/ledgerAccountService');
 const chartOfAccountsService = require('../services/chartOfAccountsService');
+const { body, param, query } = require('express-validator');
 
 // @route   GET /api/chart-of-accounts
 // @desc    Get all accounts with optional filters
@@ -223,6 +224,162 @@ router.get('/stats/summary', auth, async (req, res) => {
       success: false,
       message: 'Failed to fetch account statistics',
       error: error.message
+    });
+  }
+});
+
+// @route   POST /api/chart-of-accounts/:id/lock-reconciliation
+// @desc    Lock account for reconciliation
+// @access  Private (requires 'reconcile_accounts' permission)
+router.post('/:id/lock-reconciliation', [
+  auth,
+  requirePermission('reconcile_accounts'),
+  param('id').isMongoId().withMessage('Valid account ID is required'),
+  body('durationMinutes').optional().isInt({ min: 1, max: 480 }).withMessage('Duration must be between 1 and 480 minutes')
+], async (req, res) => {
+  try {
+    const ChartOfAccounts = require('../models/ChartOfAccounts');
+    const account = await ChartOfAccounts.findById(req.params.id);
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: 'Account not found'
+      });
+    }
+
+    const durationMinutes = req.body.durationMinutes || 30;
+    await account.lockForReconciliation(req.user._id, durationMinutes);
+
+    res.json({
+      success: true,
+      message: 'Account locked for reconciliation',
+      data: {
+        accountCode: account.accountCode,
+        accountName: account.accountName,
+        reconciliationStatus: account.reconciliationStatus,
+        lockExpiresAt: account.reconciliationStatus.lockExpiresAt
+      }
+    });
+  } catch (error) {
+    console.error('Error locking account for reconciliation:', error);
+    if (error.message.includes('already locked')) {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Server error locking account',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   POST /api/chart-of-accounts/:id/unlock-reconciliation
+// @desc    Unlock account after reconciliation
+// @access  Private (requires 'reconcile_accounts' permission)
+router.post('/:id/unlock-reconciliation', [
+  auth,
+  requirePermission('reconcile_accounts'),
+  param('id').isMongoId().withMessage('Valid account ID is required'),
+  body('reconciled').optional().isBoolean().withMessage('Reconciled must be a boolean'),
+  body('discrepancyAmount').optional().isFloat().withMessage('Discrepancy amount must be a number'),
+  body('discrepancyReason').optional().isString().trim().isLength({ max: 500 }).withMessage('Discrepancy reason too long')
+], async (req, res) => {
+  try {
+    const ChartOfAccounts = require('../models/ChartOfAccounts');
+    const account = await ChartOfAccounts.findById(req.params.id);
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: 'Account not found'
+      });
+    }
+
+    const reconciled = req.body.reconciled !== undefined ? req.body.reconciled : true;
+    const discrepancyAmount = req.body.discrepancyAmount || null;
+    const discrepancyReason = req.body.discrepancyReason || null;
+
+    await account.unlockAfterReconciliation(
+      req.user._id,
+      reconciled,
+      discrepancyAmount,
+      discrepancyReason
+    );
+
+    res.json({
+      success: true,
+      message: reconciled ? 'Account reconciled successfully' : 'Account unlocked with discrepancy',
+      data: {
+        accountCode: account.accountCode,
+        accountName: account.accountName,
+        reconciliationStatus: account.reconciliationStatus
+      }
+    });
+  } catch (error) {
+    console.error('Error unlocking account:', error);
+    if (error.message.includes('Only the user who locked')) {
+      return res.status(403).json({
+        success: false,
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: 'Server error unlocking account',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   GET /api/chart-of-accounts/:id/reconciliation-status
+// @desc    Get reconciliation status of an account
+// @access  Private (requires 'view_reports' permission)
+router.get('/:id/reconciliation-status', [
+  auth,
+  requirePermission('view_reports'),
+  param('id').isMongoId().withMessage('Valid account ID is required')
+], async (req, res) => {
+  try {
+    const ChartOfAccounts = require('../models/ChartOfAccounts');
+    const account = await ChartOfAccounts.findById(req.params.id)
+      .populate('reconciliationStatus.lockedBy', 'firstName lastName email')
+      .populate('reconciliationStatus.reconciledBy', 'firstName lastName email');
+    
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: 'Account not found'
+      });
+    }
+
+    const isLocked = account.reconciliationStatus.lockedBy && 
+                     account.reconciliationStatus.lockExpiresAt &&
+                     account.reconciliationStatus.lockExpiresAt > new Date();
+
+    res.json({
+      success: true,
+      data: {
+        accountId: account._id,
+        accountCode: account.accountCode,
+        accountName: account.accountName,
+        reconciliationStatus: account.reconciliationStatus,
+        isLocked: isLocked,
+        canBeLocked: !isLocked || account.reconciliationStatus.lockedBy.toString() === req.user._id.toString(),
+        lockExpiresIn: isLocked && account.reconciliationStatus.lockExpiresAt 
+          ? Math.max(0, Math.floor((account.reconciliationStatus.lockExpiresAt - new Date()) / 60000))
+          : 0
+      }
+    });
+  } catch (error) {
+    console.error('Error getting reconciliation status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting reconciliation status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

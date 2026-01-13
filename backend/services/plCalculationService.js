@@ -1,4 +1,5 @@
 const FinancialStatementRepository = require('../repositories/FinancialStatementRepository');
+const FinancialStatement = require('../models/FinancialStatement');
 const SalesRepository = require('../repositories/SalesRepository');
 const ProductRepository = require('../repositories/ProductRepository');
 const PurchaseOrderRepository = require('../repositories/PurchaseOrderRepository');
@@ -44,7 +45,6 @@ class PLCalculationService {
       const financialData = await this.calculateFinancialData(period);
       
       // Create P&L statement (using model for instance methods)
-      const FinancialStatement = require('../models/FinancialStatement');
       const plStatement = new FinancialStatement({
         type: 'profit_loss',
         period: {
@@ -146,7 +146,7 @@ class PLCalculationService {
     const discountsByType = {};
     const discountDetails = [];
 
-    // Calculate total sales revenue
+    // Calculate total sales revenue from transactions
     revenueTransactions.forEach(transaction => {
       if (transaction.creditAmount > 0) {
         grossSales += transaction.creditAmount;
@@ -169,13 +169,36 @@ class PLCalculationService {
       salesReturns += transaction.debitAmount;
     });
 
-    // Get actual sales discounts from Sales orders
+    // Get actual sales orders for fallback calculation and discounts
     const salesOrders = await SalesRepository.findAll({
       createdAt: { $gte: period.startDate, $lte: period.endDate },
       status: { $in: ['completed', 'delivered', 'shipped', 'confirmed'] }
     }, {
-      select: 'orderNumber pricing.discountAmount items.discountAmount items.discountPercent createdAt customer'
+      select: 'orderNumber pricing.total pricing.subtotal pricing.discountAmount items.discountAmount items.discountPercent createdAt customer orderType'
     });
+
+    // FALLBACK: If no transactions found, calculate from Sales orders directly
+    if (grossSales === 0 && salesOrders.length > 0) {
+      salesOrders.forEach(order => {
+        // Only count sales (not returns or exchanges)
+        if (order.orderType !== 'return' && order.orderType !== 'exchange') {
+          const orderTotal = order.pricing?.total || order.pricing?.subtotal || 0;
+          if (orderTotal > 0) {
+            grossSales += orderTotal;
+            
+            // Categorize by order type
+            const category = order.orderType === 'wholesale' ? 'Wholesale' : 'Retail';
+            salesByCategory[category] = (salesByCategory[category] || 0) + orderTotal;
+          }
+        } else if (order.orderType === 'return') {
+          // Handle returns
+          const returnAmount = order.pricing?.total || order.pricing?.subtotal || 0;
+          if (returnAmount > 0) {
+            salesReturns += returnAmount;
+          }
+        }
+      });
+    }
 
     // Calculate discounts from orders
     salesOrders.forEach(order => {
@@ -333,6 +356,34 @@ class PLCalculationService {
     
     // Get purchase returns and discounts
     const purchaseAdjustments = await this.calculatePurchaseAdjustments(period);
+    
+    // FALLBACK: If no COGS transactions found, calculate from Sales orders
+    if (totalCOGS === 0) {
+      const Sales = require('../models/Sales');
+      const salesOrders = await Sales.find({
+        createdAt: { $gte: period.startDate, $lte: period.endDate },
+        status: { $in: ['completed', 'delivered', 'shipped', 'confirmed'] },
+        orderType: { $ne: 'return' } // Exclude returns
+      }).select('items.product items.quantity items.unitCost createdAt orderNumber');
+      
+      for (const order of salesOrders) {
+        for (const item of order.items || []) {
+          const unitCost = item.unitCost || 0;
+          const quantity = item.quantity || 0;
+          const itemCOGS = unitCost * quantity;
+          
+          if (itemCOGS > 0) {
+            totalCOGS += itemCOGS;
+            cogsDetails.push({
+              description: `COGS for order ${order.orderNumber}`,
+              amount: itemCOGS,
+              reference: order.orderNumber,
+              date: order.createdAt
+            });
+          }
+        }
+      }
+    }
     
     return {
       beginningInventory,
@@ -1198,7 +1249,7 @@ class PLCalculationService {
 
   // Get P&L summary for dashboard
   async getPLSummary(period) {
-    const statement = await FinancialStatement.findOne({
+    let statement = await FinancialStatement.findOne({
       type: 'profit_loss',
       'period.startDate': period.startDate,
       'period.endDate': period.endDate,
@@ -1206,19 +1257,20 @@ class PLCalculationService {
 
     if (!statement) {
       // Generate statement if it doesn't exist
-      return await this.generatePLStatement(period, { includeDetails: false });
+      statement = await this.generatePLStatement(period, { includeDetails: false });
     }
 
+    // Always return summary format, not full statement object
     return {
-      totalRevenue: statement.revenue.totalRevenue.amount,
-      grossProfit: statement.grossProfit.amount,
-      operatingIncome: statement.operatingIncome.amount,
-      netIncome: statement.netIncome.amount,
-      grossMargin: statement.grossProfit.margin,
-      operatingMargin: statement.operatingIncome.margin,
-      netMargin: statement.netIncome.margin,
+      totalRevenue: statement.revenue?.totalRevenue?.amount || 0,
+      grossProfit: statement.grossProfit?.amount || 0,
+      operatingIncome: statement.operatingIncome?.amount || 0,
+      netIncome: statement.netIncome?.amount || 0,
+      grossMargin: statement.grossProfit?.margin,
+      operatingMargin: statement.operatingIncome?.margin,
+      netMargin: statement.netIncome?.margin,
       period: statement.period,
-      lastUpdated: statement.metadata.lastUpdated,
+      lastUpdated: statement.metadata?.lastUpdated || new Date(),
     };
   }
 

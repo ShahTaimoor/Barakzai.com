@@ -275,21 +275,46 @@ router.post('/', [
       // Check actual inventory from Inventory model (source of truth) instead of Product model cache
       let inventoryRecord = await Inventory.findOne({ product: item.product });
       let availableStock = 0;
+      const productStock = Number(product.inventory?.currentStock || 0);
       
-      // If Inventory record doesn't exist, use Product's stock (will be synced when inventory is updated)
+      // If Inventory record doesn't exist, create it from Product's stock
       if (!inventoryRecord) {
-        availableStock = Number(product.inventory?.currentStock || 0);
-      } else {
-        // Check if Inventory is out of sync with Product
-        const productStock = Number(product.inventory?.currentStock || 0);
-        const inventoryStock = Number(inventoryRecord.currentStock || 0);
-        
-        // If Product has more stock than Inventory, use Product stock (Inventory might be outdated)
-        // This handles cases where stock was updated directly on Product but Inventory wasn't synced
-        if (productStock > inventoryStock) {
+        // Create Inventory record with Product's stock value
+        try {
+          inventoryRecord = await Inventory.create({
+            product: item.product,
+            productModel: 'Product',
+            currentStock: productStock,
+            reorderPoint: product.inventory?.reorderPoint || 10,
+            reorderQuantity: product.inventory?.reorderQuantity || 50,
+            reservedStock: 0,
+            availableStock: productStock,
+            status: productStock > 0 ? 'active' : 'out_of_stock'
+          });
           availableStock = productStock;
-        } else {
-          availableStock = inventoryStock;
+        } catch (inventoryError) {
+          // If creation fails, use Product stock as fallback
+          console.error('Error creating inventory record:', inventoryError);
+          availableStock = productStock;
+        }
+      } else {
+        // Use availableStock from Inventory model (currentStock - reservedStock)
+        // This is the actual available stock accounting for reservations
+        const inventoryAvailableStock = Number(inventoryRecord.availableStock || 0);
+        const inventoryCurrentStock = Number(inventoryRecord.currentStock || 0);
+        const inventoryReservedStock = Number(inventoryRecord.reservedStock || 0);
+        
+        // Calculate available stock: currentStock - reservedStock
+        const calculatedAvailableStock = Math.max(0, inventoryCurrentStock - inventoryReservedStock);
+        
+        // Use the calculated value or the stored availableStock field
+        availableStock = inventoryAvailableStock > 0 ? inventoryAvailableStock : calculatedAvailableStock;
+        
+        // Check if Product has more stock than Inventory (sync issue)
+        if (productStock > inventoryCurrentStock) {
+          // Product has more stock, use Product stock as available (Inventory might be outdated)
+          // But still account for reserved stock
+          availableStock = Math.max(0, productStock - inventoryReservedStock);
         }
       }
       
@@ -324,7 +349,26 @@ router.post('/', [
       const itemTaxable = itemSubtotal - itemDiscount;
       const itemTax = isTaxExempt ? 0 : itemTaxable * (product.taxSettings.taxRate || 0);
       
-      const unitCost = product.pricing?.cost ?? 0;
+      // Get unit cost from multiple sources (priority: Inventory > Product)
+      let unitCost = 0;
+      
+      // First try to get from Inventory (most accurate - reflects actual purchase cost)
+      try {
+        const Inventory = require('../models/Inventory');
+        const inventory = await Inventory.findOne({ product: product._id });
+        if (inventory && inventory.cost) {
+          // Use average cost if available, otherwise last purchase cost
+          unitCost = inventory.cost.average || inventory.cost.lastPurchase || 0;
+        }
+      } catch (inventoryError) {
+        // If inventory lookup fails, continue with product cost
+        console.warn('Could not fetch inventory cost:', inventoryError.message);
+      }
+      
+      // Fallback to product pricing.cost if inventory cost not available
+      if (unitCost === 0) {
+        unitCost = product.pricing?.cost || 0;
+      }
 
       orderItems.push({
         product: product._id,
@@ -420,12 +464,19 @@ router.post('/', [
           });
           availableStock = productStock;
         } else {
-          // Check if Inventory is out of sync with Product
-          const inventoryStock = Number(inventoryRecord.currentStock || 0);
+          // Use availableStock from Inventory model (currentStock - reservedStock)
+          const inventoryCurrentStock = Number(inventoryRecord.currentStock || 0);
+          const inventoryReservedStock = Number(inventoryRecord.reservedStock || 0);
+          const inventoryAvailableStock = Number(inventoryRecord.availableStock || 0);
           
-          // If Product has more stock than Inventory, sync Inventory to match Product
-          // This handles cases where stock was updated directly on Product but Inventory wasn't synced
-          if (productStock > inventoryStock) {
+          // Calculate available stock: currentStock - reservedStock
+          const calculatedAvailableStock = Math.max(0, inventoryCurrentStock - inventoryReservedStock);
+          
+          // Use the calculated value or the stored availableStock field
+          availableStock = inventoryAvailableStock > 0 ? inventoryAvailableStock : calculatedAvailableStock;
+          
+          // Check if Product has more stock than Inventory (sync issue)
+          if (productStock > inventoryCurrentStock) {
             // Sync Inventory to match Product stock
             await inventoryService.updateStock({
               productId: item.product,
@@ -436,13 +487,13 @@ router.post('/', [
               referenceId: null,
               referenceModel: 'StockAdjustment',
               performedBy: req.user._id,
-              notes: `Syncing Inventory model to match Product model stock (${inventoryStock} -> ${productStock})`
+              notes: `Syncing Inventory model to match Product model stock (${inventoryCurrentStock} -> ${productStock})`
             });
             // Refresh inventory record
             inventoryRecord = await Inventory.findOne({ product: item.product });
-            availableStock = productStock;
-          } else {
-            availableStock = inventoryStock;
+            // Recalculate available stock after sync
+            const refreshedReservedStock = Number(inventoryRecord.reservedStock || 0);
+            availableStock = Math.max(0, productStock - refreshedReservedStock);
           }
         }
         
@@ -568,92 +619,133 @@ router.post('/', [
     };
     
     
-    const order = new Sales(orderData);
-    await order.save();
+    // Use MongoDB transaction for atomicity across Sales, CustomerTransaction, and Customer
+    const mongoose = require('mongoose');
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
-      await StockMovementService.trackSalesOrder(order, req.user);
-    } catch (movementError) {
-      console.error('Error recording stock movements for sales order:', movementError);
-      console.error('Movement error details:', {
-        message: movementError.message,
-        stack: movementError.stack,
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        itemsCount: order.items?.length
-      });
-      // Note: Don't fail the order creation if stock movement tracking fails
-      // The error is logged for investigation but doesn't block the order
-    }
+      // 1. Create sales order
+      const order = new Sales(orderData);
+      await order.save({ session });
 
-    // Distribute profit for investor-linked products (only if order is confirmed/paid)
-    if (order.status === 'confirmed' || order.payment?.status === 'paid') {
+      // 2. Track stock movements
       try {
-        const profitDistributionService = require('../services/profitDistributionService');
-        await profitDistributionService.distributeProfitForOrder(order, req.user);
-      } catch (profitError) {
-        // Log error but don't fail the order creation
-        console.error('Error distributing profit for order:', profitError);
+        await StockMovementService.trackSalesOrder(order, req.user);
+      } catch (movementError) {
+        console.error('Error recording stock movements for sales order:', movementError);
+        // Log but don't fail - stock movements are tracked separately
       }
-    }
-    
-    
-    // Update customer balance for sales invoices
-    // Logic: 
-    // 1. Add invoice total to pendingBalance (customer owes this amount)
-    // 2. Record payment which will reduce pendingBalance and handle overpayments (add to advanceBalance)
-    if (customer && orderData.pricing.total > 0) {
-      try {
-        const CustomerBalanceService = require('../services/customerBalanceService');
+
+      // 3. Distribute profit for investor-linked products
+      if (order.status === 'confirmed' || order.payment?.status === 'paid') {
+        try {
+          const profitDistributionService = require('../services/profitDistributionService');
+          await profitDistributionService.distributeProfitForOrder(order, req.user);
+        } catch (profitError) {
+          console.error('Error distributing profit for order:', profitError);
+        }
+      }
+
+      // 4. Create CustomerTransaction invoice and update balance (if customer account payment)
+      if (customer && orderData.pricing.total > 0) {
+        const customerTransactionService = require('../services/customerTransactionService');
         const Customer = require('../models/Customer');
-        const customerExists = await Customer.findById(customer);
+        const customerExists = await Customer.findById(customer).session(session);
         
         if (customerExists) {
-          // Step 1: Add invoice total to pendingBalance (customer owes this amount)
-          // Only add if payment is not fully paid upfront
           const amountPaid = payment.amount || 0;
-          if (amountPaid < orderData.pricing.total || payment.method === 'account') {
-            await Customer.findByIdAndUpdate(
+          const isAccountPayment = payment.method === 'account' || amountPaid < orderData.pricing.total;
+
+          // Create invoice transaction if account payment or partial payment
+          if (isAccountPayment) {
+            // Fetch product names for line items
+            const productIds = orderItems.map(item => item.product);
+            const products = await Product.find({ _id: { $in: productIds } }).select('name').lean();
+            const productMap = new Map(products.map(p => [p._id.toString(), p.name]));
+            
+            // Prepare line items for invoice
+            const lineItems = orderItems.map(item => ({
+              product: item.product,
+              description: productMap.get(item.product.toString()) || 'Product',
+              quantity: item.quantity,
+              unitPrice: item.unitPrice || 0, // Use unitPrice, not price
+              discountAmount: item.discountAmount || 0,
+              taxAmount: item.taxAmount || 0,
+              totalPrice: item.total || 0
+            }));
+
+            // Create CustomerTransaction invoice
+            await customerTransactionService.createTransaction({
+              customerId: customer,
+              transactionType: 'invoice',
+              netAmount: orderData.pricing.total,
+              grossAmount: subtotal,
+              discountAmount: totalDiscount,
+              taxAmount: totalTax,
+              referenceType: 'sales_order',
+              referenceId: order._id,
+              referenceNumber: order.orderNumber,
+              lineItems: lineItems,
+              notes: `Invoice for sales order ${order.orderNumber}`
+            }, req.user);
+          }
+
+          // Record payment if any amount paid
+          if (amountPaid > 0) {
+            const CustomerBalanceService = require('../services/customerBalanceService');
+            await CustomerBalanceService.recordPayment(
               customer,
-              { $inc: { pendingBalance: orderData.pricing.total } },
-              { new: true }
+              amountPaid,
+              order._id,
+              req.user,
+              {
+                paymentMethod: payment.method,
+                paymentReference: order.orderNumber
+              }
             );
           }
-          
-          // Step 2: Record payment (this will reduce pendingBalance and handle overpayments)
-          if (amountPaid > 0) {
-            await CustomerBalanceService.recordPayment(customer, amountPaid, order._id);
-          }
-        } else {
         }
-      } catch (error) {
-        console.error('Error updating customer balance on sales order creation:', error);
-        // Don't fail the order creation if customer update fails
       }
-    }
-    
-    // Inventory already updated above before order save
-    
-    // Create accounting entries
-    try {
-      const AccountingService = require('../services/accountingService');
-      await AccountingService.recordSale(order);
+
+      // 5. Create accounting entries
+      try {
+        const AccountingService = require('../services/accountingService');
+        await AccountingService.recordSale(order);
+      } catch (error) {
+        console.error('Error creating accounting entries for sales order:', error);
+        // Log but don't fail - accounting entries can be created later
+      }
+
+      // Commit transaction
+      await session.commitTransaction();
+      
+      // Order is now saved and all related records created atomically
+      // Store order ID for later retrieval
+      const orderId = order._id;
+      
+      // Reload order after transaction (since it was saved in session)
+      const savedOrder = await Sales.findById(orderId);
+      
+      // Populate order for response
+      await savedOrder.populate([
+        { path: 'customer', select: 'firstName lastName businessName email' },
+        { path: 'items.product', select: 'name description' },
+        { path: 'createdBy', select: 'firstName lastName' }
+      ]);
+
+      res.status(201).json({
+        success: true,
+        message: 'Order created successfully',
+        order: savedOrder
+      });
     } catch (error) {
-      console.error('Error creating accounting entries for sales order:', error);
-      // Don't fail the order creation if accounting fails
+      // Rollback transaction on error
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
     }
-    
-    // Populate order for response
-    await order.populate([
-      { path: 'customer', select: 'firstName lastName businessName email' },
-      { path: 'items.product', select: 'name description' },
-      { path: 'createdBy', select: 'firstName lastName' }
-    ]);
-    
-    res.status(201).json({
-      message: 'Order created successfully',
-      order
-    });
   } catch (error) {
     console.error('Create order error:', error);
     console.error('Error details:', {

@@ -4,7 +4,6 @@ import {
   ShoppingCart, 
   Users, 
   Package, 
-  DollarSign,
   TrendingUp,
   AlertTriangle,
   Bell,
@@ -454,8 +453,8 @@ export const Dashboard = () => {
                 </div>
               </div>
               <p className="text-sm font-medium text-green-700 mb-1">Sales (Revenue)</p>
-              <p className="text-xl font-bold text-green-800">${Math.round(totalSales).toLocaleString()}</p>
-              <p className="text-xs text-green-600 mt-1">SO: ${Math.round(salesOrdersTotal)} | SI: ${Math.round(salesInvoicesTotal)}</p>
+              <p className="text-xl font-bold text-green-800">{Math.round(totalSales).toLocaleString()}</p>
+              <p className="text-xs text-green-600 mt-1">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
             </div>
 
             {/* Purchase (COGS) */}
@@ -466,8 +465,8 @@ export const Dashboard = () => {
                 </div>
               </div>
               <p className="text-sm font-medium text-purple-700 mb-1">Purchase (COGS)</p>
-              <p className="text-xl font-bold text-purple-800">${Math.round(totalPurchases).toLocaleString()}</p>
-              <p className="text-xs text-purple-600 mt-1">PO: ${Math.round(purchaseOrdersTotal)} | PI: ${Math.round(purchaseInvoicesTotal)}</p>
+              <p className="text-xl font-bold text-purple-800">{Math.round(totalPurchases).toLocaleString()}</p>
+              <p className="text-xs text-purple-600 mt-1">PO: {Math.round(purchaseOrdersTotal)} | PI: {Math.round(purchaseInvoicesTotal)}</p>
             </div>
 
             {/* Discount */}
@@ -478,7 +477,7 @@ export const Dashboard = () => {
                 </div>
               </div>
               <p className="text-sm font-medium text-red-700 mb-1">Discount Given</p>
-              <p className="text-xl font-bold text-red-800">${Math.round(totalDiscounts).toLocaleString()}</p>
+              <p className="text-xl font-bold text-red-800">{Math.round(totalDiscounts).toLocaleString()}</p>
             </div>
 
              {/* Pending Sales Orders */}
@@ -525,7 +524,7 @@ export const Dashboard = () => {
               </div>
               <p className="text-sm font-medium text-gray-700 mb-1">Gross Profit</p>
               <p className={`text-xl font-bold ${grossProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
-                ${Math.round(grossProfit).toLocaleString()}
+                {Math.round(grossProfit).toLocaleString()}
               </p>
               <p className="text-xs text-gray-600 mt-1">Revenue - COGS</p>
             </div>
@@ -538,8 +537,8 @@ export const Dashboard = () => {
                 </div>
               </div>
               <p className="text-sm font-medium text-emerald-700 mb-1">Total Receipts</p>
-              <p className="text-xl font-bold text-emerald-800">${Math.round(totalReceipts).toLocaleString()}</p>
-              <p className="text-xs text-emerald-600 mt-1">Cash: ${Math.round(totalCashReceipts)} | Bank: ${Math.round(totalBankReceipts)}</p>
+              <p className="text-xl font-bold text-emerald-800">{Math.round(totalReceipts).toLocaleString()}</p>
+              <p className="text-xs text-emerald-600 mt-1">Cash: {Math.round(totalCashReceipts)} | Bank: {Math.round(totalBankReceipts)}</p>
             </div>
             
             {/* Total Payments */}
@@ -550,8 +549,8 @@ export const Dashboard = () => {
                 </div>
               </div>
               <p className="text-sm font-medium text-orange-700 mb-1">Total Payments</p>
-              <p className="text-xl font-bold text-orange-800">${Math.round(totalPayments).toLocaleString()}</p>
-              <p className="text-xs text-orange-600 mt-1">Cash: ${Math.round(totalCashPayments)} | Bank: ${Math.round(totalBankPayments)}</p>
+              <p className="text-xl font-bold text-orange-800">{Math.round(totalPayments).toLocaleString()}</p>
+              <p className="text-xs text-orange-600 mt-1">Cash: {Math.round(totalCashPayments)} | Bank: {Math.round(totalBankPayments)}</p>
             </div>
             
             {/* Net Cash Flow */}
@@ -563,7 +562,7 @@ export const Dashboard = () => {
               </div>
               <p className="text-sm font-medium text-gray-700 mb-1">Net Cash Flow</p>
               <p className={`text-xl font-bold ${netCashFlow >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                ${Math.round(netCashFlow).toLocaleString()}
+                {Math.round(netCashFlow).toLocaleString()}
               </p>
               <p className="text-xs text-gray-600 mt-1">Receipts - Payments</p>
             </div>
@@ -588,8 +587,8 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-7">
         <StatCard
           title="Today's Revenue"
-          value={`$${summary.totalRevenue?.toFixed(2) || '0.00'}`}
-          icon={DollarSign}
+          value={`${summary.totalRevenue?.toFixed(2) || '0.00'}`}
+          icon={TrendingUp}
           color="bg-success-500"
           change="12%"
           changeType="positive"
@@ -624,7 +623,7 @@ export const Dashboard = () => {
         />
         <StatCard
           title="Average Order Value"
-          value={`$${summary.averageOrderValue?.toFixed(2) || '0.00'}`}
+          value={`${summary.averageOrderValue?.toFixed(2) || '0.00'}`}
           icon={BarChart3}
           color="bg-indigo-500"
         />
@@ -646,7 +645,7 @@ export const Dashboard = () => {
               data: res.data?.data?.totalRevenue || 0
             })),
             format: 'currency',
-            icon: DollarSign,
+            icon: TrendingUp,
             iconColor: 'bg-green-500'
           },
           {

@@ -2277,27 +2277,27 @@ export const Settings2 = () => {
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span>Item 1</span>
-                            <span>$10.00</span>
+                            <span>10.00</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Item 2</span>
-                            <span>$15.00</span>
+                            <span>15.00</span>
                           </div>
                           {printSettings.showDiscount && (
                             <div className="flex justify-between text-red-600">
                               <span>Discount</span>
-                              <span>-$2.50</span>
+                              <span>-2.50</span>
                 </div>
               )}
                           {printSettings.showTax && (
                             <div className="flex justify-between">
                               <span>Tax</span>
-                              <span>$2.25</span>
+                              <span>2.25</span>
             </div>
                           )}
                           <div className="border-t pt-1 flex justify-between font-bold">
                             <span>Total</span>
-                            <span>$24.75</span>
+                            <span>24.75</span>
           </div>
         </div>
                       </div>

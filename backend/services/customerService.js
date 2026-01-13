@@ -387,7 +387,7 @@ class CustomerService {
           userId: userId
         });
 
-        return customer._id;
+        return customer;
       }, 'update customer');
     }, {
       maxRetries: 5,
@@ -395,29 +395,36 @@ class CustomerService {
       maxDelay: 3000
     });
 
-    if (!updatedCustomerId) {
+    if (!updatedCustomer) {
       throw new Error('Customer not found');
     }
 
-    const updatedCustomer = await this.getCustomerByIdWithLedger(updatedCustomerId);
+    // Get updated customer for audit log and return
+    const finalCustomer = await this.getCustomerByIdWithLedger(updatedCustomer._id);
+    const oldCustomer = currentCustomer.toObject();
 
-    if (!updatedCustomer) {
+    if (!finalCustomer) {
       throw new Error('Customer updated but could not be retrieved');
     }
 
+    // Log audit trail (async, don't wait)
+    customerAuditLogService.logCustomerUpdate(oldCustomer, finalCustomer, { _id: userId }, null)
+      .catch(err => console.error('Audit log error:', err));
+
     return {
-      customer: this.transformCustomerToUppercase(updatedCustomer),
+      customer: this.transformCustomerToUppercase(finalCustomer),
       message: 'Customer updated successfully'
     };
   }
 
   /**
-   * Delete customer
+   * Delete customer (soft delete)
    * @param {string} id - Customer ID
    * @param {string} userId - User ID deleting the customer
+   * @param {string} reason - Reason for deletion
    * @returns {Promise<{message: string}>}
    */
-  async deleteCustomer(id, userId) {
+  async deleteCustomer(id, userId, reason = 'Customer deleted') {
     const deletionResult = await runWithOptionalTransaction(async (session) => {
       const customer = await customerRepository.findById(id, { session });
 
@@ -425,6 +432,35 @@ class CustomerService {
         return null;
       }
 
+      // Check for outstanding balances
+      if (customer.currentBalance !== 0) {
+        throw new Error('Cannot delete customer with outstanding balance. Please settle all balances first.');
+      }
+
+      // Check for pending orders
+      const Sales = require('../models/Sales');
+      const pendingOrders = await Sales.countDocuments({
+        customer: id,
+        status: { $in: ['pending', 'confirmed', 'processing'] }
+      });
+      
+      if (pendingOrders > 0) {
+        throw new Error('Cannot delete customer with pending orders. Please cancel or complete orders first.');
+      }
+
+      // Capture customer data before deletion for audit
+      const customerData = customer.toObject();
+
+      // Soft delete
+      customer.isDeleted = true;
+      customer.deletedAt = new Date();
+      customer.deletedBy = userId;
+      customer.deletionReason = reason;
+      customer.status = 'inactive'; // Also set status to inactive
+      
+      await customer.save(session ? { session } : undefined);
+
+      // Deactivate ledger account
       if (customer.ledgerAccount) {
         await ledgerAccountService.deactivateLedgerAccount(customer.ledgerAccount, session ? {
           session,
@@ -432,11 +468,9 @@ class CustomerService {
         } : { userId: userId });
       }
 
-      if (session) {
-        await customer.deleteOne({ session });
-      } else {
-        await customer.deleteOne();
-      }
+      // Log audit trail (async, don't wait)
+      customerAuditLogService.logCustomerDeletion(customerData, { _id: userId }, null, reason)
+        .catch(err => console.error('Audit log error:', err));
 
       return true;
     }, 'delete customer');
@@ -448,6 +482,73 @@ class CustomerService {
     return {
       message: 'Customer deleted successfully'
     };
+  }
+
+  /**
+   * Restore soft-deleted customer
+   * @param {string} id - Customer ID
+   * @param {string} userId - User ID restoring the customer
+   * @returns {Promise<{customer: Customer, message: string}>}
+   */
+  async restoreCustomer(id, userId) {
+    const customer = await customerRepository.Model.findOneAndUpdate(
+      { _id: id, isDeleted: true },
+      {
+        $set: {
+          isDeleted: false,
+          status: 'active',
+          lastModifiedBy: userId
+        },
+        $unset: {
+          deletedAt: '',
+          deletedBy: '',
+          deletionReason: ''
+        }
+      },
+      { new: true }
+    );
+
+    if (!customer) {
+      throw new Error('Deleted customer not found');
+    }
+
+    // Reactivate ledger account if exists
+    if (customer.ledgerAccount) {
+      await ledgerAccountService.activateLedgerAccount(customer.ledgerAccount, { userId });
+    }
+
+    return {
+      customer: this.transformCustomerToUppercase(customer),
+      message: 'Customer restored successfully'
+    };
+  }
+
+  /**
+   * Get deleted customers
+   * @param {object} queryParams - Query parameters
+   * @returns {Promise<object>}
+   */
+  async getDeletedCustomers(queryParams = {}) {
+    const filter = { isDeleted: true };
+    
+    if (queryParams.search) {
+      filter.$or = [
+        { name: { $regex: queryParams.search, $options: 'i' } },
+        { businessName: { $regex: queryParams.search, $options: 'i' } }
+      ];
+    }
+
+    const page = parseInt(queryParams.page) || 1;
+    const limit = parseInt(queryParams.limit) || 20;
+
+    const result = await customerRepository.findWithPagination(filter, {
+      page,
+      limit,
+      sort: { deletedAt: -1 }
+    });
+
+    result.customers = result.customers.map(c => this.transformCustomerToUppercase(c));
+    return result;
   }
 
   /**

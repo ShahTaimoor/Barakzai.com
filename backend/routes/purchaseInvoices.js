@@ -181,6 +181,7 @@ router.post('/', [
           productId: item.product,
           type: 'in',
           quantity: item.quantity,
+          cost: item.unitCost, // Pass cost price from purchase invoice
           reason: 'Purchase Invoice Creation',
           reference: 'Purchase Invoice',
           referenceId: invoice._id,

@@ -9,6 +9,9 @@ const path = require('path');
 const { auth, requirePermission } = require('../middleware/auth');
 const { sanitizeRequest, handleValidationErrors } = require('../middleware/validation');
 const productService = require('../services/productService');
+const auditLogService = require('../services/auditLogService');
+const expiryManagementService = require('../services/expiryManagementService');
+const costingService = require('../services/costingService');
 
 const router = express.Router();
 
@@ -191,8 +194,8 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
     
-    // Call service to create product
-    const result = await productService.createProduct(req.body, req.user._id);
+    // Call service to create product (pass req for audit logging)
+    const result = await productService.createProduct(req.body, req.user._id, req);
     
     res.status(201).json(result);
   } catch (error) {
@@ -239,8 +242,8 @@ router.put('/:id', [
       return res.status(400).json({ errors: errors.array() });
     }
     
-    // Call service to update product
-    const result = await productService.updateProduct(req.params.id, req.body, req.user._id);
+    // Call service to update product (pass req for audit logging and optimistic locking)
+    const result = await productService.updateProduct(req.params.id, req.body, req.user._id, req);
     
     res.json(result);
   } catch (error) {
@@ -263,8 +266,8 @@ router.delete('/:id', [
   requirePermission('delete_products')
 ], async (req, res) => {
   try {
-    // Call service to delete product (soft delete)
-    const result = await productService.deleteProduct(req.params.id);
+    // Call service to delete product (soft delete, pass req for audit logging)
+    const result = await productService.deleteProduct(req.params.id, req);
     res.json(result);
   } catch (error) {
     console.error('Delete product error:', error);
@@ -1059,6 +1062,136 @@ router.post('/get-last-purchase-prices', auth, async (req, res) => {
     res.status(500).json({ 
       message: 'Server error', 
       error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+});
+
+// @route   GET /api/products/:id/audit-logs
+// @desc    Get audit logs for a product
+// @access  Private
+router.get('/:id/audit-logs', [
+  auth,
+  requirePermission('view_products')
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50, skip = 0, action, startDate, endDate } = req.query;
+    
+    const logs = await auditLogService.getProductAuditLogs(id, {
+      limit: parseInt(limit),
+      skip: parseInt(skip),
+      action,
+      startDate,
+      endDate
+    });
+    
+    res.json({
+      success: true,
+      logs,
+      count: logs.length
+    });
+  } catch (error) {
+    console.error('Get audit logs error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/products/expiring-soon
+// @desc    Get products expiring soon
+// @access  Private
+router.get('/expiring-soon', [
+  auth,
+  requirePermission('view_products')
+], async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const result = await expiryManagementService.getExpiringSoon(days);
+    
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('Get expiring products error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/products/expired
+// @desc    Get expired products
+// @access  Private
+router.get('/expired', [
+  auth,
+  requirePermission('view_products')
+], async (req, res) => {
+  try {
+    const result = await expiryManagementService.getExpired();
+    
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('Get expired products error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/products/:id/write-off-expired
+// @desc    Write off expired inventory
+// @access  Private
+router.post('/:id/write-off-expired', [
+  auth,
+  requirePermission('edit_products')
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await expiryManagementService.writeOffExpired(id, req.user._id, req);
+    
+    res.json({
+      success: true,
+      message: 'Expired inventory written off successfully',
+      ...result
+    });
+  } catch (error) {
+    console.error('Write off expired error:', error);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+});
+
+// @route   POST /api/products/:id/calculate-cost
+// @desc    Calculate product cost using costing method
+// @access  Private
+router.post('/:id/calculate-cost', [
+  auth,
+  requirePermission('view_products'),
+  body('quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    
+    const { id } = req.params;
+    const { quantity } = req.body;
+    
+    const costInfo = await costingService.calculateCost(id, quantity);
+    
+    res.json({
+      success: true,
+      productId: id,
+      quantity,
+      ...costInfo
+    });
+  } catch (error) {
+    console.error('Calculate cost error:', error);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: error.message 
     });
   }
 });

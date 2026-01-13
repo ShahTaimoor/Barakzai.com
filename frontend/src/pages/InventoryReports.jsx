@@ -21,7 +21,7 @@ import {
   AlertCircle,
   ShoppingCart,
   Truck,
-  DollarSign,
+  TrendingUp,
   Calendar,
   FileText,
   Settings
@@ -308,7 +308,7 @@ const InventoryReports = () => {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <DollarSign className="h-6 w-6 text-green-600" />
+                  <TrendingUp className="h-6 w-6 text-green-600" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>

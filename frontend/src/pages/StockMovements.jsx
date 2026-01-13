@@ -19,7 +19,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  DollarSign
+  TrendingUp
 } from 'lucide-react';
 import AsyncSelect from 'react-select/async';
 import {
@@ -376,7 +376,7 @@ export const StockMovements = () => {
           <div className="card-content">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-purple-100">
-                <DollarSign className="h-6 w-6 text-purple-600" />
+                <TrendingUp className="h-6 w-6 text-purple-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Value</p>

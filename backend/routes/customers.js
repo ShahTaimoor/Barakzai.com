@@ -13,6 +13,9 @@ const customerService = require('../services/customerService');
 const customerRepository = require('../repositories/CustomerRepository');
 const { retryMongoTransaction, isDuplicateKeyError } = require('../utils/retry');
 const { preventDuplicates } = require('../middleware/duplicatePrevention');
+const customerAuditLogService = require('../services/customerAuditLogService');
+const customerTransactionService = require('../services/customerTransactionService');
+const customerCreditPolicyService = require('../services/customerCreditPolicyService');
 
 // Helper function to transform customer names to uppercase
 const transformCustomerToUppercase = (customer) => {
@@ -512,8 +515,23 @@ router.put('/:id', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const result = await customerService.updateCustomer(req.params.id, req.body, req.user._id, {
-      openingBalance: req.body.openingBalance
+    // Include version for optimistic locking
+    const updateData = {
+      ...req.body,
+      version: req.body.version !== undefined ? req.body.version : undefined
+    };
+
+    const result = await retryMongoTransaction(async () => {
+      return await customerService.updateCustomer(
+        req.params.id,
+        updateData,
+        req.user._id,
+        { openingBalance: req.body.openingBalance }
+      );
+    }, {
+      maxRetries: 5,
+      initialDelay: 100,
+      maxDelay: 3000
     });
 
     res.json({
@@ -606,11 +624,15 @@ router.delete('/:id', [
   requirePermission('delete_customers')
 ], async (req, res) => {
   try {
-    const result = await customerService.deleteCustomer(req.params.id, req.user._id);
+    const reason = req.body.reason || 'Customer deleted';
+    const result = await customerService.deleteCustomer(req.params.id, req.user._id, reason);
 
     res.json({ message: result.message });
   } catch (error) {
     console.error('Delete customer error:', error);
+    if (error.message.includes('outstanding balance') || error.message.includes('pending orders')) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -624,17 +646,11 @@ router.post('/:id/restore', [
   requirePermission('delete_customers')
 ], async (req, res) => {
   try {
-    const customerRepository = require('../repositories/CustomerRepository');
-    const customer = await customerRepository.findDeletedById(req.params.id);
-    if (!customer) {
-      return res.status(404).json({ message: 'Deleted customer not found' });
-    }
-    
-    await customerRepository.restore(req.params.id);
-    res.json({ message: 'Customer restored successfully' });
+    const result = await customerService.restoreCustomer(req.params.id, req.user._id);
+    res.json({ success: true, message: result.message, customer: result.customer });
   } catch (error) {
     console.error('Restore customer error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -646,14 +662,11 @@ router.get('/deleted', [
   requirePermission('view_customers')
 ], async (req, res) => {
   try {
-    const customerRepository = require('../repositories/CustomerRepository');
-    const deletedCustomers = await customerRepository.findDeleted({}, {
-      sort: { deletedAt: -1 }
-    });
-    res.json(deletedCustomers);
+    const result = await customerService.getDeletedCustomers(req.query);
+    res.json({ success: true, ...result });
   } catch (error) {
     console.error('Get deleted customers error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -966,6 +979,178 @@ router.get('/template/excel', [auth, requirePermission('create_customers')], (re
   } catch (error) {
     console.error('Template error:', error);
     res.status(500).json({ message: 'Failed to generate template' });
+  }
+});
+
+// @route   GET /api/customers/:id/audit-logs
+// @desc    Get audit logs for a customer
+// @access  Private
+router.get('/:id/audit-logs', [
+  auth,
+  validateCustomerIdParam,
+  requirePermission('view_audit_logs')
+], async (req, res) => {
+  try {
+    const options = {
+      limit: parseInt(req.query.limit) || 50,
+      skip: parseInt(req.query.skip) || 0,
+      action: req.query.action,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate
+    };
+
+    const logs = await customerAuditLogService.getCustomerAuditLogs(req.params.id, options);
+    res.json({ success: true, data: logs });
+  } catch (error) {
+    console.error('Get customer audit logs error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// @route   GET /api/customers/:id/transactions
+// @desc    Get customer transaction history
+// @access  Private
+router.get('/:id/transactions', [
+  auth,
+  validateCustomerIdParam,
+  requirePermission('view_customer_transactions')
+], async (req, res) => {
+  try {
+    const options = {
+      limit: parseInt(req.query.limit) || 50,
+      skip: parseInt(req.query.skip) || 0,
+      transactionType: req.query.transactionType,
+      status: req.query.status,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      includeReversed: req.query.includeReversed === 'true'
+    };
+
+    const result = await customerTransactionService.getCustomerTransactions(req.params.id, options);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Get customer transactions error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// @route   GET /api/customers/:id/overdue
+// @desc    Get overdue invoices for a customer
+// @access  Private
+router.get('/:id/overdue', [
+  auth,
+  validateCustomerIdParam,
+  requirePermission('view_customer_transactions')
+], async (req, res) => {
+  try {
+    const overdueInvoices = await customerTransactionService.getOverdueInvoices(req.params.id);
+    res.json({ success: true, data: overdueInvoices });
+  } catch (error) {
+    console.error('Get overdue invoices error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// @route   GET /api/customers/:id/aging
+// @desc    Get customer aging report
+// @access  Private
+router.get('/:id/aging', [
+  auth,
+  validateCustomerIdParam,
+  requirePermission('view_customer_reports')
+], async (req, res) => {
+  try {
+    const aging = await customerTransactionService.getCustomerAging(req.params.id);
+    res.json({ success: true, data: aging });
+  } catch (error) {
+    console.error('Get customer aging error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// @route   POST /api/customers/:id/apply-payment
+// @desc    Apply payment to customer invoices
+// @access  Private
+router.post('/:id/apply-payment', [
+  auth,
+  validateCustomerIdParam,
+  requirePermission('create_customer_transactions'),
+  body('paymentAmount').isFloat({ min: 0.01 }).withMessage('Payment amount must be positive'),
+  body('applications').isArray().withMessage('Applications must be an array'),
+  body('applications.*.invoiceId').isMongoId().withMessage('Valid invoice ID is required'),
+  body('applications.*.amount').isFloat({ min: 0.01 }).withMessage('Application amount must be positive')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const paymentApplication = await customerTransactionService.applyPayment(
+      req.params.id,
+      req.body.paymentAmount,
+      req.body.applications,
+      req.user
+    );
+    res.status(201).json({ success: true, data: paymentApplication });
+  } catch (error) {
+    console.error('Apply payment error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// @route   GET /api/customers/credit-policy/overdue
+// @desc    Get all customers with overdue invoices
+// @access  Private
+router.get('/credit-policy/overdue', [
+  auth,
+  requirePermission('view_customer_reports')
+], async (req, res) => {
+  try {
+    const options = {
+      minDaysOverdue: parseInt(req.query.minDaysOverdue) || 0,
+      maxDaysOverdue: req.query.maxDaysOverdue ? parseInt(req.query.maxDaysOverdue) : null,
+      includeSuspended: req.query.includeSuspended === 'true'
+    };
+
+    const customers = await customerCreditPolicyService.getCustomersWithOverdueInvoices(options);
+    res.json({ success: true, data: customers });
+  } catch (error) {
+    console.error('Get overdue customers error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// @route   POST /api/customers/credit-policy/check-suspensions
+// @desc    Check and auto-suspend overdue customers
+// @access  Private
+router.post('/credit-policy/check-suspensions', [
+  auth,
+  requirePermission('manage_customer_credit')
+], async (req, res) => {
+  try {
+    const results = await customerCreditPolicyService.checkAndSuspendOverdueCustomers();
+    res.json({ success: true, data: results });
+  } catch (error) {
+    console.error('Check suspensions error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// @route   GET /api/customers/:id/credit-score
+// @desc    Get customer credit score
+// @access  Private
+router.get('/:id/credit-score', [
+  auth,
+  validateCustomerIdParam,
+  requirePermission('view_customer_reports')
+], async (req, res) => {
+  try {
+    const creditScore = await customerCreditPolicyService.calculateCreditScore(req.params.id);
+    res.json({ success: true, data: creditScore });
+  } catch (error) {
+    console.error('Get credit score error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

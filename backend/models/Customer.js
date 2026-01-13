@@ -129,6 +129,41 @@ const customerSchema = new mongoose.Schema({
     default: 'active'
   },
   
+  // Credit Policy
+  creditPolicy: {
+    gracePeriodDays: {
+      type: Number,
+      default: 0, // Days after due date before action
+      min: 0
+    },
+    autoSuspendDays: {
+      type: Number,
+      default: 90, // Days overdue before auto-suspension
+      min: 0
+    },
+    warningThresholds: [{
+      daysOverdue: {
+        type: Number,
+        required: true,
+        min: 0
+      },
+      action: {
+        type: String,
+        enum: ['email', 'sms', 'letter', 'call'],
+        required: true
+      },
+      message: String
+    }]
+  },
+  
+  // Suspension Information
+  suspendedAt: Date,
+  suspensionReason: String,
+  suspendedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  
   // Notes
   notes: {
     type: String,
@@ -147,11 +182,46 @@ const customerSchema = new mongoose.Schema({
   ledgerAccount: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ChartOfAccounts'
+  },
+  
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
+  deletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  deletionReason: {
+    type: String,
+    maxlength: 500
+  },
+  
+  // Anonymization (for GDPR)
+  isAnonymized: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  anonymizedAt: Date,
+  
+  // Version for optimistic locking
+  version: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toObject: { virtuals: true },
+  versionKey: '__v', // Enable Mongoose versioning
+  optimisticConcurrency: true // Enable optimistic concurrency control
 });
 
 // Indexes for better performance
@@ -163,6 +233,8 @@ customerSchema.index({ status: 1, createdAt: -1 }); // For active customers list
 customerSchema.index({ customerTier: 1, status: 1 }); // For tier-based queries
 customerSchema.index({ 'currentBalance': -1 }); // For balance sorting
 customerSchema.index({ createdAt: -1 }); // For recent customers
+customerSchema.index({ isDeleted: 1, status: 1 }); // For soft delete queries
+customerSchema.index({ isAnonymized: 1 }); // For anonymized customers
 
 // Virtual for display name
 customerSchema.virtual('displayName').get(function() {

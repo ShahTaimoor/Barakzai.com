@@ -21,11 +21,23 @@ const updateStock = async ({ productId, type, quantity, reason, reference, refer
     const updatedInventory = await Inventory.updateStock(productId, movement);
     
     // Update product's current stock field for quick access
-    await Product.findByIdAndUpdate(productId, {
+    const productUpdate = {
       'inventory.currentStock': updatedInventory.currentStock,
       'inventory.lastUpdated': new Date(),
-    });
-
+    };
+    
+    // If cost is provided and inventory cost was updated, sync to product pricing.cost
+    if (cost !== undefined && cost !== null && (type === 'in' || type === 'return')) {
+      // Get updated inventory to check if cost was set
+      const inventory = await Inventory.findOne({ product: productId });
+      if (inventory && inventory.cost && inventory.cost.average) {
+        // Sync average cost to product pricing.cost
+        productUpdate['pricing.cost'] = inventory.cost.average;
+      }
+    }
+    
+    await Product.findByIdAndUpdate(productId, productUpdate);
+    
     return updatedInventory;
   } catch (error) {
     console.error('Error updating stock:', error);

@@ -6,7 +6,7 @@ import {
   FileText,
   TrendingUp,
   TrendingDown,
-  DollarSign,
+  TrendingUp,
   Filter,
   Download,
   RefreshCw,
@@ -525,7 +525,7 @@ const AccountLedger = () => {
                         {formatCurrency(Math.abs(summary.openingBalance || 0))}
                       </p>
                     </div>
-                    <DollarSign className="h-8 w-8 text-gray-500" />
+                    <TrendingUp className="h-8 w-8 text-gray-500" />
                   </div>
                 </div>
               </div>
@@ -569,7 +569,7 @@ const AccountLedger = () => {
                         {formatCurrency(Math.abs(summary.closingBalance))}
                       </p>
                     </div>
-                    <DollarSign className="h-8 w-8 text-blue-500" />
+                    <TrendingUp className="h-8 w-8 text-blue-500" />
                   </div>
                 </div>
               </div>

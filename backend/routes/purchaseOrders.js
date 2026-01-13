@@ -181,6 +181,7 @@ router.put('/:id', [
                 productId: newItem.product,
                 type: 'in',
                 quantity: quantityChange,
+                cost: newItem.costPerUnit, // Pass cost price
                 reason: 'Purchase Order Update - Quantity Increased',
                 reference: 'Purchase Order',
                 referenceId: updatedPO._id,
@@ -264,6 +265,7 @@ router.put('/:id/confirm', [
           productId: item.product,
           type: 'in',
           quantity: item.quantity,
+          cost: item.costPerUnit, // Pass cost price from purchase order
           reason: 'Purchase Order Confirmation',
           reference: 'Purchase Order',
           referenceId: purchaseOrder._id,
@@ -579,16 +581,19 @@ router.post('/:id/convert', [
     // Process each item
     for (const item of items) {
       try {
-        // Update inventory stock
+        // Update inventory stock with cost
         await Inventory.updateStock(
           item.product,
-          item.quantity,
-          'in', // Stock in
-          req.user._id,
-          `Purchase from PO: ${purchaseOrder.poNumber}`,
           {
-            costPerUnit: item.costPerUnit,
-            purchaseOrder: purchaseOrder._id
+            type: 'in',
+            quantity: item.quantity,
+            cost: item.costPerUnit, // Pass cost price from purchase order
+            reason: `Purchase from PO: ${purchaseOrder.poNumber}`,
+            reference: 'Purchase Order',
+            referenceId: purchaseOrder._id,
+            referenceModel: 'PurchaseOrder',
+            performedBy: req.user._id,
+            notes: `Stock increased from purchase order: ${purchaseOrder.poNumber}`
           }
         );
 

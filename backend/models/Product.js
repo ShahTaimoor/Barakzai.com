@@ -206,9 +206,24 @@ const productSchema = new mongoose.Schema({
   deletedAt: {
     type: Date,
     default: null
+  },
+  
+  // Costing Method
+  costingMethod: {
+    type: String,
+    enum: ['fifo', 'lifo', 'average', 'standard'],
+    default: 'standard' // Uses pricing.cost directly
+  },
+  
+  // Version for optimistic locking
+  version: {
+    type: Number,
+    default: 0
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  versionKey: '__v', // Enable Mongoose versioning
+  optimisticConcurrency: true // Enable optimistic concurrency control
 });
 
 // Indexes for better performance

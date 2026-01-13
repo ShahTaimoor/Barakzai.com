@@ -114,6 +114,29 @@ const accountSchema = new mongoose.Schema({
   lastReconciliationDate: {
     type: Date
   },
+  // Reconciliation Locking (CRITICAL: Prevents changes during reconciliation)
+  reconciliationStatus: {
+    status: {
+      type: String,
+      enum: ['not_started', 'in_progress', 'reconciled', 'discrepancy'],
+      default: 'not_started'
+    },
+    reconciledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reconciledAt: Date,
+    lastReconciliationDate: Date,
+    nextReconciliationDate: Date,
+    lockedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    lockedAt: Date,
+    lockExpiresAt: Date,
+    discrepancyAmount: Number,
+    discrepancyReason: String
+  },
   
   // Metadata
   notes: {
@@ -180,11 +203,61 @@ accountSchema.statics.getAccountHierarchy = async function() {
 
 // Method to update account balance
 accountSchema.methods.updateBalance = function(amount, isDebit) {
+  // CRITICAL: Prevent modifications during reconciliation
+  if (this.reconciliationStatus && 
+      this.reconciliationStatus.status === 'in_progress' &&
+      this.reconciliationStatus.lockedBy &&
+      this.reconciliationStatus.lockExpiresAt &&
+      this.reconciliationStatus.lockExpiresAt > new Date()) {
+    throw new Error(
+      `Cannot modify account ${this.accountCode} during reconciliation. ` +
+      `Account is locked by another user until ${this.reconciliationStatus.lockExpiresAt.toISOString()}`
+    );
+  }
+  
   if (this.normalBalance === 'debit') {
     this.currentBalance += isDebit ? amount : -amount;
   } else {
     this.currentBalance += isDebit ? -amount : amount;
   }
+  return this.save();
+};
+
+// Method to lock account for reconciliation
+accountSchema.methods.lockForReconciliation = function(userId, durationMinutes = 30) {
+  if (this.reconciliationStatus.lockedBy && 
+      this.reconciliationStatus.lockExpiresAt > new Date()) {
+    throw new Error('Account is already locked for reconciliation by another user');
+  }
+  
+  this.reconciliationStatus.status = 'in_progress';
+  this.reconciliationStatus.lockedBy = userId;
+  this.reconciliationStatus.lockedAt = new Date();
+  this.reconciliationStatus.lockExpiresAt = new Date(Date.now() + durationMinutes * 60000);
+  
+  return this.save();
+};
+
+// Method to unlock account after reconciliation
+accountSchema.methods.unlockAfterReconciliation = function(userId, reconciled = true, discrepancyAmount = null, discrepancyReason = null) {
+  if (this.reconciliationStatus.lockedBy && 
+      this.reconciliationStatus.lockedBy.toString() !== userId.toString()) {
+    throw new Error('Only the user who locked the account can unlock it');
+  }
+  
+  this.reconciliationStatus.status = reconciled ? 'reconciled' : 'discrepancy';
+  this.reconciliationStatus.reconciledBy = userId;
+  this.reconciliationStatus.reconciledAt = new Date();
+  this.reconciliationStatus.lastReconciliationDate = new Date();
+  this.reconciliationStatus.lockedBy = null;
+  this.reconciliationStatus.lockedAt = null;
+  this.reconciliationStatus.lockExpiresAt = null;
+  
+  if (discrepancyAmount !== null) {
+    this.reconciliationStatus.discrepancyAmount = discrepancyAmount;
+    this.reconciliationStatus.discrepancyReason = discrepancyReason;
+  }
+  
   return this.save();
 };
 

@@ -17,7 +17,7 @@ import {
   ShoppingCart,
   Package,
   User,
-  DollarSign,
+  TrendingUp,
   FileText,
   CheckCircle,
   Clock,
@@ -2106,7 +2106,7 @@ const totalProfit = useMemo(() => {
                         Cost
                       </label>
                       <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Last Purchase Price">
-                        {lastPurchasePrice !== null ? `$${Math.round(lastPurchasePrice)}` : selectedProduct ? 'N/A' : '$0'}
+                        {lastPurchasePrice !== null ? `${Math.round(lastPurchasePrice)}` : selectedProduct ? 'N/A' : '0'}
                       </span>
                     </div>
                   )}

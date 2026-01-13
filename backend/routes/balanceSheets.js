@@ -318,4 +318,167 @@ router.post('/:balanceSheetId/audit', [
   }
 });
 
+// @route   POST /api/balance-sheets/:balanceSheetId/export
+// @desc    Export balance sheet with audit trail
+// @access  Private (requires 'view_reports' permission)
+router.post('/:balanceSheetId/export', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('balanceSheetId').isMongoId().withMessage('Valid Balance Sheet ID is required'),
+  body('format').optional().isIn(['pdf', 'excel', 'csv']).withMessage('Valid format required'),
+  body('purpose').optional().trim().isLength({ max: 500 }).withMessage('Purpose too long'),
+  body('recipient').optional().trim().isLength({ max: 200 }).withMessage('Recipient too long'),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const { balanceSheetId } = req.params;
+    const { format = 'pdf', purpose, recipient } = req.body;
+    
+    const balanceSheet = await balanceSheetService.getBalanceSheetById(balanceSheetId);
+    if (!balanceSheet) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Balance sheet not found' 
+      });
+    }
+
+    // CRITICAL: Create export audit trail record
+    const FinancialStatementExport = require('../models/FinancialStatementExport');
+    const exportRecord = new FinancialStatementExport({
+      statementId: balanceSheet._id,
+      statementType: 'balance_sheet',
+      exportedBy: req.user._id,
+      format: format.toLowerCase(),
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent'),
+      purpose: purpose || 'Internal review',
+      recipient: recipient || null
+    });
+    await exportRecord.save();
+
+    // TODO: Implement actual export generation (similar to P&L export)
+    // For now, return export record
+    exportRecord.downloadUrl = `/api/balance-sheets/${balanceSheetId}/download?format=${format}&exportId=${exportRecord._id}`;
+    await exportRecord.save();
+
+    // Log to audit trail
+    const auditLogService = require('../services/auditLogService');
+    await auditLogService.logActivity(
+      req.user._id,
+      'BalanceSheet',
+      balanceSheetId,
+      'export',
+      `Exported balance sheet as ${format.toUpperCase()}`,
+      null,
+      { exportId: exportRecord._id, format: format.toLowerCase(), purpose, recipient },
+      req
+    );
+
+    res.json({
+      success: true,
+      message: 'Balance sheet export initiated',
+      export: {
+        exportId: exportRecord._id,
+        format: format.toLowerCase(),
+        downloadUrl: exportRecord.downloadUrl,
+        exportedAt: exportRecord.exportedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error exporting balance sheet:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error exporting balance sheet',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   GET /api/balance-sheets/:balanceSheetId/exports
+// @desc    Get all exports for a balance sheet
+// @access  Private (requires 'view_reports' permission)
+router.get('/:balanceSheetId/exports', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('balanceSheetId').isMongoId().withMessage('Valid Balance Sheet ID is required'),
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 })
+], async (req, res) => {
+  try {
+    const FinancialStatementExport = require('../models/FinancialStatementExport');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const exports = await FinancialStatementExport.find({ statementId: req.params.balanceSheetId })
+      .populate('exportedBy', 'firstName lastName email')
+      .populate('approvedBy', 'firstName lastName email')
+      .sort({ exportedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await FinancialStatementExport.countDocuments({ statementId: req.params.balanceSheetId });
+
+    res.json({
+      success: true,
+      data: exports,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting exports:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting exports',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   GET /api/balance-sheets/:balanceSheetId/versions
+// @desc    Get version history for a balance sheet
+// @access  Private (requires 'view_reports' permission)
+router.get('/:balanceSheetId/versions', [
+  auth,
+  requirePermission('view_reports'),
+  sanitizeRequest,
+  param('balanceSheetId').isMongoId().withMessage('Valid Balance Sheet ID is required')
+], async (req, res) => {
+  try {
+    const BalanceSheet = require('../models/BalanceSheet');
+    const balanceSheet = await BalanceSheet.findById(req.params.balanceSheetId)
+      .populate('auditTrail.performedBy', 'firstName lastName email');
+
+    if (!balanceSheet) {
+      return res.status(404).json({
+        success: false,
+        message: 'Balance sheet not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        balanceSheetId: balanceSheet._id,
+        statementNumber: balanceSheet.statementNumber,
+        auditTrail: balanceSheet.auditTrail || [],
+        version: balanceSheet.version || 1
+      }
+    });
+  } catch (error) {
+    console.error('Error getting version history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting version history',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;

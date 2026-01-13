@@ -3,7 +3,7 @@ import {
   X, 
   Tag, 
   Percent, 
-  DollarSign, 
+  TrendingUp, 
   Calendar, 
   Users, 
   Package, 
@@ -123,7 +123,7 @@ const DiscountDetailModal = ({
                     </>
                   ) : (
                     <>
-                      <DollarSign className="h-4 w-4 text-green-500 mr-1" />
+                      <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
                       <span className="text-lg font-semibold text-gray-900">{formatCurrency(discount.value)}</span>
                     </>
                   )}

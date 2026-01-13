@@ -2,6 +2,8 @@ const productRepository = require('../repositories/ProductRepository');
 const investorRepository = require('../repositories/InvestorRepository');
 const purchaseInvoiceRepository = require('../repositories/PurchaseInvoiceRepository');
 const Inventory = require('../models/Inventory');
+const auditLogService = require('./auditLogService');
+const costingService = require('./costingService');
 
 class ProductService {
   /**
@@ -215,9 +217,10 @@ class ProductService {
    * Create new product
    * @param {object} productData - Product data
    * @param {string} userId - User ID creating the product
+   * @param {object} req - Express request object (for audit logging)
    * @returns {Promise<{product: Product, message: string}>}
    */
-  async createProduct(productData, userId) {
+  async createProduct(productData, userId, req = null) {
     // Check if product name already exists
     if (productData.name) {
       const nameExists = await productRepository.nameExists(productData.name);
@@ -242,10 +245,16 @@ class ProductService {
       }
     }
 
+    // Set default costing method if not provided
+    if (!productData.costingMethod) {
+      productData.costingMethod = 'standard';
+    }
+
     const dataWithUser = {
       ...productData,
       createdBy: userId,
-      lastModifiedBy: userId
+      lastModifiedBy: userId,
+      version: 0 // Initialize version for optimistic locking
     };
 
     const product = await productRepository.create(dataWithUser);
@@ -264,12 +273,28 @@ class ProductService {
           shelf: 'S1'
         },
         movements: [],
+        cost: {
+          average: product.pricing?.cost || 0,
+          lastPurchase: product.pricing?.cost || 0,
+          fifo: []
+        },
         createdBy: userId
       });
       await inventoryRecord.save();
     } catch (inventoryError) {
       // Don't fail the product creation if inventory creation fails
       // Log error but continue
+      console.error('Inventory creation error:', inventoryError);
+    }
+
+    // Log audit trail
+    try {
+      if (req) {
+        await auditLogService.logProductCreation(product, { _id: userId }, req);
+      }
+    } catch (auditError) {
+      // Don't fail product creation if audit logging fails
+      console.error('Audit logging error:', auditError);
     }
 
     return {
@@ -279,13 +304,25 @@ class ProductService {
   }
 
   /**
-   * Update product
+   * Update product with optimistic locking
    * @param {string} id - Product ID
    * @param {object} updateData - Data to update
    * @param {string} userId - User ID updating the product
+   * @param {object} req - Express request object (for audit logging)
    * @returns {Promise<{product: Product, message: string}>}
    */
-  async updateProduct(id, updateData, userId) {
+  async updateProduct(id, updateData, userId, req = null) {
+    // Get current product for optimistic locking check
+    const currentProduct = await productRepository.findById(id);
+    if (!currentProduct) {
+      throw new Error('Product not found');
+    }
+
+    // Check version for optimistic locking
+    if (updateData.version !== undefined && updateData.version !== currentProduct.__v) {
+      throw new Error('Product was modified by another user. Please refresh and try again.');
+    }
+
     // Check if product name already exists (excluding current product)
     if (updateData.name) {
       const nameExists = await productRepository.nameExists(updateData.name, id);
@@ -310,22 +347,44 @@ class ProductService {
       }
     }
 
+    // Remove version from updateData (Mongoose handles __v automatically)
+    const { version, ...dataToUpdate } = updateData;
+
     const dataWithUser = {
-      ...updateData,
+      ...dataToUpdate,
       lastModifiedBy: userId
     };
 
-    const product = await productRepository.updateById(id, dataWithUser, {
-      new: true,
-      runValidators: true
-    });
+    // Use findOneAndUpdate with version check for atomic update
+    const updatedProduct = await productRepository.Model.findOneAndUpdate(
+      { _id: id, __v: currentProduct.__v }, // Include version in filter
+      { $set: dataWithUser, $inc: { __v: 1 } }, // Increment version
+      { new: true, runValidators: true }
+    );
 
-    if (!product) {
-      throw new Error('Product not found');
+    if (!updatedProduct) {
+      throw new Error('Product was modified by another user. Please refresh and try again.');
+    }
+
+    // Log audit trail
+    try {
+      if (req) {
+        const reason = updateData.reason || 'Product updated';
+        await auditLogService.logProductUpdate(
+          currentProduct,
+          updatedProduct,
+          { _id: userId },
+          req,
+          reason
+        );
+      }
+    } catch (auditError) {
+      // Don't fail update if audit logging fails
+      console.error('Audit logging error:', auditError);
     }
 
     return {
-      product,
+      product: updatedProduct,
       message: 'Product updated successfully'
     };
   }
@@ -333,15 +392,25 @@ class ProductService {
   /**
    * Delete product (soft delete)
    * @param {string} id - Product ID
+   * @param {object} req - Express request object (for audit logging)
    * @returns {Promise<{message: string}>}
    */
-  async deleteProduct(id) {
+  async deleteProduct(id, req = null) {
     const product = await productRepository.findById(id);
     if (!product) {
       throw new Error('Product not found');
     }
 
     await productRepository.softDelete(id);
+
+    // Log audit trail
+    try {
+      if (req) {
+        await auditLogService.logProductDeletion(product, { _id: req.user?._id }, req);
+      }
+    } catch (auditError) {
+      console.error('Audit logging error:', auditError);
+    }
 
     return {
       message: 'Product deleted successfully'

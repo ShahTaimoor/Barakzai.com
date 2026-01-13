@@ -14,7 +14,7 @@ import {
   Package,
   TrendingUp,
   Users,
-  DollarSign
+  TrendingUp
 } from 'lucide-react';
 import {
   useGetReturnsQuery,
@@ -483,8 +483,8 @@ const Returns = () => {
           />
           <ReturnStatsCard
             title="Total Refunds"
-            value={`$${(stats.totalRefundAmount || 0).toFixed(2)}`}
-            icon={<DollarSign className="h-5 w-5" />}
+            value={`${(stats.totalRefundAmount || 0).toFixed(2)}`}
+            icon={<TrendingUp className="h-5 w-5" />}
             color="green"
           />
           <ReturnStatsCard
