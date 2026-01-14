@@ -30,7 +30,8 @@ import {
 } from '../store/services/cashReceiptsApi';
 import { useGetSuppliersQuery } from '../store/services/suppliersApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
-import { useQueryClient } from '@reduxjs/toolkit/query/react';
+import { useAppDispatch } from '../store/hooks';
+import { api } from '../store/api';
 import PrintModal from '../components/PrintModal';
 
 // Helper function to get local date in YYYY-MM-DD format (avoids timezone issues with toISOString)
@@ -95,7 +96,7 @@ const CashReceipts = () => {
   } = useGetCashReceiptsQuery({ ...filters, ...pagination, sortConfig }, { refetchOnMountOrArgChange: true });
 
   const [getCustomer] = useLazyGetCustomerQuery();
-  const queryClient = useQueryClient();
+  const dispatch = useAppDispatch();
 
   // Fetch customers for dropdown
   const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
@@ -194,7 +195,7 @@ const CashReceipts = () => {
           });
           
           // Update the customersData cache for this specific customer
-          queryClient.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
+          dispatch(api.util.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
             if (!oldData) return oldData;
             const customers = oldData?.data?.customers || oldData?.customers || oldData?.data || [];
             const updatedCustomers = customers.map(c => 
@@ -208,7 +209,7 @@ const CashReceipts = () => {
               },
               customers: updatedCustomers
             };
-          });
+          }));
         }
       } catch (error) {
         // Silently fail - keep cached data if fetch fails
@@ -375,7 +376,7 @@ const CashReceipts = () => {
           });
           
           // Update customer in cache immediately
-          queryClient.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
+          dispatch(api.util.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
             if (!oldData) return oldData;
             const customers = oldData?.data?.customers || oldData?.customers || oldData?.data || [];
             const updatedCustomers = customers.map(c => {
@@ -393,10 +394,10 @@ const CashReceipts = () => {
               },
               customers: updatedCustomers
             };
-          });
+          }));
           
           // Also update individual customer query cache
-          queryClient.setQueryData(['getCustomer', formData.customer], (oldData) => {
+          dispatch(api.util.setQueryData(['getCustomer', formData.customer], (oldData) => {
             if (!oldData) return oldData;
             const customer = oldData?.data?.customer || oldData?.customer || oldData?.data || oldData;
             const newAdvanceBalance = (customer.advanceBalance || 0) + receiptAmount;
@@ -408,7 +409,7 @@ const CashReceipts = () => {
               },
               customer: { ...customer, advanceBalance: newAdvanceBalance }
             };
-          });
+          }));
           
           // Refetch to get accurate data from server
           refetchCustomers();
@@ -422,7 +423,7 @@ const CashReceipts = () => {
           });
           
           // Update supplier in cache immediately
-          queryClient.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
+          dispatch(api.util.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
             if (!oldData) return oldData;
             const suppliers = oldData?.data?.suppliers || oldData?.suppliers || oldData?.data || [];
             const updatedSuppliers = suppliers.map(s => {
@@ -440,7 +441,7 @@ const CashReceipts = () => {
               },
               suppliers: updatedSuppliers
             };
-          });
+          }));
           
           // Refetch to get accurate data from server
           refetchSuppliers();
@@ -490,7 +491,7 @@ const CashReceipts = () => {
           });
           
           // Update customer in cache immediately
-          queryClient.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
+          dispatch(api.util.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
             if (!oldData) return oldData;
             const customers = oldData?.data?.customers || oldData?.customers || oldData?.data || [];
             const updatedCustomers = customers.map(c => {
@@ -508,10 +509,10 @@ const CashReceipts = () => {
               },
               customers: updatedCustomers
             };
-          });
+          }));
           
           // Also update individual customer query cache
-          queryClient.setQueryData(['getCustomer', formData.customer], (oldData) => {
+          dispatch(api.util.setQueryData(['getCustomer', formData.customer], (oldData) => {
             if (!oldData) return oldData;
             const customer = oldData?.data?.customer || oldData?.customer || oldData?.data || oldData;
             const newAdvanceBalance = (customer.advanceBalance || 0) + amountDifference;
@@ -523,7 +524,7 @@ const CashReceipts = () => {
               },
               customer: { ...customer, advanceBalance: newAdvanceBalance }
             };
-          });
+          }));
           
           // Refetch to get accurate data from server
           refetchCustomers();
@@ -536,7 +537,7 @@ const CashReceipts = () => {
           });
           
           // Update supplier in cache immediately
-          queryClient.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
+          dispatch(api.util.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
             if (!oldData) return oldData;
             const suppliers = oldData?.data?.suppliers || oldData?.suppliers || oldData?.data || [];
             const updatedSuppliers = suppliers.map(s => {
@@ -554,7 +555,7 @@ const CashReceipts = () => {
               },
               suppliers: updatedSuppliers
             };
-          });
+          }));
           
           // Refetch to get accurate data from server
           refetchSuppliers();
@@ -592,7 +593,7 @@ const CashReceipts = () => {
             });
             
             // Update customer in cache immediately
-            queryClient.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
+            dispatch(api.util.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
               if (!oldData) return oldData;
               const customers = oldData?.data?.customers || oldData?.customers || oldData?.data || [];
               const updatedCustomers = customers.map(c => {
@@ -610,10 +611,10 @@ const CashReceipts = () => {
                 },
                 customers: updatedCustomers
               };
-            });
+            }));
             
             // Also update individual customer query cache
-            queryClient.setQueryData(['getCustomer', receiptCustomer], (oldData) => {
+            dispatch(api.util.setQueryData(['getCustomer', receiptCustomer], (oldData) => {
               if (!oldData) return oldData;
               const customer = oldData?.data?.customer || oldData?.customer || oldData?.data || oldData;
               const newAdvanceBalance = Math.max(0, (customer.advanceBalance || 0) - receiptAmount);
@@ -625,7 +626,7 @@ const CashReceipts = () => {
                 },
                 customer: { ...customer, advanceBalance: newAdvanceBalance }
               };
-            });
+            }));
             
             // Refetch to get accurate data from server
             refetchCustomers();
@@ -640,7 +641,7 @@ const CashReceipts = () => {
             });
             
             // Update supplier in cache immediately
-            queryClient.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
+            dispatch(api.util.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
               if (!oldData) return oldData;
               const suppliers = oldData?.data?.suppliers || oldData?.suppliers || oldData?.data || [];
               const updatedSuppliers = suppliers.map(s => {
@@ -658,7 +659,7 @@ const CashReceipts = () => {
                 },
                 suppliers: updatedSuppliers
               };
-            });
+            }));
             
             // Refetch to get accurate data from server
             refetchSuppliers();
