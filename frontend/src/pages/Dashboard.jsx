@@ -134,9 +134,17 @@ export const Dashboard = () => {
     }
   };
 
-  const { data: todaySummary, isLoading: summaryLoading } = useGetTodaySummaryQuery(undefined, {
+  const { data: todaySummary, isLoading: summaryLoading, error: todaySummaryError } = useGetTodaySummaryQuery(undefined, {
     pollingInterval: 30000, // Refetch every 30 seconds
   });
+
+  // Debug: Log the summary data to see what we're getting
+  if (todaySummary) {
+    console.log('Today Summary Data:', todaySummary);
+  }
+  if (todaySummaryError) {
+    console.error('Today Summary Error:', todaySummaryError);
+  }
 
   const { data: lowStockData, isLoading: lowStockLoading } = useGetLowStockItemsQuery();
 
@@ -222,11 +230,13 @@ export const Dashboard = () => {
     );
   }
 
-  const summary = todaySummary?.data?.summary || {};
-  const lowStockCount = lowStockData?.data?.products?.length || 0;
-  const inventorySummary = inventoryData?.data?.summary || {};
+  // Handle different response structures from RTK Query
+  // RTK Query wraps responses in 'data', but some APIs return data directly
+  const summary = todaySummary?.data?.summary || todaySummary?.summary || {};
+  const lowStockCount = lowStockData?.data?.products?.length || lowStockData?.products?.length || 0;
+  const inventorySummary = inventoryData?.data?.summary || inventoryData?.summary || {};
   
-  const activeCustomersCount = customersData?.data?.customers?.length || 0;
+  const activeCustomersCount = customersData?.data?.customers?.length || customersData?.customers?.length || 0;
   
   // Extract counts from API responses
   const pendingSalesOrdersCount = pendingSalesOrdersData?.data?.salesOrders?.length || pendingSalesOrdersData?.salesOrders?.length || 0;
