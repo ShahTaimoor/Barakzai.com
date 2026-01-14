@@ -618,14 +618,20 @@ class CustomerService {
         ? customer.addresses.find(addr => addr.isDefault) || customer.addresses[0]
         : null;
 
+      // Calculate currentBalance to match account ledger closingBalance
+      // currentBalance = pendingBalance - advanceBalance (net balance)
+      const currentBalance = customer.currentBalance !== undefined 
+        ? customer.currentBalance 
+        : (customer.pendingBalance || 0) - (customer.advanceBalance || 0);
+      
       return {
         _id: customer._id,
         accountName: customer.businessName || customer.name,
         name: customer.name,
         businessName: customer.businessName,
         city: defaultAddress?.city || '',
-        balance: customer.pendingBalance || 0,
-        currentBalance: customer.currentBalance || 0,
+        balance: currentBalance, // Use currentBalance (net balance) to match account ledger
+        currentBalance: currentBalance,
         pendingBalance: customer.pendingBalance || 0,
         advanceBalance: customer.advanceBalance || 0
       };

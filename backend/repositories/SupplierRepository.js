@@ -65,8 +65,20 @@ class SupplierRepository extends BaseRepository {
       queryBuilder = queryBuilder.select(select);
     }
     
+    // Validate and apply sort - only if sort is a valid value
     if (sort) {
-      queryBuilder = queryBuilder.sort(sort);
+      // Ensure sort is a valid type (string, object, array, or map)
+      // Empty objects {} are invalid for MongoDB sort
+      const isValidSort = 
+        typeof sort === 'string' ||
+        (typeof sort === 'object' && sort !== null && Object.keys(sort).length > 0) ||
+        Array.isArray(sort);
+      
+      if (isValidSort) {
+        queryBuilder = queryBuilder.sort(sort);
+      } else {
+        console.warn('Invalid sort parameter provided, skipping sort:', sort);
+      }
     }
     
     if (skip !== undefined) {

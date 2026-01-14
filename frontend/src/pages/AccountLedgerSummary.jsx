@@ -91,8 +91,11 @@ const AccountLedgerSummary = () => {
     return params;
   }, [filters, selectedCustomerId, selectedSupplierId]);
 
-  // Fetch ledger summary
+  // Fetch ledger summary - refetch on mount and when args change to ensure fresh data
   const { data: summaryData, isLoading, error, refetch } = useGetLedgerSummaryQuery(queryParams, {
+    refetchOnMountOrArgChange: true, // Always refetch on mount or when query params change
+    refetchOnFocus: true, // Refetch when window regains focus
+    refetchOnReconnect: true, // Refetch when connection is restored
     onError: (error) => handleApiError(error, 'Error fetching ledger summary')
   });
 

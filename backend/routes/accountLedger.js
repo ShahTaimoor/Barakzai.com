@@ -372,8 +372,10 @@ router.get('/all-entries', [
 
     cashReceipts.forEach(receipt => {
       if (!accountCode || accountCode === cashCode) {
+        const entryDate = receipt.createdAt || receipt.date || new Date();
         allEntries.push({
-          date: receipt.createdAt,
+          date: entryDate,
+          datetime: new Date(entryDate).getTime(), // For precise sorting
           accountCode: cashCode,
           accountName: 'Cash',
           description: `Cash Receipt: ${receipt.particular}`,
@@ -399,8 +401,10 @@ router.get('/all-entries', [
 
     cashPayments.forEach(payment => {
       if (!accountCode || accountCode === cashCode) {
+        const entryDate = payment.createdAt || payment.date || new Date();
         allEntries.push({
-          date: payment.createdAt,
+          date: entryDate,
+          datetime: new Date(entryDate).getTime(), // For precise sorting
           accountCode: cashCode,
           accountName: 'Cash',
           description: `Cash Payment: ${payment.particular}`,
@@ -426,8 +430,10 @@ router.get('/all-entries', [
 
     bankReceipts.forEach(receipt => {
       if (!accountCode || accountCode === bankCode) {
+        const entryDate = receipt.createdAt || receipt.date || new Date();
         allEntries.push({
-          date: receipt.createdAt,
+          date: entryDate,
+          datetime: new Date(entryDate).getTime(), // For precise sorting
           accountCode: bankCode,
           accountName: 'Bank',
           description: `Bank Receipt: ${receipt.particular}`,
@@ -453,8 +459,10 @@ router.get('/all-entries', [
 
     bankPayments.forEach(payment => {
       if (!accountCode || accountCode === bankCode) {
+        const entryDate = payment.createdAt || payment.date || new Date();
         allEntries.push({
-          date: payment.createdAt,
+          date: entryDate,
+          datetime: new Date(entryDate).getTime(), // For precise sorting
           accountCode: bankCode,
           accountName: 'Bank',
           description: `Bank Payment: ${payment.particular}`,
@@ -514,8 +522,10 @@ router.get('/all-entries', [
           ? `${transaction.createdBy.firstName || ''} ${transaction.createdBy.lastName || ''}`.trim()
           : '';
 
+        const entryDate = transaction.createdAt || transaction.date || new Date();
         allEntries.push({
-          date: transaction.createdAt || transaction.date,
+          date: entryDate,
+          datetime: new Date(entryDate).getTime(), // For precise sorting
           accountCode: transaction.accountCode,
           accountName: accountMap[transaction.accountCode] || transaction.accountCode,
           description: transaction.description || `${transaction.type || 'Transaction'}: ${transaction.transactionId || ''}`,
@@ -531,8 +541,22 @@ router.get('/all-entries', [
       }
     });
 
-    // Sort all entries by date
-    allEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Add datetime field to all entries that don't have it for consistent sorting
+    allEntries.forEach(entry => {
+      if (!entry.datetime) {
+        entry.datetime = new Date(entry.date).getTime();
+      }
+    });
+
+    // Sort all entries by datetime (chronological order - step by step)
+    allEntries.sort((a, b) => {
+      // First sort by datetime (includes time)
+      const dateDiff = (a.datetime || new Date(a.date).getTime()) - (b.datetime || new Date(b.date).getTime());
+      if (dateDiff !== 0) return dateDiff;
+      // If same datetime, sort by source type for consistency
+      const sourceOrder = { 'Cash Receipt': 1, 'Bank Receipt': 2, 'Cash Payment': 3, 'Bank Payment': 4, 'Transaction': 5, 'Sale': 6 };
+      return (sourceOrder[a.source] || 99) - (sourceOrder[b.source] || 99);
+    });
 
     // Filter entries by account name if provided
     let filteredEntries = allEntries;
@@ -786,6 +810,13 @@ router.get('/summary', [
   try {
     const { startDate, endDate, customerId, supplierId, search } = req.query;
     
+    // Set headers to prevent caching - ensure fresh data on every request
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
     // Call service method to get ledger summary
     const result = await accountLedgerService.getLedgerSummary({
       startDate,
@@ -989,8 +1020,11 @@ router.get('/customer/:customerId/transactions', [
     sales.forEach(sale => {
       const saleTotal = sale.pricing?.total || sale.total || 0;
       if (saleTotal > 0) { // Only add sales with positive amounts
+        // Use createdAt for precise datetime (includes time)
+        const entryDate = sale.createdAt || sale.date || new Date();
         allEntries.push({
-          date: sale.createdAt,
+          date: entryDate,
+          datetime: new Date(entryDate).getTime(), // For precise sorting
           voucherNo: sale.orderNumber || '',
           particular: `Sale: ${sale.orderNumber || sale._id}`,
           debitAmount: saleTotal,
@@ -1002,8 +1036,11 @@ router.get('/customer/:customerId/transactions', [
     
     // Add cash receipts (CREDITS - decreases receivables)
     cashReceipts.forEach(receipt => {
+      // Prefer createdAt for time precision, fallback to date
+      const entryDate = receipt.createdAt || receipt.date || new Date();
       allEntries.push({
-        date: receipt.date || receipt.createdAt,
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
         voucherNo: receipt.voucherCode || '',
         particular: receipt.particular || `Cash Receipt: ${receipt.voucherCode || receipt._id}`,
         debitAmount: 0,
@@ -1014,8 +1051,11 @@ router.get('/customer/:customerId/transactions', [
     
     // Add bank receipts (CREDITS - decreases receivables)
     bankReceipts.forEach(receipt => {
+      // Prefer createdAt for time precision, fallback to date
+      const entryDate = receipt.createdAt || receipt.date || new Date();
       allEntries.push({
-        date: receipt.date || receipt.createdAt,
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
         voucherNo: receipt.voucherCode || receipt.transactionReference || '',
         particular: receipt.particular || `Bank Receipt: ${receipt.voucherCode || receipt._id}`,
         debitAmount: 0,
@@ -1026,8 +1066,11 @@ router.get('/customer/:customerId/transactions', [
     
     // Add cash payments (DEBITS - increases receivables/advance)
     cashPayments.forEach(payment => {
+      // Prefer createdAt for time precision, fallback to date
+      const entryDate = payment.createdAt || payment.date || new Date();
       allEntries.push({
-        date: payment.date || payment.createdAt,
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
         voucherNo: payment.voucherCode || '',
         particular: payment.particular || `Cash Payment: ${payment.voucherCode || payment._id}`,
         debitAmount: payment.amount || 0,
@@ -1038,8 +1081,11 @@ router.get('/customer/:customerId/transactions', [
     
     // Add bank payments (DEBITS - increases receivables/advance)
     bankPayments.forEach(payment => {
+      // Prefer createdAt for time precision, fallback to date
+      const entryDate = payment.createdAt || payment.date || new Date();
       allEntries.push({
-        date: payment.date || payment.createdAt,
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
         voucherNo: payment.voucherCode || payment.transactionReference || '',
         particular: payment.particular || `Bank Payment: ${payment.voucherCode || payment._id}`,
         debitAmount: payment.amount || 0,
@@ -1048,8 +1094,15 @@ router.get('/customer/:customerId/transactions', [
       });
     });
     
-    // Sort all entries by date
-    allEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Sort all entries by datetime (chronological order - step by step)
+    allEntries.sort((a, b) => {
+      // First sort by datetime (includes time)
+      const dateDiff = (a.datetime || new Date(a.date).getTime()) - (b.datetime || new Date(b.date).getTime());
+      if (dateDiff !== 0) return dateDiff;
+      // If same datetime, sort by source type for consistency
+      const sourceOrder = { 'Cash Receipt': 1, 'Bank Receipt': 2, 'Cash Payment': 3, 'Bank Payment': 4, 'Sale': 5 };
+      return (sourceOrder[a.source] || 99) - (sourceOrder[b.source] || 99);
+    });
     
     // Calculate running balance
     let runningBalance = openingBalance;
@@ -1211,8 +1264,11 @@ router.get('/supplier/:supplierId/transactions', [
     
     // Add purchases (CREDITS - increases payables)
     purchases.forEach(purchase => {
+      // Use createdAt for precise datetime (includes time)
+      const entryDate = purchase.createdAt || purchase.date || new Date();
       allEntries.push({
-        date: purchase.createdAt,
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
         voucherNo: purchase.poNumber || '',
         particular: `Purchase: ${purchase.poNumber || purchase._id}`,
         debitAmount: 0,
@@ -1223,8 +1279,11 @@ router.get('/supplier/:supplierId/transactions', [
     
     // Add cash payments (DEBITS - decreases payables)
     cashPayments.forEach(payment => {
+      // Prefer createdAt for time precision, fallback to date
+      const entryDate = payment.createdAt || payment.date || new Date();
       allEntries.push({
-        date: payment.date || payment.createdAt,
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
         voucherNo: payment.voucherCode || '',
         particular: payment.particular || `Cash Payment: ${payment.voucherCode || payment._id}`,
         debitAmount: payment.amount || 0,
@@ -1235,8 +1294,11 @@ router.get('/supplier/:supplierId/transactions', [
     
     // Add bank payments (DEBITS - decreases payables)
     bankPayments.forEach(payment => {
+      // Prefer createdAt for time precision, fallback to date
+      const entryDate = payment.createdAt || payment.date || new Date();
       allEntries.push({
-        date: payment.date || payment.createdAt,
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
         voucherNo: payment.voucherCode || payment.transactionReference || '',
         particular: payment.particular || `Bank Payment: ${payment.voucherCode || payment._id}`,
         debitAmount: payment.amount || 0,
@@ -1245,8 +1307,15 @@ router.get('/supplier/:supplierId/transactions', [
       });
     });
     
-    // Sort all entries by date
-    allEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Sort all entries by datetime (chronological order - step by step)
+    allEntries.sort((a, b) => {
+      // First sort by datetime (includes time)
+      const dateDiff = (a.datetime || new Date(a.date).getTime()) - (b.datetime || new Date(b.date).getTime());
+      if (dateDiff !== 0) return dateDiff;
+      // If same datetime, sort by source type for consistency
+      const sourceOrder = { 'Cash Payment': 1, 'Bank Payment': 2, 'Purchase': 3 };
+      return (sourceOrder[a.source] || 99) - (sourceOrder[b.source] || 99);
+    });
     
     // Calculate running balance
     let runningBalance = openingBalance;

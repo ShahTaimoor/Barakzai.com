@@ -30,6 +30,7 @@ import {
 } from '../store/services/cashReceiptsApi';
 import { useGetSuppliersQuery } from '../store/services/suppliersApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
+import { useQueryClient } from '@reduxjs/toolkit/query/react';
 import PrintModal from '../components/PrintModal';
 
 // Helper function to get local date in YYYY-MM-DD format (avoids timezone issues with toISOString)
@@ -94,6 +95,7 @@ const CashReceipts = () => {
   } = useGetCashReceiptsQuery({ ...filters, ...pagination, sortConfig }, { refetchOnMountOrArgChange: true });
 
   const [getCustomer] = useLazyGetCustomerQuery();
+  const queryClient = useQueryClient();
 
   // Fetch customers for dropdown
   const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
@@ -361,10 +363,86 @@ const CashReceipts = () => {
         resetForm();
         showSuccessToast('Cash receipt created successfully');
         refetch();
-        // Refetch customer/supplier data to update balances immediately
-        if (paymentType === 'customer' && formData.customer) {
+        
+        // Immediately update customer/supplier balance without waiting for refetch
+        if (paymentType === 'customer' && formData.customer && selectedCustomer) {
+          const receiptAmount = parseFloat(cleanedData.amount) || 0;
+          // Update selected customer balance optimistically
+          setSelectedCustomer(prev => {
+            if (!prev) return prev;
+            const newAdvanceBalance = (prev.advanceBalance || 0) + receiptAmount;
+            return { ...prev, advanceBalance: newAdvanceBalance };
+          });
+          
+          // Update customer in cache immediately
+          queryClient.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
+            if (!oldData) return oldData;
+            const customers = oldData?.data?.customers || oldData?.customers || oldData?.data || [];
+            const updatedCustomers = customers.map(c => {
+              if (c._id === formData.customer) {
+                const newAdvanceBalance = (c.advanceBalance || 0) + receiptAmount;
+                return { ...c, advanceBalance: newAdvanceBalance };
+              }
+              return c;
+            });
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                customers: updatedCustomers
+              },
+              customers: updatedCustomers
+            };
+          });
+          
+          // Also update individual customer query cache
+          queryClient.setQueryData(['getCustomer', formData.customer], (oldData) => {
+            if (!oldData) return oldData;
+            const customer = oldData?.data?.customer || oldData?.customer || oldData?.data || oldData;
+            const newAdvanceBalance = (customer.advanceBalance || 0) + receiptAmount;
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                customer: { ...customer, advanceBalance: newAdvanceBalance }
+              },
+              customer: { ...customer, advanceBalance: newAdvanceBalance }
+            };
+          });
+          
+          // Refetch to get accurate data from server
           refetchCustomers();
-        } else if (paymentType === 'supplier' && formData.supplier) {
+        } else if (paymentType === 'supplier' && formData.supplier && selectedSupplier) {
+          const receiptAmount = parseFloat(cleanedData.amount) || 0;
+          // Update selected supplier balance optimistically
+          setSelectedSupplier(prev => {
+            if (!prev) return prev;
+            const newAdvanceBalance = (prev.advanceBalance || 0) + receiptAmount;
+            return { ...prev, advanceBalance: newAdvanceBalance };
+          });
+          
+          // Update supplier in cache immediately
+          queryClient.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
+            if (!oldData) return oldData;
+            const suppliers = oldData?.data?.suppliers || oldData?.suppliers || oldData?.data || [];
+            const updatedSuppliers = suppliers.map(s => {
+              if (s._id === formData.supplier) {
+                const newAdvanceBalance = (s.advanceBalance || 0) + receiptAmount;
+                return { ...s, advanceBalance: newAdvanceBalance };
+              }
+              return s;
+            });
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                suppliers: updatedSuppliers
+              },
+              suppliers: updatedSuppliers
+            };
+          });
+          
+          // Refetch to get accurate data from server
           refetchSuppliers();
         }
       })
@@ -389,6 +467,10 @@ const CashReceipts = () => {
       cleanedData.supplier = formData.supplier;
     }
     
+    const oldAmount = selectedReceipt?.amount || 0;
+    const newAmount = parseFloat(cleanedData.amount) || 0;
+    const amountDifference = newAmount - oldAmount;
+    
     updateCashReceipt({ id: selectedReceipt._id, ...cleanedData })
       .unwrap()
       .then(() => {
@@ -397,10 +479,84 @@ const CashReceipts = () => {
         resetForm();
         showSuccessToast('Cash receipt updated successfully');
         refetch();
-        // Refetch customer/supplier data to update balances immediately
-        if (paymentType === 'customer' && formData.customer) {
+        
+        // Immediately update customer/supplier balance without waiting for refetch
+        if (paymentType === 'customer' && formData.customer && selectedCustomer && amountDifference !== 0) {
+          // Update selected customer balance optimistically (add the difference)
+          setSelectedCustomer(prev => {
+            if (!prev) return prev;
+            const newAdvanceBalance = (prev.advanceBalance || 0) + amountDifference;
+            return { ...prev, advanceBalance: newAdvanceBalance };
+          });
+          
+          // Update customer in cache immediately
+          queryClient.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
+            if (!oldData) return oldData;
+            const customers = oldData?.data?.customers || oldData?.customers || oldData?.data || [];
+            const updatedCustomers = customers.map(c => {
+              if (c._id === formData.customer) {
+                const newAdvanceBalance = (c.advanceBalance || 0) + amountDifference;
+                return { ...c, advanceBalance: newAdvanceBalance };
+              }
+              return c;
+            });
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                customers: updatedCustomers
+              },
+              customers: updatedCustomers
+            };
+          });
+          
+          // Also update individual customer query cache
+          queryClient.setQueryData(['getCustomer', formData.customer], (oldData) => {
+            if (!oldData) return oldData;
+            const customer = oldData?.data?.customer || oldData?.customer || oldData?.data || oldData;
+            const newAdvanceBalance = (customer.advanceBalance || 0) + amountDifference;
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                customer: { ...customer, advanceBalance: newAdvanceBalance }
+              },
+              customer: { ...customer, advanceBalance: newAdvanceBalance }
+            };
+          });
+          
+          // Refetch to get accurate data from server
           refetchCustomers();
-        } else if (paymentType === 'supplier' && formData.supplier) {
+        } else if (paymentType === 'supplier' && formData.supplier && selectedSupplier && amountDifference !== 0) {
+          // Update selected supplier balance optimistically (add the difference)
+          setSelectedSupplier(prev => {
+            if (!prev) return prev;
+            const newAdvanceBalance = (prev.advanceBalance || 0) + amountDifference;
+            return { ...prev, advanceBalance: newAdvanceBalance };
+          });
+          
+          // Update supplier in cache immediately
+          queryClient.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
+            if (!oldData) return oldData;
+            const suppliers = oldData?.data?.suppliers || oldData?.suppliers || oldData?.data || [];
+            const updatedSuppliers = suppliers.map(s => {
+              if (s._id === formData.supplier) {
+                const newAdvanceBalance = (s.advanceBalance || 0) + amountDifference;
+                return { ...s, advanceBalance: newAdvanceBalance };
+              }
+              return s;
+            });
+            return {
+              ...oldData,
+              data: {
+                ...oldData.data,
+                suppliers: updatedSuppliers
+              },
+              suppliers: updatedSuppliers
+            };
+          });
+          
+          // Refetch to get accurate data from server
           refetchSuppliers();
         }
       })
@@ -409,13 +565,104 @@ const CashReceipts = () => {
       });
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (receiptOrId) => {
+    // Handle both receipt object and id string
+    const receiptId = typeof receiptOrId === 'string' ? receiptOrId : receiptOrId._id;
+    const receipt = typeof receiptOrId === 'object' ? receiptOrId : null;
+    const receiptAmount = receipt ? (parseFloat(receipt.amount) || 0) : 0;
+    const receiptCustomer = receipt?.customer?._id || receipt?.customer || null;
+    const receiptSupplier = receipt?.supplier?._id || receipt?.supplier || null;
+    
     if (window.confirm('Are you sure you want to delete this cash receipt?')) {
-      deleteCashReceipt(id)
+      deleteCashReceipt(receiptId)
         .unwrap()
         .then(() => {
           showSuccessToast('Cash receipt deleted successfully');
           refetch();
+          
+          // Immediately update customer/supplier balance without waiting for refetch
+          if (receiptCustomer && receiptAmount > 0) {
+            // Subtract the amount from customer balance
+            setSelectedCustomer(prev => {
+              if (prev && prev._id === receiptCustomer) {
+                const newAdvanceBalance = Math.max(0, (prev.advanceBalance || 0) - receiptAmount);
+                return { ...prev, advanceBalance: newAdvanceBalance };
+              }
+              return prev;
+            });
+            
+            // Update customer in cache immediately
+            queryClient.setQueryData(['customers', { search: '', limit: 100 }], (oldData) => {
+              if (!oldData) return oldData;
+              const customers = oldData?.data?.customers || oldData?.customers || oldData?.data || [];
+              const updatedCustomers = customers.map(c => {
+                if (c._id === receiptCustomer) {
+                  const newAdvanceBalance = Math.max(0, (c.advanceBalance || 0) - receiptAmount);
+                  return { ...c, advanceBalance: newAdvanceBalance };
+                }
+                return c;
+              });
+              return {
+                ...oldData,
+                data: {
+                  ...oldData.data,
+                  customers: updatedCustomers
+                },
+                customers: updatedCustomers
+              };
+            });
+            
+            // Also update individual customer query cache
+            queryClient.setQueryData(['getCustomer', receiptCustomer], (oldData) => {
+              if (!oldData) return oldData;
+              const customer = oldData?.data?.customer || oldData?.customer || oldData?.data || oldData;
+              const newAdvanceBalance = Math.max(0, (customer.advanceBalance || 0) - receiptAmount);
+              return {
+                ...oldData,
+                data: {
+                  ...oldData.data,
+                  customer: { ...customer, advanceBalance: newAdvanceBalance }
+                },
+                customer: { ...customer, advanceBalance: newAdvanceBalance }
+              };
+            });
+            
+            // Refetch to get accurate data from server
+            refetchCustomers();
+          } else if (receiptSupplier && receiptAmount > 0) {
+            // Subtract the amount from supplier balance
+            setSelectedSupplier(prev => {
+              if (prev && prev._id === receiptSupplier) {
+                const newAdvanceBalance = Math.max(0, (prev.advanceBalance || 0) - receiptAmount);
+                return { ...prev, advanceBalance: newAdvanceBalance };
+              }
+              return prev;
+            });
+            
+            // Update supplier in cache immediately
+            queryClient.setQueryData(['suppliers', { search: '', limit: 100 }], (oldData) => {
+              if (!oldData) return oldData;
+              const suppliers = oldData?.data?.suppliers || oldData?.suppliers || oldData?.data || [];
+              const updatedSuppliers = suppliers.map(s => {
+                if (s._id === receiptSupplier) {
+                  const newAdvanceBalance = Math.max(0, (s.advanceBalance || 0) - receiptAmount);
+                  return { ...s, advanceBalance: newAdvanceBalance };
+                }
+                return s;
+              });
+              return {
+                ...oldData,
+                data: {
+                  ...oldData.data,
+                  suppliers: updatedSuppliers
+                },
+                suppliers: updatedSuppliers
+              };
+            });
+            
+            // Refetch to get accurate data from server
+            refetchSuppliers();
+          }
         })
         .catch((error) => {
           showErrorToast(handleApiError(error));
@@ -1098,7 +1345,7 @@ const CashReceipts = () => {
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(receipt._id)}
+                              onClick={() => handleDelete(receipt)}
                               className="text-red-600 hover:text-red-900"
                               title="Delete"
                             >

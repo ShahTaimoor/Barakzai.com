@@ -282,7 +282,7 @@ class AccountLedgerService {
     
     // Limit the number of customers/suppliers processed to prevent timeout in production
     // Process in batches if there are too many
-    const MAX_ITEMS_TO_PROCESS = 100;
+    const MAX_ITEMS_TO_PROCESS = 500000;
     if (customers.length > MAX_ITEMS_TO_PROCESS) {
       console.warn(`Too many customers (${customers.length}), processing first ${MAX_ITEMS_TO_PROCESS}`);
       customers = customers.slice(0, MAX_ITEMS_TO_PROCESS);

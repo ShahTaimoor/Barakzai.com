@@ -113,13 +113,22 @@ const CashReceiving = () => {
         const loadedCustomers = response?.data?.customers || response?.customers || response?.data || response || [];
         setCustomers(loadedCustomers);
 
-        const entries = loadedCustomers.map((customer) => ({
-          customerId: customer._id,
-          accountName: customer.accountName || customer.businessName || customer.name,
-          balance: customer.balance || customer.pendingBalance || 0,
-          particular: '',
-          amount: '',
-        }));
+        const entries = loadedCustomers.map((customer) => {
+          // Calculate net balance (currentBalance) to match account ledger
+          // currentBalance = pendingBalance - advanceBalance
+          // This matches the account ledger's closingBalance calculation
+          const netBalance = customer.currentBalance !== undefined 
+            ? customer.currentBalance 
+            : (customer.pendingBalance || 0) - (customer.advanceBalance || 0);
+          
+          return {
+            customerId: customer._id,
+            accountName: customer.accountName || customer.businessName || customer.name,
+            balance: netBalance, // Use net balance to match account ledger
+            particular: '',
+            amount: '',
+          };
+        });
 
         setCustomerEntries(entries);
       })

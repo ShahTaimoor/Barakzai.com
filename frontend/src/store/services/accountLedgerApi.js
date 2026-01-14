@@ -40,6 +40,7 @@ export const accountLedgerApi = api.injectEndpoints({
         params,
       }),
       providesTags: [{ type: 'Accounting', id: 'LEDGER_SUMMARY' }],
+      keepUnusedDataFor: 0, // Don't keep unused data - always fetch fresh
     }),
     getCustomerDetailedTransactions: builder.query({
       query: ({ customerId, ...params }) => ({

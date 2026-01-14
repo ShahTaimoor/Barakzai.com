@@ -102,7 +102,11 @@ class CashReceiptService {
    * @returns {Promise<Array>}
    */
   async getCustomersByIds(customerIds) {
-    return await CustomerRepository.findByIds(customerIds, ['name', 'businessName']);
+    // Select only basic fields and lean for speed; avoid passing an array (would be mis-read as sort)
+    return await CustomerRepository.findByIds(customerIds, {
+      select: 'name businessName email phone',
+      lean: true
+    });
   }
 }
 

@@ -25,7 +25,20 @@ export const cashReceiptsApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'CashReceipts', id: 'LIST' }],
+      invalidatesTags: (_r, _e, data) => {
+        const tags = [{ type: 'CashReceipts', id: 'LIST' }];
+        // Invalidate customer cache if customer is involved
+        if (data?.customer) {
+          tags.push({ type: 'Customers', id: data.customer });
+          tags.push({ type: 'Customers', id: 'LIST' });
+        }
+        // Invalidate supplier cache if supplier is involved
+        if (data?.supplier) {
+          tags.push({ type: 'Suppliers', id: data.supplier });
+          tags.push({ type: 'Suppliers', id: 'LIST' });
+        }
+        return tags;
+      },
     }),
     updateCashReceipt: builder.mutation({
       query: ({ id, ...data }) => ({
@@ -33,20 +46,40 @@ export const cashReceiptsApi = api.injectEndpoints({
         method: 'put',
         data,
       }),
-      invalidatesTags: (_r, _e, { id }) => [
-        { type: 'CashReceipts', id },
-        { type: 'CashReceipts', id: 'LIST' },
-      ],
+      invalidatesTags: (_r, _e, { id, ...data }) => {
+        const tags = [
+          { type: 'CashReceipts', id },
+          { type: 'CashReceipts', id: 'LIST' },
+        ];
+        // Invalidate customer cache if customer is involved
+        if (data?.customer) {
+          tags.push({ type: 'Customers', id: data.customer });
+          tags.push({ type: 'Customers', id: 'LIST' });
+        }
+        // Invalidate supplier cache if supplier is involved
+        if (data?.supplier) {
+          tags.push({ type: 'Suppliers', id: data.supplier });
+          tags.push({ type: 'Suppliers', id: 'LIST' });
+        }
+        return tags;
+      },
     }),
     deleteCashReceipt: builder.mutation({
       query: (id) => ({
         url: `cash-receipts/${id}`,
         method: 'delete',
       }),
-      invalidatesTags: (_r, _e, id) => [
-        { type: 'CashReceipts', id },
-        { type: 'CashReceipts', id: 'LIST' },
-      ],
+      invalidatesTags: (_r, _e, id, originalArg) => {
+        const tags = [
+          { type: 'CashReceipts', id },
+          { type: 'CashReceipts', id: 'LIST' },
+        ];
+        // Note: We can't get customer/supplier from delete mutation easily
+        // So we invalidate all customers/suppliers lists
+        tags.push({ type: 'Customers', id: 'LIST' });
+        tags.push({ type: 'Suppliers', id: 'LIST' });
+        return tags;
+      },
     }),
     createBatchCashReceipts: builder.mutation({
       query: (data) => ({
