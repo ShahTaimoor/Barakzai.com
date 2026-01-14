@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Search, Filter, X, Calendar, FileText } from 'lucide-react';
 
 const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
@@ -47,7 +47,6 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Search
@@ -67,7 +66,6 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
             </div>
           </div>
 
-          {/* Status */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Status
@@ -86,7 +84,6 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
             </select>
           </div>
 
-          {/* Period Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Period Type
@@ -104,7 +101,6 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
             </select>
           </div>
 
-          {/* Results per page */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Per Page
@@ -123,7 +119,6 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
           </div>
         </div>
 
-        {/* Advanced Filters */}
         {showAdvanced && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <h4 className="text-sm font-medium text-gray-900 mb-3">Date Range</h4>
@@ -167,7 +162,6 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
           </div>
         )}
 
-        {/* Active Filters Summary */}
         {hasActiveFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <h4 className="text-sm font-medium text-gray-900 mb-2">Active Filters</h4>
