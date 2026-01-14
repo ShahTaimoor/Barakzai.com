@@ -215,7 +215,7 @@ app.get('/api/health', (req, res) => {
 
 // Security middleware for financial operations
 const securityMiddleware = require('./middleware/securityMiddleware');
-app.use(securityMiddleware.sanitizeInput);
+app.use(securityMiddleware.sanitizeInput.bind(securityMiddleware));
 app.use(securityMiddleware.auditFinancialOperation());
 
 // Performance monitoring middleware
