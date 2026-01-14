@@ -798,10 +798,20 @@ router.get('/summary', [
     res.json(result);
   } catch (error) {
     console.error('Get ledger summary error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Provide more detailed error information in production logs
+    const errorDetails = {
+      message: error.message,
+      name: error.name,
+      ...(error.code && { code: error.code }),
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    };
+    
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error loading ledger summary. Please try again or contact support if the issue persists.',
+      error: process.env.NODE_ENV === 'development' ? errorDetails : undefined
     });
   }
 });

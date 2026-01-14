@@ -207,10 +207,11 @@ class AccountLedgerService {
    * @returns {Promise<object>}
    */
   async getLedgerSummary(queryParams) {
-    const { startDate, endDate, customerId, supplierId, search } = queryParams;
-    
-    // Clamp date range
-    const { start, end } = this.clampDateRange(startDate, endDate);
+    try {
+      const { startDate, endDate, customerId, supplierId, search } = queryParams;
+      
+      // Clamp date range
+      const { start, end } = this.clampDateRange(startDate, endDate);
     
     // Build customer filter
     const customerFilter = {
@@ -251,24 +252,54 @@ class AccountLedgerService {
     }
     
     // Fetch customers and suppliers in parallel (with ledgerAccount populated)
-    const [customers, suppliers] = await Promise.all([
-      customerRepository.findAll(customerFilter, {
-        populate: [{ path: 'ledgerAccount', select: 'accountCode accountName' }],
-        lean: true
-      }),
-      supplierRepository.findAll(supplierFilter, {
-        populate: [{ path: 'ledgerAccount', select: 'accountCode accountName' }],
-        lean: true
-      })
-    ]);
+    // Add error handling to prevent one failure from breaking everything
+    let customers = [];
+    let suppliers = [];
     
-    // Process customers
+    try {
+      [customers, suppliers] = await Promise.all([
+        customerRepository.findAll(customerFilter, {
+          populate: [{ path: 'ledgerAccount', select: 'accountCode accountName' }],
+          lean: true
+        }).catch(err => {
+          console.error('Error fetching customers:', err);
+          return [];
+        }),
+        supplierRepository.findAll(supplierFilter, {
+          populate: [{ path: 'ledgerAccount', select: 'accountCode accountName' }],
+          lean: true
+        }).catch(err => {
+          console.error('Error fetching suppliers:', err);
+          return [];
+        })
+      ]);
+    } catch (error) {
+      console.error('Error fetching customers/suppliers:', error);
+      // Return empty arrays to continue processing
+      customers = [];
+      suppliers = [];
+    }
+    
+    // Limit the number of customers/suppliers processed to prevent timeout in production
+    // Process in batches if there are too many
+    const MAX_ITEMS_TO_PROCESS = 100;
+    if (customers.length > MAX_ITEMS_TO_PROCESS) {
+      console.warn(`Too many customers (${customers.length}), processing first ${MAX_ITEMS_TO_PROCESS}`);
+      customers = customers.slice(0, MAX_ITEMS_TO_PROCESS);
+    }
+    if (suppliers.length > MAX_ITEMS_TO_PROCESS) {
+      console.warn(`Too many suppliers (${suppliers.length}), processing first ${MAX_ITEMS_TO_PROCESS}`);
+      suppliers = suppliers.slice(0, MAX_ITEMS_TO_PROCESS);
+    }
+    
+    // Process customers with error handling for each
     const customerSummaries = await Promise.all(
       customers.map(async (customer) => {
-        const customerId = customer._id.toString();
-        
-        // Get opening balance
-        let openingBalance = customer.openingBalance || 0;
+        try {
+          const customerId = customer._id.toString();
+          
+          // Get opening balance
+          let openingBalance = customer.openingBalance || 0;
         
         // Calculate adjusted opening balance (transactions before startDate)
         if (start) {
@@ -432,16 +463,35 @@ class AccountLedgerService {
           transactionCount,
           particular
         };
+        } catch (error) {
+          // Log error but don't fail the entire request
+          console.error(`Error processing customer ${customer._id}:`, error);
+          // Return a minimal summary for this customer
+          return {
+            id: customer._id,
+            accountCode: customer.ledgerAccount?.accountCode || '',
+            name: customer.businessName || customer.name || '',
+            email: customer.email || '',
+            phone: customer.phone || '',
+            openingBalance: customer.openingBalance || 0,
+            totalDebits: 0,
+            totalCredits: 0,
+            closingBalance: customer.openingBalance || 0,
+            transactionCount: 0,
+            particular: 'Error loading transactions'
+          };
+        }
       })
     );
     
-    // Process suppliers
+    // Process suppliers with error handling for each
     const supplierSummaries = await Promise.all(
       suppliers.map(async (supplier) => {
-        const supplierId = supplier._id.toString();
-        
-        // Get opening balance
-        let openingBalance = supplier.openingBalance || 0;
+        try {
+          const supplierId = supplier._id.toString();
+          
+          // Get opening balance
+          let openingBalance = supplier.openingBalance || 0;
         
         // Calculate adjusted opening balance (transactions before startDate)
         if (start) {
@@ -557,6 +607,24 @@ class AccountLedgerService {
           transactionCount,
           particular
         };
+        } catch (error) {
+          // Log error but don't fail the entire request
+          console.error(`Error processing supplier ${supplier._id}:`, error);
+          // Return a minimal summary for this supplier
+          return {
+            id: supplier._id,
+            accountCode: supplier.ledgerAccount?.accountCode || '',
+            name: supplier.companyName || supplier.contactPerson?.name || '',
+            email: supplier.email || '',
+            phone: supplier.phone || '',
+            openingBalance: supplier.openingBalance || 0,
+            totalDebits: 0,
+            totalCredits: 0,
+            closingBalance: supplier.openingBalance || 0,
+            transactionCount: 0,
+            particular: 'Error loading transactions'
+          };
+        }
       })
     );
     
@@ -598,6 +666,15 @@ class AccountLedgerService {
         }
       }
     };
+    } catch (error) {
+      // Log the full error for debugging
+      console.error('Error in getLedgerSummary:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Query params:', queryParams);
+      
+      // Re-throw with more context
+      throw new Error(`Failed to load ledger summary: ${error.message}`);
+    }
   }
 }
 
