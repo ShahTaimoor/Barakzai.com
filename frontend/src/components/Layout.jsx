@@ -92,7 +92,7 @@ const navigation = [
   { type: 'heading', name: 'Accounting', color: 'bg-pink-500' },
   { name: 'Chart of Accounts', href: '/chart-of-accounts', icon: FolderTree },
   { name: 'Journal Vouchers', href: '/journal-vouchers', icon: FileText },
-  { name: 'Account Ledger', href: '/account-ledger', icon: FileText },
+  { name: 'Account Ledger Summary', href: '/account-ledger', icon: FileText },
   
   // Reports & Analytics
   { type: 'heading', name: 'Reports & Analytics', color: 'bg-indigo-500' },

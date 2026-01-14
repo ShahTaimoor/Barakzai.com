@@ -95,7 +95,7 @@ const navigation = [
   { type: 'heading', name: 'Accounting Section', color: 'bg-pink-500' },
   { name: 'Chart of Accounts', href: '/chart-of-accounts', icon: FolderTree, permission: 'view_chart_of_accounts' },
   { name: 'Journal Vouchers', href: '/journal-vouchers', icon: FileText, permission: 'view_reports', allowMultiple: true },
-  { name: 'Account Ledger', href: '/account-ledger', icon: FileText, permission: 'view_reports', allowMultiple: true },
+  { name: 'Account Ledger Summary', href: '/account-ledger', icon: FileText, permission: 'view_reports', allowMultiple: true },
   
   // Reports & Analytics Section
   { type: 'heading', name: 'Reports & Analytics', color: 'bg-indigo-500' },

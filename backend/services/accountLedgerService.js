@@ -1,5 +1,13 @@
 const transactionRepository = require('../repositories/TransactionRepository');
 const chartOfAccountsRepository = require('../repositories/ChartOfAccountsRepository');
+const customerRepository = require('../repositories/CustomerRepository');
+const supplierRepository = require('../repositories/SupplierRepository');
+const salesRepository = require('../repositories/SalesRepository');
+const purchaseOrderRepository = require('../repositories/PurchaseOrderRepository');
+const cashReceiptRepository = require('../repositories/CashReceiptRepository');
+const bankReceiptRepository = require('../repositories/BankReceiptRepository');
+const cashPaymentRepository = require('../repositories/CashPaymentRepository');
+const bankPaymentRepository = require('../repositories/BankPaymentRepository');
 
 class AccountLedgerService {
   /**
@@ -188,6 +196,405 @@ class AccountLedgerService {
           closingBalance,
           totalDebits,
           totalCredits
+        }
+      }
+    };
+  }
+
+  /**
+   * Get ledger summary for customers and suppliers
+   * @param {object} queryParams - Query parameters
+   * @returns {Promise<object>}
+   */
+  async getLedgerSummary(queryParams) {
+    const { startDate, endDate, customerId, supplierId, search } = queryParams;
+    
+    // Clamp date range
+    const { start, end } = this.clampDateRange(startDate, endDate);
+    
+    // Build customer filter
+    const customerFilter = {
+      status: 'active',
+      isDeleted: { $ne: true }
+    };
+    
+    if (customerId) {
+      customerFilter._id = customerId;
+    }
+    
+    if (search) {
+      customerFilter.$or = [
+        { businessName: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Build supplier filter
+    const supplierFilter = {
+      status: 'active',
+      isDeleted: { $ne: true }
+    };
+    
+    if (supplierId) {
+      supplierFilter._id = supplierId;
+    }
+    
+    if (search) {
+      supplierFilter.$or = [
+        { companyName: { $regex: search, $options: 'i' } },
+        { 'contactPerson.name': { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Fetch customers and suppliers in parallel (with ledgerAccount populated)
+    const [customers, suppliers] = await Promise.all([
+      customerRepository.findAll(customerFilter, {
+        populate: [{ path: 'ledgerAccount', select: 'accountCode accountName' }],
+        lean: true
+      }),
+      supplierRepository.findAll(supplierFilter, {
+        populate: [{ path: 'ledgerAccount', select: 'accountCode accountName' }],
+        lean: true
+      })
+    ]);
+    
+    // Process customers
+    const customerSummaries = await Promise.all(
+      customers.map(async (customer) => {
+        const customerId = customer._id.toString();
+        
+        // Get opening balance
+        let openingBalance = customer.openingBalance || 0;
+        
+        // Calculate adjusted opening balance (transactions before startDate)
+        if (start) {
+          // Sales before startDate (increases receivables)
+          const openingSales = await salesRepository.findAll({
+            customer: customerId,
+            createdAt: { $lt: start },
+            isDeleted: { $ne: true }
+          }, { lean: true });
+          
+          const openingSalesTotal = openingSales.reduce((sum, sale) => {
+            return sum + (sale.pricing?.total || 0);
+          }, 0);
+          
+          // Cash receipts before startDate (decreases receivables)
+          const openingCashReceipts = await cashReceiptRepository.findAll({
+            customer: customerId,
+            date: { $lt: start }
+          }, { lean: true });
+          
+          const openingCashReceiptsTotal = openingCashReceipts.reduce((sum, receipt) => {
+            return sum + (receipt.amount || 0);
+          }, 0);
+          
+          // Bank receipts before startDate (decreases receivables)
+          const openingBankReceipts = await bankReceiptRepository.findAll({
+            customer: customerId,
+            date: { $lt: start }
+          }, { lean: true });
+          
+          const openingBankReceiptsTotal = openingBankReceipts.reduce((sum, receipt) => {
+            return sum + (receipt.amount || 0);
+          }, 0);
+          
+          // Cash payments before startDate (increases receivables/advance - DEBIT)
+          const openingCashPayments = await cashPaymentRepository.findAll({
+            customer: customerId,
+            date: { $lt: start }
+          }, { lean: true });
+          
+          const openingCashPaymentsTotal = openingCashPayments.reduce((sum, payment) => {
+            return sum + (payment.amount || 0);
+          }, 0);
+          
+          // Bank payments before startDate (increases receivables/advance - DEBIT)
+          const openingBankPayments = await bankPaymentRepository.findAll({
+            customer: customerId,
+            date: { $lt: start }
+          }, { lean: true });
+          
+          const openingBankPaymentsTotal = openingBankPayments.reduce((sum, payment) => {
+            return sum + (payment.amount || 0);
+          }, 0);
+          
+          // Adjusted opening balance
+          openingBalance = openingBalance + openingSalesTotal + openingCashPaymentsTotal + openingBankPaymentsTotal - openingCashReceiptsTotal - openingBankReceiptsTotal;
+        }
+        
+        // Get period transactions (within date range)
+        const periodFilter = {};
+        if (start || end) {
+          periodFilter.createdAt = {};
+          if (start) periodFilter.createdAt.$gte = start;
+          if (end) periodFilter.createdAt.$lte = end;
+        }
+        
+        // Sales (DEBITS - increases receivables)
+        const sales = await salesRepository.findAll({
+          customer: customerId,
+          ...periodFilter,
+          isDeleted: { $ne: true }
+        }, { lean: true });
+        
+        const totalDebits = sales.reduce((sum, sale) => {
+          return sum + (sale.pricing?.total || 0);
+        }, 0);
+        
+        // Cash receipts (CREDITS - decreases receivables)
+        const receiptDateFilter = {};
+        if (start || end) {
+          receiptDateFilter.date = {};
+          if (start) receiptDateFilter.date.$gte = start;
+          if (end) receiptDateFilter.date.$lte = end;
+        }
+        
+        const cashReceipts = await cashReceiptRepository.findAll({
+          customer: customerId,
+          ...receiptDateFilter
+        }, { lean: true });
+        
+        const bankReceipts = await bankReceiptRepository.findAll({
+          customer: customerId,
+          ...receiptDateFilter
+        }, { lean: true });
+        
+        // Cash payments (DEBITS - increases receivables/advance)
+        const cashPayments = await cashPaymentRepository.findAll({
+          customer: customerId,
+          ...receiptDateFilter
+        }, { lean: true });
+        
+        // Bank payments (DEBITS - increases receivables/advance)
+        const bankPayments = await bankPaymentRepository.findAll({
+          customer: customerId,
+          ...receiptDateFilter
+        }, { lean: true });
+        
+        const cashPaymentsTotal = cashPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        const bankPaymentsTotal = bankPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        
+        const totalCredits = cashReceipts.reduce((sum, receipt) => sum + (receipt.amount || 0), 0) +
+                            bankReceipts.reduce((sum, receipt) => sum + (receipt.amount || 0), 0);
+        
+        // Total debits includes sales and payments to customer
+        const totalDebitsWithPayments = totalDebits + cashPaymentsTotal + bankPaymentsTotal;
+        
+        // Calculate closing balance
+        const closingBalance = openingBalance + totalDebitsWithPayments - totalCredits;
+        
+        // Build particular/description
+        const particulars = [];
+        sales.forEach(sale => {
+          if (sale.orderNumber) {
+            particulars.push(`Sale: ${sale.orderNumber}`);
+          }
+        });
+        cashReceipts.forEach(receipt => {
+          if (receipt.voucherCode) {
+            particulars.push(`Cash Receipt: ${receipt.voucherCode}`);
+          }
+        });
+        bankReceipts.forEach(receipt => {
+          if (receipt.voucherCode) {
+            particulars.push(`Bank Receipt: ${receipt.voucherCode}`);
+          }
+        });
+        cashPayments.forEach(payment => {
+          if (payment.voucherCode) {
+            particulars.push(`Cash Payment: ${payment.voucherCode}`);
+          }
+        });
+        bankPayments.forEach(payment => {
+          if (payment.voucherCode) {
+            particulars.push(`Bank Payment: ${payment.voucherCode}`);
+          }
+        });
+        
+        const particular = particulars.join('; ');
+        const transactionCount = sales.length + cashReceipts.length + bankReceipts.length + cashPayments.length + bankPayments.length;
+        
+        return {
+          id: customer._id,
+          accountCode: customer.ledgerAccount?.accountCode || '',
+          name: customer.businessName || customer.name || '',
+          email: customer.email || '',
+          phone: customer.phone || '',
+          openingBalance,
+          totalDebits: totalDebitsWithPayments,
+          totalCredits,
+          closingBalance,
+          transactionCount,
+          particular
+        };
+      })
+    );
+    
+    // Process suppliers
+    const supplierSummaries = await Promise.all(
+      suppliers.map(async (supplier) => {
+        const supplierId = supplier._id.toString();
+        
+        // Get opening balance
+        let openingBalance = supplier.openingBalance || 0;
+        
+        // Calculate adjusted opening balance (transactions before startDate)
+        if (start) {
+          // Purchases before startDate (increases payables)
+          const openingPurchases = await purchaseOrderRepository.findAll({
+            supplier: supplierId,
+            createdAt: { $lt: start },
+            isDeleted: { $ne: true }
+          }, { lean: true });
+          
+          const openingPurchasesTotal = openingPurchases.reduce((sum, purchase) => {
+            return sum + (purchase.total || 0);
+          }, 0);
+          
+          // Cash payments before startDate (decreases payables)
+          const openingCashPayments = await cashPaymentRepository.findAll({
+            supplier: supplierId,
+            date: { $lt: start }
+          }, { lean: true });
+          
+          const openingCashPaymentsTotal = openingCashPayments.reduce((sum, payment) => {
+            return sum + (payment.amount || 0);
+          }, 0);
+          
+          // Bank payments before startDate (decreases payables)
+          const openingBankPayments = await bankPaymentRepository.findAll({
+            supplier: supplierId,
+            date: { $lt: start }
+          }, { lean: true });
+          
+          const openingBankPaymentsTotal = openingBankPayments.reduce((sum, payment) => {
+            return sum + (payment.amount || 0);
+          }, 0);
+          
+          // Adjusted opening balance
+          openingBalance = openingBalance + openingPurchasesTotal - openingCashPaymentsTotal - openingBankPaymentsTotal;
+        }
+        
+        // Get period transactions (within date range)
+        const periodFilter = {};
+        if (start || end) {
+          periodFilter.createdAt = {};
+          if (start) periodFilter.createdAt.$gte = start;
+          if (end) periodFilter.createdAt.$lte = end;
+        }
+        
+        // Purchases (CREDITS - increases payables)
+        const purchases = await purchaseOrderRepository.findAll({
+          supplier: supplierId,
+          ...periodFilter,
+          isDeleted: { $ne: true }
+        }, { lean: true });
+        
+        const totalCredits = purchases.reduce((sum, purchase) => {
+          return sum + (purchase.total || 0);
+        }, 0);
+        
+        // Cash payments (DEBITS - decreases payables)
+        const paymentDateFilter = {};
+        if (start || end) {
+          paymentDateFilter.date = {};
+          if (start) paymentDateFilter.date.$gte = start;
+          if (end) paymentDateFilter.date.$lte = end;
+        }
+        
+        const cashPayments = await cashPaymentRepository.findAll({
+          supplier: supplierId,
+          ...paymentDateFilter
+        }, { lean: true });
+        
+        const bankPayments = await bankPaymentRepository.findAll({
+          supplier: supplierId,
+          ...paymentDateFilter
+        }, { lean: true });
+        
+        const totalDebits = cashPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0) +
+                            bankPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        
+        // Calculate closing balance
+        const closingBalance = openingBalance + totalCredits - totalDebits;
+        
+        // Build particular/description
+        const particulars = [];
+        purchases.forEach(purchase => {
+          if (purchase.poNumber) {
+            particulars.push(`Purchase: ${purchase.poNumber}`);
+          }
+        });
+        cashPayments.forEach(payment => {
+          if (payment.voucherCode) {
+            particulars.push(`Cash Payment: ${payment.voucherCode}`);
+          }
+        });
+        bankPayments.forEach(payment => {
+          if (payment.voucherCode) {
+            particulars.push(`Bank Payment: ${payment.voucherCode}`);
+          }
+        });
+        
+        const particular = particulars.join('; ');
+        const transactionCount = purchases.length + cashPayments.length + bankPayments.length;
+        
+        return {
+          id: supplier._id,
+          accountCode: supplier.ledgerAccount?.accountCode || '',
+          name: supplier.companyName || supplier.contactPerson?.name || '',
+          email: supplier.email || '',
+          phone: supplier.phone || '',
+          openingBalance,
+          totalDebits,
+          totalCredits,
+          closingBalance,
+          transactionCount,
+          particular
+        };
+      })
+    );
+    
+    // Filter out null entries
+    const filteredCustomerSummaries = customerSummaries.filter(c => c !== null);
+    const filteredSupplierSummaries = supplierSummaries.filter(s => s !== null);
+    
+    // Calculate totals
+    const customerTotals = {
+      openingBalance: filteredCustomerSummaries.reduce((sum, c) => sum + (c.openingBalance || 0), 0),
+      totalDebits: filteredCustomerSummaries.reduce((sum, c) => sum + (c.totalDebits || 0), 0),
+      totalCredits: filteredCustomerSummaries.reduce((sum, c) => sum + (c.totalCredits || 0), 0),
+      closingBalance: filteredCustomerSummaries.reduce((sum, c) => sum + (c.closingBalance || 0), 0)
+    };
+    
+    const supplierTotals = {
+      openingBalance: filteredSupplierSummaries.reduce((sum, s) => sum + (s.openingBalance || 0), 0),
+      totalDebits: filteredSupplierSummaries.reduce((sum, s) => sum + (s.totalDebits || 0), 0),
+      totalCredits: filteredSupplierSummaries.reduce((sum, s) => sum + (s.totalCredits || 0), 0),
+      closingBalance: filteredSupplierSummaries.reduce((sum, s) => sum + (s.closingBalance || 0), 0)
+    };
+    
+    return {
+      success: true,
+      data: {
+        period: {
+          startDate: start,
+          endDate: end
+        },
+        customers: {
+          summary: filteredCustomerSummaries,
+          totals: customerTotals,
+          count: filteredCustomerSummaries.length
+        },
+        suppliers: {
+          summary: filteredSupplierSummaries,
+          totals: supplierTotals,
+          count: filteredSupplierSummaries.length
         }
       }
     };

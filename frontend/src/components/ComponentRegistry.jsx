@@ -33,7 +33,7 @@ const componentLoader = {
   '/cities': () => import('../pages/Cities').then(module => module.default || module.Cities),
   '/settings': () => import('../pages/Settings').then(module => module.Settings),
   '/chart-of-accounts': () => import('../pages/ChartOfAccounts').then(module => module.default || module.ChartOfAccounts),
-  '/account-ledger': () => import('../pages/AccountLedger').then(module => module.default),
+  '/account-ledger': () => import('../pages/AccountLedgerSummary').then(module => module.default),
   '/journal-vouchers': () => import('../pages/JournalVouchers').then(module => module.default),
   '/drop-shipping': () => import('../pages/DropShipping').then(module => module.default || module.DropShipping),
   '/help': () => import('../pages/Help').then(module => module.default || module.Help),
@@ -180,7 +180,7 @@ export const componentRegistry = {
     icon: 'FolderTree'
   },
   '/account-ledger': {
-    title: 'Account Ledger',
+    title: 'Account Ledger Summary',
     icon: 'Book',
     allowMultiple: true
   },

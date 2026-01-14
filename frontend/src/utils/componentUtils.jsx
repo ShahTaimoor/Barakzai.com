@@ -200,10 +200,10 @@ export const componentRegistry = {
     component: () => import('../pages/ChartOfAccounts').then(m => m.default || m.ChartOfAccounts)
   },
   '/account-ledger': {
-    title: 'Account Ledger',
+    title: 'Account Ledger Summary',
     icon: 'Book',
     allowMultiple: true,
-    component: () => import('../pages/AccountLedger').then(m => m.default || m.AccountLedger)
+    component: () => import('../pages/AccountLedgerSummary').then(m => m.default || m.AccountLedgerSummary)
   },
   '/journal-vouchers': {
     title: 'Journal Vouchers',

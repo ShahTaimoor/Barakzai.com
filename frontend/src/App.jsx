@@ -8,7 +8,6 @@ import { Layout } from './components/Layout';
 import { MultiTabLayout } from './components/MultiTabLayout';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
-import PWAUpdateNotification from './components/PWAUpdateNotification';
 import OfflineIndicator from './components/OfflineIndicator';
 import { LoadingPage } from './components/LoadingSpinner';
 import KeyboardShortcutsHints from './components/KeyboardShortcutsHints';
@@ -50,7 +49,7 @@ const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Rep
 const Settings2 = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings2 })));
 const StockMovements = lazy(() => import('./pages/StockMovements').then(m => ({ default: m.StockMovements })));
 const ChartOfAccounts = lazy(() => import('./pages/ChartOfAccounts'));
-const AccountLedger = lazy(() => import('./pages/AccountLedger'));
+const AccountLedgerSummary = lazy(() => import('./pages/AccountLedgerSummary'));
 const Migration = lazy(() => import('./pages/Migration'));
 const BackdateReport = lazy(() => import('./pages/BackdateReport'));
 const Categories = lazy(() => import('./pages/Categories'));
@@ -70,7 +69,6 @@ function App() {
           <KeyboardShortcutsProvider>
             <TabProvider>
               <NetworkStatus />
-              <PWAUpdateNotification />
               <OfflineIndicator />
               <KeyboardShortcutsHints />
             <Routes>
@@ -119,7 +117,7 @@ function App() {
                         <Route path="/bank-payments" element={<Suspense fallback={<LoadingPage />}><BankPayments /></Suspense>} />
                         <Route path="/journal-vouchers" element={<Suspense fallback={<LoadingPage />}><JournalVouchers /></Suspense>} />
                         <Route path="/chart-of-accounts" element={<Suspense fallback={<LoadingPage />}><ChartOfAccounts /></Suspense>} />
-                        <Route path="/account-ledger" element={<Suspense fallback={<LoadingPage />}><AccountLedger /></Suspense>} />
+                        <Route path="/account-ledger" element={<Suspense fallback={<LoadingPage />}><AccountLedgerSummary /></Suspense>} />
                         <Route path="/reports" element={<Suspense fallback={<LoadingPage />}><Reports /></Suspense>} />
                         <Route path="/backdate-report" element={<Suspense fallback={<LoadingPage />}><BackdateReport /></Suspense>} />
                         <Route path="/settings" element={<Suspense fallback={<LoadingPage />}><Settings2 /></Suspense>} />

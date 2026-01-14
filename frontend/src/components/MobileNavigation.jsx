@@ -94,7 +94,7 @@ const MobileNavigation = ({ user, onLogout }) => {
     { path: '/backdate-report', icon: Clock, label: 'Backdate Report', badge: null, permission: 'view_backdate_report' },
     { path: '/chart-of-accounts', icon: FolderTree, label: 'Chart of Accounts', badge: null, permission: 'view_chart_of_accounts' },
     { path: '/journal-vouchers', icon: FileText, label: 'Journal Vouchers', badge: null, permission: 'view_reports' },
-    { path: '/account-ledger', icon: FileText, label: 'Account Ledger', badge: null, permission: 'view_reports' },
+    { path: '/account-ledger', icon: FileText, label: 'Account Ledger Summary', badge: null, permission: 'view_reports' },
     { path: '/employees', icon: Users, label: 'Employees', badge: null, permission: 'manage_users' },
     { path: '/attendance', icon: Clock, label: 'Attendance', badge: null, permission: 'view_own_attendance' },
     { path: '/settings', icon: Settings, label: 'Settings', badge: null, permission: 'manage_users' },

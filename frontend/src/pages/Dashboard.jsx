@@ -21,8 +21,10 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Truck,
-  Tag
+  Tag,
+  Eye
 } from 'lucide-react';
+import DashboardReportModal from '../components/DashboardReportModal';
 import {
   useGetTodaySummaryQuery,
   useGetOrdersQuery,
@@ -88,6 +90,16 @@ export const Dashboard = () => {
   const [toDate, setToDate] = useState(today);
   const [activeFromDate, setActiveFromDate] = useState(today);
   const [activeToDate, setActiveToDate] = useState(today);
+  
+  // Modal states
+  const [showSalesOrdersModal, setShowSalesOrdersModal] = useState(false);
+  const [showPurchaseOrdersModal, setShowPurchaseOrdersModal] = useState(false);
+  const [showSalesInvoicesModal, setShowSalesInvoicesModal] = useState(false);
+  const [showPurchaseInvoicesModal, setShowPurchaseInvoicesModal] = useState(false);
+  const [showCashReceiptsModal, setShowCashReceiptsModal] = useState(false);
+  const [showCashPaymentsModal, setShowCashPaymentsModal] = useState(false);
+  const [showBankReceiptsModal, setShowBankReceiptsModal] = useState(false);
+  const [showBankPaymentsModal, setShowBankPaymentsModal] = useState(false);
 
   // Lazy query for period summary
   const [getPeriodSummary] = useLazyGetPeriodSummaryQuery();
@@ -331,6 +343,83 @@ export const Dashboard = () => {
   const grossProfit = netRevenue - costOfGoodsSold; // Gross Profit
   const netProfit = grossProfit - operatingExpenses;
 
+  // Column definitions for modals
+  const salesOrdersColumns = [
+    { key: 'soNumber', label: 'Order Number', sortable: true },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'orderDate', label: 'Date', sortable: true, format: 'date' },
+    { key: 'status', label: 'Status', sortable: true },
+    { key: 'total', label: 'Total', sortable: true, format: 'currency' }
+  ];
+
+  const purchaseOrdersColumns = [
+    { key: 'poNumber', label: 'PO Number', sortable: true },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
+    { key: 'orderDate', label: 'Date', sortable: true, format: 'date' },
+    { key: 'status', label: 'Status', sortable: true },
+    { key: 'total', label: 'Total', sortable: true, format: 'currency' }
+  ];
+
+  const salesInvoicesColumns = [
+    { key: 'orderNumber', label: 'Order Number', sortable: true },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customerInfo?.businessName || row.customerInfo?.name || '-' },
+    { key: 'createdAt', label: 'Date', sortable: true, format: 'date' },
+    { key: 'status', label: 'Status', sortable: true },
+    { key: 'pricing', label: 'Total', sortable: true, render: (val) => formatCurrency(val?.total || 0) }
+  ];
+
+  const purchaseInvoicesColumns = [
+    { key: 'invoiceNumber', label: 'Invoice Number', sortable: true },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
+    { key: 'invoiceDate', label: 'Date', sortable: true, format: 'date' },
+    { key: 'status', label: 'Status', sortable: true },
+    { key: 'pricing', label: 'Total', sortable: true, render: (val) => formatCurrency(val?.total || 0) }
+  ];
+
+  const cashReceiptsColumns = [
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'date', label: 'Date', sortable: true, format: 'date' },
+    { key: 'particular', label: 'Particular', sortable: true },
+    { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
+  ];
+
+  const cashPaymentsColumns = [
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'date', label: 'Date', sortable: true, format: 'date' },
+    { key: 'particular', label: 'Particular', sortable: true },
+    { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
+  ];
+
+  const bankReceiptsColumns = [
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'date', label: 'Date', sortable: true, format: 'date' },
+    { key: 'particular', label: 'Particular', sortable: true },
+    { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
+  ];
+
+  const bankPaymentsColumns = [
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'date', label: 'Date', sortable: true, format: 'date' },
+    { key: 'particular', label: 'Particular', sortable: true },
+    { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
+  ];
+
+  // Prepare data arrays for modals
+  const salesOrdersModalData = salesOrdersArray;
+  const purchaseOrdersModalData = purchaseOrdersData?.data?.purchaseOrders || purchaseOrdersData?.purchaseOrders || [];
+  const salesInvoicesModalData = salesInvoicesArray;
+  const purchaseInvoicesDataArray = purchaseInvoicesData?.data?.invoices || purchaseInvoicesData?.invoices || [];
+  const cashReceiptsDataArray = cashReceiptsData?.data?.cashReceipts || [];
+  const cashPaymentsDataArray = cashPayments;
+  const bankReceiptsDataArray = bankReceiptsData?.data?.bankReceipts || [];
+  const bankPaymentsDataArray = bankPayments;
+
   return (
     <div className="space-y-6">
       <div>
@@ -446,7 +535,13 @@ export const Dashboard = () => {
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 lg:grid-cols-5">
             
             {/* Sales */}
-            <div className="text-center p-4 border-2 border-green-300 bg-green-50 rounded-lg">
+            <div 
+              className="text-center p-4 border-2 border-green-300 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 hover:border-green-400 transition-colors relative group"
+              onClick={() => setShowSalesInvoicesModal(true)}
+            >
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-4 w-4 text-green-600" />
+              </div>
               <div className="flex justify-center mb-2">
                 <div className="p-3 bg-green-500 rounded-full">
                   <CreditCard className="h-6 w-6 text-white" />
@@ -458,7 +553,13 @@ export const Dashboard = () => {
             </div>
 
             {/* Purchase (COGS) */}
-            <div className="text-center p-4 border-2 border-purple-300 bg-purple-50 rounded-lg">
+            <div 
+              className="text-center p-4 border-2 border-purple-300 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 hover:border-purple-400 transition-colors relative group"
+              onClick={() => setShowPurchaseInvoicesModal(true)}
+            >
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-4 w-4 text-purple-600" />
+              </div>
               <div className="flex justify-center mb-2">
                 <div className="p-3 bg-purple-500 rounded-full">
                   <Truck className="h-6 w-6 text-white" />
@@ -530,7 +631,13 @@ export const Dashboard = () => {
             </div>
             
             {/* Total Receipts */}
-            <div className="text-center p-4 border-2 border-emerald-300 bg-emerald-50 rounded-lg">
+            <div 
+              className="text-center p-4 border-2 border-emerald-300 bg-emerald-50 rounded-lg cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-colors relative group"
+              onClick={() => setShowCashReceiptsModal(true)}
+            >
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-4 w-4 text-emerald-600" />
+              </div>
               <div className="flex justify-center mb-2">
                 <div className="p-3 bg-emerald-500 rounded-full">
                   <Receipt className="h-6 w-6 text-white" />
@@ -542,7 +649,13 @@ export const Dashboard = () => {
             </div>
             
             {/* Total Payments */}
-            <div className="text-center p-4 border-2 border-orange-300 bg-orange-50 rounded-lg">
+            <div 
+              className="text-center p-4 border-2 border-orange-300 bg-orange-50 rounded-lg cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition-colors relative group"
+              onClick={() => setShowCashPaymentsModal(true)}
+            >
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-4 w-4 text-orange-600" />
+              </div>
               <div className="flex justify-center mb-2">
                 <div className="p-3 bg-orange-500 rounded-full">
                   <Banknote className="h-6 w-6 text-white" />
@@ -785,6 +898,127 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <DashboardReportModal
+        isOpen={showSalesOrdersModal}
+        onClose={() => setShowSalesOrdersModal(false)}
+        title="Sales Orders"
+        columns={salesOrdersColumns}
+        data={salesOrdersModalData}
+        isLoading={salesOrdersLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showPurchaseOrdersModal}
+        onClose={() => setShowPurchaseOrdersModal(false)}
+        title="Purchase Orders"
+        columns={purchaseOrdersColumns}
+        data={purchaseOrdersModalData}
+        isLoading={purchaseOrdersLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showSalesInvoicesModal}
+        onClose={() => setShowSalesInvoicesModal(false)}
+        title="Sales Invoices"
+        columns={salesInvoicesColumns}
+        data={salesInvoicesModalData}
+        isLoading={salesInvoicesLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showPurchaseInvoicesModal}
+        onClose={() => setShowPurchaseInvoicesModal(false)}
+        title="Purchase Invoices"
+        columns={purchaseInvoicesColumns}
+        data={purchaseInvoicesDataArray}
+        isLoading={purchaseInvoicesLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showCashReceiptsModal}
+        onClose={() => setShowCashReceiptsModal(false)}
+        title="Cash Receipts"
+        columns={cashReceiptsColumns}
+        data={cashReceiptsDataArray}
+        isLoading={cashReceiptsLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showCashPaymentsModal}
+        onClose={() => setShowCashPaymentsModal(false)}
+        title="Cash Payments"
+        columns={cashPaymentsColumns}
+        data={cashPaymentsDataArray}
+        isLoading={cashPaymentsLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showBankReceiptsModal}
+        onClose={() => setShowBankReceiptsModal(false)}
+        title="Bank Receipts"
+        columns={bankReceiptsColumns}
+        data={bankReceiptsDataArray}
+        isLoading={bankReceiptsLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showBankPaymentsModal}
+        onClose={() => setShowBankPaymentsModal(false)}
+        title="Bank Payments"
+        columns={bankPaymentsColumns}
+        data={bankPaymentsDataArray}
+        isLoading={bankPaymentsLoading}
+        dateFrom={activeFromDate}
+        dateTo={activeToDate}
+        onDateChange={(from, to) => {
+          setActiveFromDate(from);
+          setActiveToDate(to);
+        }}
+      />
     </div>
   );
 };
