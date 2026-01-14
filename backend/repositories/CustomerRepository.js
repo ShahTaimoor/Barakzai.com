@@ -140,7 +140,22 @@ class CustomerRepository extends BaseRepository {
     if (!Array.isArray(customerIds) || customerIds.length === 0) {
       return [];
     }
-    return await this.findAll({ _id: { $in: customerIds } }, options);
+    // Ensure options is a valid object and clean up any invalid sort values
+    const cleanOptions = { ...options };
+    if (cleanOptions.sort !== undefined) {
+      // Validate sort before passing
+      const sort = cleanOptions.sort;
+      const isValidSort = 
+        (typeof sort === 'string' && sort.trim().length > 0) ||
+        (typeof sort === 'object' && sort !== null && !Array.isArray(sort) && Object.keys(sort).length > 0) ||
+        (Array.isArray(sort) && sort.length > 0);
+      
+      if (!isValidSort) {
+        // Remove invalid sort
+        delete cleanOptions.sort;
+      }
+    }
+    return await this.findAll({ _id: { $in: customerIds } }, cleanOptions);
   }
 
   /**

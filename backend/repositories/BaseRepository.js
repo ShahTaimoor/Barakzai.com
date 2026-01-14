@@ -36,18 +36,22 @@ class BaseRepository {
     }
     
     // Validate and apply sort - only if sort is a valid value
-    if (sort) {
+    if (sort !== undefined && sort !== null) {
       // Ensure sort is a valid type (string, object, array, or map)
-      // Empty objects {} are invalid for MongoDB sort
+      // Empty strings, empty objects {}, null, undefined are invalid for MongoDB sort
       const isValidSort = 
-        typeof sort === 'string' ||
-        (typeof sort === 'object' && sort !== null && Object.keys(sort).length > 0) ||
-        Array.isArray(sort);
+        (typeof sort === 'string' && sort.trim().length > 0) ||
+        (typeof sort === 'object' && sort !== null && !Array.isArray(sort) && Object.keys(sort).length > 0) ||
+        (Array.isArray(sort) && sort.length > 0);
       
       if (isValidSort) {
-        queryBuilder = queryBuilder.sort(sort);
+        try {
+          queryBuilder = queryBuilder.sort(sort);
+        } catch (error) {
+          console.warn('Error applying sort, skipping:', error.message, 'sort value:', sort);
+        }
       } else {
-        console.warn('Invalid sort parameter provided, skipping sort:', sort);
+        console.warn('Invalid sort parameter provided, skipping sort. Type:', typeof sort, 'Value:', sort);
       }
     }
     
