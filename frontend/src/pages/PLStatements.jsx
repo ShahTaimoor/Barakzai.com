@@ -3,7 +3,6 @@ import {
   TrendingUp,
   Calendar,
   Search,
-  TrendingUp,
   TrendingDown,
   ArrowUpCircle,
   ArrowDownCircle,

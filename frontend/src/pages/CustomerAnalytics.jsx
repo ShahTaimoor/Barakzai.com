@@ -4,7 +4,6 @@ import {
   TrendingUp, 
   TrendingDown,
   AlertTriangle,
-  TrendingUp,
   Target,
   PieChart,
   BarChart3,

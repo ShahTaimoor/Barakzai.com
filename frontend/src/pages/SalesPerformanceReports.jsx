@@ -22,8 +22,6 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  TrendingUp as TrendingUpIcon,
-  TrendingUp,
   ShoppingCart,
   Target
 } from 'lucide-react';

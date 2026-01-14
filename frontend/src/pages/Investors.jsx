@@ -11,7 +11,6 @@ import {
   Phone,
   MapPin,
   TrendingUp,
-  TrendingUp,
   Eye,
   Calendar,
   Package,

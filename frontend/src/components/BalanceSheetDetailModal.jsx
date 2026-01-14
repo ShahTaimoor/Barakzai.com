@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { 
   X, 
-  TrendingUp, 
-  TrendingDown, 
-  TrendingUp, 
-  FileText, 
+  TrendingUp,
+  TrendingDown,
+  FileText,
   Download,
   CheckCircle,
   Clock,

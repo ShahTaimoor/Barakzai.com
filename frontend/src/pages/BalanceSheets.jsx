@@ -9,7 +9,6 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
-  TrendingUp,
   BarChart3,
   FileText,
   Calendar,

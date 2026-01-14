@@ -14,7 +14,6 @@ import {
   BarChart3,
   PieChart,
   Activity,
-  TrendingUp,
   Calendar,
   User,
   Tag,

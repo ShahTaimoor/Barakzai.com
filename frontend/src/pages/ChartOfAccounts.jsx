@@ -6,7 +6,6 @@ import {
   Search,
   FolderTree,
   TrendingUp,
-  TrendingUp,
   TrendingDown,
   Building,
   CreditCard,

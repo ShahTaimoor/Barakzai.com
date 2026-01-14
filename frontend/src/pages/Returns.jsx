@@ -13,8 +13,7 @@ import {
   AlertCircle,
   Package,
   TrendingUp,
-  Users,
-  TrendingUp
+  Users
 } from 'lucide-react';
 import {
   useGetReturnsQuery,

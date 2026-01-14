@@ -18,8 +18,7 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Clock,
-  TrendingUp
+  Clock
 } from 'lucide-react';
 import AsyncSelect from 'react-select/async';
 import {

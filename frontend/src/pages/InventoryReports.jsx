@@ -21,7 +21,6 @@ import {
   AlertCircle,
   ShoppingCart,
   Truck,
-  TrendingUp,
   Calendar,
   FileText,
   Settings

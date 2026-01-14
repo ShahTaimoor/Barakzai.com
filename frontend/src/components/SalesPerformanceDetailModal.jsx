@@ -4,7 +4,6 @@ import {
   BarChart3,
   TrendingUp,
   TrendingDown,
-  TrendingUp,
   ShoppingCart,
   Users,
   Package,

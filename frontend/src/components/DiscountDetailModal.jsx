@@ -10,7 +10,6 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  TrendingUp,
   Edit,
   ToggleLeft,
   ToggleRight

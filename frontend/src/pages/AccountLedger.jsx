@@ -6,7 +6,6 @@ import {
   FileText,
   TrendingUp,
   TrendingDown,
-  TrendingUp,
   Filter,
   Download,
   RefreshCw,
