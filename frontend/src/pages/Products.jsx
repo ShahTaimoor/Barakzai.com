@@ -220,13 +220,13 @@ const Products = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-          <p className="text-gray-600">Manage your product catalog</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Products</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage your product catalog</p>
         </div>
-        <div className="flex-shrink-0 flex items-center gap-3">
+        <div className="flex-shrink-0 flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={() => {
               const componentInfo = getComponentInfo('/categories');
@@ -241,55 +241,62 @@ const Products = () => {
                 });
               }
             }}
-            className="btn btn-outline btn-md w-full sm:w-auto"
+            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
           >
-            <Tag className="h-4 w-4 mr-2" />
-            Add Product Category
+            <Tag className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+            <span className="hidden sm:inline">Add Product Category</span>
+            <span className="sm:hidden">Category</span>
           </button>
           <button
             onClick={refreshCategories}
-            className="btn btn-outline btn-md w-full sm:w-auto"
+            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
             title="Refresh categories list"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh Categories
+            <RefreshCw className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+            <span className="hidden sm:inline">Refresh Categories</span>
+            <span className="sm:hidden">Refresh</span>
           </button>
           <button
             onClick={() => setShowBarcodeScanner(true)}
-            className="btn btn-outline btn-md w-full sm:w-auto"
+            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
             title="Scan barcode to search product"
           >
-            <Camera className="h-4 w-4 mr-2" />
-            Scan Barcode
+            <Camera className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+            <span className="hidden sm:inline">Scan Barcode</span>
+            <span className="sm:hidden">Scan</span>
           </button>
           <button
             onClick={() => setShowLabelPrinter(true)}
-            className="btn btn-outline btn-md w-full sm:w-auto"
+            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
             title="Print barcode labels"
           >
-            <Printer className="h-4 w-4 mr-2" />
-            Print Labels
+            <Printer className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+            <span className="hidden sm:inline">Print Labels</span>
+            <span className="sm:hidden">Print</span>
           </button>
           <button
             onClick={() => productOps.setIsModalOpen(true)}
-            className="btn btn-primary btn-md w-full sm:w-auto"
+            className="btn btn-primary btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
+            <Plus className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+            <span className="hidden sm:inline">Add Product</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
 
-      <div className="flex items-center space-x-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10"
-          />
+      <div className="w-full">
+        <div className="flex items-center space-x-4">
+          <div className="flex-1 relative min-w-0">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input pl-10 w-full text-sm sm:text-base"
+            />
+          </div>
         </div>
       </div>
 

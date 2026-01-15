@@ -12,10 +12,10 @@ const TabBar = () => {
   }
 
   return (
-    <div className="bg-white border-b border-gray-200 shadow-sm">
-      <div className="flex items-center justify-between px-4 py-2">
+    <div className="bg-white border-b border-gray-200 shadow-sm overflow-x-hidden">
+      <div className="flex items-center justify-between px-2 sm:px-4 py-2 gap-2 min-w-0">
         {/* Tabs */}
-        <div className="flex items-center space-x-1 overflow-x-auto flex-1">
+        <div className="flex items-center space-x-1 overflow-x-auto flex-1 min-w-0 scrollbar-hide">
           {tabs.map((tab) => {
             const isActive = activeTabId === tab.id;
             const isHighlighted = highlightedTabId === tab.id;

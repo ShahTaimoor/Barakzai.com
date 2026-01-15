@@ -311,57 +311,59 @@ export const MultiTabLayout = ({ children }) => {
             <Menu className="h-6 w-6" />
           </button>
 
-          <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+          <div className="flex flex-1 gap-x-2 sm:gap-x-4 self-stretch lg:gap-x-6 min-w-0 overflow-hidden">
             {/* Inventory Alerts Badge */}
-            <InventoryAlertsBadge onNavigate={handleNavigationClick} />
+            <div className="flex-shrink-0">
+              <InventoryAlertsBadge onNavigate={handleNavigationClick} />
+            </div>
             
-            {/* Financial Transaction Buttons */}
-            <div className="flex items-center space-x-2">
+            {/* Financial Transaction Buttons - Responsive */}
+            <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto flex-shrink-0 scrollbar-hide">
               <button
                 onClick={() => handleNavigationClick({ href: '/cash-receiving', name: 'Cash Receiving' })}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">Cash Receiving</span>
+                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Cash Receiving</span>
               </button>
               <button
                 onClick={() => handleNavigationClick({ href: '/cash-receipts', name: 'Cash Receipts' })}
-                className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-green-500 hover:bg-green-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">Cash Receipt</span>
+                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Cash Receipt</span>
               </button>
               <button
                 onClick={() => handleNavigationClick({ href: '/bank-receipts', name: 'Bank Receipts' })}
-                className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-green-500 hover:bg-green-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">Bank Receipt</span>
+                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Bank Receipt</span>
               </button>
               <button
                 onClick={() => handleNavigationClick({ href: '/cash-payments', name: 'Cash Payments' })}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <ArrowUpDown className="h-4 w-4" />
-                <span className="hidden sm:inline">Cash Payment</span>
+                <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Cash Payment</span>
               </button>
               <button
                 onClick={() => handleNavigationClick({ href: '/bank-payments', name: 'Bank Payments' })}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <ArrowUpDown className="h-4 w-4" />
-                <span className="hidden sm:inline">Bank Payment</span>
+                <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Bank Payment</span>
               </button>
               <button
                 onClick={() => handleNavigationClick({ href: '/expenses', name: 'Record Expense' })}
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Record Expense</span>
+                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Record Expense</span>
               </button>
             </div>
 
-            <div className="flex items-center gap-x-4 ml-auto">
+            <div className="flex items-center gap-x-2 sm:gap-x-4 ml-auto flex-shrink-0">
               {/* Keyboard Shortcuts Button */}
               <button
                 onClick={() => {
@@ -401,8 +403,8 @@ export const MultiTabLayout = ({ children }) => {
         <TabBar />
 
         {/* Page content */}
-        <main className={`${isMobile ? 'py-2' : 'py-4'}`}>
-          <div className={`mx-auto max-w-full ${isMobile ? 'px-2' : 'px-2 sm:px-4 lg:px-6'}`}>
+        <main className={`${isMobile ? 'py-2' : 'py-4'} overflow-x-hidden max-w-full`}>
+          <div className={`mx-auto max-w-full w-full overflow-x-hidden ${isMobile ? 'px-2' : 'px-2 sm:px-4 lg:px-6'}`}>
             <ErrorBoundary>
               {tabs.length > 0 ? (
                 <TabContent />
