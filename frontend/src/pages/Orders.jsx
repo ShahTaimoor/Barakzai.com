@@ -496,36 +496,53 @@ export const Orders = () => {
   // orders already defined above via useMemo
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden px-2 sm:px-0">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sales Invoices</h1>
-          <p className="text-gray-600">View and manage sales invoices</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sales Invoices</h1>
+          <p className="text-sm sm:text-base text-gray-600">View and manage sales invoices</p>
         </div>
-        <button className="btn btn-primary btn-md">
-          <Plus className="h-4 w-4 mr-2" />
-          New Invoice
+        <button 
+          onClick={() => {
+            const componentInfo = getComponentInfo('/sales');
+            if (componentInfo) {
+              openTab({
+                title: 'New Invoice',
+                path: '/sales',
+                component: componentInfo.component,
+                icon: componentInfo.icon,
+                allowMultiple: true
+              });
+            }
+          }}
+          className="btn btn-primary btn-sm sm:btn-md w-full sm:w-auto"
+        >
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">New Invoice</span>
+          <span className="sm:hidden">New Invoice</span>
         </button>
       </div>
 
       {/* Search and Filters */}
-      <div className="space-y-4">
-        <div className="flex items-center space-x-4">
+      <div className="space-y-3 sm:space-y-4">
+        {/* Search and Status Filter */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           <div className="flex-1 relative min-w-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by invoice number, customer name, or amount..."
+              placeholder="Search by invoice number, customer name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10 w-full"
+              className="input pl-10 w-full text-sm sm:text-base"
             />
           </div>
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 w-full sm:w-auto sm:min-w-[140px]">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="input min-w-[120px]"
+              className="input w-full text-sm sm:text-base"
             >
               <option value="">All Status</option>
               <option value="pending">Pending</option>
@@ -539,32 +556,32 @@ export const Orders = () => {
         </div>
         
         {/* Date Filters */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-gray-400" />
-            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">From Date:</label>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 flex-1 sm:flex-none">
+            <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">From Date:</label>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="input"
+              className="input flex-1 sm:flex-none text-sm sm:text-base"
             />
           </div>
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">To Date:</label>
+          <div className="flex items-center gap-2 flex-1 sm:flex-none">
+            <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">To Date:</label>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="input"
+              className="input flex-1 sm:flex-none text-sm sm:text-base"
             />
           </div>
         </div>
       </div>
 
-      {/* Orders Grid */}
+      {/* Orders List */}
       {orders.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="text-center py-12 px-4">
           <ShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No orders found</h3>
           <p className="mt-1 text-sm text-gray-500">
@@ -573,35 +590,44 @@ export const Orders = () => {
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {/* Table Header */}
-          <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
-            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div className="col-span-2">Order Number</div>
-              <div className="col-span-2">Customer</div>
-              <div className="col-span-1">Date</div>
-              <div className="col-span-1">Items</div>
-              <div className="col-span-1">Total</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1">Type</div>
-              <div className="col-span-1">Notes</div>
-              <div className="col-span-1">Actions</div>
+          {/* Desktop Table Header */}
+          <div className="hidden lg:block bg-gray-50 border-b border-gray-200">
+            <div className="px-4 xl:px-6 py-3">
+              <div className="grid grid-cols-12 gap-3 xl:gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <div className="col-span-2">Order Number</div>
+                <div className="col-span-2">Customer</div>
+                <div className="col-span-1">Date</div>
+                <div className="col-span-1">Items</div>
+                <div className="col-span-1">Total</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-1">Type</div>
+                <div className="col-span-1">Notes</div>
+                <div className="col-span-1 min-w-[100px]">Actions</div>
+              </div>
             </div>
           </div>
+
+          {/* Mobile Header */}
+          <div className="lg:hidden bg-gray-50 border-b border-gray-200 px-4 py-3">
+            <h3 className="text-sm font-medium text-gray-700">Sales Invoices ({orders.length})</h3>
+          </div>
           
-          {/* Table Body */}
+          {/* Table Body / Cards */}
           <div className="divide-y divide-gray-200">
             {orders.map((order) => (
-              <div key={order._id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                <div className="grid grid-cols-12 gap-4 items-center">
+              <div key={order._id}>
+                {/* Desktop Table Row */}
+                <div className="hidden lg:block px-4 xl:px-6 py-3 xl:py-4 hover:bg-gray-50 transition-colors">
+                  <div className="grid grid-cols-12 gap-3 xl:gap-4 items-center">
                   {/* Order Number */}
-                  <div className="col-span-2">
-                    <div className="font-medium text-gray-900 truncate">
+                  <div className="col-span-2 min-w-0">
+                    <div className="font-medium text-gray-900 truncate text-sm">
                       #{order.orderNumber}
                     </div>
                   </div>
                   
                   {/* Customer */}
-                  <div className="col-span-2">
+                  <div className="col-span-2 min-w-0">
                     <div className="text-sm text-gray-900 truncate">
                       {order.customerInfo?.name || 'Walk-in Customer'}
                     </div>
@@ -609,21 +635,21 @@ export const Orders = () => {
                   
                   {/* Date */}
                   <div className="col-span-1">
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs xl:text-sm text-gray-600">
                       {new Date(order.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   
                   {/* Items */}
                   <div className="col-span-1">
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs xl:text-sm text-gray-600">
                       {order.items.length}
                     </span>
                   </div>
                   
                   {/* Total */}
                   <div className="col-span-1">
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-gray-900 text-sm xl:text-base">
                       {Math.round(order.pricing.total)}
                     </span>
                   </div>
@@ -662,7 +688,7 @@ export const Orders = () => {
                   </div>
                   
                   {/* Notes */}
-                  <div className="col-span-1">
+                  <div className="col-span-1 min-w-0">
                     <span
                       className="text-xs text-gray-600 block truncate"
                       title={order.notes?.trim() || 'No notes'}
@@ -672,32 +698,32 @@ export const Orders = () => {
                   </div>
                   
                   {/* Actions */}
-                  <div className="col-span-1">
-                    <div className="flex items-center space-x-1">
+                  <div className="col-span-1 min-w-0">
+                    <div className="flex items-center space-x-1 flex-wrap gap-1">
                       <button
                         onClick={() => handleView(order)}
-                        className="text-primary-600 hover:text-primary-800 p-1"
+                        className="text-primary-600 hover:text-primary-800 p-1 flex-shrink-0"
                         title="View Invoice"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handlePrint(order)}
-                        className="text-green-600 hover:text-green-800 p-1"
+                        className="text-green-600 hover:text-green-800 p-1 flex-shrink-0"
                         title="Print Invoice"
                       >
                         <Printer className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(order)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
+                        className="text-blue-600 hover:text-blue-800 p-1 flex-shrink-0"
                         title="Edit Invoice"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(order)}
-                        className="text-red-600 hover:text-red-800 p-1"
+                        className="text-red-600 hover:text-red-800 p-1 flex-shrink-0"
                         title="Delete Invoice"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -706,9 +732,119 @@ export const Orders = () => {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Mobile/Tablet Card View */}
+              <div className="lg:hidden px-4 py-4 hover:bg-gray-50 transition-colors">
+                <div className="space-y-3">
+                  {/* Header Row */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-gray-900 truncate">
+                        #{order.orderNumber}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1 truncate">
+                        {order.customerInfo?.name || 'Walk-in Customer'}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-lg font-semibold text-gray-900">
+                        {Math.round(order.pricing.total)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-500">Date</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Type</p>
+                      <span className="inline-flex text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                        {order.orderType}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status Badges */}
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                      order.status === 'completed' || order.status === 'delivered' 
+                        ? 'bg-green-100 text-green-800'
+                        : order.status === 'pending' || order.status === 'processing'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : order.status === 'cancelled'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {order.status}
+                    </span>
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                      order.payment.status === 'paid'
+                        ? 'bg-green-100 text-green-800'
+                        : order.payment.status === 'partial'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {order.payment.status}
+                    </span>
+                  </div>
+
+                  {/* Notes */}
+                  {order.notes?.trim() && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Notes</p>
+                      <p className="text-sm text-gray-700 line-clamp-2">
+                        {order.notes.trim()}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="pt-3 border-t border-gray-200">
+                    <div className="flex items-center flex-wrap gap-2 justify-start">
+                      <button
+                        onClick={() => handleView(order)}
+                        className="text-primary-600 hover:text-primary-800 p-2 rounded hover:bg-primary-50 transition-colors flex-shrink-0"
+                        title="View Invoice"
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handlePrint(order)}
+                        className="text-green-600 hover:text-green-800 p-2 rounded hover:bg-green-50 transition-colors flex-shrink-0"
+                        title="Print Invoice"
+                      >
+                        <Printer className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(order)}
+                        className="text-blue-600 hover:text-blue-800 p-2 rounded hover:bg-blue-50 transition-colors flex-shrink-0"
+                        title="Edit Invoice"
+                      >
+                        <Edit className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(order)}
+                        className="text-red-600 hover:text-red-800 p-2 rounded hover:bg-red-50 transition-colors flex-shrink-0"
+                        title="Delete Invoice"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
       )}
 
       {/* View Modal */}

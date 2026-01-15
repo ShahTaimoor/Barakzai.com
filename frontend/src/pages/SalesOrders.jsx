@@ -1761,35 +1761,36 @@ const totalProfit = useMemo(() => {
   const { subtotal, totalDiscount, totalTax, total } = calculateTotals();
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="space-y-4 lg:space-y-6 w-full max-w-full overflow-x-hidden px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sales Orders</h1>
-          <p className="text-gray-600">Process sales order transactions</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sales Orders</h1>
+          <p className="text-sm sm:text-base text-gray-600">Process sales order transactions</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
           <button
             onClick={() => setShowExportModal(true)}
-            className="btn btn-secondary btn-md"
+            className="btn btn-secondary btn-sm sm:btn-md flex-1 sm:flex-none"
             title="Export sales orders data"
           >
-            <Download className="h-4 w-4 mr-2" />
-            Export
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </button>
           <button
             onClick={resetForm}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-sm sm:btn-md flex-1 sm:flex-none"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            New Sales Order
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">New Sales Order</span>
+            <span className="sm:hidden">New Order</span>
           </button>
         </div>
       </div>
 
       {/* Customer Selection and Information Row */}
-      <div className="flex items-start space-x-4">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-start gap-4">
               {/* Customer Selection */}
-        <div className="w-[500px] flex-shrink-0">
+        <div className="w-full lg:w-[500px] lg:flex-shrink-0">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -2162,10 +2163,10 @@ const totalProfit = useMemo(() => {
               <p className="mt-2">No items in cart</p>
             </div>
           ) : (
-            <div className="space-y-4 border-t border-gray-200 pt-6">
-              <div className="flex items-center justify-between mb-4">
+            <div className="space-y-4 border-t border-gray-200 pt-6 overflow-x-hidden">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                 <h4 className="text-md font-medium text-gray-700">Cart Items</h4>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center flex-wrap gap-2">
                   <LoadingButton
                     type="button"
                     onClick={handleSortCartItems}
@@ -2174,7 +2175,8 @@ const totalProfit = useMemo(() => {
                     title="Sort products alphabetically"
                   >
                     <ArrowUpDown className="h-4 w-4" />
-                    <span>Sort A-Z</span>
+                    <span className="hidden sm:inline">Sort A-Z</span>
+                    <span className="sm:hidden">Sort</span>
                   </LoadingButton>
                   {isLastPricesApplied && Object.keys(priceStatus).length > 0 && (
                     <div className="flex items-center space-x-3 text-xs">
@@ -2202,8 +2204,8 @@ const totalProfit = useMemo(() => {
                 
                 return (
                   <div key={index} className={`py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    {/* Structured Grid Layout - Following Purchase Orders Format */}
-                    <div className="grid grid-cols-12 gap-4 items-center">
+                    {/* Desktop Grid Layout */}
+                    <div className="hidden lg:grid grid-cols-12 gap-3 xl:gap-4 items-center">
                       {/* Serial Number - 1 column */}
                       <div className="col-span-1">
                         <span className="text-sm font-medium text-gray-700 bg-gray-50 px-0.5 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
@@ -2337,15 +2339,132 @@ const totalProfit = useMemo(() => {
                       </div>
                       
                       {/* Delete Button - 1 column */}
-                      <div className="col-span-1">
+                      <div className="col-span-1 min-w-0">
                         <LoadingButton
                           onClick={() => handleRemoveItem(index)}
                           isLoading={isRemovingFromCart[formData.items[index]?.product?.toString() || index]}
-                          className="btn btn-danger btn-sm h-8 w-full"
+                          className="btn btn-danger btn-sm h-8 w-full flex-shrink-0"
                         >
                           <Trash2 className="h-4 w-4" />
                         </LoadingButton>
                       </div>
+                    </div>
+
+                    {/* Mobile Card Layout */}
+                    <div className="lg:hidden p-3 bg-white border border-gray-200 rounded-lg space-y-3">
+                      {/* Product Name and Delete Button Row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-medium text-sm text-gray-900 truncate">
+                            {safeRender(product?.name) || 'Unknown Product'}
+                          </h5>
+                          {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low Stock</span>}
+                          {lastPurchasePrices[item.product?.toString()] !== undefined && 
+                           item.unitPrice < lastPurchasePrices[item.product?.toString()] && (
+                            <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">
+                              ⚠️ Below Cost
+                            </span>
+                          )}
+                        </div>
+                        <LoadingButton
+                          onClick={() => handleRemoveItem(index)}
+                          isLoading={isRemovingFromCart[formData.items[index]?.product?.toString() || index]}
+                          className="btn btn-danger btn-sm flex-shrink-0"
+                          title="Remove Item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </LoadingButton>
+                      </div>
+
+                      {/* Details Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Stock</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {product?.inventory?.currentStock || 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Quantity</p>
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newQuantity = parseInt(e.target.value) || 1;
+                              if (newQuantity <= 0) {
+                                handleRemoveItem(index);
+                                return;
+                              }
+                              setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((itm, i) => 
+                                  i === index ? { ...itm, quantity: newQuantity, total: newQuantity * itm.unitPrice } : itm
+                                )
+                              }));
+                            }}
+                            className="input text-center h-8 text-sm w-full"
+                            min="1"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Rate</p>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.unitPrice}
+                            onChange={(e) => {
+                              const newPrice = parseFloat(e.target.value) || 0;
+                              const costPrice = lastPurchasePrices[item.product?.toString()];
+                              
+                              if (costPrice !== undefined && newPrice < costPrice) {
+                                const loss = costPrice - newPrice;
+                                const lossPercent = ((loss / costPrice) * 100).toFixed(1);
+                                const shouldProceed = window.confirm(
+                                  `⚠️ WARNING: Sale price ($${newPrice}) is below cost price ($${Math.round(costPrice)}).\n\n` +
+                                  `Loss per unit: $${Math.round(loss)} (${lossPercent}%)\n` +
+                                  `Total loss: $${Math.round(loss * item.quantity)}\n\n` +
+                                  `Do you want to proceed?`
+                                );
+                                if (!shouldProceed) {
+                                  return;
+                                }
+                              }
+                              
+                              setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((itm, i) => 
+                                  i === index ? { ...itm, unitPrice: newPrice, total: itm.quantity * newPrice } : itm
+                                )
+                              }));
+                            }}
+                            className={`input text-center h-8 text-sm w-full ${
+                              lastPurchasePrices[item.product?.toString()] !== undefined && 
+                              item.unitPrice < lastPurchasePrices[item.product?.toString()] 
+                                ? 'border-red-500 bg-red-50' 
+                                : ''
+                            }`}
+                            min="0"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Total</p>
+                          <p className="text-sm font-semibold text-gray-900 bg-gray-100 px-2 py-1 rounded border border-gray-200 text-center h-8 flex items-center justify-center">
+                            {Math.round(totalPrice)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Cost Price (if shown) */}
+                      {showCostPrice && canViewCostPrice && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Last Purchase Price</p>
+                          <p className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200">
+                            {lastPurchasePrices[item.product?.toString()] !== undefined 
+                              ? `$${Math.round(lastPurchasePrices[item.product?.toString()])}` 
+                              : 'N/A'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -2357,14 +2476,14 @@ const totalProfit = useMemo(() => {
 
       {/* Sales Order Details */}
       {formData.items.length > 0 && !showEditModal && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg max-w-5xl ml-auto mt-4">
-          <div className="px-6 py-4 border-b border-blue-200">
-            <h3 className="text-lg font-medium text-gray-900 text-right mb-4">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg max-w-5xl ml-auto mt-4 w-full overflow-x-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-blue-200">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 text-right mb-4">
               Sales Order Details
             </h3>
-            <div className="flex flex-nowrap gap-3 items-end justify-end">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-end justify-end">
               {/* Order Type */}
-              <div className="flex flex-col w-44">
+              <div className="flex flex-col w-full sm:w-44">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Order Type
                 </label>
@@ -2381,7 +2500,7 @@ const totalProfit = useMemo(() => {
               </div>
 
               {/* Tax Exemption Option */}
-              <div className="flex flex-col w-40">
+              <div className="flex flex-col w-full sm:w-40">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Tax Status
                 </label>
@@ -2407,8 +2526,8 @@ const totalProfit = useMemo(() => {
               </div>
 
               {/* Invoice Number */}
-              <div className="flex flex-col w-72">
-                <div className="flex items-center gap-3 mb-1">
+              <div className="flex flex-col w-full sm:w-72">
+                <div className="flex items-center gap-3 mb-1 flex-wrap">
                   <label className="block text-xs font-medium text-gray-700 m-0">
                     Invoice Number
                   </label>
@@ -2458,7 +2577,7 @@ const totalProfit = useMemo(() => {
               </div>
 
               {/* Notes */}
-              <div className="flex flex-col w-[28rem]">
+              <div className="flex flex-col w-full sm:w-[28rem]">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Notes
                 </label>
@@ -2473,11 +2592,11 @@ const totalProfit = useMemo(() => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
-            <h3 className="text-lg font-semibold text-white">Order Summary</h3>
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 sm:px-6 py-4">
+            <h3 className="text-base sm:text-lg font-semibold text-white">Order Summary</h3>
           </div>
 
-          <div className="px-6 py-4">
+          <div className="px-4 sm:px-6 py-4">
             <div className="space-y-3 mb-6">
               <div className="flex justify-between items-center">
                 <span className="text-gray-800 font-semibold">Subtotal:</span>
@@ -2543,13 +2662,14 @@ const totalProfit = useMemo(() => {
             </div>
           </div>
 
-          <div className="flex space-x-3 mt-6 px-6 pb-6">
+          <div className="flex flex-col sm:flex-row gap-3 mt-6 px-4 sm:px-6 pb-6">
             <button
               onClick={resetForm}
-              className="btn btn-secondary flex-1"
+              className="btn btn-secondary flex-1 w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Clear Cart
+              <span className="hidden sm:inline">Clear Cart</span>
+              <span className="sm:hidden">Clear</span>
             </button>
             <button
               onClick={() => {
@@ -2576,18 +2696,20 @@ const totalProfit = useMemo(() => {
                 };
                 handlePrint(tempOrder);
               }}
-              className="btn btn-secondary flex-1"
+              className="btn btn-secondary flex-1 w-full sm:w-auto"
             >
               <Receipt className="h-4 w-4 mr-2" />
-              Print Preview
+              <span className="hidden sm:inline">Print Preview</span>
+              <span className="sm:hidden">Print</span>
             </button>
             <button
               onClick={handleCreate}
               disabled={creating || formData.items.length === 0}
-              className="btn btn-primary btn-lg flex-2"
+              className="btn btn-primary btn-md sm:btn-lg flex-2 w-full sm:w-auto"
             >
               <Save className="h-4 w-4 mr-2" />
-              {creating ? 'Creating...' : 'Create Sales Order'}
+              <span className="hidden sm:inline">{creating ? 'Creating...' : 'Create Sales Order'}</span>
+              <span className="sm:hidden">{creating ? 'Creating...' : 'Create Order'}</span>
             </button>
           </div>
         </div>

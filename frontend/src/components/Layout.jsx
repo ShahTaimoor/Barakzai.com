@@ -400,53 +400,53 @@ export const Layout = ({ children }) => {
             <Menu className="h-6 w-6" />
           </button>
 
-          <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-            {/* Financial Transaction Buttons */}
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-1 gap-x-2 sm:gap-x-4 self-stretch lg:gap-x-6 min-w-0 overflow-hidden">
+            {/* Financial Transaction Buttons - Responsive */}
+            <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto flex-shrink-0 scrollbar-hide">
               <button
                 onClick={() => navigate('/cash-receiving')}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">Cash Receiving</span>
+                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Cash Receiving</span>
               </button>
               <button
                 onClick={() => navigate('/cash-receipts')}
-                className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-green-500 hover:bg-green-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">Cash Receipts</span>
+                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Cash Receipts</span>
               </button>
               <button
                 onClick={() => navigate('/cash-payments')}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Cash Payments</span>
+                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Cash Payments</span>
               </button>
               <button
                 onClick={() => navigate('/bank-receipts')}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-purple-500 hover:bg-purple-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <Building className="h-4 w-4" />
-                <span className="hidden sm:inline">Bank Receipts</span>
+                <Building className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Bank Receipts</span>
               </button>
               <button
                 onClick={() => navigate('/bank-payments')}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <ArrowUpDown className="h-4 w-4" />
-                <span className="hidden sm:inline">Bank Payments</span>
+                <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Bank Payments</span>
               </button>
               <button
                 onClick={() => navigate('/expenses')}
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-sm font-medium"
+                className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Record Expense</span>
+                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">Record Expense</span>
               </button>
             </div>
-            <div className="flex flex-1"></div>
+            <div className="flex flex-1 min-w-0"></div>
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               {/* PWA Install Button */}
               {isInstallable && (
@@ -511,8 +511,8 @@ export const Layout = ({ children }) => {
         </div>
 
           {/* Page content */}
-          <main className={`${isMobile ? 'py-2' : 'py-4'}`}>
-            <div className={`mx-auto max-w-full ${isMobile ? 'px-2' : 'px-2 sm:px-4 lg:px-6'}`}>
+          <main className={`${isMobile ? 'py-2' : 'py-4'} overflow-x-hidden max-w-full`}>
+            <div className={`mx-auto max-w-full w-full overflow-x-hidden ${isMobile ? 'px-2' : 'px-2 sm:px-4 lg:px-6'}`}>
               <ErrorBoundary>
                 {children}
               </ErrorBoundary>
