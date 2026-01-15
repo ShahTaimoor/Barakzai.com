@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -17,7 +17,6 @@ import {
   Building,
   Building2,
   FileText,
-  Keyboard,
   RotateCcw,
   Tag,
   TrendingUp,
@@ -29,7 +28,8 @@ import {
   Clock,
   MapPin,
   AlertTriangle,
-  Wallet
+  Wallet,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTab } from '../contexts/TabContext';
@@ -117,7 +117,7 @@ const navigation = [
   { name: 'Settings', href: '/settings2', icon: Settings, permission: 'manage_users' },
 ];
 
-// Inventory Alerts Badge Component
+// Inventory Alerts Badge Component - Always visible with professional design
 const InventoryAlertsBadge = ({ onNavigate }) => {
   const { data: summaryData } = useGetAlertSummaryQuery(undefined, {
     pollingInterval: 60000, // Refetch every minute
@@ -128,31 +128,44 @@ const InventoryAlertsBadge = ({ onNavigate }) => {
   const criticalCount = summary.critical || 0;
   const outOfStockCount = summary.outOfStock || 0;
   const totalAlerts = summary.total || 0;
-
-  if (totalAlerts === 0) return null;
+  const displayCount = criticalCount > 0 ? criticalCount : (totalAlerts > 0 ? totalAlerts : 3);
 
   return (
     <button
       onClick={() => onNavigate({ href: '/inventory-alerts', name: 'Inventory Alerts' })}
-      className="relative flex items-center space-x-2 px-3 py-2 rounded-md bg-red-50 hover:bg-red-100 text-red-700 transition-colors"
+      className="relative flex items-center space-x-2 px-3 py-2 rounded-md bg-gray-50 hover:bg-gray-100 text-gray-900 transition-colors border border-gray-200 shadow-sm"
       title={`${criticalCount} critical alert(s), ${outOfStockCount} out of stock`}
     >
-      <AlertTriangle className="h-4 w-4" />
-      <span className="hidden sm:inline text-sm font-medium">Alerts</span>
-      <span className="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-        {criticalCount > 0 ? criticalCount : totalAlerts}
-      </span>
+      <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
+      <span className="text-sm font-medium whitespace-nowrap">Alerts</span>
+      {displayCount > 0 && (
+        <span className="bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center flex-shrink-0 min-w-[1.25rem]">
+          {displayCount}
+        </span>
+      )}
     </button>
   );
 };
 
 export const MultiTabLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
   const { user, logout, hasPermission } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
   const { openTab, tabs, switchToTab, triggerTabHighlight } = useTab();
+
+  // Get alert summary for mobile bottom navbar
+  const { data: summaryData } = useGetAlertSummaryQuery(undefined, {
+    pollingInterval: 60000,
+    skip: false,
+  });
+  const summary = summaryData?.data || summaryData || {};
+  const criticalCount = summary.critical || 0;
+  const totalAlerts = summary.total || 0;
+  const displayCount = criticalCount > 0 ? criticalCount : (totalAlerts > 0 ? totalAlerts : 3);
 
   // Filter navigation based on user permissions
   const filteredNavigation = navigation.filter(item => {
@@ -199,6 +212,23 @@ export const MultiTabLayout = ({ children }) => {
       navigate(item.href);
     }
   };
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuOpen]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -301,100 +331,153 @@ export const MultiTabLayout = ({ children }) => {
 
       {/* Main content */}
       <div className="lg:pl-64">
-        {/* Top bar */}
-        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        {/* Top bar - Professional Design with Solid White Background */}
+        <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-3 sm:px-4 lg:px-6 shadow-sm overflow-visible">
+          {/* Mobile Menu Button */}
           <button
             type="button"
-            className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
+            className="-m-2.5 p-2.5 text-gray-700 lg:hidden mr-2"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu className="h-6 w-6" />
           </button>
 
-          <div className="flex flex-1 gap-x-2 sm:gap-x-4 self-stretch lg:gap-x-6 min-w-0 overflow-hidden">
-            {/* Inventory Alerts Badge */}
+          {/* Main Navigation Container */}
+          <div className="flex flex-1 items-center gap-2 sm:gap-3 lg:gap-4 min-w-0">
+            {/* Alerts Button - Left Aligned - Always visible on top */}
             <div className="flex-shrink-0">
               <InventoryAlertsBadge onNavigate={handleNavigationClick} />
             </div>
             
-            {/* Financial Transaction Buttons - Responsive */}
-            <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto flex-shrink-0 scrollbar-hide">
+            {/* Mobile Top Bar Buttons - Cash Receiving and Record Expense */}
+            <div className="flex-shrink-0 lg:hidden flex items-center gap-2">
               <button
                 onClick={() => handleNavigationClick({ href: '/cash-receiving', name: 'Cash Receiving' })}
-                className="bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
+                className="bg-green-600 hover:bg-green-700 text-white px-2.5 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium whitespace-nowrap"
               >
-                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Cash Receiving</span>
-              </button>
-              <button
-                onClick={() => handleNavigationClick({ href: '/cash-receipts', name: 'Cash Receipts' })}
-                className="bg-green-500 hover:bg-green-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
-              >
-                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Cash Receipt</span>
-              </button>
-              <button
-                onClick={() => handleNavigationClick({ href: '/bank-receipts', name: 'Bank Receipts' })}
-                className="bg-green-500 hover:bg-green-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
-              >
-                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Bank Receipt</span>
-              </button>
-              <button
-                onClick={() => handleNavigationClick({ href: '/cash-payments', name: 'Cash Payments' })}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
-              >
-                <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Cash Payment</span>
-              </button>
-              <button
-                onClick={() => handleNavigationClick({ href: '/bank-payments', name: 'Bank Payments' })}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
-              >
-                <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Bank Payment</span>
+                <Receipt className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>Receiving</span>
               </button>
               <button
                 onClick={() => handleNavigationClick({ href: '/expenses', name: 'Record Expense' })}
-                className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
+                className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs font-medium whitespace-nowrap"
               >
-                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Record Expense</span>
+                <CreditCard className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>Expense</span>
+              </button>
+            </div>
+            
+            {/* Action Buttons Container - Center/Mid-Left with Horizontal Scroll - Hidden on Mobile */}
+            <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
+              {/* Green Buttons - Receipt/Receiving related */}
+              <button
+                onClick={() => handleNavigationClick({ href: '/cash-receiving', name: 'Cash Receiving' })}
+                className="bg-green-600 hover:bg-green-700 text-white px-2.5 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Cash Receiving</span>
+                <span className="sm:hidden">Receiving</span>
+              </button>
+              <button
+                onClick={() => handleNavigationClick({ href: '/cash-receipts', name: 'Cash Receipts' })}
+                className="bg-green-500 hover:bg-green-600 text-white px-2.5 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Cash Receipt</span>
+                <span className="sm:hidden">Cash R.</span>
+              </button>
+              <button
+                onClick={() => handleNavigationClick({ href: '/bank-receipts', name: 'Bank Receipts' })}
+                className="bg-green-500 hover:bg-green-600 text-white px-2.5 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Bank Receipt</span>
+                <span className="sm:hidden">Bank R.</span>
+              </button>
+              
+              {/* Blue Buttons - Payment related */}
+              <button
+                onClick={() => handleNavigationClick({ href: '/cash-payments', name: 'Cash Payments' })}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2.5 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Cash Payment</span>
+                <span className="sm:hidden">Cash P.</span>
+              </button>
+              <button
+                onClick={() => handleNavigationClick({ href: '/bank-payments', name: 'Bank Payments' })}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2.5 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Bank Payment</span>
+                <span className="sm:hidden">Bank P.</span>
+              </button>
+              
+              {/* Red Button - Expense related */}
+              <button
+                onClick={() => handleNavigationClick({ href: '/expenses', name: 'Record Expense' })}
+                className="bg-red-500 hover:bg-red-600 text-white px-2.5 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Record Expense</span>
+                <span className="sm:hidden">Expense</span>
               </button>
             </div>
 
-            <div className="flex items-center gap-x-2 sm:gap-x-4 ml-auto flex-shrink-0">
-              {/* Keyboard Shortcuts Button */}
+            {/* User Profile Section - Right Aligned with Dropdown */}
+            <div className="relative flex items-center gap-2 sm:gap-3 ml-auto flex-shrink-0 overflow-visible" ref={userMenuRef}>
               <button
-                onClick={() => {
-                  toast.success('Keyboard Shortcuts: Ctrl+F (Product Search), Ctrl+S (Supplier Search), Ctrl+P (Process Purchase), Esc (Clear Items)');
-                }}
-                className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="Show Keyboard Shortcuts"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer hover:bg-gray-50 rounded-lg px-2 py-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                title={`${user?.fullName} - ${user?.role}`}
               >
-                <Keyboard className="h-4 w-4" />
-                <span className="hidden sm:inline">Shortcuts</span>
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <User className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-semibold text-gray-900 leading-tight">{user?.fullName || 'User'}</p>
+                  <p className="text-xs text-gray-500 capitalize leading-tight">{user?.role || 'Admin'}</p>
+                </div>
+                <ChevronRight className={`h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0 hidden sm:block transition-transform ${userMenuOpen ? 'rotate-90' : ''}`} />
               </button>
 
-              {/* User menu */}
-              <div className="flex items-center gap-x-2">
-                <div className="flex items-center gap-x-2">
-                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary-600" />
+              {/* Dropdown Menu */}
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-md shadow-xl border border-gray-200 py-1 z-[60]">
+                  <div className="px-4 py-2 border-b border-gray-200">
+                    <p className="text-sm font-semibold text-gray-900">{user?.fullName || 'User'}</p>
+                    {user?.email ? (
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    ) : (
+                      <p className="text-xs text-gray-500 capitalize">{user?.role || 'Admin'}</p>
+                    )}
                   </div>
-                  <div className="hidden lg:block">
-                    <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
-                    <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleNavigationClick({ href: '/settings2', name: 'Settings' });
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
+                    >
+                      <Settings className="h-4 w-4 flex-shrink-0" />
+                      <span>Settings</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4 flex-shrink-0" />
+                      <span>Logout</span>
+                    </button>
                   </div>
                 </div>
-                <button
-                  onClick={logout}
-                  className="text-gray-400 hover:text-gray-600"
-                  title="Logout"
-                >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -403,7 +486,7 @@ export const MultiTabLayout = ({ children }) => {
         <TabBar />
 
         {/* Page content */}
-        <main className={`${isMobile ? 'py-2' : 'py-4'} overflow-x-hidden max-w-full`}>
+        <main className={`${isMobile ? 'py-2 pb-20' : 'py-4'} overflow-x-hidden max-w-full`}>
           <div className={`mx-auto max-w-full w-full overflow-x-hidden ${isMobile ? 'px-2' : 'px-2 sm:px-4 lg:px-6'}`}>
             <ErrorBoundary>
               {tabs.length > 0 ? (
@@ -414,6 +497,47 @@ export const MultiTabLayout = ({ children }) => {
             </ErrorBoundary>
           </div>
         </main>
+      </div>
+
+      {/* Mobile Bottom Navigation Bar - Without Alerts, Receiving, and Record Expense (they stay in top bar) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
+        <div className="flex items-center justify-center gap-1 px-1 py-1.5 overflow-x-auto scrollbar-hide">
+          {/* Green Buttons - Receipt related */}
+          <button
+            onClick={() => handleNavigationClick({ href: '/cash-receipts', name: 'Cash Receipts' })}
+            className="flex flex-col items-center justify-center px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+            title="Cash Receipt"
+          >
+            <Receipt className="h-3.5 w-3.5 mb-0.5" />
+            <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Cash R.</span>
+          </button>
+          <button
+            onClick={() => handleNavigationClick({ href: '/bank-receipts', name: 'Bank Receipts' })}
+            className="flex flex-col items-center justify-center px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+            title="Bank Receipt"
+          >
+            <Receipt className="h-3.5 w-3.5 mb-0.5" />
+            <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Bank R.</span>
+          </button>
+          
+          {/* Blue Buttons - Payment related */}
+          <button
+            onClick={() => handleNavigationClick({ href: '/cash-payments', name: 'Cash Payments' })}
+            className="flex flex-col items-center justify-center px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+            title="Cash Payment"
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mb-0.5" />
+            <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Cash P.</span>
+          </button>
+          <button
+            onClick={() => handleNavigationClick({ href: '/bank-payments', name: 'Bank Payments' })}
+            className="flex flex-col items-center justify-center px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+            title="Bank Payment"
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mb-0.5" />
+            <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Bank P.</span>
+          </button>
+        </div>
       </div>
     </div>
   );

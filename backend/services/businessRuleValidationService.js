@@ -62,34 +62,57 @@ class BusinessRuleValidationService {
       for (let i = 0; i < orderData.items.length; i++) {
         const item = orderData.items[i];
         
-        // Validate product exists
+        // Validate product/variant exists
         try {
-          const product = await Product.findById(item.product);
+          const Product = require('../models/Product');
+          const ProductVariant = require('../models/ProductVariant');
+          const productRepository = require('../repositories/ProductRepository');
+          const productVariantRepository = require('../repositories/ProductVariantRepository');
+          
+          // Try to find as product first, then as variant
+          let product = await productRepository.findById(item.product);
+          let isVariant = false;
+          
+          if (!product) {
+            product = await productVariantRepository.findById(item.product);
+            if (product) {
+              isVariant = true;
+            }
+          }
+          
           if (!product) {
             errors.push({
               field: `items[${i}].product`,
-              message: `Product not found: ${item.product}`
+              message: `Product or variant not found: ${item.product}`
             });
             continue;
           }
           
           if (product.status !== 'active') {
+            const productName = isVariant 
+              ? (product.displayName || product.variantName || 'Variant')
+              : product.name;
             errors.push({
               field: `items[${i}].product`,
-              message: `Product is not active: ${product.name}`
+              message: `Product/variant is not active: ${productName}`
             });
           }
           
           // Validate stock availability
+          const Inventory = require('../models/Inventory');
           const inventory = await Inventory.findOne({ product: item.product });
           const availableStock = inventory 
             ? Math.max(0, inventory.currentStock - inventory.reservedStock)
             : (product.inventory?.currentStock || 0);
           
+          const productName = isVariant 
+            ? (product.displayName || product.variantName || 'Variant')
+            : product.name;
+          
           if (availableStock < item.quantity) {
             errors.push({
               field: `items[${i}].quantity`,
-              message: `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${item.quantity}`
+              message: `Insufficient stock for ${productName}. Available: ${availableStock}, Requested: ${item.quantity}`
             });
           }
           
@@ -349,14 +372,44 @@ class BusinessRuleValidationService {
     
     // Validate items
     if (poData.items && Array.isArray(poData.items)) {
+      const Product = require('../models/Product');
+      const ProductVariant = require('../models/ProductVariant');
+      const productRepository = require('../repositories/ProductRepository');
+      const productVariantRepository = require('../repositories/ProductVariantRepository');
+      
       for (let i = 0; i < poData.items.length; i++) {
         const item = poData.items[i];
         
         if (!item.product) {
           errors.push({
             field: `items[${i}].product`,
-            message: 'Product is required'
+            message: 'Product or variant is required'
           });
+        } else {
+          // Validate product/variant exists
+          try {
+            let product = await productRepository.findById(item.product);
+            let isVariant = false;
+            
+            if (!product) {
+              product = await productVariantRepository.findById(item.product);
+              if (product) {
+                isVariant = true;
+              }
+            }
+            
+            if (!product) {
+              errors.push({
+                field: `items[${i}].product`,
+                message: `Product or variant not found: ${item.product}`
+              });
+            }
+          } catch (error) {
+            errors.push({
+              field: `items[${i}].product`,
+              message: `Error validating product/variant: ${error.message}`
+            });
+          }
         }
         
         if (!item.quantity || item.quantity <= 0) {

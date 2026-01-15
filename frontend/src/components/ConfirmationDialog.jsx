@@ -8,7 +8,6 @@ import {
   XCircle,
   Shield
 } from 'lucide-react';
-import { useKeyboardShortcutsContext } from '../contexts/KeyboardShortcutsContext';
 
 const ConfirmationDialog = ({
   isOpen,
@@ -24,18 +23,21 @@ const ConfirmationDialog = ({
   cancelButtonProps = {},
   children
 }) => {
-  const modalIdRef = useRef(`modal-${Date.now()}-${Math.random()}`);
-  const { registerModal, unregisterModal } = useKeyboardShortcutsContext();
-
-  // Register modal for Escape key handling
+  // Handle Escape key to close modal
   useEffect(() => {
-    if (isOpen) {
-      registerModal(modalIdRef.current, onClose);
-      return () => {
-        unregisterModal(modalIdRef.current);
-      };
-    }
-  }, [isOpen, onClose, registerModal, unregisterModal]);
+    if (!isOpen) return;
+    
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && !isLoading) {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, isLoading, onClose]);
 
   if (!isOpen) return null;
 

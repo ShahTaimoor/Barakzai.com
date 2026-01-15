@@ -22,6 +22,13 @@ const transformSupplierToUppercase = (supplier) => {
 const transformProductToUppercase = (product) => {
   if (!product) return product;
   if (product.toObject) product = product.toObject();
+  // Handle both products and variants
+  if (product.displayName) {
+    product.displayName = product.displayName.toUpperCase();
+  }
+  if (product.variantName) {
+    product.variantName = product.variantName.toUpperCase();
+  }
   if (product.name) product.name = product.name.toUpperCase();
   if (product.description) product.description = product.description.toUpperCase();
   return product;

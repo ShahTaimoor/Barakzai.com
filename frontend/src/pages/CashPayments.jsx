@@ -1248,9 +1248,9 @@ const CashPayments = () => {
                           ) : payment.customer ? (
                             <div>
                               <div className="font-medium">
-                                {payment.customer.displayName || payment.customer.businessName || payment.customer.name || 
+                                {((payment.customer.displayName || payment.customer.businessName || payment.customer.name || 
                                  `${payment.customer.firstName || ''} ${payment.customer.lastName || ''}`.trim() || 
-                                 payment.customer.email || 'Unknown Customer'}
+                                 payment.customer.email || 'Unknown Customer') || '').toUpperCase()}
                               </div>
                               <div className="text-gray-500 text-xs">Customer</div>
                             </div>

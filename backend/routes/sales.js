@@ -6,6 +6,7 @@ const path = require('path');
 const PDFDocument = require('pdfkit');
 const Sales = require('../models/Sales'); // Still needed for new Sales() and static methods
 const Product = require('../models/Product'); // Still needed for validation
+const ProductVariant = require('../models/ProductVariant'); // For variant support
 const Customer = require('../models/Customer'); // Still needed for validation
 const CashReceipt = require('../models/CashReceipt');
 const BankReceipt = require('../models/BankReceipt');
@@ -14,6 +15,7 @@ const StockMovementService = require('../services/stockMovementService');
 const salesService = require('../services/salesService');
 const salesRepository = require('../repositories/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
+const productVariantRepository = require('../repositories/ProductVariantRepository');
 const customerRepository = require('../repositories/CustomerRepository');
 const { auth, requirePermission } = require('../middleware/auth');
 const { preventPOSDuplicates } = require('../middleware/duplicatePrevention');
@@ -34,6 +36,13 @@ const transformCustomerToUppercase = (customer) => {
 const transformProductToUppercase = (product) => {
   if (!product) return product;
   if (product.toObject) product = product.toObject();
+  // Handle both products and variants
+  if (product.displayName) {
+    product.displayName = product.displayName.toUpperCase();
+  }
+  if (product.variantName) {
+    product.variantName = product.variantName.toUpperCase();
+  }
   if (product.name) product.name = product.name.toUpperCase();
   if (product.description) product.description = product.description.toUpperCase();
   return product;
@@ -194,7 +203,9 @@ router.get('/customer/:customerId/last-prices', auth, async (req, res) => {
       if (item.product && item.product._id) {
         prices[item.product._id.toString()] = {
           productId: item.product._id.toString(),
-          productName: item.product.name,
+          productName: item.product.isVariant 
+            ? (item.product.displayName || item.product.variantName || item.product.name)
+            : item.product.name,
           unitPrice: item.unitPrice,
           quantity: item.quantity
         };
@@ -267,25 +278,36 @@ router.post('/', [
     let totalTax = 0;
     
     for (const item of items) {
-      const product = await productRepository.findById(item.product);
+      // Try to find as product first, then as variant
+      let product = await productRepository.findById(item.product);
+      let isVariant = false;
+      
       if (!product) {
-        return res.status(400).json({ message: `Product ${item.product} not found` });
+        // Try to find as variant
+        product = await productVariantRepository.findById(item.product);
+        if (product) {
+          isVariant = true;
+        }
       }
       
-      // Check actual inventory from Inventory model (source of truth) instead of Product model cache
+      if (!product) {
+        return res.status(400).json({ message: `Product or variant ${item.product} not found` });
+      }
+      
+      // Check actual inventory from Inventory model (source of truth) instead of Product/Variant model cache
       let inventoryRecord = await Inventory.findOne({ product: item.product });
       let availableStock = 0;
       const productStock = Number(product.inventory?.currentStock || 0);
       
-      // If Inventory record doesn't exist, create it from Product's stock
+      // If Inventory record doesn't exist, create it from Product/Variant's stock
       if (!inventoryRecord) {
-        // Create Inventory record with Product's stock value
+        // Create Inventory record with Product/Variant's stock value
         try {
           inventoryRecord = await Inventory.create({
             product: item.product,
-            productModel: 'Product',
+            productModel: isVariant ? 'ProductVariant' : 'Product',
             currentStock: productStock,
-            reorderPoint: product.inventory?.reorderPoint || 10,
+            reorderPoint: product.inventory?.reorderPoint || product.inventory?.minStock || 10,
             reorderQuantity: product.inventory?.reorderQuantity || 50,
             reservedStock: 0,
             availableStock: productStock,
@@ -293,7 +315,7 @@ router.post('/', [
           });
           availableStock = productStock;
         } catch (inventoryError) {
-          // If creation fails, use Product stock as fallback
+          // If creation fails, use Product/Variant stock as fallback
           console.error('Error creating inventory record:', inventoryError);
           availableStock = productStock;
         }
@@ -320,10 +342,15 @@ router.post('/', [
       
       const requestedQuantity = Number(item.quantity);
       
+      // Get product name (for variants, use displayName)
+      const productName = isVariant 
+        ? (product.displayName || product.variantName || `${product.baseProduct?.name || 'Product'} - ${product.variantValue || ''}`)
+        : product.name;
+      
       if (availableStock < requestedQuantity) {
         return res.status(400).json({ 
-          message: `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
-          product: product.name,
+          message: `Insufficient stock for ${productName}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
+          product: productName,
           availableStock: availableStock,
           requestedQuantity: requestedQuantity
         });
@@ -337,7 +364,17 @@ router.post('/', [
       } else {
         // Determine customer type for pricing and calculate default price
         const customerType = customerData ? customerData.businessType : 'retail';
-        unitPrice = product.getPriceForCustomerType(customerType, item.quantity);
+        if (isVariant) {
+          // For variants, use pricing directly
+          if (customerType === 'wholesale' || customerType === 'distributor') {
+            unitPrice = product.pricing?.wholesale || product.pricing?.retail || 0;
+          } else {
+            unitPrice = product.pricing?.retail || 0;
+          }
+        } else {
+          // For regular products, use the method
+          unitPrice = product.getPriceForCustomerType ? product.getPriceForCustomerType(customerType, item.quantity) : (product.pricing?.retail || 0);
+        }
       }
       
       // Apply customer discount if applicable
@@ -347,7 +384,11 @@ router.post('/', [
       const itemSubtotal = item.quantity * unitPrice;
       const itemDiscount = itemSubtotal * (itemDiscountPercent / 100);
       const itemTaxable = itemSubtotal - itemDiscount;
-      const itemTax = isTaxExempt ? 0 : itemTaxable * (product.taxSettings.taxRate || 0);
+      // For variants, use base product's tax settings if available, otherwise default to 0
+      const taxRate = isVariant 
+        ? (product.baseProduct?.taxSettings?.taxRate || 0)
+        : (product.taxSettings?.taxRate || 0);
+      const itemTax = isTaxExempt ? 0 : itemTaxable * taxRate;
       
       // Get unit cost from multiple sources (priority: Inventory > Product)
       let unitCost = 0;
@@ -376,7 +417,9 @@ router.post('/', [
         unitCost,
         unitPrice,
         discountPercent: itemDiscountPercent,
-        taxRate: product.taxSettings.taxRate || 0,
+        taxRate: isVariant 
+          ? (product.baseProduct?.taxSettings?.taxRate || 0)
+          : (product.taxSettings?.taxRate || 0),
         subtotal: itemSubtotal,
         discountAmount: itemDiscount,
         taxAmount: itemTax,
@@ -439,24 +482,39 @@ router.post('/', [
     
     for (const item of items) {
       try {
-        const product = await productRepository.findById(item.product);
+        // Try to find as product first, then as variant
+        let product = await productRepository.findById(item.product);
+        let isVariant = false;
+        
         if (!product) {
-          return res.status(400).json({ message: `Product ${item.product} not found during inventory update` });
+          product = await productVariantRepository.findById(item.product);
+          if (product) {
+            isVariant = true;
+          }
         }
         
-        // Check actual inventory from Inventory model (source of truth) instead of Product model cache
+        if (!product) {
+          return res.status(400).json({ message: `Product or variant ${item.product} not found during inventory update` });
+        }
+        
+        // Get product name (for variants, use displayName)
+        const productName = isVariant 
+          ? (product.displayName || product.variantName || `${product.baseProduct?.name || 'Product'} - ${product.variantValue || ''}`)
+          : product.name;
+        
+        // Check actual inventory from Inventory model (source of truth) instead of Product/Variant model cache
         let inventoryRecord = await Inventory.findOne({ product: item.product });
         let availableStock = 0;
         const productStock = Number(product.inventory?.currentStock || 0);
         
-        // If Inventory record doesn't exist, create it from Product's stock
+        // If Inventory record doesn't exist, create it from Product/Variant's stock
         if (!inventoryRecord) {
-          // Create Inventory record with Product's stock value
+          // Create Inventory record with Product/Variant's stock value
           inventoryRecord = await Inventory.create({
             product: item.product,
-            productModel: 'Product',
+            productModel: isVariant ? 'ProductVariant' : 'Product',
             currentStock: productStock,
-            reorderPoint: product.inventory?.reorderPoint || 10,
+            reorderPoint: product.inventory?.reorderPoint || product.inventory?.minStock || 10,
             reorderQuantity: 50,
             reservedStock: 0,
             availableStock: productStock,
@@ -502,8 +560,8 @@ router.post('/', [
         // Re-check stock availability right before updating (race condition protection)
         if (availableStock < requestedQuantity) {
           return res.status(400).json({ 
-            message: `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
-            product: product.name,
+            message: `Insufficient stock for ${productName}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
+            product: productName,
             availableStock: availableStock,
             requestedQuantity: requestedQuantity
           });
@@ -938,9 +996,19 @@ router.put('/:id', [
     if (req.body.items && req.body.items.length > 0) {
       // Validate products and stock availability
       for (const item of req.body.items) {
-        const product = await productRepository.findById(item.product);
+        // Try to find as product first, then as variant
+        let product = await productRepository.findById(item.product);
+        let isVariant = false;
+        
         if (!product) {
-          return res.status(400).json({ message: `Product ${item.product} not found` });
+          product = await productVariantRepository.findById(item.product);
+          if (product) {
+            isVariant = true;
+          }
+        }
+        
+        if (!product) {
+          return res.status(400).json({ message: `Product or variant ${item.product} not found` });
         }
         
         // Find old quantity for this product
@@ -954,10 +1022,15 @@ router.put('/:id', [
         
         // Check if increasing quantity - need to verify stock availability
         if (quantityChange > 0) {
-          const currentStock = product.inventory.currentStock;
+          // Product is already fetched above, just get the name
+          const productName = isVariant 
+            ? (product.displayName || product.variantName || `${product.baseProduct?.name || 'Product'} - ${product.variantValue || ''}`)
+            : product.name;
+          
+          const currentStock = product.inventory?.currentStock || 0;
           if (currentStock < quantityChange) {
             return res.status(400).json({
-              message: `Insufficient stock for ${product.name}. Available: ${currentStock}, Additional needed: ${quantityChange}`
+              message: `Insufficient stock for ${productName}. Available: ${currentStock}, Additional needed: ${quantityChange}`
             });
           }
         }
@@ -970,11 +1043,26 @@ router.put('/:id', [
       const newOrderItems = [];
       
       for (const item of req.body.items) {
-        const product = await productRepository.findById(item.product);
+        // Try to find as product first, then as variant (for tax rate)
+        let productForTax = await productRepository.findById(item.product);
+        let isVariantForTax = false;
+        if (!productForTax) {
+          productForTax = await productVariantRepository.findById(item.product);
+          if (productForTax) {
+            isVariantForTax = true;
+          }
+        }
+        
         const itemSubtotal = item.quantity * item.unitPrice;
         const itemDiscount = itemSubtotal * ((item.discountPercent || 0) / 100);
         const itemTaxable = itemSubtotal - itemDiscount;
-        const itemTax = order.pricing.isTaxExempt ? 0 : itemTaxable * (item.taxRate || 0);
+        // Use taxRate from item if provided, otherwise get from product/variant
+        const taxRate = item.taxRate !== undefined 
+          ? item.taxRate 
+          : (isVariantForTax 
+              ? (productForTax?.baseProduct?.taxSettings?.taxRate || 0)
+              : (productForTax?.taxSettings?.taxRate || 0));
+        const itemTax = order.pricing.isTaxExempt ? 0 : itemTaxable * taxRate;
         
         newOrderItems.push({
           product: item.product,

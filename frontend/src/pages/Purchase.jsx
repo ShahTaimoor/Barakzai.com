@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Package, 
   Search, 
@@ -19,6 +19,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useGetProductsQuery } from '../store/services/productsApi';
+import { useGetVariantsQuery } from '../store/services/productVariantsApi';
 import {
   useGetSupplierQuery,
   useLazySearchSuppliersQuery,
@@ -43,9 +44,16 @@ import { getComponentInfo } from '../components/ComponentRegistry';
 
 const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove }) => {
   const totalPrice = item.costPerUnit * item.quantity;
-  const currentStock = item.product?.inventory?.currentStock || 0;
-  const reorderPoint = item.product?.inventory?.reorderPoint || 0;
+  const product = item.product || {};
+  const inventory = product.inventory || {};
+  const currentStock = inventory.currentStock || 0;
+  const reorderPoint = inventory.reorderPoint || inventory.minStock || 0;
   const isLowStock = currentStock <= reorderPoint;
+  
+  // Get display name for variants
+  const displayName = product.isVariant 
+    ? (product.displayName || product.variantName || product.name || 'Unknown Variant')
+    : (product.name || 'Unknown Product');
   
   return (
     <div className={`py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
@@ -60,10 +68,17 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
         
         {/* Product Name - 6 columns */}
         <div className="col-span-6 flex items-center h-8">
-          <span className="font-medium text-sm truncate">
-            {item.product?.name || 'Unknown Product'}
-            {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-medium text-sm truncate">
+              {displayName}
+              {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
+            </span>
+            {product.isVariant && (
+              <span className="text-xs text-gray-500">
+                {product.variantType}: {product.variantValue}
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Stock - 1 column */}
@@ -117,58 +132,8 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
   );
 };
 
-const SupplierSearch = ({ selectedSupplier, onSupplierSelect }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const { data: suppliers, isLoading, error } = useQuery(
-    ['suppliers', { search: searchTerm }],
-    () => {
-      if (searchTerm.length > 0) {
-        return suppliersAPI.searchSuppliers(searchTerm);
-      } else {
-        return suppliersAPI.getActiveSuppliers();
-      }
-    },
-    {
-      keepPreviousData: true,
-      onError: () => {
-        // Error handled by RTK Query
-      }
-    }
-  );
-
-  const supplierDisplayKey = (supplier) => (
-    <div>
-      <div className="font-medium">{supplier.companyName}</div>
-      <div className="text-sm text-gray-600">
-        {supplier.contactPerson.firstName} {supplier.contactPerson.lastName}
-      </div>
-      <div className="text-sm text-gray-600">
-        Outstanding Balance: ${(supplier.pendingBalance || 0).toFixed(2)}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Supplier
-        </label>
-        <SearchableDropdown
-          placeholder="Search suppliers..."
-          items={suppliers?.data?.suppliers || suppliers?.suppliers || []}
-          onSelect={onSupplierSelect}
-          onSearch={setSearchTerm}
-          displayKey={supplierDisplayKey}
-          selectedItem={selectedSupplier}
-          loading={isLoading}
-          emptyMessage="No suppliers found"
-        />
-      </div>
-    </div>
-  );
-};
+// NOTE: SupplierSearch component removed - functionality moved to main Purchase component
+// This was using react-query instead of RTK Query, causing conflicts
 
 const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -192,6 +157,16 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
     }
   );
 
+  // Fetch all variants for search
+  const { data: variantsData, isLoading: variantsLoading } = useGetVariantsQuery(
+    { status: 'active' },
+    {
+      keepPreviousData: true,
+      staleTime: 0,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
   // Expose refetch function to parent component via callback
   useEffect(() => {
     if (onRefetchReady && refetchProducts && typeof refetchProducts === 'function') {
@@ -208,22 +183,60 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
     if (productsData?.data?.data?.products) return productsData.data.data.products;
     return [];
   }, [productsData]);
+
+  // Extract variants array from RTK Query response
+  const allVariants = React.useMemo(() => {
+    if (!variantsData) return [];
+    if (Array.isArray(variantsData)) return variantsData;
+    if (variantsData?.data?.variants) return variantsData.data.variants;
+    if (variantsData?.variants) return variantsData.variants;
+    return [];
+  }, [variantsData]);
+
+  // Combine products and variants for search, marking variants with isVariant flag
+  const allItems = React.useMemo(() => {
+    const productsList = allProducts.map(p => ({ ...p, isVariant: false }));
+    const variantsList = allVariants
+      .filter(v => v.status === 'active')
+      .map(v => ({
+        ...v,
+        isVariant: true,
+        // Use variant's display name for search, but keep variant data
+        name: v.displayName || v.variantName || `${v.baseProduct?.name || ''} - ${v.variantValue || ''}`,
+        // Use variant pricing and inventory
+        pricing: v.pricing || { retail: 0, wholesale: 0, cost: 0 },
+        inventory: v.inventory || { currentStock: 0, reorderPoint: 0 },
+        // Keep reference to base product
+        baseProductId: v.baseProduct?._id || v.baseProduct,
+        baseProductName: v.baseProduct?.name || '',
+        variantType: v.variantType,
+        variantValue: v.variantValue,
+        variantName: v.variantName,
+      }));
+    return [...productsList, ...variantsList];
+  }, [allProducts, allVariants]);
+
   const filteredProducts = useFuzzySearch(
-    allProducts,
+    allItems,
     searchTerm,
-    ['name', 'description', 'brand', 'barcode', 'sku'],
+    ['name', 'description', 'brand', 'barcode', 'sku', 'displayName', 'variantValue', 'variantName'],
     {
       threshold: 0.4,
       minScore: 0.3,
-      limit: 10 // Limit results for dropdown
+      limit: 15 // Increased limit to show more results including variants
     }
   );
 
   const handleProductSelect = (product) => {
     setSelectedProduct(product);
-    setCostPerUnit(product.pricing.cost.toString());
-    // Keep the product name visible in the search field until it's added to cart
-    setSearchTerm(product.name);
+    // Use variant pricing if it's a variant
+    const cost = product.pricing?.cost || 0;
+    setCostPerUnit(cost.toString());
+    // Keep the product/variant name visible in the search field until it's added to cart
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
+    setSearchTerm(displayName);
   };
 
   const handleAddToCart = () => {
@@ -255,15 +268,35 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
     }, 100);
   };
 
-  const productDisplayKey = (product) => (
-    <div className="flex items-center justify-between w-full">
-      <div className="font-medium">{product.name}</div>
-      <div className="flex items-center space-x-4">
-        <div className="text-sm text-gray-600">Stock: {product.inventory.currentStock}</div>
-        <div className="text-sm text-gray-600">Cost: ${Math.round(product.pricing.cost)}</div>
+  const productDisplayKey = (product) => {
+    const inventory = product.inventory || {};
+    const pricing = product.pricing || {};
+    
+    // Get display name - use variant display name if it's a variant
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
+    
+    // Show variant indicator
+    const variantInfo = product.isVariant 
+      ? <span className="text-xs text-blue-600 font-semibold">({product.variantType}: {product.variantValue})</span>
+      : null;
+    
+    return (
+      <div className="flex items-center justify-between w-full">
+        <div className="flex flex-col">
+          <div className="font-medium">{displayName}</div>
+          {variantInfo && <div className="text-xs text-gray-500">{variantInfo}</div>}
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className={`text-sm ${inventory.currentStock === 0 ? 'text-red-600' : inventory.currentStock <= (inventory.reorderPoint || inventory.minStock || 0) ? 'text-orange-600' : 'text-gray-600'}`}>
+            Stock: {inventory.currentStock || 0}
+          </div>
+          <div className="text-sm text-gray-600">Cost: ${Math.round(pricing.cost || 0)}</div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -302,7 +335,7 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
             Stock
           </label>
           <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-10 flex items-center justify-center">
-            {selectedProduct ? selectedProduct.inventory.currentStock : '0'}
+            {selectedProduct ? (selectedProduct.inventory?.currentStock || 0) : '0'}
           </span>
         </div>
         
@@ -552,79 +585,6 @@ export const Purchase = ({ tabId, editData }) => {
     // We only want to sync when the suppliers list updates, not when selectedSupplier changes.
   }, [suppliers?.data?.suppliers]);
 
-  // Custom hook for keyboard shortcuts
-  const useKeyboardShortcuts = (shortcuts) => {
-    useEffect(() => {
-      const handleKeyDown = (event) => {
-        // Check if event.key exists before calling toLowerCase
-        if (!event.key) return;
-        
-        const key = event.key.toLowerCase();
-        const ctrlKey = event.ctrlKey || event.metaKey; // Support both Ctrl and Cmd
-        
-        // Create shortcut key
-        const shortcutKey = ctrlKey ? `ctrl+${key}` : key;
-        
-        // Check if shortcut exists and execute
-        if (shortcuts[shortcutKey]) {
-          event.preventDefault();
-          shortcuts[shortcutKey]();
-        }
-      };
-
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [shortcuts]);
-  };
-
-  // Keyboard shortcuts
-  const shortcuts = {
-    'ctrl+f': () => {
-      // Focus product search field
-      const searchInput = document.querySelector('input[placeholder*="Search products"]');
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.select();
-      }
-    },
-    'ctrl+s': () => {
-      // Focus supplier search field
-      const supplierSearch = document.querySelector('input[placeholder*="Search suppliers"]');
-      if (supplierSearch) {
-        supplierSearch.focus();
-        supplierSearch.select();
-      }
-    },
-    'ctrl+p': () => {
-      // Process purchase
-      if (purchaseItems.length > 0) {
-        handleProcessPurchase();
-        toast.success('Processing purchase...');
-      } else {
-        toast.error('No items to purchase');
-      }
-    },
-    'ctrl+enter': () => {
-      // Process purchase
-      if (purchaseItems.length > 0) {
-        handleProcessPurchase();
-      } else {
-        toast.error('No items to purchase');
-      }
-    },
-    'escape': () => {
-      // Clear purchase items
-      if (purchaseItems.length > 0) {
-        setPurchaseItems([]);
-        toast.success('Purchase items cleared');
-      }
-    },
-    'f1': () => {
-      toast.success('Keyboard Shortcuts: Ctrl+F (Product Search), Ctrl+S (Supplier Search), Ctrl+P (Process Purchase), Esc (Clear Items)');
-    }
-  };
-
-  useKeyboardShortcuts(shortcuts);
 
   // Generate invoice number
   const generateInvoiceNumber = (supplier) => {
@@ -650,7 +610,19 @@ export const Purchase = ({ tabId, editData }) => {
     return invoiceNum;
   };
 
+  const supplierDisplayKey = (supplier) => {
+    return (
+      <div>
+        <div className="font-medium">{supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}</div>
+        <div className="text-sm text-gray-600">
+          Outstanding Balance: ${(supplier.pendingBalance || 0).toFixed(2)}
+        </div>
+      </div>
+    );
+  };
+
   const handleSupplierSelect = (supplier) => {
+    // SearchableDropdown passes the full supplier object
     setSelectedSupplier(supplier);
     
     // Auto-generate invoice number if enabled
@@ -661,7 +633,7 @@ export const Purchase = ({ tabId, editData }) => {
     // Update tab title to show supplier name
     const activeTab = getActiveTab();
     if (activeTab && supplier) {
-      updateTabTitle(activeTab.id, `Purchase - ${supplier.displayName}`);
+      updateTabTitle(activeTab.id, `Purchase - ${supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}`);
     }
     
     // Clear cart when supplier changes (only in new purchase mode, not in edit mode)
@@ -849,9 +821,15 @@ export const Purchase = ({ tabId, editData }) => {
     setPurchaseItems(prevItems => {
       const existingItem = prevItems.find(item => item.product?._id === newItem.product?._id);
       if (existingItem) {
+        // Get display name for confirmation message
+        const product = newItem.product || {};
+        const displayName = product.isVariant 
+          ? (product.displayName || product.variantName || product.name || 'Unknown Variant')
+          : (product.name || 'Unknown Product');
+        
         // Show confirmation dialog for existing product
         const confirmAdd = window.confirm(
-          `"${newItem.product?.name || 'Unknown Product'}" is already in the cart (Qty: ${existingItem.quantity}).\n\nDo you want to add ${newItem.quantity} more units?`
+          `"${displayName}" is already in the cart (Qty: ${existingItem.quantity}).\n\nDo you want to add ${newItem.quantity} more units?`
         );
         
         if (!confirmAdd) {
@@ -1077,7 +1055,7 @@ export const Purchase = ({ tabId, editData }) => {
     }
   };
 
-  const handleProcessPurchase = () => {
+  const handleProcessPurchase = useCallback(() => {
     if (purchaseItems.length === 0) {
       toast.error('No items to purchase');
       return;
@@ -1144,7 +1122,8 @@ export const Purchase = ({ tabId, editData }) => {
     } else {
       handleCreatePurchaseInvoice(invoiceData);
     }
-  };
+  }, [purchaseItems, selectedSupplier, invoiceNumber, autoGenerateInvoice, expectedDelivery, notes, taxExempt, subtotal, tax, total, directDiscountAmount, paymentMethod, amountPaid, editData, handleCreatePurchaseInvoice, handleUpdatePurchaseInvoice]);
+
 
   return (
     <>
@@ -1228,14 +1207,7 @@ export const Purchase = ({ tabId, editData }) => {
             items={suppliers?.data?.suppliers || suppliers?.suppliers || []}
             onSelect={handleSupplierSelect}
             onSearch={setSupplierSearchTerm}
-            displayKey={(supplier) => (
-              <div>
-                <div className="font-medium">{supplier.displayName}</div>
-                <div className="text-sm text-gray-600">
-                  Outstanding Balance: ${(supplier.pendingBalance || 0).toFixed(2)}
-                </div>
-              </div>
-            )}
+            displayKey={supplierDisplayKey}
             selectedItem={selectedSupplier}
             loading={suppliersLoading}
             emptyMessage={supplierSearchTerm.length > 0 ? "No suppliers found" : "Start typing to search suppliers..."}
@@ -1573,13 +1545,23 @@ export const Purchase = ({ tabId, editData }) => {
                            address: selectedSupplier.address || selectedSupplier.companyAddress || selectedSupplier.location,
                            businessName: selectedSupplier.companyName
                          } : null,
-                         items: purchaseItems.map(item => ({
-                           product: {
-                             name: item.product?.name || 'Unknown Product'
-                           },
-                           quantity: item.quantity,
-                           unitPrice: item.costPerUnit
-                         })),
+                         items: purchaseItems.map(item => {
+                           const product = item.product || {};
+                           const displayName = product.isVariant 
+                             ? (product.displayName || product.variantName || product.name || 'Unknown Variant')
+                             : (product.name || 'Unknown Product');
+                           
+                           return {
+                             product: {
+                               name: displayName,
+                               isVariant: product.isVariant,
+                               variantType: product.variantType,
+                               variantValue: product.variantValue
+                             },
+                             quantity: item.quantity,
+                             unitPrice: item.costPerUnit
+                           };
+                         }),
                          pricing: {
                            subtotal: subtotal,
                            discountAmount: directDiscountAmount,

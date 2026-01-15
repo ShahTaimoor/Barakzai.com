@@ -17,7 +17,6 @@ import {
   Building,
   Building2,
   FileText,
-  Keyboard,
   RotateCcw,
   Tag,
   TrendingUp,
@@ -460,32 +459,6 @@ export const Layout = ({ children }) => {
                 </button>
               )}
 
-              {/* Keyboard Shortcuts */}
-              <button
-                onClick={() => {
-                  const shortcuts = {
-                    '/products': 'Ctrl+N (New), Ctrl+F (Search), Ctrl+I (Import), Esc (Cancel)',
-                    '/sales': 'Ctrl+F (Product Search), Ctrl+C (Customer Search), Ctrl+P (Process Payment), Esc (Clear Cart)',
-                    '/sales-orders': 'Ctrl+N (New), Ctrl+F (Search), Ctrl+S (Save), Esc (Cancel), F1 (Help)',
-                    '/purchase-orders': 'Ctrl+N (New), Ctrl+F (Search), Ctrl+S (Save), Esc (Cancel), F1 (Help)',
-                    '/purchase': 'Ctrl+F (Product Search), Ctrl+S (Supplier Search), Ctrl+P (Process Purchase), Esc (Clear Items)',
-                    '/customers': 'Ctrl+N (New), Ctrl+F (Search), Esc (Cancel)',
-                    '/suppliers': 'Ctrl+N (New), Ctrl+F (Search), Esc (Cancel)',
-                    '/inventory': 'Ctrl+F (Search), Esc (Cancel)',
-                    '/reports': 'Ctrl+F (Search), Esc (Cancel)',
-                    '/settings': 'Esc (Cancel)',
-                    '/dashboard': 'Ctrl+F (Search), Esc (Cancel)',
-                    '/orders': 'Ctrl+F (Search), Esc (Cancel)'
-                  };
-                  const currentShortcuts = shortcuts[location.pathname] || 'F1 (Help), Esc (Cancel)';
-                  toast.success(`Keyboard Shortcuts: ${currentShortcuts}`);
-                }}
-                className="flex items-center gap-x-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                title="Show Keyboard Shortcuts"
-              >
-                <Keyboard className="h-4 w-4" />
-                <span className="hidden sm:inline">Shortcuts</span>
-              </button>
 
               {/* User menu */}
               <div className="flex items-center gap-x-2">

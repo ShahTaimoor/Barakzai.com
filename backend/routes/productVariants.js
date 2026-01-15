@@ -103,7 +103,7 @@ router.post('/', [
   auth,
   requirePermission('create_products'),
   body('baseProduct').isMongoId().withMessage('Valid base product ID is required'),
-  body('variantName').trim().isLength({ min: 1, max: 200 }).withMessage('Variant name is required'),
+  // Remove variantName from validation - we'll handle it manually after auto-population
   body('variantType').isIn(['color', 'warranty', 'size', 'finish', 'custom']).withMessage('Valid variant type is required'),
   body('variantValue').trim().isLength({ min: 1 }).withMessage('Variant value is required'),
   body('displayName').trim().isLength({ min: 1, max: 200 }).withMessage('Display name is required'),
@@ -113,16 +113,58 @@ router.post('/', [
   body('transformationCost').isFloat({ min: 0 }).withMessage('Valid transformation cost is required')
 ], async (req, res) => {
   try {
+    // FIRST: Run validation for other fields (variantValue must exist for auto-population)
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // NOW: Auto-populate variantName from variantValue if missing or empty
+    // This happens AFTER validation to ensure variantValue exists
+    let variantName = req.body.variantName;
+    const variantValue = req.body.variantValue; // Keep this for auto-population logic
+    
+    // Check if variantName is missing, null, undefined, or empty string
+    if (!variantName || (typeof variantName === 'string' && variantName.trim() === '')) {
+      // Auto-populate from variantValue (which we know exists due to validation above)
+      if (variantValue && typeof variantValue === 'string' && variantValue.trim()) {
+        variantName = variantValue.trim();
+        req.body.variantName = variantName; // Update req.body for later use
+      } else {
+        // This shouldn't happen if validation passed, but just in case
+        return res.status(400).json({ 
+          errors: [{
+            type: 'field',
+            value: '',
+            msg: 'Variant name is required. It will be auto-populated from Variant Value.',
+            path: 'variantName',
+            location: 'body'
+          }]
+        });
+      }
+    } else {
+      // Trim the provided variantName
+      variantName = typeof variantName === 'string' ? variantName.trim() : variantName;
+      req.body.variantName = variantName; // Update req.body
+    }
+
+    // Validate variantName length after auto-population
+    if (!variantName || variantName.length < 1 || variantName.length > 200) {
+      return res.status(400).json({ 
+        errors: [{
+          type: 'field',
+          value: variantName || '',
+          msg: 'Variant name must be between 1 and 200 characters',
+          path: 'variantName',
+          location: 'body'
+        }]
+      });
+    }
+
+    // variantName and variantValue are already set above, so we don't destructure them again
     const {
       baseProduct,
-      variantName,
       variantType,
-      variantValue,
       displayName,
       description,
       pricing,

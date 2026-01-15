@@ -306,7 +306,20 @@ const VariantModal = ({ variant, products, isOpen, onClose, onSuccess }) => {
     }
   }, [variant, isOpen]);
 
-  // Auto-generate display name
+  // Auto-generate variant name from variantValue when creating new variant (backup for initial load)
+  React.useEffect(() => {
+    if (formData.variantValue && !variant) {
+      const trimmedValue = formData.variantValue.trim();
+      const trimmedName = formData.variantName?.trim() || '';
+      if (trimmedValue && (!trimmedName || trimmedName === '')) {
+        setFormData(prev => ({
+          ...prev,
+          variantName: trimmedValue
+        }));
+      }
+    }
+  }, [formData.variantValue, variant]);
+
   React.useEffect(() => {
     if (formData.baseProduct && formData.variantValue) {
       const baseProduct = products.find(p => p._id === formData.baseProduct);
@@ -340,11 +353,37 @@ const VariantModal = ({ variant, products, isOpen, onClose, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Ensure variantName is set (fallback to variantValue if empty)
+      const trimmedVariantName = (formData.variantName || '').trim();
+      const trimmedVariantValue = (formData.variantValue || '').trim();
+      const finalVariantName = (trimmedVariantName && trimmedVariantName.length > 0) 
+        ? trimmedVariantName 
+        : (trimmedVariantValue && trimmedVariantValue.length > 0 ? trimmedVariantValue : '');
+      
+      if (!finalVariantName || finalVariantName.length === 0) {
+        showErrorToast('Variant name is required. Please fill in Variant Value or Variant Name.');
+        return;
+      }
+
+      // Create submitData with explicit variantName to ensure it's not empty
+      const submitData = {
+        baseProduct: formData.baseProduct,
+        variantType: formData.variantType,
+        variantValue: formData.variantValue,
+        variantName: finalVariantName, // Explicitly set to ensure it's not empty
+        displayName: formData.displayName,
+        description: formData.description,
+        pricing: formData.pricing,
+        transformationCost: formData.transformationCost,
+        sku: formData.sku,
+        status: formData.status
+      };
+
       if (variant) {
-        await updateVariant({ id: variant._id, ...formData }).unwrap();
+        await updateVariant({ id: variant._id, ...submitData }).unwrap();
         showSuccessToast('Variant updated successfully');
       } else {
-        await createVariant(formData).unwrap();
+        await createVariant(submitData).unwrap();
         showSuccessToast('Variant created successfully');
       }
       onClose();
@@ -402,10 +441,33 @@ const VariantModal = ({ variant, products, isOpen, onClose, onSuccess }) => {
             label="Variant Value"
             type="text"
             value={formData.variantValue}
-            onChange={(e) => setFormData({ ...formData, variantValue: e.target.value })}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setFormData(prev => {
+                // Auto-update variantName if it's empty, whitespace, or matches old variantValue
+                const prevVariantName = prev.variantName?.trim() || '';
+                const prevVariantValue = prev.variantValue?.trim() || '';
+                const shouldUpdateName = !prevVariantName || prevVariantName === prevVariantValue;
+                const newVariantName = shouldUpdateName ? newValue : prev.variantName;
+                return {
+                  ...prev,
+                  variantValue: newValue,
+                  variantName: newVariantName
+                };
+              });
+            }}
             placeholder="e.g., Red, With Warranty, Large"
             required
             disabled={!!variant}
+          />
+
+          <ValidatedInput
+            label="Variant Name"
+            type="text"
+            value={formData.variantName}
+            onChange={(e) => setFormData({ ...formData, variantName: e.target.value })}
+            placeholder="e.g., Red, With Warranty, Large"
+            required
           />
 
           <ValidatedInput

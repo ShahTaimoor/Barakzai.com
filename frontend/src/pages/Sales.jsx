@@ -23,6 +23,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery, useGetLastPurchasePricesMutation } from '../store/services/productsApi';
+import { useGetVariantsQuery, useGetVariantsByBaseProductQuery } from '../store/services/productVariantsApi';
 import { useGetCustomersQuery, useLazySearchCustomersQuery } from '../store/services/customersApi';
 import { useCreateSaleMutation, useUpdateOrderMutation } from '../store/services/salesApi';
 import { useGetBanksQuery } from '../store/services/banksApi';
@@ -72,6 +73,16 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
     }
   );
 
+  // Fetch all variants for search
+  const { data: variantsData, isLoading: variantsLoading } = useGetVariantsQuery(
+    { status: 'active' },
+    {
+      keepPreviousData: true,
+      staleTime: 0,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
   // Expose refetch function to parent component via callback
   useEffect(() => {
     if (onRefetchReady && refetchProducts && typeof refetchProducts === 'function') {
@@ -88,27 +99,63 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
     if (productsData?.data?.data?.products) return productsData.data.data.products;
     return [];
   }, [productsData]);
+
+  // Extract variants array from RTK Query response
+  const allVariants = React.useMemo(() => {
+    if (!variantsData) return [];
+    if (Array.isArray(variantsData)) return variantsData;
+    if (variantsData?.data?.variants) return variantsData.data.variants;
+    if (variantsData?.variants) return variantsData.variants;
+    return [];
+  }, [variantsData]);
+
+  // Combine products and variants for search, marking variants with isVariant flag
+  const allItems = React.useMemo(() => {
+    const productsList = allProducts.map(p => ({ ...p, isVariant: false }));
+    const variantsList = allVariants
+      .filter(v => v.status === 'active')
+      .map(v => ({
+        ...v,
+        isVariant: true,
+        // Use variant's display name for search, but keep variant data
+        name: v.displayName || v.variantName || `${v.baseProduct?.name || ''} - ${v.variantValue || ''}`,
+        // Use variant pricing and inventory
+        pricing: v.pricing || { retail: 0, wholesale: 0, cost: 0 },
+        inventory: v.inventory || { currentStock: 0, reorderPoint: 0 },
+        // Keep reference to base product
+        baseProductId: v.baseProduct?._id || v.baseProduct,
+        baseProductName: v.baseProduct?.name || '',
+        variantType: v.variantType,
+        variantValue: v.variantValue,
+        variantName: v.variantName,
+      }));
+    return [...productsList, ...variantsList];
+  }, [allProducts, allVariants]);
+
   const products = useFuzzySearch(
-    allProducts,
+    allItems,
     productSearchTerm,
-    ['name', 'description', 'brand'],
+    ['name', 'description', 'brand', 'displayName', 'variantValue', 'variantName'],
     {
       threshold: 0.4,
       minScore: 0.3,
-      limit: 10 // Limit results for dropdown
+      limit: 15 // Increased limit to show more results including variants
     }
   );
 
   const calculatePrice = (product, priceType) => {
     if (!product) return 0;
     
+    // Handle both regular products and variants
+    const pricing = product.pricing || {};
+    
     if (priceType === 'wholesale') {
-      return product.pricing.wholesale || product.pricing.retail;
+      return pricing.wholesale || pricing.retail || 0;
     } else if (priceType === 'retail') {
-      return product.pricing.retail;
+      return pricing.retail || 0;
     } else {
       // Custom - keep current rate or default to wholesale
-      return product.pricing.wholesale || product.pricing.retail;
+      return pricing.wholesale || pricing.retail || 0;
     }
   };
 
@@ -117,17 +164,23 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
     setQuantity(1);
     setIsAddingProduct(true);
     
-    // Show selected product name in search field
-    setProductSearchTerm(product.name);
+    // Show selected product/variant name in search field
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
+    setProductSearchTerm(displayName);
     
     // Fetch last purchase price (always, for loss alerts)
-    if (product._id) {
+    // For variants, use the base product ID to get purchase price
+    const productIdForPrice = product.isVariant ? product.baseProductId : product._id;
+    
+    if (productIdForPrice) {
       try {
-        const response = await getLastPurchasePrice(product._id).unwrap();
+        const response = await getLastPurchasePrice(productIdForPrice).unwrap();
         if (response && response.lastPurchasePrice !== null) {
           setLastPurchasePrice(response.lastPurchasePrice);
           if (onLastPurchasePriceFetched) {
-            onLastPurchasePriceFetched(product._id, response.lastPurchasePrice);
+            onLastPurchasePriceFetched(productIdForPrice, response.lastPurchasePrice);
           }
         } else {
           setLastPurchasePrice(null);
@@ -172,15 +225,21 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
       return;
     }
     
-    // Check if product is out of stock
-    if (selectedProduct.inventory.currentStock === 0) {
-      toast.error(`${selectedProduct.name} is out of stock and cannot be added to the invoice.`);
+    // Get display name for error messages
+    const displayName = selectedProduct.isVariant 
+      ? (selectedProduct.displayName || selectedProduct.variantName || selectedProduct.name)
+      : selectedProduct.name;
+    
+    // Check if product/variant is out of stock
+    const currentStock = selectedProduct.inventory?.currentStock || 0;
+    if (currentStock === 0) {
+      toast.error(`${displayName} is out of stock and cannot be added to the invoice.`);
       return;
     }
     
     // Check if requested quantity exceeds available stock
-    if (quantity > selectedProduct.inventory.currentStock) {
-      toast.error(`Cannot add ${quantity} units. Only ${selectedProduct.inventory.currentStock} units available in stock.`);
+    if (quantity > currentStock) {
+      toast.error(`Cannot add ${quantity} units. Only ${currentStock} units available in stock.`);
       return;
     }
     
@@ -259,28 +318,45 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
   };
 
   const productDisplayKey = (product) => {
-    const isLowStock = product.inventory.currentStock <= product.inventory.reorderPoint;
-    const isOutOfStock = product.inventory.currentStock === 0;
+    const inventory = product.inventory || {};
+    const isLowStock = inventory.currentStock <= inventory.reorderPoint;
+    const isOutOfStock = inventory.currentStock === 0;
+    
+    // Get display name - use variant display name if it's a variant
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
     
     // Get pricing based on selected price type
-    let unitPrice = product.pricing.wholesale || product.pricing.retail;
+    const pricing = product.pricing || {};
+    let unitPrice = pricing.wholesale || pricing.retail || 0;
     let priceLabel = 'Wholesale';
     
     if (priceType === 'wholesale') {
-      unitPrice = product.pricing.wholesale || product.pricing.retail;
+      unitPrice = pricing.wholesale || pricing.retail || 0;
       priceLabel = 'Wholesale';
     } else if (priceType === 'retail') {
-      unitPrice = product.pricing.retail;
+      unitPrice = pricing.retail || 0;
       priceLabel = 'Retail';
     }
     
-    const purchasePrice = product.pricing?.cost || 0;
+    const purchasePrice = pricing?.cost || 0;
+    
+    // Show variant indicator
+    const variantInfo = product.isVariant 
+      ? <span className="text-xs text-blue-600 font-semibold">({product.variantType}: {product.variantValue})</span>
+      : null;
     
     return (
       <div className="flex items-center justify-between w-full">
-        <div className="font-medium">{product.name}</div>
-          <div className="flex items-center space-x-4">
-          <div className="text-sm text-gray-600">Stock: {product.inventory.currentStock}</div>
+        <div className="flex flex-col">
+          <div className="font-medium">{displayName}</div>
+          {variantInfo && <div className="text-xs text-gray-500">{variantInfo}</div>}
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className={`text-sm ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-orange-600' : 'text-gray-600'}`}>
+            Stock: {inventory.currentStock || 0}
+          </div>
           {showCostPrice && hasCostPricePermission && <div className="text-sm text-red-600 font-medium">Cost: ${Math.round(purchasePrice)}</div>}
           <div className="text-sm text-gray-600">Price: ${Math.round(unitPrice)}</div>
         </div>
@@ -312,7 +388,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
                   onSearch={setProductSearchTerm}
                   displayKey={productDisplayKey}
                   selectedItem={selectedProduct}
-                  loading={productsLoading}
+                  loading={productsLoading || variantsLoading}
                   emptyMessage={productSearchTerm.length > 0 ? "No products found" : "Start typing to search products..."}
                   value={productSearchTerm}
                 />
@@ -760,13 +836,19 @@ export const Sales = ({ tabId, editData }) => {
 
   const addToCart = async (newItem) => {
     setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.product._id === newItem.product._id);
+      // For variants, use variant _id; for products, use product _id
+      const itemId = newItem.product._id;
+      const existingItem = prevCart.find(item => item.product._id === itemId);
+      
       if (existingItem) {
         // Check if combined quantity exceeds available stock
         const combinedQuantity = existingItem.quantity + newItem.quantity;
         const availableStock = newItem.product.inventory?.currentStock || 0;
         
         if (combinedQuantity > availableStock) {
+          const displayName = newItem.product.isVariant 
+            ? (newItem.product.displayName || newItem.product.variantName || newItem.product.name)
+            : newItem.product.name;
           toast.error(`Cannot add ${newItem.quantity} more units. Only ${availableStock - existingItem.quantity} additional units available (${existingItem.quantity} already in cart).`);
           return prevCart; // Return unchanged cart
         }
@@ -774,7 +856,7 @@ export const Sales = ({ tabId, editData }) => {
         // If this is an existing item and we have original price stored, keep it
         // Otherwise, if last prices were applied and original price exists, preserve it
         const updatedCart = prevCart.map(item =>
-          item.product._id === newItem.product._id
+          item.product._id === itemId
             ? { ...item, quantity: item.quantity + newItem.quantity, unitPrice: newItem.unitPrice }
             : item
         );
@@ -783,14 +865,19 @@ export const Sales = ({ tabId, editData }) => {
       }
       
       // New item added - fetch its last purchase price (always, for loss alerts)
-      if (newItem.product._id) {
-        getLastPurchasePrice(newItem.product._id)
+      // For variants, use base product ID to get purchase price
+      const productIdForPrice = newItem.product.isVariant 
+        ? newItem.product.baseProductId 
+        : newItem.product._id;
+      
+      if (productIdForPrice) {
+        getLastPurchasePrice(productIdForPrice)
           .unwrap()
           .then((response) => {
             if (response && response.lastPurchasePrice !== null) {
               setLastPurchasePrices(prev => ({
                 ...prev,
-                [newItem.product._id]: response.lastPurchasePrice
+                [itemId]: response.lastPurchasePrice
               }));
             }
           })
@@ -2000,9 +2087,12 @@ export const Sales = ({ tabId, editData }) => {
                         
                         {/* Product Name - mirror Sales Order layout (6 columns normally, 5 when cost column shown) */}
                         <div className={`${showCostPrice && hasPermission('view_cost_prices') ? 'col-span-5' : 'col-span-6'} flex items-center h-8`}>
-                          <span className="font-medium text-sm truncate">
-                            {item.product.name}
-                            {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm truncate">
+                              {item.product.isVariant 
+                                ? (item.product.displayName || item.product.variantName || item.product.name)
+                                : item.product.name}
+                              {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
                             {/* Warning if sale price is below cost price (always show, regardless of showCostPrice) */}
                             {lastPurchasePrices[item.product._id] !== undefined && 
                              item.unitPrice < lastPurchasePrices[item.product._id] && (
@@ -2025,7 +2115,13 @@ export const Sales = ({ tabId, editData }) => {
                                   : 'Not in Last Order'}
                               </span>
                             )}
-                          </span>
+                            </span>
+                            {item.product.isVariant && (
+                              <span className="text-xs text-gray-500">
+                                {item.product.variantType}: {item.product.variantValue}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         
                         {/* Stock - 1 column */}

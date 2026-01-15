@@ -123,46 +123,6 @@ const MobileNavigation = ({ user, onLogout }) => {
 
   return (
     <>
-      {/* Mobile Header */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-        {/* Logo/Brand */}
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => setIsOpen(true)}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900">POS System</h1>
-        </div>
-
-        {/* Right side actions */}
-        <div className="flex items-center space-x-2">
-          {/* Search button */}
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-          >
-            <Search className="h-5 w-5" />
-          </button>
-
-          {/* Notifications */}
-          <button className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-              3
-            </span>
-          </button>
-
-          {/* User menu */}
-          <div className="relative">
-            <button className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">
-              <User className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Mobile Search Overlay */}
       {isSearchOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20">

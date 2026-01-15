@@ -1317,7 +1317,7 @@ const CashReceipts = () => {
                           {Math.round(receipt.amount)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {receipt.customer ? receipt.customer.name : 'N/A'}
+                          {receipt.customer ? ((receipt.customer.businessName || receipt.customer.name)?.toUpperCase() || 'N/A') : 'N/A'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                           {receipt.particular}
@@ -1683,7 +1683,7 @@ const CashReceipts = () => {
                     </option>
                     {customersData?.map((customer) => (
                       <option key={customer._id} value={customer._id}>
-                        {customer.name} {customer.phone ? `(${customer.phone})` : ''}
+                        {customer.businessName || customer.name} {customer.phone ? `(${customer.phone})` : ''}
                       </option>
                     ))}
                   </select>

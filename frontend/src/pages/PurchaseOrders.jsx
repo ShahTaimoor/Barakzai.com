@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useGetSuppliersQuery, useGetSupplierQuery } from '../store/services/suppliersApi';
 import { useGetProductsQuery } from '../store/services/productsApi';
+import { useGetVariantsQuery } from '../store/services/productVariantsApi';
 import {
   useGetPurchaseOrdersQuery,
   useCreatePurchaseOrderMutation,
@@ -255,8 +256,6 @@ export const PurchaseOrders = ({ tabId }) => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
-  const [selectedSupplierIndex, setSelectedSupplierIndex] = useState(-1);
-  const [isSelectingSupplier, setIsSelectingSupplier] = useState(true);
   const [editProductQuantity, setEditProductQuantity] = useState(1);
   const [editProductCost, setEditProductCost] = useState(0);
 
@@ -277,6 +276,7 @@ export const PurchaseOrders = ({ tabId }) => {
   const [quantity, setQuantity] = useState(1);
   const [customCost, setCustomCost] = useState('');
   const [selectedProductIndex, setSelectedProductIndex] = useState(-1);
+  const [searchKey, setSearchKey] = useState(0); // Key to force re-render
   
   // Modal-specific product selection state
   const [modalProductSearchTerm, setModalProductSearchTerm] = useState('');
@@ -285,6 +285,7 @@ export const PurchaseOrders = ({ tabId }) => {
   
   // Refs
   const productSearchRef = useRef(null);
+  const supplierSearchRef = useRef(null);
 
   // Current order for operations
   const [currentOrder, setCurrentOrder] = useState(null);
@@ -405,17 +406,59 @@ export const PurchaseOrders = ({ tabId }) => {
     }
   );
 
-  // Apply fuzzy search on client side
+  // Fetch all variants for search
+  const { data: variantsData, isLoading: variantsLoading } = useGetVariantsQuery(
+    { status: 'active' },
+    {
+      keepPreviousData: true,
+      staleTime: 30000,
+    }
+  );
+
+  // Extract products array from RTK Query response
   const allProducts = React.useMemo(() => {
     if (allProductsData?.data?.products) return allProductsData.data.products;
     if (allProductsData?.products) return allProductsData.products;
     if (allProductsData?.data?.data?.products) return allProductsData.data.data.products;
     return [];
   }, [allProductsData]);
+
+  // Extract variants array from RTK Query response
+  const allVariants = React.useMemo(() => {
+    if (!variantsData) return [];
+    if (Array.isArray(variantsData)) return variantsData;
+    if (variantsData?.data?.variants) return variantsData.data.variants;
+    if (variantsData?.variants) return variantsData.variants;
+    return [];
+  }, [variantsData]);
+
+  // Combine products and variants for search, marking variants with isVariant flag
+  const allItems = React.useMemo(() => {
+    const productsList = allProducts.map(p => ({ ...p, isVariant: false }));
+    const variantsList = allVariants
+      .filter(v => v.status === 'active')
+      .map(v => ({
+        ...v,
+        isVariant: true,
+        // Use variant's display name for search, but keep variant data
+        name: v.displayName || v.variantName || `${v.baseProduct?.name || ''} - ${v.variantValue || ''}`,
+        // Use variant pricing and inventory
+        pricing: v.pricing || { retail: 0, wholesale: 0, cost: 0 },
+        inventory: v.inventory || { currentStock: 0, reorderPoint: 0 },
+        // Keep reference to base product
+        baseProductId: v.baseProduct?._id || v.baseProduct,
+        baseProductName: v.baseProduct?.name || '',
+        variantType: v.variantType,
+        variantValue: v.variantValue,
+        variantName: v.variantName,
+      }));
+    return [...productsList, ...variantsList];
+  }, [allProducts, allVariants]);
+
   const fuzzySearchResults = useFuzzySearch(
-    allProducts,
+    allItems,
     productSearchTerm,
-    ['name', 'description', 'brand'],
+    ['name', 'description', 'brand', 'displayName', 'variantValue', 'variantName'],
     {
       threshold: 0.4,
       minScore: 0.3,
@@ -426,17 +469,17 @@ export const PurchaseOrders = ({ tabId }) => {
   // Show limited results when search is empty, all filtered results when searching
   const productsData = React.useMemo(() => {
     if (!productSearchTerm || productSearchTerm.trim().length === 0) {
-      // Show first 30 products when no search term
-      return allProducts.slice(0, 30);
+      // Show first 30 items when no search term
+      return allItems.slice(0, 30);
     }
     return fuzzySearchResults;
-  }, [productSearchTerm, allProducts, fuzzySearchResults]);
+  }, [productSearchTerm, allItems, fuzzySearchResults]);
 
   // Fetch products for modal (use same cached data with fuzzy search)
   const modalFuzzySearchResults = useFuzzySearch(
-    allProducts,
+    allItems,
     modalProductSearchTerm,
-    ['name', 'description', 'brand'],
+    ['name', 'description', 'brand', 'displayName', 'variantValue', 'variantName'],
     {
       threshold: 0.4,
       minScore: 0.3,
@@ -447,13 +490,13 @@ export const PurchaseOrders = ({ tabId }) => {
   // Show limited results when search is empty, all filtered results when searching
   const modalProductsData = React.useMemo(() => {
     if (!modalProductSearchTerm || modalProductSearchTerm.trim().length === 0) {
-      // Show first 30 products when no search term
-      return allProducts.slice(0, 30);
+      // Show first 30 items when no search term
+      return allItems.slice(0, 30);
     }
     return modalFuzzySearchResults;
-  }, [modalProductSearchTerm, allProducts, modalFuzzySearchResults]);
+  }, [modalProductSearchTerm, allItems, modalFuzzySearchResults]);
   
-  const modalProductsLoading = productsLoading;
+  const modalProductsLoading = productsLoading || variantsLoading;
 
   // Auto-scroll selected product into view when navigating with keyboard
   useEffect(() => {
@@ -493,12 +536,11 @@ export const PurchaseOrders = ({ tabId }) => {
     });
     setSelectedSupplier(null);
     setSupplierSearchTerm('');
-    setIsSelectingSupplier(true); // Reset to allow immediate supplier selection
-    setSelectedSupplierIndex(-1);
     setSelectedProduct(null);
     setProductSearchTerm('');
     setQuantity(1);
     setCustomCost('');
+    setSearchKey(prev => prev + 1); // Force re-render of search components
     
     // Reset tab title to default
     if (updateTabTitle && getActiveTab) {
@@ -509,30 +551,41 @@ export const PurchaseOrders = ({ tabId }) => {
     }
   };
 
-  const handleSupplierSelect = (supplierId) => {
-    const supplier = suppliers?.find(s => s._id === supplierId);
-    setSelectedSupplier(supplier);
+  const supplierDisplayKey = (supplier) => {
+    return (
+      <div>
+        <div className="font-medium">{supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}</div>
+        <div className="text-sm text-gray-600">
+          Outstanding Balance: ${(supplier.pendingBalance || 0).toFixed(2)}
+        </div>
+      </div>
+    );
+  };
+
+  const handleSupplierSelect = (supplier) => {
+    // SearchableDropdown passes the full supplier object, not just the ID
+    const supplierId = typeof supplier === 'string' ? supplier : supplier._id;
+    const supplierObj = typeof supplier === 'object' ? supplier : suppliers?.find(s => s._id === supplierId);
+    
+    setSelectedSupplier(supplierObj);
     setFormData(prev => ({ ...prev, supplier: supplierId }));
-    setSupplierSearchTerm('');
-    setSelectedSupplierIndex(-1);
-    setIsSelectingSupplier(false);
+    setSupplierSearchTerm(supplierObj?.companyName || supplierObj?.name || '');
     
     // Update tab title to show supplier name
-    if (updateTabTitle && getActiveTab && supplier) {
+    if (updateTabTitle && getActiveTab && supplierObj) {
       const activeTab = getActiveTab();
       if (activeTab) {
-        updateTabTitle(activeTab.id, `PO - ${supplier.companyName || supplier.name || 'Unknown'}`);
+        updateTabTitle(activeTab.id, `PO - ${supplierObj.companyName || supplierObj.name || 'Unknown'}`);
       }
     }
   };
 
   const handleSupplierSearch = (searchTerm) => {
     setSupplierSearchTerm(searchTerm);
-    setSelectedSupplierIndex(-1); // Reset selection when searching
+    
     if (searchTerm === '') {
       setSelectedSupplier(null);
       setFormData(prev => ({ ...prev, supplier: '' }));
-      setIsSelectingSupplier(true);
       
       // Reset tab title to default when supplier is cleared
       if (updateTabTitle && getActiveTab) {
@@ -544,45 +597,51 @@ export const PurchaseOrders = ({ tabId }) => {
     }
   };
 
-  const handleSupplierKeyDown = (e) => {
-    if (!isSelectingSupplier || !supplierSearchTerm || !suppliersData) return;
-
-    const filteredSuppliers = suppliers.filter(supplier => 
-      (supplier.companyName || supplier.name || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
-      (supplier.phone || '').includes(supplierSearchTerm)
+  const productDisplayKey = (product) => {
+    const inventory = product.inventory || {};
+    const isLowStock = inventory.currentStock <= (inventory.reorderPoint || inventory.minStock || 0);
+    const isOutOfStock = inventory.currentStock === 0;
+    
+    // Get display name - use variant display name if it's a variant
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
+    
+    // Get cost price
+    const pricing = product.pricing || {};
+    const cost = pricing.cost || 0;
+    
+    // Show variant indicator
+    const variantInfo = product.isVariant 
+      ? <span className="text-xs text-blue-600 font-semibold">({product.variantType}: {product.variantValue})</span>
+      : null;
+    
+    return (
+      <div className="flex items-center justify-between w-full">
+        <div className="flex flex-col">
+          <div className="font-medium">{displayName}</div>
+          {variantInfo && <div className="text-xs text-gray-500">{variantInfo}</div>}
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className={`text-sm ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-orange-600' : 'text-gray-600'}`}>
+            Stock: {inventory.currentStock || 0}
+          </div>
+          <div className="text-sm text-gray-600">Cost: ${Math.round(cost)}</div>
+        </div>
+      </div>
     );
-    const maxIndex = filteredSuppliers.length - 1;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedSupplierIndex(prev => 
-          prev < maxIndex ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedSupplierIndex(prev => 
-          prev > 0 ? prev - 1 : maxIndex
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedSupplierIndex >= 0 && selectedSupplierIndex < filteredSuppliers.length) {
-          handleSupplierSelect(filteredSuppliers[selectedSupplierIndex]._id);
-        }
-        break;
-      case 'Escape':
-        setSupplierSearchTerm('');
-        setSelectedSupplierIndex(-1);
-        break;
-    }
   };
 
   const handleProductSelect = (product) => {
     setSelectedProduct(product);
-    setCustomCost(product.pricing?.cost || '');
-    setProductSearchTerm(product.name); // Show product name in the field
+    // Use variant pricing if it's a variant
+    const cost = product.pricing?.cost || 0;
+    setCustomCost(cost.toString());
+    // Show product/variant name in the field
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
+    setProductSearchTerm(displayName);
     setSelectedProductIndex(-1);
   };
 
@@ -592,45 +651,13 @@ export const PurchaseOrders = ({ tabId }) => {
     
     // Clear selected product if search term doesn't match the selected product name
     if (selectedProduct && searchTerm !== selectedProduct.name) {
-    setSelectedProduct(null);
-    setCustomCost('');
+      setSelectedProduct(null);
+      setCustomCost('');
     }
     
     if (searchTerm === '') {
-    setSelectedProduct(null);
-    setCustomCost('');
-    }
-  };
-
-  const handleProductKeyDown = (e) => {
-    if (!productSearchTerm || !productsData) return;
-
-    const filteredProducts = productsData;
-    const maxIndex = filteredProducts.length - 1;
-
-    switch (e.key) {
-      case 'ArrowDown':
-      e.preventDefault();
-        setSelectedProductIndex(prev => 
-          prev < maxIndex ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-      e.preventDefault();
-        setSelectedProductIndex(prev => 
-          prev > 0 ? prev - 1 : maxIndex
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedProductIndex >= 0 && selectedProductIndex < filteredProducts.length) {
-          handleProductSelect(filteredProducts[selectedProductIndex]);
-        }
-        break;
-      case 'Escape':
-        setProductSearchTerm('');
-        setSelectedProductIndex(-1);
-        break;
+      setSelectedProduct(null);
+      setCustomCost('');
     }
   };
 
@@ -668,13 +695,14 @@ export const PurchaseOrders = ({ tabId }) => {
     setProductSearchTerm('');
     setQuantity(1);
     setCustomCost('');
+    setSearchKey(prev => prev + 1); // Force re-render of search components
     
     // Focus back to product search input
-      setTimeout(() => {
-        if (productSearchRef.current) {
-          productSearchRef.current.focus();
-        }
-      }, 100);
+    setTimeout(() => {
+      if (productSearchRef.current) {
+        productSearchRef.current.focus();
+      }
+    }, 100);
   };
 
   const handleRemoveItem = (index) => {
@@ -700,9 +728,10 @@ export const PurchaseOrders = ({ tabId }) => {
         }
 
         return (
-          productData.name ||
+          (productData.isVariant 
+            ? (productData.displayName || productData.variantName || productData.name)
+            : productData.name) ||
           productData.title ||
-          productData.displayName ||
           productData.businessName ||
           productData.fullName ||
           ''
@@ -1088,7 +1117,10 @@ export const PurchaseOrders = ({ tabId }) => {
                       <td>${index + 1}</td>
                       <td>
                         <div class="product-info">
-                          <div class="product-name">${safeRender(item.product?.name) || 'Unknown Product'}</div>
+                          <div class="product-name">${item.product?.isVariant 
+                            ? safeRender(item.product?.displayName || item.product?.variantName || item.product?.name || 'Unknown Variant')
+                            : safeRender(item.product?.name || 'Unknown Product')}</div>
+                          ${item.product?.isVariant ? `<div class="text-xs text-gray-500">${item.product.variantType}: ${item.product.variantValue}</div>` : ''}
                           ${item.product?.description ? `<div class="product-description">${item.product.description}</div>` : ''}
                         </div>
                       </td>
@@ -1294,7 +1326,6 @@ export const PurchaseOrders = ({ tabId }) => {
                 onClick={() => {
                   setSelectedSupplier(null);
                   setSupplierSearchTerm('');
-                  setIsSelectingSupplier(true);
                   setFormData(prev => ({ ...prev, supplier: '' }));
                   if (updateTabTitle && getActiveTab) {
                     const activeTab = getActiveTab();
@@ -1309,51 +1340,18 @@ export const PurchaseOrders = ({ tabId }) => {
               </button>
             )}
           </div>
-          <div className="relative">
-            <input
-              type="text"
-              value={
-                isSelectingSupplier
-                  ? supplierSearchTerm
-                  : (selectedSupplier ? (selectedSupplier.companyName || selectedSupplier.name || '') : '')
-              }
-              onChange={(e) => {
-                if (!isSelectingSupplier) return;
-                handleSupplierSearch(e.target.value);
-              }}
-              onKeyDown={handleSupplierKeyDown}
-              className={`input w-full pr-10 ${!isSelectingSupplier ? 'bg-gray-50 cursor-default' : ''}`}
-              placeholder={isSelectingSupplier ? "Search suppliers by name, email, or business..." : ""}
-              readOnly={!isSelectingSupplier}
-            />
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
-          {isSelectingSupplier && supplierSearchTerm && (
-            <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-              {suppliers?.filter(supplier => 
-                (supplier.companyName || supplier.name || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
-                (supplier.phone || '').includes(supplierSearchTerm)
-              ).map((supplier, index) => (
-                <div
-                  key={supplier._id}
-                  onClick={() => {
-                    handleSupplierSelect(supplier._id);
-                    setSupplierSearchTerm(supplier.companyName || supplier.name || '');
-                  }}
-                  className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                    index === selectedSupplierIndex 
-                      ? 'bg-blue-100 text-blue-900' 
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="font-medium text-gray-900">{safeRender(supplier.companyName || supplier.name) || 'Unknown'}</div>
-                  <div className="text-sm text-gray-600">
-                    Outstanding Balance: ${(supplier.pendingBalance || 0).toFixed(2)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <SearchableDropdown
+            ref={supplierSearchRef}
+            placeholder="Search suppliers by name, email, or business..."
+            items={suppliers || []}
+            onSelect={handleSupplierSelect}
+            onSearch={handleSupplierSearch}
+            displayKey={supplierDisplayKey}
+            selectedItem={selectedSupplier}
+            loading={suppliersLoading}
+            emptyMessage={supplierSearchTerm.length > 0 ? "No suppliers found" : "Start typing to search suppliers..."}
+            value={supplierSearchTerm}
+          />
               </div>
               
         {/* Supplier Information - Right Side */}
@@ -1405,52 +1403,23 @@ export const PurchaseOrders = ({ tabId }) => {
                 <div className="grid grid-cols-12 gap-4 items-end">
                 {/* Product Search - 7 columns */}
                 <div className="col-span-7">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Product Search
-                    </label>
-                  <div className="relative">
-                    <input
-                      ref={productSearchRef}
-                      type="text"
-                      value={productSearchTerm}
-                      onChange={(e) => handleProductSearch(e.target.value)}
-                      onKeyDown={handleProductKeyDown}
-                      className="input w-full pr-10 h-12"
-                      placeholder="Search or select product..."
-                    />
-                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  </div>
-                  {productsData && productsData.length > 0 && (
-                    <div className="product-list-container mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {productsData.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500 text-center">
-                          {productSearchTerm ? 'No products found' : 'Start typing to search products'}
-                        </div>
-                      ) : (
-                        productsData.map((product, index) => (
-                          <div
-                            key={product._id}
-                            data-product-index={index}
-                            onClick={() => handleProductSelect(product)}
-                            className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                              index === selectedProductIndex 
-                                ? 'bg-blue-100 text-blue-900' 
-                                : 'hover:bg-gray-100'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <div className="font-medium">{safeRender(product.name)}</div>
-                              <div className="flex items-center space-x-4">
-                                <div className="text-sm text-gray-600">Stock: {product.inventory?.currentStock || 0}</div>
-                                <div className="text-sm text-gray-600">Cost: ${Math.round(product.pricing?.cost || 0)}</div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Product Search
+                  </label>
+                  <SearchableDropdown
+                    key={searchKey}
+                    ref={productSearchRef}
+                    placeholder="Search or select product..."
+                    items={productsData || []}
+                    onSelect={handleProductSelect}
+                    onSearch={handleProductSearch}
+                    displayKey={productDisplayKey}
+                    selectedItem={selectedProduct}
+                    loading={productsLoading || variantsLoading}
+                    emptyMessage={productSearchTerm.length > 0 ? "No products found" : "Start typing to search products..."}
+                    value={productSearchTerm}
+                  />
+                </div>
                   
                   {/* Stock - 1 column */}
                   <div className="col-span-1">
@@ -1546,7 +1515,10 @@ export const PurchaseOrders = ({ tabId }) => {
                 </button>
               </div>
               {formData.items.map((item, index) => {
-                const product = item.productData || item.product; // Use stored product data or fallback to product
+                const product = item.productData || item.product; // Use stored product/variant data or fallback to product
+                const displayName = product?.isVariant 
+                  ? (product?.displayName || product?.variantName || product?.name || 'Unknown Variant')
+                  : (product?.name || 'Unknown Product');
                 const totalPrice = item.costPerUnit * item.quantity;
                 const isLowStock = product?.inventory?.currentStock <= (product?.inventory?.reorderPoint || 0);
                 
@@ -1563,10 +1535,19 @@ export const PurchaseOrders = ({ tabId }) => {
                       
                       {/* Product Name - 6 columns (adjusted to align with Product Search 7 columns) */}
                       <div className="col-span-6 flex items-center h-8">
-                        <span className="font-medium text-sm truncate">
-                          {safeRender(product?.name) || 'Unknown Product'}
-                          {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low</span>}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm truncate">
+                            {product?.isVariant 
+                              ? safeRender(product?.displayName || product?.variantName || product?.name || 'Unknown Variant')
+                              : safeRender(product?.name || 'Unknown Product')}
+                            {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low</span>}
+                          </span>
+                          {product?.isVariant && (
+                            <span className="text-xs text-gray-500">
+                              {product.variantType}: {product.variantValue}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       
                       {/* Stock - 1 column (matches Product Selection Stock) */}
@@ -2039,7 +2020,10 @@ export const PurchaseOrders = ({ tabId }) => {
                                   setModalSelectedProduct(product);
                                   setEditProductCost(product.pricing?.costPrice || 0);
                                   setEditProductQuantity(1);
-                                  setModalProductSearchTerm(product.name);
+                                  const displayName = product.isVariant 
+                                  ? (product.displayName || product.variantName || product.name)
+                                  : product.name;
+                                setModalProductSearchTerm(displayName);
                                   setModalSelectedSuggestionIndex(-1);
                                   
                                   // Move focus to quantity field after selecting product
@@ -2072,7 +2056,10 @@ export const PurchaseOrders = ({ tabId }) => {
                                   setModalSelectedProduct(product);
                                   setEditProductCost(product.pricing?.costPrice || 0);
                                   setEditProductQuantity(1);
-                                  setModalProductSearchTerm(product.name);
+                                  const displayName = product.isVariant 
+                                  ? (product.displayName || product.variantName || product.name)
+                                  : product.name;
+                                setModalProductSearchTerm(displayName);
                                   setModalSelectedSuggestionIndex(-1);
                                   
                                   // Move focus to quantity field after selecting product
@@ -2089,7 +2076,18 @@ export const PurchaseOrders = ({ tabId }) => {
                                     : 'hover:bg-gray-100'
                                 }`}
                               >
-                                <div className="font-medium">{product.name}</div>
+                                <div className="flex flex-col">
+                                  <div className="font-medium">
+                                    {product.isVariant 
+                                      ? (product.displayName || product.variantName || product.name)
+                                      : product.name}
+                                  </div>
+                                  {product.isVariant && (
+                                    <div className="text-xs text-gray-500">
+                                      {product.variantType}: {product.variantValue}
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="text-sm text-gray-600">
                                   Stock: {product.inventory?.currentStock || 0} | 
                                   Cost: {product.pricing?.costPrice || 0}
@@ -2174,7 +2172,9 @@ export const PurchaseOrders = ({ tabId }) => {
                         <div key={index} className="flex items-center p-3 bg-white border border-gray-200 rounded-lg">
                           {/* Product Name */}
                           <div className="font-medium text-gray-900 min-w-[200px] mr-4">
-                            {item.productData?.name || 'Unknown Product'}
+                            {item.productData?.isVariant 
+                              ? (item.productData?.displayName || item.productData?.variantName || item.productData?.name || 'Unknown Variant')
+                              : (item.productData?.name || 'Unknown Product')}
                           </div>
                           
                           {/* Quantity, Cost, Total and Delete - Grouped Together */}

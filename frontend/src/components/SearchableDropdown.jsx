@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Check } from 'lucide-react';
 
 export const SearchableDropdown = forwardRef(({
@@ -23,8 +24,10 @@ export const SearchableDropdown = forwardRef(({
   const [filteredItems, setFilteredItems] = useState(items);
   
   const inputRef = useRef(null);
+  const containerRef = useRef(null);
   const dropdownRef = useRef(null);
   const itemRefs = useRef([]);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
   const valueToDisplayString = (value) => {
     if (value == null) return '';
@@ -244,8 +247,14 @@ export const SearchableDropdown = forwardRef(({
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      const target = event.target;
+      const isClickInDropdown = dropdownRef.current?.contains(target);
+      const isClickInInput = inputRef.current?.contains(target);
+      
+      if (!isClickInDropdown && !isClickInInput) {
         setIsOpen(false);
         setSelectedIndex(-1);
       }
@@ -253,12 +262,39 @@ export const SearchableDropdown = forwardRef(({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   // Focus input when dropdown opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Calculate dropdown position when it opens
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      const updatePosition = () => {
+        if (inputRef.current) {
+          const rect = inputRef.current.getBoundingClientRect();
+          setDropdownPosition({
+            top: rect.bottom + 4, // 4px margin (mt-1 equivalent) - using viewport coordinates for fixed positioning
+            left: rect.left,
+            width: rect.width
+          });
+        }
+      };
+
+      updatePosition();
+      
+      // Update position on scroll or resize
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
     }
   }, [isOpen]);
 
@@ -297,7 +333,7 @@ export const SearchableDropdown = forwardRef(({
   const hasCustomPadding = className.includes('pr-');
   
   return (
-    <div className={`relative ${className.replace(/pr-\d+/g, '').trim()}`} ref={dropdownRef}>
+    <div className={`relative ${className.replace(/pr-\d+/g, '').trim()}`} ref={containerRef}>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
         <input
@@ -327,8 +363,16 @@ export const SearchableDropdown = forwardRef(({
         />
       </div>
 
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+      {isOpen && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`
+          }}
+        >
           {loading ? (
             <div className="p-3 text-center text-gray-500">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600 mx-auto"></div>
@@ -363,7 +407,8 @@ export const SearchableDropdown = forwardRef(({
               {emptyMessage}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -2,7 +2,6 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorProvider } from './contexts/ErrorContext';
 import { TabProvider } from './contexts/TabContext';
-import { KeyboardShortcutsProvider } from './contexts/KeyboardShortcutsContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { MultiTabLayout } from './components/MultiTabLayout';
@@ -10,7 +9,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
 import OfflineIndicator from './components/OfflineIndicator';
 import { LoadingPage } from './components/LoadingSpinner';
-import KeyboardShortcutsHints from './components/KeyboardShortcutsHints';
 
 // Critical components - load immediately (small, frequently used)
 import { Login } from './pages/Login';
@@ -66,11 +64,9 @@ function App() {
   return (
     <ErrorBoundary>
       <ErrorProvider>
-          <KeyboardShortcutsProvider>
             <TabProvider>
               <NetworkStatus />
               <OfflineIndicator />
-              <KeyboardShortcutsHints />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route
@@ -133,7 +129,6 @@ function App() {
               />
             </Routes>
           </TabProvider>
-          </KeyboardShortcutsProvider>
       </ErrorProvider>
     </ErrorBoundary>
   );

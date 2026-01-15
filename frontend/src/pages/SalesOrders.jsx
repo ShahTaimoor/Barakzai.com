@@ -37,6 +37,7 @@ import { formatDate, formatCurrency } from '../utils/formatters';
 import { LoadingButton } from '../components/LoadingSpinner';
 import { useGetCustomersQuery } from '../store/services/customersApi';
 import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery } from '../store/services/productsApi';
+import { useGetVariantsQuery } from '../store/services/productVariantsApi';
 import { useGetSalesQuery, useLazyGetLastPricesQuery } from '../store/services/salesApi';
 import {
   useGetSalesOrdersQuery,
@@ -123,8 +124,6 @@ const SalesOrders = () => {
   const [currentOrder, setCurrentOrder] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
-  const [selectedCustomerIndex, setSelectedCustomerIndex] = useState(-1);
-  const [isSelectingCustomer, setIsSelectingCustomer] = useState(true);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -257,6 +256,7 @@ const totalProfit = useMemo(() => {
 
   // Refs
   const productSearchRef = useRef(null);
+  const customerSearchRef = useRef(null);
 
   useEffect(() => {
     if (autoGenerateOrderNumber) {
@@ -358,6 +358,16 @@ const totalProfit = useMemo(() => {
     }
   );
 
+  // Fetch all variants for search
+  const { data: variantsData, isLoading: variantsLoading } = useGetVariantsQuery(
+    { status: 'active' },
+    {
+      keepPreviousData: true,
+      staleTime: 0,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
   // Extract products array from RTK Query response (same pattern as Sales page)
   const allProducts = React.useMemo(() => {
     if (!allProductsData) return [];
@@ -367,10 +377,43 @@ const totalProfit = useMemo(() => {
     if (allProductsData?.data?.data?.products) return allProductsData.data.data.products;
     return [];
   }, [allProductsData]);
+
+  // Extract variants array from RTK Query response
+  const allVariants = React.useMemo(() => {
+    if (!variantsData) return [];
+    if (Array.isArray(variantsData)) return variantsData;
+    if (variantsData?.data?.variants) return variantsData.data.variants;
+    if (variantsData?.variants) return variantsData.variants;
+    return [];
+  }, [variantsData]);
+
+  // Combine products and variants for search, marking variants with isVariant flag
+  const allItems = React.useMemo(() => {
+    const productsList = allProducts.map(p => ({ ...p, isVariant: false }));
+    const variantsList = allVariants
+      .filter(v => v.status === 'active')
+      .map(v => ({
+        ...v,
+        isVariant: true,
+        // Use variant's display name for search, but keep variant data
+        name: v.displayName || v.variantName || `${v.baseProduct?.name || ''} - ${v.variantValue || ''}`,
+        // Use variant pricing and inventory
+        pricing: v.pricing || { retail: 0, wholesale: 0, cost: 0 },
+        inventory: v.inventory || { currentStock: 0, reorderPoint: 0 },
+        // Keep reference to base product
+        baseProductId: v.baseProduct?._id || v.baseProduct,
+        baseProductName: v.baseProduct?.name || '',
+        variantType: v.variantType,
+        variantValue: v.variantValue,
+        variantName: v.variantName,
+      }));
+    return [...productsList, ...variantsList];
+  }, [allProducts, allVariants]);
+
   const productsData = useFuzzySearch(
-    allProducts,
+    allItems,
     productSearchTerm,
-    ['name', 'description', 'brand'],
+    ['name', 'description', 'brand', 'displayName', 'variantValue', 'variantName'],
     {
       threshold: 0.4,
       minScore: 0.3,
@@ -380,16 +423,16 @@ const totalProfit = useMemo(() => {
 
   // Apply fuzzy search for modal product search
   const modalProductsData = useFuzzySearch(
-    allProducts,
+    allItems,
     modalProductSearchTerm,
-    ['name', 'description', 'brand'],
+    ['name', 'description', 'brand', 'displayName', 'variantValue', 'variantName'],
     {
       threshold: 0.4,
       minScore: 0.3,
       limit: 50
     }
   );
-  const modalProductsLoading = productsLoading;
+  const modalProductsLoading = productsLoading || variantsLoading;
 
   // Mutations (RTK Query)
   const [createSalesOrderMutation, { isLoading: creating }] = useCreateSalesOrderMutation();
@@ -409,8 +452,6 @@ const totalProfit = useMemo(() => {
     // Reset customer first to avoid using stale customer in orderNumber generation
     setSelectedCustomer(null);
     setCustomerSearchTerm('');
-    setIsSelectingCustomer(true);
-    setSelectedCustomerIndex(-1);
     
     // Reset product selection
     setSelectedProduct(null);
@@ -451,17 +492,39 @@ const totalProfit = useMemo(() => {
     // Tab title will be updated by useEffect when selectedCustomer changes
   };
 
-  const handleCustomerSelect = (customerId) => {
-    const customer = customers?.find(c => c._id === customerId);
-    setSelectedCustomer(customer);
+  const customerDisplayKey = (customer) => {
+    const receivables = (customer.pendingBalance || 0);
+    const advance = (customer.advanceBalance || 0);
+    const netBalance = receivables - advance;
+    const isPayable = netBalance < 0;
+    const isReceivable = netBalance > 0;
+    const hasBalance = receivables > 0 || advance > 0;
+    
+    return (
+      <div>
+        <div className="font-medium">{customer.displayName || customer.businessName || customer.name || 'Unknown'}</div>
+        {customer.email && <div className="text-sm text-gray-600">{customer.email}</div>}
+        {hasBalance && (
+          <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
+            {isPayable ? 'Payables:' : 'Receivables:'} ${Math.abs(netBalance).toFixed(2)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleCustomerSelect = (customer) => {
+    // SearchableDropdown passes the full customer object, not just the ID
+    const customerId = typeof customer === 'string' ? customer : customer._id;
+    const customerObj = typeof customer === 'object' ? customer : customers?.find(c => c._id === customerId);
+    
+    setSelectedCustomer(customerObj);
     setFormData(prev => ({
       ...prev,
       customer: customerId,
-      orderNumber: autoGenerateOrderNumber ? generateOrderNumber(customer) : prev.orderNumber
+      orderNumber: autoGenerateOrderNumber ? generateOrderNumber(customerObj) : prev.orderNumber
     }));
-    setCustomerSearchTerm('');
-    setIsSelectingCustomer(false);
-    setSelectedCustomerIndex(-1);
+    setCustomerSearchTerm(customerObj?.displayName || customerObj?.businessName || customerObj?.name || '');
     
     // Reset price states when customer changes
     setOriginalPrices({});
@@ -473,11 +536,9 @@ const totalProfit = useMemo(() => {
 
   const handleCustomerSearch = (searchTerm) => {
     setCustomerSearchTerm(searchTerm);
-    setSelectedCustomerIndex(-1);
     
     if (searchTerm === '') {
       setSelectedCustomer(null);
-      setIsSelectingCustomer(true);
       setFormData(prev => ({
         ...prev,
         customer: '',
@@ -488,52 +549,19 @@ const totalProfit = useMemo(() => {
     }
   };
 
-  const handleCustomerKeyDown = (e) => {
-    if (!isSelectingCustomer || !customerSearchTerm || !customersData) return;
-
-    const filteredCustomers = (customers || []).filter(customer => 
-      (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
-      (customer.email || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
-      (customer.phone || '').includes(customerSearchTerm)
-    );
-    const maxIndex = filteredCustomers.length - 1;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedCustomerIndex(prev => 
-          prev < maxIndex ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedCustomerIndex(prev => 
-          prev > 0 ? prev - 1 : maxIndex
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedCustomerIndex >= 0 && selectedCustomerIndex < filteredCustomers.length) {
-          handleCustomerSelect(filteredCustomers[selectedCustomerIndex]._id);
-        }
-        break;
-      case 'Escape':
-        setCustomerSearchTerm('');
-        setSelectedCustomerIndex(-1);
-        break;
-    }
-  };
-
   const calculatePrice = (product, priceType) => {
     if (!product) return 0;
     
+    // Handle both regular products and variants
+    const pricing = product.pricing || {};
+    
     if (priceType === 'wholesale') {
-      return product.pricing?.wholesale || product.pricing?.retail || 0;
+      return pricing.wholesale || pricing.retail || 0;
     } else if (priceType === 'retail') {
-      return product.pricing?.retail || 0;
+      return pricing.retail || 0;
     } else {
       // Custom - keep current rate or default to wholesale
-      return product.pricing?.wholesale || product.pricing?.retail || 0;
+      return pricing.wholesale || pricing.retail || 0;
     }
   };
 
@@ -541,12 +569,20 @@ const totalProfit = useMemo(() => {
     setSelectedProduct(product);
     setQuantity(1);
     setIsAddingProduct(true);
-    setProductSearchTerm(product.name); // Show product name in the field
+    
+    // Show selected product/variant name in search field
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
+    setProductSearchTerm(displayName);
     
     // Fetch last purchase price (always, for loss alerts)
-    if (product._id) {
+    // For variants, use the base product ID to get purchase price
+    const productIdForPrice = product.isVariant ? product.baseProductId : product._id;
+    
+    if (productIdForPrice) {
       try {
-        const response = await getLastPurchasePrice(product._id).unwrap();
+        const response = await getLastPurchasePrice(productIdForPrice).unwrap();
         if (response && response.lastPurchasePrice !== null) {
           setLastPurchasePrice(response.lastPurchasePrice);
         } else {
@@ -622,26 +658,43 @@ const totalProfit = useMemo(() => {
   };
 
   const productDisplayKey = (product) => {
-    const isLowStock = product.inventory?.currentStock <= (product.inventory?.reorderPoint || 0);
-    const isOutOfStock = product.inventory?.currentStock === 0;
+    const inventory = product.inventory || {};
+    const isLowStock = inventory.currentStock <= (inventory.reorderPoint || inventory.minStock || 0);
+    const isOutOfStock = inventory.currentStock === 0;
+    
+    // Get display name - use variant display name if it's a variant
+    const displayName = product.isVariant 
+      ? (product.displayName || product.variantName || product.name)
+      : product.name;
     
     // Get pricing based on selected price type
-    let unitPrice = product.pricing?.wholesale || product.pricing?.retail || 0;
+    const pricing = product.pricing || {};
+    let unitPrice = pricing.wholesale || pricing.retail || 0;
     let priceLabel = 'Wholesale';
     
     if (priceType === 'wholesale') {
-      unitPrice = product.pricing?.wholesale || product.pricing?.retail || 0;
+      unitPrice = pricing.wholesale || pricing.retail || 0;
       priceLabel = 'Wholesale';
     } else if (priceType === 'retail') {
-      unitPrice = product.pricing?.retail || 0;
+      unitPrice = pricing.retail || 0;
       priceLabel = 'Retail';
     }
     
+    // Show variant indicator
+    const variantInfo = product.isVariant 
+      ? <span className="text-xs text-blue-600 font-semibold">({product.variantType}: {product.variantValue})</span>
+      : null;
+    
     return (
       <div className="flex items-center justify-between w-full">
-        <div className="font-medium">{product.name}</div>
+        <div className="flex flex-col">
+          <div className="font-medium">{displayName}</div>
+          {variantInfo && <div className="text-xs text-gray-500">{variantInfo}</div>}
+        </div>
         <div className="flex items-center space-x-4">
-          <div className="text-sm text-gray-600">Stock: {product.inventory?.currentStock || 0}</div>
+          <div className={`text-sm ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-orange-600' : 'text-gray-600'}`}>
+            Stock: {inventory.currentStock || 0}
+          </div>
           <div className="text-sm text-gray-600">Price: ${Math.round(unitPrice)}</div>
         </div>
       </div>
@@ -657,15 +710,21 @@ const totalProfit = useMemo(() => {
       return;
     }
 
-    // Check if product is out of stock
-    if (selectedProduct.inventory?.currentStock === 0) {
-      showErrorToast(`${selectedProduct.name} is out of stock and cannot be added to the order.`);
+    // Get display name for error messages
+    const displayName = selectedProduct.isVariant 
+      ? (selectedProduct.displayName || selectedProduct.variantName || selectedProduct.name)
+      : selectedProduct.name;
+    
+    // Check if product/variant is out of stock
+    const currentStock = selectedProduct.inventory?.currentStock || 0;
+    if (currentStock === 0) {
+      showErrorToast(`${displayName} is out of stock and cannot be added to the order.`);
       return;
     }
     
     // Check if requested quantity exceeds available stock
-    if (quantity > selectedProduct.inventory?.currentStock) {
-      showErrorToast(`Cannot add ${quantity} units. Only ${selectedProduct.inventory?.currentStock} units available in stock.`);
+    if (quantity > currentStock) {
+      showErrorToast(`Cannot add ${quantity} units. Only ${currentStock} units available in stock.`);
       return;
     }
     
@@ -691,10 +750,14 @@ const totalProfit = useMemo(() => {
       
       const subtotal = unitPrice * quantity;
     const discountAmount = 0; // Can be enhanced later
-    const taxAmount = formData.isTaxExempt ? 0 : (subtotal * (selectedProduct.taxSettings?.taxRate || 0) / 100);
+    // For variants, use base product's tax settings if available, otherwise default to 0
+    const taxRate = selectedProduct.isVariant 
+      ? (selectedProduct.baseProduct?.taxSettings?.taxRate || 0)
+      : (selectedProduct.taxSettings?.taxRate || 0);
+    const taxAmount = formData.isTaxExempt ? 0 : (subtotal * taxRate / 100);
     const total = subtotal - discountAmount + taxAmount;
 
-    // Store last purchase price for this product
+    // Store last purchase price for this product/variant
     if (lastPurchasePrice !== null) {
       setLastPurchasePrices(prev => ({
         ...prev,
@@ -704,11 +767,11 @@ const totalProfit = useMemo(() => {
 
     const newItem = {
       product: selectedProduct._id,
-        productData: selectedProduct, // Store full product data for display
+        productData: selectedProduct, // Store full product/variant data for display
       quantity,
         unitPrice: unitPrice,
       discountPercent: 0,
-      taxRate: selectedProduct.taxSettings?.taxRate || 0,
+      taxRate: taxRate,
       subtotal,
       discountAmount,
       taxAmount,
@@ -742,7 +805,7 @@ const totalProfit = useMemo(() => {
       // Show success message
       const priceLabel = selectedCustomer?.businessType === 'wholesale' ? 'wholesale' :
                          selectedCustomer?.businessType === 'distributor' ? 'distributor' : 'wholesale';
-      showSuccessToast(`${selectedProduct.name} added to order at ${priceLabel} price: ${Math.round(unitPrice)}`);
+      showSuccessToast(`${displayName} added to order at ${priceLabel} price: ${Math.round(unitPrice)}`);
     } catch (error) {
       handleApiError(error, 'Product Price Check');
     } finally {
@@ -1379,7 +1442,6 @@ const totalProfit = useMemo(() => {
     } else {
       setSelectedCustomer(null);
       setCustomerSearchTerm('');
-      setIsSelectingCustomer(true);
       // Tab title will be updated by useEffect when selectedCustomer changes
     }
     
@@ -1802,7 +1864,6 @@ const totalProfit = useMemo(() => {
                           setSelectedCustomer(null);
                           setCustomerSearchTerm('');
                           setFormData(prev => ({ ...prev, customer: '' }));
-                          setSelectedCustomerIndex(-1);
                           
                           // Reset last prices state when customer is cleared
                           setOriginalPrices({});
@@ -1833,62 +1894,18 @@ const totalProfit = useMemo(() => {
                     </div>
                   </div>
                 </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={
-                      isSelectingCustomer
-                        ? customerSearchTerm
-                        : (selectedCustomer ? (selectedCustomer.displayName || selectedCustomer.businessName || selectedCustomer.name || '') : '')
-                    }
-                    onChange={(e) => {
-                      if (!isSelectingCustomer) return;
-                      handleCustomerSearch(e.target.value);
-                    }}
-                    onKeyDown={handleCustomerKeyDown}
-                    className={`input w-full pr-10 ${!isSelectingCustomer ? 'bg-gray-50 cursor-default' : ''}`}
-                    placeholder={isSelectingCustomer ? "Search customers by name, email, or business..." : ''}
-                    readOnly={!isSelectingCustomer}
-                  />
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
-                {isSelectingCustomer && customerSearchTerm && (
-                  <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                    {(customers || []).filter(customer => {
-                      const searchLower = customerSearchTerm.toLowerCase();
-                      const name = (customer.displayName || customer.businessName || customer.name || '').toLowerCase();
-                      const email = (customer.email || '').toLowerCase();
-                      const phone = (customer.phone || '').toLowerCase();
-                      return name.includes(searchLower) || email.includes(searchLower) || phone.includes(customerSearchTerm);
-                    }).map((customer, index) => (
-                      <div
-                        key={customer._id}
-                        onClick={() => {
-                          handleCustomerSelect(customer._id);
-                          setCustomerSearchTerm('');
-                          setIsSelectingCustomer(false);
-                        }}
-                  className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                    index === selectedCustomerIndex 
-                      ? 'bg-blue-100 text-blue-900' 
-                      : 'hover:bg-gray-100'
-                  }`}
-                      >
-                        <div className="font-medium text-gray-900">{customer.displayName || customer.businessName || customer.name || 'Unknown'}</div>
-                  <div className="text-sm text-gray-600">
-                    {customer.email && <div>{customer.email}</div>}
-                    {(() => {
-                      const receivables = customer.pendingBalance || 0;
-                      const advance = customer.advanceBalance || 0;
-                      const netBalance = receivables - advance;
-                      const isPayable = netBalance < 0;
-                      return isPayable ? `Payables: $${Math.abs(netBalance).toFixed(2)}` : `Receivables: $${netBalance.toFixed(2)}`;
-                    })()}
-                  </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <SearchableDropdown
+                  ref={customerSearchRef}
+                  placeholder="Search customers by name, email, or business..."
+                  items={customers || []}
+                  onSelect={handleCustomerSelect}
+                  onSearch={handleCustomerSearch}
+                  displayKey={customerDisplayKey}
+                  selectedItem={selectedCustomer}
+                  loading={customersLoading}
+                  emptyMessage={customerSearchTerm.length > 0 ? "No customers found" : "Start typing to search customers..."}
+                  value={customerSearchTerm}
+                />
               </div>
 
         {/* Customer Information - Right Side */}
@@ -2215,9 +2232,12 @@ const totalProfit = useMemo(() => {
                       
                       {/* Product Name - 5 columns (reduced from 6 to accommodate Cost column when shown) */}
                       <div className={`${showCostPrice && canViewCostPrice ? 'col-span-5' : 'col-span-6'} flex items-center h-8`}>
-                        <span className="font-medium text-sm truncate">
-                          {safeRender(product?.name) || 'Unknown Product'}
-                          {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm truncate">
+                            {product?.isVariant 
+                              ? (safeRender(product?.displayName || product?.variantName || product?.name) || 'Unknown Variant')
+                              : (safeRender(product?.name) || 'Unknown Product')}
+                            {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
                           {lastPurchasePrices[item.product?.toString()] !== undefined && 
                            item.unitPrice < lastPurchasePrices[item.product?.toString()] && (
                             <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold" title={`Sale price below cost! Loss: $${Math.round(lastPurchasePrices[item.product?.toString()] - item.unitPrice)} per unit`}>
@@ -2239,7 +2259,13 @@ const totalProfit = useMemo(() => {
                                 : 'Not in Last Order'}
                             </span>
                           )}
-                        </span>
+                          </span>
+                          {product?.isVariant && (
+                            <span className="text-xs text-gray-500">
+                              {product.variantType}: {product.variantValue}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       
                       {/* Stock - 1 column */}
@@ -2943,7 +2969,18 @@ const totalProfit = useMemo(() => {
                                   : 'hover:bg-gray-100'
                               }`}
                             >
-                              <div className="font-medium">{product.name}</div>
+                              <div className="flex flex-col">
+                                <div className="font-medium">
+                                  {product.isVariant 
+                                    ? (product.displayName || product.variantName || product.name)
+                                    : product.name}
+                                </div>
+                                {product.isVariant && (
+                                  <div className="text-xs text-gray-500">
+                                    {product.variantType}: {product.variantValue}
+                                  </div>
+                                )}
+                              </div>
                               <div className="text-sm text-gray-600">
                                 Stock: {product.inventory?.currentStock || 0} | 
                                 Price: {product.pricing?.retail || 0}

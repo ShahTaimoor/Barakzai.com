@@ -908,7 +908,7 @@ const BankReceipts = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {receipt.customer ? (
                             <div>
-                              <div className="font-medium">{receipt.customer.name}</div>
+                              <div className="font-medium">{(receipt.customer.businessName || receipt.customer.name || '').toUpperCase()}</div>
                               <div className="text-gray-500 text-xs">{receipt.customer.email}</div>
                             </div>
                           ) : (
