@@ -3,6 +3,7 @@ const InventoryRepository = require('../repositories/InventoryRepository');
 const ProductRepository = require('../repositories/ProductRepository');
 const CashReceiptRepository = require('../repositories/CashReceiptRepository');
 const CashPaymentRepository = require('../repositories/CashPaymentRepository');
+const StockMovementRepository = require('../repositories/StockMovementRepository');
 
 /**
  * Anomaly Detection Service
@@ -425,29 +426,39 @@ class AnomalyDetectionService {
         const reorderPoint = inventory.reorderPoint || 10;
         if (currentStock < reorderPoint && currentStock > 0) {
           // This is handled by inventory alerts, but we can flag sudden drops
-          const recentMovements = await this.getRecentStockMovements(product._id);
+          const recentMovements = await this.getRecentStockMovements(product._id, { days: 7, limit: 5 });
           if (recentMovements.length > 0) {
-            const lastMovement = recentMovements[0];
-            const dropAmount = lastMovement.quantityChange || 0;
-            
-            if (dropAmount > currentStock * 2) {
-              anomalies.push({
-                type: 'sudden_stock_drop',
-                severity: 'medium',
-                title: 'Sudden Stock Drop',
-                description: `Product "${product.name}" stock dropped by ${dropAmount} units`,
-                product: {
-                  _id: product._id,
-                  name: product.name,
-                  sku: product.sku
-                },
-                currentStock: currentStock,
-                dropAmount: dropAmount,
-                date: lastMovement.date || new Date(),
-                metadata: {
-                  movementType: lastMovement.type
-                }
-              });
+            // Find the most recent stock-out movement
+            const stockOutMovements = recentMovements.filter(m => m.quantityChange < 0);
+            if (stockOutMovements.length > 0) {
+              const lastMovement = stockOutMovements[0];
+              const dropAmount = Math.abs(lastMovement.quantityChange || 0);
+              
+              // Flag if the drop is more than 2x the current stock level
+              // This indicates a sudden significant reduction
+              if (dropAmount > currentStock * 2) {
+                anomalies.push({
+                  type: 'sudden_stock_drop',
+                  severity: 'medium',
+                  title: 'Sudden Stock Drop',
+                  description: `Product "${product.name}" stock dropped by ${dropAmount} units (from ${lastMovement.previousStock} to ${lastMovement.newStock})`,
+                  product: {
+                    _id: product._id,
+                    name: product.name,
+                    sku: product.sku
+                  },
+                  currentStock: currentStock,
+                  previousStock: lastMovement.previousStock,
+                  dropAmount: dropAmount,
+                  date: lastMovement.date || new Date(),
+                  metadata: {
+                    movementType: lastMovement.type,
+                    reason: lastMovement.reason,
+                    reference: lastMovement.reference,
+                    performedBy: lastMovement.performedBy
+                  }
+                });
+              }
             }
           }
         }
@@ -462,11 +473,76 @@ class AnomalyDetectionService {
 
   /**
    * Get recent stock movements for a product
+   * @param {string} productId - Product ID
+   * @param {Object} options - Options for filtering movements
+   * @param {number} options.days - Number of days to look back (default: 7)
+   * @param {number} options.limit - Maximum number of movements to return (default: 10)
+   * @returns {Promise<Array>} Array of recent stock movements
    */
-  static async getRecentStockMovements(productId) {
-    // This would typically query a stock movements collection
-    // For now, return empty array
-    return [];
+  static async getRecentStockMovements(productId, options = {}) {
+    try {
+      const { days = 7, limit = 10 } = options;
+      
+      // Calculate date threshold
+      const dateThreshold = new Date();
+      dateThreshold.setDate(dateThreshold.getDate() - days);
+      
+      // Query recent stock movements for the product
+      const movements = await StockMovementRepository.findAll({
+        product: productId,
+        status: 'completed', // Only completed movements
+        createdAt: { $gte: dateThreshold },
+        isReversal: { $ne: true } // Exclude reversals
+      }, {
+        sort: { createdAt: -1 }, // Most recent first
+        limit: limit,
+        populate: [
+          { path: 'user', select: 'firstName lastName' },
+          { path: 'product', select: 'name sku' }
+        ],
+        lean: true
+      });
+      
+      // Transform movements to match expected format
+      return movements.map(movement => ({
+        type: movement.movementType,
+        quantityChange: this.getQuantityChangeForMovement(movement),
+        date: movement.createdAt,
+        previousStock: movement.previousStock || 0,
+        newStock: movement.newStock || 0,
+        reason: movement.reason || movement.notes || '',
+        reference: movement.referenceNumber || movement.referenceType,
+        performedBy: movement.user ? `${movement.user.firstName} ${movement.user.lastName}` : 'System'
+      }));
+    } catch (error) {
+      console.error(`Error fetching recent stock movements for product ${productId}:`, error);
+      // Return empty array on error to prevent breaking anomaly detection
+      return [];
+    }
+  }
+
+  /**
+   * Calculate quantity change based on movement type
+   * @param {Object} movement - Stock movement object
+   * @returns {number} Quantity change (positive for stock in, negative for stock out)
+   */
+  static getQuantityChangeForMovement(movement) {
+    // Use previousStock and newStock if available (more accurate)
+    if (movement.previousStock !== undefined && movement.newStock !== undefined) {
+      return movement.newStock - movement.previousStock;
+    }
+    
+    // Fallback to movement type-based calculation
+    const stockInTypes = ['purchase', 'return_in', 'adjustment_in', 'transfer_in', 'production', 'initial_stock'];
+    const stockOutTypes = ['sale', 'return_out', 'adjustment_out', 'transfer_out', 'damage', 'expiry', 'theft', 'consumption'];
+    
+    if (stockInTypes.includes(movement.movementType)) {
+      return movement.quantity || 0;
+    } else if (stockOutTypes.includes(movement.movementType)) {
+      return -(movement.quantity || 0);
+    }
+    
+    return 0;
   }
 
   /**

@@ -1,7 +1,10 @@
+const mongoose = require('mongoose');
 const TransactionRepository = require('../repositories/TransactionRepository');
 const ChartOfAccountsRepository = require('../repositories/ChartOfAccountsRepository');
 const BalanceSheetRepository = require('../repositories/BalanceSheetRepository');
 const Transaction = require('../models/Transaction');
+const ChartOfAccounts = require('../models/ChartOfAccounts');
+const BalanceSheet = require('../models/BalanceSheet');
 
 class AccountingService {
   /**
@@ -10,6 +13,9 @@ class AccountingService {
    * @returns {Promise<Object>} Account object
    */
   static async validateAccount(accountCode) {
+    if (!accountCode || typeof accountCode !== 'string') {
+      throw new Error('Account code is required and must be a string');
+    }
     const account = await ChartOfAccountsRepository.findOne({ 
       accountCode: accountCode.toUpperCase(),
       isActive: true 
@@ -530,15 +536,21 @@ class AccountingService {
     const balanceDifference = Math.abs(totalDebits - totalCredits);
     
     if (balanceDifference > 0.01) {
-      // Delete created transactions if unbalanced
-      for (const transaction of transactions) {
-        try {
-          if (transaction._id) {
-            await Transaction.findByIdAndDelete(transaction._id);
+      // Delete created transactions if unbalanced - use transaction for atomicity
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          for (const transaction of transactions) {
+            if (transaction._id) {
+              await Transaction.findByIdAndDelete(transaction._id, { session });
+            }
           }
-        } catch (error) {
-          console.error(`Failed to delete unbalanced transaction ${transaction._id}:`, error);
-        }
+        });
+      } catch (deleteError) {
+        console.error(`Failed to delete unbalanced transactions for ${reference}:`, deleteError);
+        // Still throw the original balance error
+      } finally {
+        await session.endSession();
       }
       throw new Error(`Unbalanced transaction entries for ${reference}: Debits ${totalDebits.toFixed(2)} ≠ Credits ${totalCredits.toFixed(2)}`);
     }
@@ -575,15 +587,48 @@ class AccountingService {
    */
   static async getAccountBalance(accountCode, asOfDate = new Date()) {
     try {
+      // Normalize account code to uppercase
+      const normalizedAccountCode = accountCode ? accountCode.toString().trim().toUpperCase() : null;
+      if (!normalizedAccountCode) {
+        return 0;
+      }
+
+      // Get account to determine normal balance type
+      const account = await ChartOfAccountsRepository.findOne({ 
+        accountCode: normalizedAccountCode, 
+        isActive: true 
+      });
+      
+      if (!account) {
+        console.warn(`Account ${normalizedAccountCode} not found or inactive`);
+        return 0;
+      }
+
+      // Get opening balance
+      let balance = account.openingBalance || 0;
+
+      // Query transactions using createdAt (Transaction model doesn't have transactionDate field)
       const transactions = await Transaction.find({
-        accountCode,
-        transactionDate: { $lte: asOfDate },
+        accountCode: normalizedAccountCode,
+        createdAt: { $lte: asOfDate },
         status: 'completed'
       });
 
-      const balance = transactions.reduce((total, transaction) => {
-        return total + transaction.debitAmount - transaction.creditAmount;
-      }, 0);
+      // Calculate balance based on account type and normal balance
+      // For debit normal balance accounts (assets, expenses): Debits increase, Credits decrease
+      // For credit normal balance accounts (liabilities, equity, revenue): Credits increase, Debits decrease
+      transactions.forEach(transaction => {
+        const debit = transaction.debitAmount || 0;
+        const credit = transaction.creditAmount || 0;
+        
+        if (account.normalBalance === 'credit') {
+          // Credit normal balance: credits increase, debits decrease
+          balance = balance + credit - debit;
+        } else {
+          // Debit normal balance: debits increase, credits decrease
+          balance = balance + debit - credit;
+        }
+      });
 
       return balance;
     } catch (error) {
@@ -630,8 +675,11 @@ class AccountingService {
   static async recordSale(order) {
     try {
       const transactions = [];
-      const orderTotal = order.pricing.total;
-      const amountPaid = order.payment.amountPaid || 0;
+      const orderTotal = order.pricing?.total;
+      if (orderTotal === undefined || orderTotal === null) {
+        throw new Error(`Order ${order._id || order.orderNumber} missing required pricing.total`);
+      }
+      const amountPaid = order.payment?.amountPaid || 0;
       const unpaidAmount = orderTotal - amountPaid;
       const accountCodes = await this.getDefaultAccountCodes();
       
@@ -704,13 +752,32 @@ class AccountingService {
       // Debit: Cost of Goods Sold (COGS)
       let totalCOGS = 0;
       const Product = require('../models/Product');
-      for (const item of order.items) {
-        const product = await Product.findById(item.product);
-        if (product && product.pricing?.cost) {
-          totalCOGS += item.quantity * product.pricing.cost;
-        } else if (product && product.cost) {
-          // Fallback to product.cost if pricing.cost doesn't exist
-          totalCOGS += item.quantity * product.cost;
+      
+      // Collect all product IDs to avoid N+1 queries
+      const productIds = order.items
+        ? order.items.map(item => item.product).filter(Boolean)
+        : [];
+      
+      // Fetch all products in one batch query
+      const products = productIds.length > 0
+        ? await Product.find({ _id: { $in: productIds } })
+        : [];
+      const productMap = new Map(products.map(p => [p._id.toString(), p]));
+      
+      // Calculate COGS using pre-fetched products
+      if (order.items && Array.isArray(order.items)) {
+        for (const item of order.items) {
+          if (item.product) {
+            const product = productMap.get(item.product.toString());
+            if (product) {
+              const productCost = product.pricing?.cost;
+            if (productCost === undefined || productCost === null) {
+              console.warn(`Product ${product._id} missing pricing.cost for order ${order.orderNumber}`);
+            }
+            const cost = productCost || 0;
+              totalCOGS += item.quantity * cost;
+            }
+          }
         }
       }
 
@@ -776,6 +843,12 @@ class AccountingService {
       const transactions = [];
       const accountCodes = await this.getDefaultAccountCodes();
       
+      // Validate purchase order has pricing.total
+      const purchaseTotal = purchaseOrder.pricing?.total;
+      if (purchaseTotal === undefined || purchaseTotal === null) {
+        throw new Error(`Purchase order ${purchaseOrder._id || purchaseOrder.poNumber} missing required pricing.total`);
+      }
+      
       // Debit: Inventory (increase inventory value)
       const inventoryTransaction = await this.createTransaction({
         transactionId: `PO-INV-${purchaseOrder._id}`,
@@ -783,12 +856,12 @@ class AccountingService {
         paymentId: purchaseOrder._id,
         paymentMethod: 'account',
         type: 'sale',
-        amount: purchaseOrder.pricing.total,
+        amount: purchaseTotal,
         currency: 'USD',
         status: 'completed',
         description: `Inventory Purchase: ${purchaseOrder.poNumber}`,
         accountCode: accountCodes.inventory,
-        debitAmount: purchaseOrder.pricing.total,
+        debitAmount: purchaseTotal,
         creditAmount: 0,
         reference: purchaseOrder.poNumber,
         supplier: purchaseOrder.supplier,
@@ -803,13 +876,13 @@ class AccountingService {
         paymentId: purchaseOrder._id,
         paymentMethod: 'account',
         type: 'sale',
-        amount: purchaseOrder.pricing.total,
+        amount: purchaseTotal,
         currency: 'USD',
         status: 'completed',
         description: `Purchase on Credit: ${purchaseOrder.poNumber}`,
         accountCode: accountCodes.accountsPayable,
         debitAmount: 0,
-        creditAmount: purchaseOrder.pricing.total,
+        creditAmount: purchaseTotal,
         reference: purchaseOrder.poNumber,
         supplier: purchaseOrder.supplier,
         createdBy: purchaseOrder.createdBy
@@ -834,12 +907,15 @@ class AccountingService {
    */
   static async updateBalanceSheet(statementDate = new Date()) {
     try {
-      // Get current balances for key accounts
-      const cashBalance = await this.getAccountBalance('1001', statementDate);
-      const bankBalance = await this.getAccountBalance('1002', statementDate);
-      const accountsReceivable = await this.getAccountBalance('1201', statementDate);
-      const inventoryBalance = await this.getAccountBalance('1301', statementDate);
-      const accountsPayable = await this.getAccountBalance('2001', statementDate);
+      // Get account codes dynamically instead of hardcoding
+      const accountCodes = await this.getDefaultAccountCodes();
+      
+      // Get current balances for key accounts using dynamic account codes
+      const cashBalance = await this.getAccountBalance(accountCodes.cash, statementDate);
+      const bankBalance = await this.getAccountBalance(accountCodes.bank, statementDate);
+      const accountsReceivable = await this.getAccountBalance(accountCodes.accountsReceivable, statementDate);
+      const inventoryBalance = await this.getAccountBalance(accountCodes.inventory, statementDate);
+      const accountsPayable = await this.getAccountBalance(accountCodes.accountsPayable, statementDate);
 
       // Create or update balance sheet
       const statementNumber = `BS-${statementDate.getFullYear()}-${String(statementDate.getMonth() + 1).padStart(2, '0')}`;

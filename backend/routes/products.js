@@ -756,6 +756,49 @@ router.post('/import/csv', [
               continue;
             }
             
+            // Validate and parse pricing
+            const cost = parseFloat(row.cost);
+            const retail = parseFloat(row.retail);
+            const wholesale = parseFloat(row.wholesale);
+            
+            if (isNaN(cost) || cost < 0) {
+              results.errors.push({
+                row: i + 2,
+                error: 'Invalid cost price. Must be a non-negative number.'
+              });
+              continue;
+            }
+            if (isNaN(retail) || retail < 0) {
+              results.errors.push({
+                row: i + 2,
+                error: 'Invalid retail price. Must be a non-negative number.'
+              });
+              continue;
+            }
+            if (isNaN(wholesale) || wholesale < 0) {
+              results.errors.push({
+                row: i + 2,
+                error: 'Invalid wholesale price. Must be a non-negative number.'
+              });
+              continue;
+            }
+            
+            // Validate price hierarchy: cost <= wholesale <= retail
+            if (cost > wholesale) {
+              results.errors.push({
+                row: i + 2,
+                error: 'Cost price cannot be greater than wholesale price.'
+              });
+              continue;
+            }
+            if (wholesale > retail) {
+              results.errors.push({
+                row: i + 2,
+                error: 'Wholesale price cannot be greater than retail price.'
+              });
+              continue;
+            }
+            
             // Create product using service
             const productData = {
               name: row.name.trim(),
@@ -766,9 +809,9 @@ router.post('/import/csv', [
               sku: row.sku?.trim() || '',
               supplier: row.supplier?.trim() || '',
               pricing: {
-                cost: parseFloat(row.cost) || 0,
-                retail: parseFloat(row.retail) || 0,
-                wholesale: parseFloat(row.wholesale) || 0
+                cost: cost,
+                retail: retail,
+                wholesale: wholesale
               },
               inventory: {
                 currentStock: parseInt(row.currentStock) || 0,
@@ -875,6 +918,49 @@ router.post('/import/excel', [
           continue;
         }
         
+        // Validate and parse pricing
+        const cost = parseFloat(productData.cost);
+        const retail = parseFloat(productData.retail);
+        const wholesale = parseFloat(productData.wholesale);
+        
+        if (isNaN(cost) || cost < 0) {
+          results.errors.push({
+            row: i + 2,
+            error: 'Invalid cost price. Must be a non-negative number.'
+          });
+          continue;
+        }
+        if (isNaN(retail) || retail < 0) {
+          results.errors.push({
+            row: i + 2,
+            error: 'Invalid retail price. Must be a non-negative number.'
+          });
+          continue;
+        }
+        if (isNaN(wholesale) || wholesale < 0) {
+          results.errors.push({
+            row: i + 2,
+            error: 'Invalid wholesale price. Must be a non-negative number.'
+          });
+          continue;
+        }
+        
+        // Validate price hierarchy: cost <= wholesale <= retail
+        if (cost > wholesale) {
+          results.errors.push({
+            row: i + 2,
+            error: 'Cost price cannot be greater than wholesale price.'
+          });
+          continue;
+        }
+        if (wholesale > retail) {
+          results.errors.push({
+            row: i + 2,
+            error: 'Wholesale price cannot be greater than retail price.'
+          });
+          continue;
+        }
+        
         // Create product using service
         const productPayload = {
           name: productData.name.toString().trim(),
@@ -885,9 +971,9 @@ router.post('/import/excel', [
           sku: productData.sku?.toString().trim() || '',
           supplier: productData.supplier?.toString().trim() || '',
           pricing: {
-            cost: parseFloat(productData.cost) || 0,
-            retail: parseFloat(productData.retail) || 0,
-            wholesale: parseFloat(productData.wholesale) || 0
+            cost: cost,
+            retail: retail,
+            wholesale: wholesale
           },
           inventory: {
             currentStock: parseInt(productData.currentStock) || 0,

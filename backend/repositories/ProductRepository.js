@@ -153,19 +153,34 @@ class ProductRepository extends BaseRepository {
   }
 
   /**
-   * Update product stock
+   * Update product stock (atomic operation to prevent race conditions)
    * @param {string} id - Product ID
    * @param {number} quantity - Quantity to add/subtract (negative for subtraction)
    * @returns {Promise<Product>}
    */
   async updateStock(id, quantity) {
-    const product = await this.findById(id);
-    if (!product) {
+    // Use atomic update to prevent race conditions
+    const updated = await this.Model.findOneAndUpdate(
+      { _id: id },
+      {
+        $inc: { 'inventory.currentStock': quantity },
+        $set: { 'inventory.lastUpdated': new Date() }
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updated) {
       throw new Error('Product not found');
     }
     
-    product.inventory.currentStock = Math.max(0, (product.inventory.currentStock || 0) + quantity);
-    return await product.save();
+    // Ensure stock doesn't go negative (post-update validation)
+    if (updated.inventory.currentStock < 0) {
+      // Rollback to 0 if negative
+      updated.inventory.currentStock = 0;
+      await updated.save();
+    }
+    
+    return updated;
   }
 
   /**

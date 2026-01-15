@@ -226,6 +226,25 @@ const productSchema = new mongoose.Schema({
   optimisticConcurrency: true // Enable optimistic concurrency control
 });
 
+// Pre-save validation: Ensure price hierarchy (cost < wholesale < retail)
+productSchema.pre('save', function(next) {
+  if (this.pricing) {
+    const { cost, wholesale, retail } = this.pricing;
+    
+    // Validate cost <= wholesale <= retail
+    if (cost !== undefined && wholesale !== undefined && cost > wholesale) {
+      return next(new Error('Cost price cannot be greater than wholesale price'));
+    }
+    if (wholesale !== undefined && retail !== undefined && wholesale > retail) {
+      return next(new Error('Wholesale price cannot be greater than retail price'));
+    }
+    if (cost !== undefined && retail !== undefined && cost > retail) {
+      return next(new Error('Cost price cannot be greater than retail price'));
+    }
+  }
+  next();
+});
+
 // Indexes for better performance
 productSchema.index({ name: 'text', description: 'text' });
 productSchema.index({ category: 1, status: 1 });
@@ -238,7 +257,11 @@ productSchema.index({ hasInvestors: 1, status: 1 }); // For investor-linked prod
 
 // Virtual for profit margin
 productSchema.virtual('profitMargin').get(function() {
-  return ((this.pricing.retail - this.pricing.cost) / this.pricing.retail * 100).toFixed(2);
+  if (!this.pricing || !this.pricing.retail || this.pricing.retail === 0) {
+    return '0.00';
+  }
+  const margin = ((this.pricing.retail - (this.pricing.cost || 0)) / this.pricing.retail * 100);
+  return margin.toFixed(2);
 });
 
 // Method to get price for customer type

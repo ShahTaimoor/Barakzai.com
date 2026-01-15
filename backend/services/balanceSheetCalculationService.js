@@ -9,6 +9,9 @@ const TransactionRepository = require('../repositories/TransactionRepository');
 const FinancialStatementRepository = require('../repositories/FinancialStatementRepository');
 const AccountingService = require('./accountingService');
 const BalanceSheet = require('../models/BalanceSheet'); // Keep for model instance methods
+const FinancialStatement = require('../models/FinancialStatement');
+const Sales = require('../models/Sales');
+const Product = require('../models/Product');
 
 class BalanceSheetCalculationService {
   constructor() {
@@ -108,9 +111,32 @@ class BalanceSheetCalculationService {
       // Create the balance sheet
       const balanceSheet = new BalanceSheet(balanceSheetData);
       
+      // Validate balance sheet equation: Assets = Liabilities + Equity
+      const totalAssets = balanceSheetData.assets.totalAssets;
+      const totalLiabilities = balanceSheetData.liabilities.totalLiabilities;
+      const totalEquity = balanceSheetData.equity.totalEquity;
+      const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
+      const difference = Math.abs(totalAssets - totalLiabilitiesAndEquity);
+      
+      if (difference > 0.01) {
+        console.error(`⚠️ Balance sheet equation imbalance detected for ${statementNumber}:`);
+        console.error(`   Assets: ${totalAssets.toFixed(2)}`);
+        console.error(`   Liabilities: ${totalLiabilities.toFixed(2)}`);
+        console.error(`   Equity: ${totalEquity.toFixed(2)}`);
+        console.error(`   Liabilities + Equity: ${totalLiabilitiesAndEquity.toFixed(2)}`);
+        console.error(`   Difference: ${difference.toFixed(2)}`);
+        // Still save but flag as draft with warning
+        balanceSheetData.metadata.hasImbalance = true;
+        balanceSheetData.metadata.imbalanceDifference = difference;
+      }
+      
       try {
         await balanceSheet.save();
-        console.log(`✅ Balance sheet ${statementNumber} created successfully`);
+        if (difference > 0.01) {
+          console.warn(`⚠️ Balance sheet ${statementNumber} saved with imbalance warning`);
+        } else {
+          console.log(`✅ Balance sheet ${statementNumber} created successfully (balanced)`);
+        }
         return balanceSheet;
       } catch (saveError) {
         console.error('❌ Error saving balance sheet:', saveError);
@@ -199,6 +225,17 @@ class BalanceSheetCalculationService {
       const longTermInvestments = await this.calculateLongTermInvestments(statementDate);
       const otherAssets = await this.calculateOtherAssets(statementDate);
 
+      // Check for calculation errors in sub-methods
+      const errors = [];
+      if (cashAndCashEquivalents.hasError) errors.push(`Cash: ${cashAndCashEquivalents.error}`);
+      if (accountsReceivable.hasError) errors.push(`AR: ${accountsReceivable.error}`);
+      if (inventory.hasError) errors.push(`Inventory: ${inventory.error}`);
+      
+      if (errors.length > 0) {
+        console.warn('Errors detected in asset calculations:', errors);
+        // Continue but flag the issue
+      }
+
       // Calculate totals manually to avoid pre-save middleware issues
       const totalCurrentAssets = 
         cashAndCashEquivalents.total +
@@ -251,7 +288,8 @@ class BalanceSheetCalculationService {
           otherAssets: otherAssets,
           totalFixedAssets: totalFixedAssets
         },
-        totalAssets: totalAssets
+        totalAssets: totalAssets,
+        ...(errors.length > 0 && { calculationErrors: errors, hasErrors: true })
       };
 
       return assets;
@@ -313,7 +351,15 @@ class BalanceSheetCalculationService {
       };
     } catch (error) {
       console.error('Error calculating cash and cash equivalents:', error);
-      return { cashOnHand: 0, bankAccounts: 0, pettyCash: 0, total: 0 };
+      // Return zeros but flag the error for upstream handling
+      return { 
+        cashOnHand: 0, 
+        bankAccounts: 0, 
+        pettyCash: 0, 
+        total: 0,
+        hasError: true,
+        error: error.message
+      };
     }
   }
 
@@ -339,11 +385,14 @@ class BalanceSheetCalculationService {
       };
     } catch (error) {
       console.error('Error calculating accounts receivable:', error);
+      // Return zeros but flag the error for upstream handling
       return {
         tradeReceivables: 0,
         otherReceivables: 0,
         allowanceForDoubtfulAccounts: 0,
-        netReceivables: 0
+        netReceivables: 0,
+        hasError: true,
+        error: error.message
       };
     }
   }
@@ -384,7 +433,8 @@ class BalanceSheetCalculationService {
         workInProgress = await this.calculateAccountBalance(workInProgressAccount.accountCode, statementDate);
       }
 
-      const finishedGoods = Math.max(0, inventoryBalance) - rawMaterials - workInProgress;
+      // Ensure finishedGoods doesn't go negative if breakdown accounts exceed total
+      const finishedGoods = Math.max(0, Math.max(0, inventoryBalance) - rawMaterials - workInProgress);
 
       return {
         rawMaterials: Math.max(0, rawMaterials),
@@ -394,11 +444,14 @@ class BalanceSheetCalculationService {
       };
     } catch (error) {
       console.error('Error calculating inventory:', error);
+      // Return zeros but flag the error for upstream handling
       return {
         rawMaterials: 0,
         workInProgress: 0,
         finishedGoods: 0,
-        total: 0
+        total: 0,
+        hasError: true,
+        error: error.message
       };
     }
   }
@@ -517,9 +570,12 @@ class BalanceSheetCalculationService {
 
       let totalDepreciation = 0;
       for (const account of depreciationAccounts) {
-        // Accumulated depreciation is a contra-asset (credit balance)
+        // Accumulated depreciation is a contra-asset (credit normal balance)
+        // The balance calculation already handles normalBalance correctly
         const balance = await this.calculateAccountBalance(account.accountCode, statementDate);
-        totalDepreciation += Math.abs(balance); // Use absolute value
+        // For contra-asset accounts with credit normal balance, balance should already be positive
+        // But if it's negative (which shouldn't happen), use absolute value as safety
+        totalDepreciation += Math.max(0, Math.abs(balance));
       }
 
       // Also check for depreciation expense accounts that might track accumulated amounts
@@ -876,15 +932,20 @@ class BalanceSheetCalculationService {
   async calculateDeferredRevenue(statementDate) {
     try {
       // Get orders that have been paid but not yet delivered
+      // Note: Sales model uses payment.status: 'paid' (not 'completed')
       const deferredOrders = await Sales.find({
         createdAt: { $lte: statementDate },
-        status: { $in: ['pending', 'confirmed'] },
-        payment: { status: 'completed' }
+        status: { $in: ['pending', 'confirmed', 'processing'] },
+        'payment.status': 'paid'
       });
 
       let deferredRevenue = 0;
       for (const order of deferredOrders) {
-        deferredRevenue += order.total;
+        const orderTotal = order.pricing?.total;
+        if (orderTotal === undefined || orderTotal === null) {
+          console.warn(`Order ${order._id || order.orderNumber} missing pricing.total, using fallback`);
+        }
+        deferredRevenue += orderTotal || 0;
       }
 
       return deferredRevenue;
@@ -1067,7 +1128,7 @@ class BalanceSheetCalculationService {
       return equity;
     } catch (error) {
       console.error('Error calculating equity:', error);
-      // Return default equity structure instead of throwing to prevent balance sheet generation failure
+      // Return default equity structure but flag the error
       return {
         contributedCapital: {
           commonStock: 0,
@@ -1086,7 +1147,9 @@ class BalanceSheetCalculationService {
           accumulatedOtherComprehensiveIncome: 0,
           total: 0
         },
-        totalEquity: 0
+        totalEquity: 0,
+        hasError: true,
+        error: error.message
       };
     }
   }
@@ -1353,7 +1416,7 @@ class BalanceSheetCalculationService {
         'period.startDate': startDate,
         'period.endDate': statementDate,
         status: { $in: ['draft', 'review', 'approved', 'published'] }
-      }).sort({ createdAt: -1 });
+      }, null, { sort: { createdAt: -1 } });
 
       if (plStatement && plStatement.netIncome && plStatement.netIncome.amount !== undefined) {
         // Use actual net income from P&L statement
@@ -1370,21 +1433,95 @@ class BalanceSheetCalculationService {
       let totalRevenue = 0;
       let totalCosts = 0;
 
+      // Collect all product IDs first to avoid N+1 queries
+      const productIds = new Set();
       for (const order of orders) {
-        totalRevenue += order.pricing?.total || order.total || 0;
-        
-        // Calculate cost of goods sold
-        for (const item of order.items) {
-          const product = await Product.findById(item.product);
-          if (product) {
-            totalCosts += item.quantity * (item.unitCost || product.pricing?.cost || 0);
+        if (order.items && Array.isArray(order.items)) {
+          for (const item of order.items) {
+            if (item.product) {
+              productIds.add(item.product);
+            }
           }
         }
       }
 
-      // Simple calculation: Revenue - COGS - Operating Expenses (estimated)
+      // Fetch all products in one batch query
+      const products = productIds.size > 0 
+        ? await Product.find({ _id: { $in: Array.from(productIds) } })
+        : [];
+      const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
+      // Now calculate revenue and costs
+      for (const order of orders) {
+        const orderTotal = order.pricing?.total;
+        if (orderTotal === undefined || orderTotal === null) {
+          console.warn(`Order ${order._id || order.orderNumber} missing pricing.total`);
+        }
+        totalRevenue += orderTotal || 0;
+        
+        // Calculate cost of goods sold using pre-fetched products
+        if (order.items && Array.isArray(order.items)) {
+          for (const item of order.items) {
+            if (item.product) {
+              const product = productMap.get(item.product.toString());
+              if (product) {
+                const productCost = product.pricing?.cost;
+                if (productCost === undefined || productCost === null) {
+                  console.warn(`Product ${product._id} missing pricing.cost, using item.unitCost or 0`);
+                }
+                totalCosts += item.quantity * (item.unitCost || productCost || 0);
+              } else if (item.unitCost) {
+                // Fallback to item.unitCost if product not found
+                totalCosts += item.quantity * item.unitCost;
+              }
+            }
+          }
+        }
+      }
+
+      // Calculate actual operating expenses from transactions instead of using estimate
+      let operatingExpenses = 0;
+      try {
+        // Get account codes dynamically
+        const accountCodes = await AccountingService.getDefaultAccountCodes();
+        
+        // Get all expense accounts (operating expenses category)
+        const expenseAccounts = await ChartOfAccountsRepository.findAll({
+          accountType: 'expense',
+          accountCategory: 'operating_expenses',
+          isActive: true,
+          allowDirectPosting: true
+        }, {
+          select: 'accountCode accountName'
+        });
+        
+        // Get expense account codes
+        const expenseAccountCodes = expenseAccounts.length > 0 
+          ? expenseAccounts.map(acc => acc.accountCode)
+          : [accountCodes.otherExpenses].filter(Boolean);
+        
+        // Query actual expense transactions for the period
+        if (expenseAccountCodes.length > 0) {
+          const expenseTransactions = await TransactionRepository.findAll({
+            accountCode: { $in: expenseAccountCodes },
+            createdAt: { $gte: startDate, $lte: statementDate },
+            status: 'completed',
+            debitAmount: { $gt: 0 } // Expenses are debits
+          });
+          
+          // Sum all operating expenses
+          operatingExpenses = expenseTransactions.reduce((sum, txn) => {
+            return sum + (txn.debitAmount || 0);
+          }, 0);
+        }
+      } catch (expenseError) {
+        console.warn('Error calculating actual operating expenses, using fallback estimate:', expenseError);
+        // Fallback to estimate only if actual calculation fails
+        operatingExpenses = totalRevenue * 0.2;
+      }
+
+      // Calculate net income: Revenue - COGS - Operating Expenses
       const grossProfit = totalRevenue - totalCosts;
-      const operatingExpenses = totalRevenue * 0.2; // Estimate 20% of revenue as operating expenses
       const netIncome = grossProfit - operatingExpenses;
 
       return netIncome;

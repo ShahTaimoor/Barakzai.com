@@ -221,6 +221,34 @@ class ProductService {
    * @returns {Promise<{product: Product, message: string}>}
    */
   async createProduct(productData, userId, req = null) {
+    // Validate pricing fields exist and are valid
+    if (!productData.pricing) {
+      throw new Error('Pricing information is required');
+    }
+    
+    const { cost, wholesale, retail } = productData.pricing;
+    
+    if (cost === undefined || cost === null || cost < 0) {
+      throw new Error('Cost price is required and must be non-negative');
+    }
+    if (retail === undefined || retail === null || retail < 0) {
+      throw new Error('Retail price is required and must be non-negative');
+    }
+    if (wholesale === undefined || wholesale === null || wholesale < 0) {
+      throw new Error('Wholesale price is required and must be non-negative');
+    }
+    
+    // Validate price hierarchy: cost <= wholesale <= retail
+    if (cost > wholesale) {
+      throw new Error('Cost price cannot be greater than wholesale price');
+    }
+    if (wholesale > retail) {
+      throw new Error('Wholesale price cannot be greater than retail price');
+    }
+    if (cost > retail) {
+      throw new Error('Cost price cannot be greater than retail price');
+    }
+    
     // Check if product name already exists
     if (productData.name) {
       const nameExists = await productRepository.nameExists(productData.name);
@@ -321,6 +349,36 @@ class ProductService {
     // Check version for optimistic locking
     if (updateData.version !== undefined && updateData.version !== currentProduct.__v) {
       throw new Error('Product was modified by another user. Please refresh and try again.');
+    }
+
+    // Validate pricing if being updated
+    if (updateData.pricing) {
+      const { cost, wholesale, retail } = updateData.pricing;
+      const currentCost = cost !== undefined ? cost : currentProduct.pricing?.cost;
+      const currentWholesale = wholesale !== undefined ? wholesale : currentProduct.pricing?.wholesale;
+      const currentRetail = retail !== undefined ? retail : currentProduct.pricing?.retail;
+      
+      // Validate price hierarchy: cost <= wholesale <= retail
+      if (currentCost !== undefined && currentWholesale !== undefined && currentCost > currentWholesale) {
+        throw new Error('Cost price cannot be greater than wholesale price');
+      }
+      if (currentWholesale !== undefined && currentRetail !== undefined && currentWholesale > currentRetail) {
+        throw new Error('Wholesale price cannot be greater than retail price');
+      }
+      if (currentCost !== undefined && currentRetail !== undefined && currentCost > currentRetail) {
+        throw new Error('Cost price cannot be greater than retail price');
+      }
+      
+      // Ensure all prices are non-negative
+      if (currentCost !== undefined && currentCost < 0) {
+        throw new Error('Cost price must be non-negative');
+      }
+      if (currentWholesale !== undefined && currentWholesale < 0) {
+        throw new Error('Wholesale price must be non-negative');
+      }
+      if (currentRetail !== undefined && currentRetail < 0) {
+        throw new Error('Retail price must be non-negative');
+      }
     }
 
     // Check if product name already exists (excluding current product)
@@ -483,6 +541,9 @@ class ProductService {
         } else if (updateMethod === 'percentage') {
           newValue = (product.pricing?.[updates.priceType] || 0) * (1 + updates.priceValue / 100);
         }
+        
+        // Ensure non-negative
+        newValue = Math.max(0, newValue);
 
         return {
           updateOne: {
@@ -492,7 +553,24 @@ class ProductService {
         };
       });
 
-      await productRepository.Model.bulkWrite(bulkOps);
+      // Validate price hierarchy after bulk update
+      // Note: This is a best-effort check; full validation would require fetching all updated products
+      const result = await productRepository.Model.bulkWrite(bulkOps, { ordered: false });
+      
+      // Post-update validation: Check a sample of updated products for price hierarchy violations
+      const sampleSize = Math.min(10, productIds.length);
+      const sampleIds = productIds.slice(0, sampleSize);
+      const sampleProducts = await productRepository.findByIds(sampleIds);
+      
+      for (const product of sampleProducts) {
+        const { cost, wholesale, retail } = product.pricing || {};
+        if (cost !== undefined && wholesale !== undefined && cost > wholesale) {
+          console.warn(`Product ${product._id} has cost (${cost}) > wholesale (${wholesale}) after bulk update`);
+        }
+        if (wholesale !== undefined && retail !== undefined && wholesale > retail) {
+          console.warn(`Product ${product._id} has wholesale (${wholesale}) > retail (${retail}) after bulk update`);
+        }
+      }
     }
 
     // Handle category update

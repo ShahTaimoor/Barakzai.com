@@ -96,32 +96,60 @@ class FinancialValidationService {
   
   /**
    * Calculate account balance as of specific date
+   * Updated to match accountingService.getAccountBalance() logic:
+   * - Includes opening balance
+   * - Uses normalBalance field for accurate calculation
+   * - Normalizes account code
    */
   async calculateAccountBalance(accountCode, asOfDate) {
-    const account = await ChartOfAccounts.findOne({ accountCode });
-    if (!account) return 0;
-    
-    const transactions = await Transaction.find({
-      accountCode,
-      status: 'completed',
-      createdAt: { $lte: asOfDate }
-    });
-    
-    let balance = 0;
-    
-    if (account.accountType === 'asset' || account.accountType === 'expense') {
-      // Assets and expenses: Debits increase, Credits decrease
-      balance = transactions.reduce((sum, t) => {
-        return sum + (t.debitAmount || 0) - (t.creditAmount || 0);
-      }, 0);
-    } else {
-      // Liabilities, equity, revenue: Credits increase, Debits decrease
-      balance = transactions.reduce((sum, t) => {
-        return sum + (t.creditAmount || 0) - (t.debitAmount || 0);
-      }, 0);
+    try {
+      // Normalize account code to uppercase
+      const normalizedAccountCode = accountCode ? accountCode.toString().trim().toUpperCase() : null;
+      if (!normalizedAccountCode) {
+        return 0;
+      }
+
+      // Get account to determine normal balance type and opening balance
+      const account = await ChartOfAccounts.findOne({ 
+        accountCode: normalizedAccountCode,
+        isActive: true 
+      });
+      
+      if (!account) {
+        console.warn(`Account ${normalizedAccountCode} not found or inactive in validation service`);
+        return 0;
+      }
+
+      // Get opening balance
+      let balance = account.openingBalance || 0;
+      
+      const transactions = await Transaction.find({
+        accountCode: normalizedAccountCode,
+        status: 'completed',
+        createdAt: { $lte: asOfDate }
+      });
+      
+      // Calculate balance based on account normal balance type
+      // For debit normal balance accounts (assets, expenses): Debits increase, Credits decrease
+      // For credit normal balance accounts (liabilities, equity, revenue): Credits increase, Debits decrease
+      transactions.forEach(transaction => {
+        const debit = transaction.debitAmount || 0;
+        const credit = transaction.creditAmount || 0;
+        
+        if (account.normalBalance === 'credit') {
+          // Credit normal balance: credits increase, debits decrease
+          balance = balance + credit - debit;
+        } else {
+          // Debit normal balance: debits increase, credits decrease
+          balance = balance + debit - credit;
+        }
+      });
+      
+      return balance;
+    } catch (error) {
+      console.error('Error calculating account balance in validation service:', error);
+      return 0;
     }
-    
-    return balance;
   }
   
   /**
