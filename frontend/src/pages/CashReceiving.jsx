@@ -5,13 +5,15 @@ import {
   RotateCcw,
   Printer,
   RefreshCw,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatCurrency } from '../utils/formatters';
 import { useCitiesQuery, useLazyGetCustomersQuery } from '../store/services/customersApi';
 import { useGetAccountsQuery } from '../store/services/chartOfAccountsApi';
 import { useCreateBatchCashReceiptsMutation } from '../store/services/cashReceiptsApi';
+import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import PrintModal from '../components/PrintModal';
 
 // Helper function to get local date in YYYY-MM-DD format (avoids timezone issues with toISOString)
@@ -24,6 +26,7 @@ const getLocalDateString = (date = new Date()) => {
 
 const CashReceiving = () => {
   const today = getLocalDateString();
+  const { companyInfo } = useCompanyInfo();
 
   // Voucher form state
   const [voucherData, setVoucherData] = useState({
@@ -37,6 +40,7 @@ const CashReceiving = () => {
   const [cities, setCities] = useState([]);
   const [selectedCities, setSelectedCities] = useState([]);
   const [showZeroBalance, setShowZeroBalance] = useState(false);
+  const [citySearchTerm, setCitySearchTerm] = useState('');
 
   // Customer grid state
   const [customers, setCustomers] = useState([]);
@@ -121,12 +125,22 @@ const CashReceiving = () => {
             ? customer.currentBalance 
             : (customer.pendingBalance || 0) - (customer.advanceBalance || 0);
           
+          // Extract city from customer data - check multiple possible locations
+          let customerCity = customer.city || '';
+          if (!customerCity && customer.addresses && customer.addresses.length > 0) {
+            const defaultAddress = customer.addresses.find(addr => addr.isDefault) || customer.addresses[0];
+            customerCity = defaultAddress?.city || '';
+          }
+          
           return {
             customerId: customer._id,
             accountName: customer.accountName || customer.businessName || customer.name,
             balance: netBalance, // Use net balance to match account ledger
             particular: '',
             amount: '',
+            city: customerCity, // Store city for printing
+            phone: customer.phone || '', // Store phone for printing
+            name: customer.businessName || customer.name || '', // Store name for printing
           };
         });
 
@@ -239,7 +253,7 @@ const CashReceiving = () => {
     })));
   };
 
-  // Handle print
+  // Handle print voucher
   const handlePrint = () => {
     // Calculate total amount
     const totalAmount = customerEntries.reduce((sum, entry) => {
@@ -281,6 +295,227 @@ const CashReceiving = () => {
 
     setPrintData(formattedData);
     setShowPrintModal(true);
+  };
+
+  // Handle print customer list
+  const handlePrintCustomerList = () => {
+    if (customerEntries.length === 0) {
+      showErrorToast('No customers loaded. Please select a city and click Load first.');
+      return;
+    }
+
+    // Get company info from settings or use defaults
+    const companyName = companyInfo?.companyName || 'Your Company Name';
+    const companyAddress = companyInfo?.address || '';
+    const companyPhone = companyInfo?.contactNumber || '';
+
+    // Prepare customer data for printing - use customerEntries which already has city extracted
+    const customerListData = customerEntries.map((entry) => {
+      // Get the full customer object to access phone if not in entry
+      const customer = customers.find(c => c._id === entry.customerId);
+      
+      // Extract city - prefer entry.city, then check customer data
+      let customerCity = entry.city || '';
+      if (!customerCity && customer) {
+        customerCity = customer.city || '';
+        if (!customerCity && customer.addresses && customer.addresses.length > 0) {
+          const defaultAddress = customer.addresses.find(addr => addr.isDefault) || customer.addresses[0];
+          customerCity = defaultAddress?.city || '';
+        }
+      }
+      // If still no city, try to find from selected cities
+      if (!customerCity && selectedCities.length > 0 && customer) {
+        if (customer.addresses && customer.addresses.length > 0) {
+          const matchingAddress = customer.addresses.find(addr => 
+            addr.city && selectedCities.includes(addr.city)
+          );
+          customerCity = matchingAddress?.city || '';
+        }
+      }
+
+      return {
+        name: entry.name || entry.accountName || 'N/A',
+        phone: entry.phone || customer?.phone || 'N/A',
+        city: customerCity || 'N/A',
+        balance: entry.balance || 0
+      };
+    });
+
+    // Create print window
+    const printWindow = window.open('', '_blank');
+    const printDate = new Date().toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+    const selectedCitiesText = selectedCities.length > 0 ? selectedCities.join(', ') : 'All Cities';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Customer Balance List - ${selectedCitiesText}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4;
+                margin: 0.5in;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+              }
+            }
+            body {
+              font-family: 'Arial', sans-serif;
+              font-size: 12px;
+              color: #000;
+              margin: 0;
+              padding: 20px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 15px;
+            }
+            .company-name {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .document-title {
+              font-size: 18px;
+              font-weight: bold;
+              margin-top: 10px;
+            }
+            .info-section {
+              margin-bottom: 20px;
+              font-size: 11px;
+            }
+            .info-row {
+              margin-bottom: 5px;
+            }
+            .info-label {
+              font-weight: bold;
+              display: inline-block;
+              width: 120px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th {
+              background-color: #f0f0f0;
+              border: 1px solid #000;
+              padding: 10px;
+              text-align: left;
+              font-weight: bold;
+            }
+            td {
+              border: 1px solid #000;
+              padding: 8px;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .text-center {
+              text-align: center;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 10px;
+              border-top: 1px solid #000;
+              padding-top: 10px;
+            }
+            .total-row {
+              font-weight: bold;
+              background-color: #f9f9f9;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-name">${companyName}</div>
+            ${companyAddress ? `<div style="font-size: 11px; margin-top: 5px;">${companyAddress}</div>` : ''}
+            ${companyPhone ? `<div style="font-size: 11px;">${companyPhone}</div>` : ''}
+            <div class="document-title">Customer Balance List</div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-row">
+              <span class="info-label">Date:</span>
+              <span>${printDate}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Cities:</span>
+              <span>${selectedCitiesText}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Total Customers:</span>
+              <span>${customerListData.length}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 5%;">#</th>
+                <th style="width: 30%;">Customer Name</th>
+                <th style="width: 20%;">Contact Number</th>
+                <th style="width: 20%;">City</th>
+                <th style="width: 25%;" class="text-right">Current Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${customerListData.map((customer, index) => {
+                const balance = customer.balance || 0;
+                const balanceText = balance >= 0 
+                  ? `Rs. ${Math.abs(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  : `(Rs. ${Math.abs(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+                const balanceClass = balance < 0 ? 'style="color: red;"' : '';
+                
+                return `
+                  <tr>
+                    <td class="text-center">${index + 1}</td>
+                    <td>${customer.name}</td>
+                    <td>${customer.phone}</td>
+                    <td>${customer.city}</td>
+                    <td class="text-right" ${balanceClass}>${balanceText}</td>
+                  </tr>
+                `;
+              }).join('')}
+              <tr class="total-row">
+                <td colspan="4" class="text-right"><strong>Total Balance:</strong></td>
+                <td class="text-right">
+                  <strong>
+                    ${(() => {
+                      const total = customerListData.reduce((sum, c) => sum + (c.balance || 0), 0);
+                      return total >= 0 
+                        ? `Rs. ${Math.abs(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : `(Rs. ${Math.abs(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+                    })()}
+                  </strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div>Generated on ${printDate}</div>
+            <div>This document is for payment collection purposes</div>
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
 
   return (
@@ -379,11 +614,13 @@ const CashReceiving = () => {
 
             <div className="flex space-x-2">
               <button
-                onClick={handlePrint}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center justify-center"
+                onClick={handlePrintCustomerList}
+                disabled={customers.length === 0}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                title="Print customer balance list"
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Print
+                Print List
               </button>
               <button
                 onClick={handleUnselectAll}
@@ -411,6 +648,17 @@ const CashReceiving = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Cities
             </label>
+            {/* Search Input */}
+            <div className="relative mb-2">
+              <input
+                type="text"
+                value={citySearchTerm}
+                onChange={(e) => setCitySearchTerm(e.target.value)}
+                placeholder="Search cities..."
+                className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
             <div className="border border-gray-300 rounded-md h-64 overflow-y-auto bg-white">
               {citiesLoading ? (
                 <div className="p-4 text-center text-gray-500">
@@ -419,27 +667,36 @@ const CashReceiving = () => {
                 </div>
               ) : cities.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">No cities available</div>
-              ) : (
-                <div className="p-2">
-                  {cities.map((city) => (
-                    <div key={city} className="flex items-center p-2 hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        id={`city-${city}`}
-                        checked={selectedCities.includes(city)}
-                        onChange={() => handleCityToggle(city)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2"
-                      />
-                      <label
-                        htmlFor={`city-${city}`}
-                        className="text-sm text-gray-700 cursor-pointer flex-1"
-                      >
-                        {city}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              )}
+              ) : (() => {
+                // Filter cities based on search term
+                const filteredCities = cities.filter(city =>
+                  city.toLowerCase().includes(citySearchTerm.toLowerCase())
+                );
+                
+                return filteredCities.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">No cities found matching "{citySearchTerm}"</div>
+                ) : (
+                  <div className="p-2">
+                    {filteredCities.map((city) => (
+                      <div key={city} className="flex items-center p-2 hover:bg-gray-50">
+                        <input
+                          type="checkbox"
+                          id={`city-${city}`}
+                          checked={selectedCities.includes(city)}
+                          onChange={() => handleCityToggle(city)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2"
+                        />
+                        <label
+                          htmlFor={`city-${city}`}
+                          className="text-sm text-gray-700 cursor-pointer flex-1"
+                        >
+                          {city}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
