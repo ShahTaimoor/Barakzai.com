@@ -703,68 +703,112 @@ const CashReceiving = () => {
       </div>
 
       {/* Customer Grid */}
-      {customerEntries.length > 0 && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-800">Customer Receipts</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Account Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Balance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Particular
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {customerEntries.map((entry, index) => (
-                  <tr
-                    key={entry.customerId}
-                    className={parseFloat(entry.amount) > 0 ? 'bg-yellow-50' : ''}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.accountName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(entry.balance)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="text"
-                        value={entry.particular}
-                        onChange={(e) => handleEntryChange(index, 'particular', e.target.value)}
-                        placeholder="Enter description"
-                        className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="number"
-                        value={entry.amount}
-                        onChange={(e) => handleEntryChange(index, 'amount', e.target.value)}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
-                        className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      />
-                    </td>
+      {customerEntries.length > 0 && (() => {
+        // Filter customer entries based on showZeroBalance checkbox
+        // When checked: Show customers with zero (0) and negative balances
+        // When unchecked: Show only customers with positive balance
+        const filteredEntries = showZeroBalance 
+          ? customerEntries.filter(entry => {
+              const balance = entry.balance || 0;
+              // Show zero balance (within 0.01 threshold) and negative balances
+              return balance <= 0.01;
+            })
+          : customerEntries.filter(entry => {
+              const balance = entry.balance || 0;
+              // Show only customers with positive balance (> 0.01 to account for floating point precision)
+              return balance > 0.01;
+            });
+
+        if (filteredEntries.length === 0) {
+          return (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <p className="text-gray-500 text-lg">
+                {showZeroBalance 
+                  ? 'No customers with zero or negative balance found.' 
+                  : 'Zero customer not found. All customers have zero or negative balance. Check "Show Zero Balance" to see customers with zero and negative balances.'}
+              </p>
+            </div>
+          );
+        }
+
+        return (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Customer Receipts
+                {showZeroBalance ? (
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    (Showing {filteredEntries.length} of {customerEntries.length} customers with zero or negative balance)
+                  </span>
+                ) : (
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    (Showing {filteredEntries.length} of {customerEntries.length} customers with positive balance)
+                  </span>
+                )}
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Account Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Balance
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Particular
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredEntries.map((entry, index) => {
+                    // Find the original index in customerEntries to maintain proper handleEntryChange functionality
+                    const originalIndex = customerEntries.findIndex(e => e.customerId === entry.customerId);
+                    return (
+                      <tr
+                        key={entry.customerId}
+                        className={parseFloat(entry.amount) > 0 ? 'bg-yellow-50' : ''}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {entry.accountName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatCurrency(entry.balance)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="text"
+                            value={entry.particular}
+                            onChange={(e) => handleEntryChange(originalIndex, 'particular', e.target.value)}
+                            placeholder="Enter description"
+                            className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="number"
+                            value={entry.amount}
+                            onChange={(e) => handleEntryChange(originalIndex, 'amount', e.target.value)}
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Action Buttons */}
       <div className="flex justify-end space-x-4 bg-white rounded-lg shadow p-6">
