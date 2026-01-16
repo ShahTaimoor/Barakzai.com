@@ -314,7 +314,7 @@ class CustomerBalanceService {
         updates.advanceBalance = newAdvanceBalance;
       }
 
-      // Recalculate currentBalance: currentBalance = pendingBalance - advanceBalance
+      // Recalculate currentBalance currentBalance = pendingBalance - advanceBalance
       const newPendingBalance = balanceBefore.pendingBalance;
       updates.currentBalance = newPendingBalance - newAdvanceBalance;
 

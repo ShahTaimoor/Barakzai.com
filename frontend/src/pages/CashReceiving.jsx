@@ -309,13 +309,64 @@ const CashReceiving = () => {
       return;
     }
 
+    // Check if at least one balance filter is selected
+    if (!balanceFilters.positive && !balanceFilters.negative && !balanceFilters.zero) {
+      showErrorToast('Please select at least one balance filter to print.');
+      return;
+    }
+
     // Get company info from settings or use defaults
     const companyName = companyInfo?.companyName || 'Your Company Name';
     const companyAddress = companyInfo?.address || '';
     const companyPhone = companyInfo?.contactNumber || '';
 
-    // Prepare customer data for printing - use customerEntries which already has city extracted
-    const customerListData = customerEntries.map((entry) => {
+    // Apply the same balance filtering logic as the display
+    const threshold = 0.01;
+    let filteredEntries = customerEntries.filter(entry => {
+      const balance = entry.balance || 0;
+      const isZero = Math.abs(balance) <= threshold;
+      const isPositive = balance > threshold;
+      const isNegative = balance < -threshold;
+      
+      // Show customer if their balance type is selected
+      if (isZero && balanceFilters.zero) return true;
+      if (isPositive && balanceFilters.positive) return true;
+      if (isNegative && balanceFilters.negative) return true;
+      return false;
+    });
+    
+    // Sort filtered entries: positive first, then negative, then zero
+    filteredEntries = [...filteredEntries].sort((a, b) => {
+      const balanceA = a.balance || 0;
+      const balanceB = b.balance || 0;
+      
+      const getCategory = (balance) => {
+        if (Math.abs(balance) <= threshold) return 2; // Zero balance
+        if (balance > 0) return 0; // Positive balance
+        return 1; // Negative balance
+      };
+      
+      const categoryA = getCategory(balanceA);
+      const categoryB = getCategory(balanceB);
+      
+      if (categoryA !== categoryB) {
+        return categoryA - categoryB;
+      }
+      
+      return Math.abs(balanceB) - Math.abs(balanceA);
+    });
+
+    // Build filter description for print
+    const activeFilters = [];
+    if (balanceFilters.positive) activeFilters.push('Positive');
+    if (balanceFilters.negative) activeFilters.push('Negative');
+    if (balanceFilters.zero) activeFilters.push('Zero');
+    const filterDescription = activeFilters.length > 0 
+      ? activeFilters.join(', ') 
+      : 'None selected';
+
+    // Prepare customer data for printing - use filtered entries
+    const customerListData = filteredEntries.map((entry) => {
       // Get the full customer object to access phone if not in entry
       const customer = customers.find(c => c._id === entry.customerId);
       
@@ -457,6 +508,10 @@ const CashReceiving = () => {
             <div class="info-row">
               <span class="info-label">Cities:</span>
               <span>${selectedCitiesText}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Balance Filters:</span>
+              <span>${filterDescription}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Total Customers:</span>
