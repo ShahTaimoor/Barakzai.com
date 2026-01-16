@@ -532,7 +532,7 @@ export const Dashboard = () => {
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="input text-[10px] sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2"
+                    className="input text-xs sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2 h-[38px] sm:h-auto"
                   />
                 </div>
                 <div className="flex flex-row items-center space-x-1 flex-1 sm:flex-initial min-w-0">
@@ -541,13 +541,13 @@ export const Dashboard = () => {
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="input text-[10px] sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2"
+                    className="input text-xs sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2 h-[38px] sm:h-auto"
                   />
                 </div>
               </div>
               <button 
                 onClick={handleSearch}
-                className="btn btn-primary flex items-center justify-center px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base flex-shrink-0 min-w-[40px] sm:min-w-0"
+                className="btn btn-primary flex items-center justify-center px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base flex-shrink-0 min-w-[40px] sm:min-w-0 h-[38px] sm:h-auto"
               >
                 <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline ml-1 sm:ml-2">Search</span>
