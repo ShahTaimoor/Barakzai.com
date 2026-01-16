@@ -286,34 +286,56 @@ class CustomerBalanceService {
         throw new Error('Customer not found');
       }
 
+      // Get current balances
+      const balanceBefore = {
+        pendingBalance: customer.pendingBalance || 0,
+        advanceBalance: customer.advanceBalance || 0,
+        currentBalance: customer.currentBalance || 0
+      };
+
       // Update customer balances
       const updates = {};
+      let newAdvanceBalance = balanceBefore.advanceBalance;
       
       if (refundAmount > 0) {
         // Reduce advance balance first
         if (customer.advanceBalance > 0) {
           const advanceReduction = Math.min(refundAmount, customer.advanceBalance);
-          updates.advanceBalance = customer.advanceBalance - advanceReduction;
+          newAdvanceBalance = customer.advanceBalance - advanceReduction;
           refundAmount -= advanceReduction;
         }
         
         // If there's still refund left, it means we're refunding more than advance balance
         // This creates a new advance (we now owe them more)
         if (refundAmount > 0) {
-          updates.advanceBalance = (updates.advanceBalance || customer.advanceBalance || 0) + refundAmount;
+          newAdvanceBalance = newAdvanceBalance + refundAmount;
         }
+        
+        updates.advanceBalance = newAdvanceBalance;
       }
 
-      const updatedCustomer = await Customer.findByIdAndUpdate(
-        customerId,
-        { $set: updates },
+      // Recalculate currentBalance: currentBalance = pendingBalance - advanceBalance
+      const newPendingBalance = balanceBefore.pendingBalance;
+      updates.currentBalance = newPendingBalance - newAdvanceBalance;
+
+      const updatedCustomer = await Customer.findOneAndUpdate(
+        { _id: customerId, __v: customer.__v },
+        {
+          $set: updates,
+          $inc: { __v: 1 }
+        },
         { new: true }
       );
+
+      if (!updatedCustomer) {
+        throw new Error('Concurrent balance update conflict. Please retry.');
+      }
 
       console.log(`Customer ${customerId} refund recorded:`, {
         refundAmount,
         newPendingBalance: updatedCustomer.pendingBalance,
         newAdvanceBalance: updatedCustomer.advanceBalance,
+        newCurrentBalance: updatedCustomer.currentBalance,
         orderId
       });
 
@@ -451,6 +473,152 @@ class CustomerBalanceService {
       };
     } catch (error) {
       console.error('Error checking purchase eligibility:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fix currentBalance for a customer by recalculating from pendingBalance and advanceBalance
+   * This is useful when currentBalance is out of sync
+   * @param {String} customerId - Customer ID
+   * @returns {Promise<Object>}
+   */
+  static async fixCurrentBalance(customerId) {
+    try {
+      const customer = await Customer.findById(customerId);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      const pendingBalance = customer.pendingBalance || 0;
+      const advanceBalance = customer.advanceBalance || 0;
+      const correctCurrentBalance = pendingBalance - advanceBalance;
+      const oldCurrentBalance = customer.currentBalance || 0;
+
+      // Only update if there's a difference
+      if (Math.abs(oldCurrentBalance - correctCurrentBalance) > 0.01) {
+        const updatedCustomer = await Customer.findOneAndUpdate(
+          { _id: customerId, __v: customer.__v },
+          {
+            $set: {
+              currentBalance: correctCurrentBalance
+            },
+            $inc: { __v: 1 }
+          },
+          { new: true }
+        );
+
+        if (!updatedCustomer) {
+          throw new Error('Concurrent balance update conflict. Please retry.');
+        }
+
+        console.log(`Customer ${customerId} currentBalance fixed:`, {
+          oldCurrentBalance,
+          newCurrentBalance: correctCurrentBalance,
+          pendingBalance,
+          advanceBalance
+        });
+
+        return {
+          customer: updatedCustomer,
+          fixed: true,
+          oldCurrentBalance,
+          newCurrentBalance: correctCurrentBalance
+        };
+      }
+
+      return {
+        customer,
+        fixed: false,
+        message: 'CurrentBalance is already correct'
+      };
+    } catch (error) {
+      console.error('Error fixing currentBalance:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fix currentBalance for all customers by recalculating from pendingBalance and advanceBalance
+   * @returns {Promise<Object>}
+   */
+  static async fixAllCurrentBalances() {
+    try {
+      const customers = await Customer.find({ isDeleted: { $ne: true } });
+      const results = [];
+
+      for (const customer of customers) {
+        try {
+          const pendingBalance = customer.pendingBalance || 0;
+          const advanceBalance = customer.advanceBalance || 0;
+          const correctCurrentBalance = pendingBalance - advanceBalance;
+          const oldCurrentBalance = customer.currentBalance || 0;
+
+          // Only update if there's a difference
+          if (Math.abs(oldCurrentBalance - correctCurrentBalance) > 0.01) {
+            const updatedCustomer = await Customer.findOneAndUpdate(
+              { _id: customer._id, __v: customer.__v },
+              {
+                $set: {
+                  currentBalance: correctCurrentBalance
+                },
+                $inc: { __v: 1 }
+              },
+              { new: true }
+            );
+
+            if (updatedCustomer) {
+              results.push({
+                customerId: customer._id,
+                customerName: customer.businessName || customer.name,
+                success: true,
+                oldCurrentBalance,
+                newCurrentBalance: correctCurrentBalance,
+                pendingBalance,
+                advanceBalance
+              });
+            } else {
+              results.push({
+                customerId: customer._id,
+                customerName: customer.businessName || customer.name,
+                success: false,
+                error: 'Concurrent update conflict'
+              });
+            }
+          } else {
+            results.push({
+              customerId: customer._id,
+              customerName: customer.businessName || customer.name,
+              success: true,
+              fixed: false,
+              message: 'Already correct'
+            });
+          }
+        } catch (error) {
+          results.push({
+            customerId: customer._id,
+            customerName: customer.businessName || customer.name,
+            success: false,
+            error: error.message
+          });
+        }
+      }
+
+      const fixed = results.filter(r => r.success && r.fixed !== false).length;
+      const alreadyCorrect = results.filter(r => r.success && r.fixed === false).length;
+      const failed = results.filter(r => !r.success).length;
+
+      return {
+        results,
+        summary: {
+          total: results.length,
+          fixed,
+          alreadyCorrect,
+          failed
+        }
+      };
+    } catch (error) {
+      console.error('Error fixing all currentBalances:', error);
       throw error;
     }
   }

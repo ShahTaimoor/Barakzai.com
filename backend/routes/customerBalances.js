@@ -256,4 +256,52 @@ router.post('/fix-all-balances', [
   }
 });
 
+// Fix currentBalance for a specific customer (recalculate from pendingBalance and advanceBalance)
+router.post('/:customerId/fix-current-balance', [
+  auth, 
+  requirePermission('manage_customers'),
+  param('customerId').isMongoId().withMessage('Invalid customer ID')
+], async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const result = await CustomerBalanceService.fixCurrentBalance(customerId);
+    
+    res.json({
+      success: true,
+      message: result.fixed ? 'CurrentBalance fixed successfully' : result.message,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error fixing currentBalance:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Fix currentBalance for all customers (recalculate from pendingBalance and advanceBalance)
+router.post('/fix-all-current-balances', [
+  auth, 
+  requirePermission('manage_customers')
+], async (req, res) => {
+  try {
+    const result = await CustomerBalanceService.fixAllCurrentBalances();
+    
+    res.json({
+      success: true,
+      message: `CurrentBalance fix completed. ${result.summary.fixed} fixed, ${result.summary.alreadyCorrect} already correct, ${result.summary.failed} failed.`,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error fixing all currentBalances:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;
