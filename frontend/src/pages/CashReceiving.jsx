@@ -39,7 +39,11 @@ const CashReceiving = () => {
   // City selection state
   const [cities, setCities] = useState([]);
   const [selectedCities, setSelectedCities] = useState([]);
-  const [showZeroBalance, setShowZeroBalance] = useState(false);
+  const [balanceFilters, setBalanceFilters] = useState({
+    positive: true,  // Show positive balances by default
+    negative: true,  // Show negative balances by default
+    zero: true       // Show zero balances by default
+  });
   const [citySearchTerm, setCitySearchTerm] = useState('');
 
   // Customer grid state
@@ -111,7 +115,8 @@ const CashReceiving = () => {
     }
 
     const citiesParam = selectedCities.join(',');
-    fetchCustomersByCities({ cities: citiesParam, showZeroBalance })
+    // Always fetch all customers, filtering is done on frontend
+    fetchCustomersByCities({ cities: citiesParam, showZeroBalance: true })
       .unwrap()
       .then((response) => {
         const loadedCustomers = response?.data?.customers || response?.customers || response?.data || response || [];
@@ -599,17 +604,49 @@ const CashReceiving = () => {
               />
             </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="showZeroBalance"
-                checked={showZeroBalance}
-                onChange={(e) => setShowZeroBalance(e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="showZeroBalance" className="text-sm text-gray-700">
-                Show Zero Balance
+            {/* Balance Filter Options */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Balance
               </label>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="filterPositive"
+                    checked={balanceFilters.positive}
+                    onChange={(e) => setBalanceFilters(prev => ({ ...prev, positive: e.target.checked }))}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="filterPositive" className="text-sm text-gray-700">
+                    Positive Balance (&gt; 0)
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="filterNegative"
+                    checked={balanceFilters.negative}
+                    onChange={(e) => setBalanceFilters(prev => ({ ...prev, negative: e.target.checked }))}
+                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="filterNegative" className="text-sm text-gray-700">
+                    Negative Balance (&lt; 0)
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="filterZero"
+                    checked={balanceFilters.zero}
+                    onChange={(e) => setBalanceFilters(prev => ({ ...prev, zero: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="filterZero" className="text-sm text-gray-700">
+                    Zero Balance (= 0)
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="flex space-x-2">
@@ -704,28 +741,63 @@ const CashReceiving = () => {
 
       {/* Customer Grid */}
       {customerEntries.length > 0 && (() => {
-        // Filter customer entries based on showZeroBalance checkbox
-        // When checked: Show customers with zero (0) and negative balances
-        // When unchecked: Show only customers with positive balance
-        const filteredEntries = showZeroBalance 
-          ? customerEntries.filter(entry => {
-              const balance = entry.balance || 0;
-              // Show zero balance (within 0.01 threshold) and negative balances
-              return balance <= 0.01;
-            })
-          : customerEntries.filter(entry => {
-              const balance = entry.balance || 0;
-              // Show only customers with positive balance (> 0.01 to account for floating point precision)
-              return balance > 0.01;
-            });
+        // Filter and sort customer entries based on balance filter checkboxes
+        const threshold = 0.01; // Threshold for zero balance detection
+        
+        // Filter customers based on selected balance types
+        let filteredEntries = customerEntries.filter(entry => {
+          const balance = entry.balance || 0;
+          const isZero = Math.abs(balance) <= threshold;
+          const isPositive = balance > threshold;
+          const isNegative = balance < -threshold;
+          
+          // Show customer if their balance type is selected
+          if (isZero && balanceFilters.zero) return true;
+          if (isPositive && balanceFilters.positive) return true;
+          if (isNegative && balanceFilters.negative) return true;
+          return false;
+        });
+        
+        // Sort filtered entries: positive first, then negative, then zero
+        filteredEntries = [...filteredEntries].sort((a, b) => {
+          const balanceA = a.balance || 0;
+          const balanceB = b.balance || 0;
+          
+          // Determine category for each balance
+          const getCategory = (balance) => {
+            if (Math.abs(balance) <= threshold) return 2; // Zero balance
+            if (balance > 0) return 0; // Positive balance
+            return 1; // Negative balance
+          };
+          
+          const categoryA = getCategory(balanceA);
+          const categoryB = getCategory(balanceB);
+          
+          // Sort by category first (0 = positive, 1 = negative, 2 = zero)
+          if (categoryA !== categoryB) {
+            return categoryA - categoryB;
+          }
+          
+          // Within same category, sort by absolute balance (descending)
+          return Math.abs(balanceB) - Math.abs(balanceA);
+        });
+
+        // Build filter description
+        const activeFilters = [];
+        if (balanceFilters.positive) activeFilters.push('Positive');
+        if (balanceFilters.negative) activeFilters.push('Negative');
+        if (balanceFilters.zero) activeFilters.push('Zero');
+        const filterDescription = activeFilters.length > 0 
+          ? activeFilters.join(', ') 
+          : 'None selected';
 
         if (filteredEntries.length === 0) {
           return (
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <p className="text-gray-500 text-lg">
-                {showZeroBalance 
-                  ? 'No customers with zero or negative balance found.' 
-                  : 'Zero customer not found. All customers have zero or negative balance. Check "Show Zero Balance" to see customers with zero and negative balances.'}
+                {activeFilters.length === 0
+                  ? 'Please select at least one balance filter to display customers.'
+                  : `No customers found matching the selected filters (${filterDescription}).`}
               </p>
             </div>
           );
@@ -736,15 +808,9 @@ const CashReceiving = () => {
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-800">
                 Customer Receipts
-                {showZeroBalance ? (
-                  <span className="ml-2 text-sm font-normal text-gray-500">
-                    (Showing {filteredEntries.length} of {customerEntries.length} customers with zero or negative balance)
-                  </span>
-                ) : (
-                  <span className="ml-2 text-sm font-normal text-gray-500">
-                    (Showing {filteredEntries.length} of {customerEntries.length} customers with positive balance)
-                  </span>
-                )}
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  (Showing {filteredEntries.length} of {customerEntries.length} customers - Filters: {filterDescription})
+                </span>
               </h2>
             </div>
             <div className="overflow-x-auto">
