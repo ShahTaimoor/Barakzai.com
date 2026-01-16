@@ -48,24 +48,24 @@ import ComparisonChart from '../components/ComparisonChart';
 import { usePeriodComparison } from '../hooks/usePeriodComparison';
 
 const StatCard = ({ title, value, icon: Icon, color, change, changeType }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-full">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 h-full">
     <div className="text-center flex flex-col justify-center items-center h-full">
-      <div className="flex justify-center mb-3">
-        <div className={`p-3 rounded-full ${color}`}>
-          <Icon className="h-6 w-6 text-white" />
+      <div className="flex justify-center mb-1 sm:mb-2 md:mb-3">
+        <div className={`p-2 sm:p-2.5 md:p-3 rounded-full ${color}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
         </div>
       </div>
-      <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-      <p className="text-2xl font-semibold text-gray-900 mb-1">{value}</p>
-      <div className="h-5 flex items-center justify-center space-x-1">
+      <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 line-clamp-2">{title}</p>
+      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-semibold text-gray-900 mb-1 break-words">{value}</p>
+      <div className="h-4 sm:h-5 flex items-center justify-center space-x-1">
         {change && (
           <>
             {changeType === 'positive' && (
-              <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             )}
-            <p className={`text-sm font-medium ${changeType === 'positive' ? 'text-green-600' : 'text-gray-600'}`}>
+            <p className={`text-xs sm:text-sm font-medium ${changeType === 'positive' ? 'text-green-600' : 'text-gray-600'}`}>
               {changeType === 'positive' ? '+' : ''}{change}
             </p>
           </>
@@ -431,27 +431,36 @@ export const Dashboard = () => {
   const bankPaymentsDataArray = bankPayments;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Welcome back! Here's what's happening today.</p>
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm sm:text-base text-gray-600">Welcome back! Here's what's happening today.</p>
+        </div>
+        <button
+          onClick={() => navigate('/expenses')}
+          className="hidden md:flex btn btn-primary items-center justify-center space-x-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+        >
+          <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
+          <span className="text-sm sm:text-base font-medium">Record Expense</span>
+        </button>
       </div>
 
       {upcomingRecurringExpenses.length > 0 && (
         <div className="card">
           <div className="card-header flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-medium text-gray-900 flex items-center space-x-2">
-                <Bell className="h-5 w-5 text-primary-600" />
+              <h2 className="text-base sm:text-lg font-medium text-gray-900 flex items-center space-x-2">
+                <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-primary-600" />
                 <span>Upcoming Monthly Obligations</span>
               </h2>
-              <p className="text-sm text-gray-600">
+              <p className="text-xs sm:text-sm text-gray-600">
                 Stay ahead of salaries, rent, and other committed expenses.
               </p>
             </div>
           </div>
           <div className="card-content">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {upcomingRecurringExpenses.slice(0, 4).map((expense) => {
                 const daysLeft = calculateDaysUntilDue(expense.nextDueDate);
                 const isOverdue = typeof daysLeft === 'number' && daysLeft < 0;
@@ -503,36 +512,36 @@ export const Dashboard = () => {
       {/* Financial Dashboard */}
       <div className="card">
         <div className="card-header">
-          <div className="flex flex-col items-center space-y-4">
-            <h2 className="text-lg font-medium text-gray-900">Financial Overview</h2>
-            <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6">
-              <div className="flex items-center space-x-3">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-600">From:</label>
+          <div className="flex flex-col items-center space-y-2 sm:space-y-4">
+            <h2 className="text-sm sm:text-lg font-medium text-gray-900">Financial Overview</h2>
+            <div className="flex flex-row items-center space-x-1.5 sm:space-x-4 w-full sm:w-auto">
+              <div className="flex flex-row items-center space-x-1.5 sm:space-x-3 flex-1 sm:flex-initial min-w-0">
+                <Calendar className="h-4 w-4 text-gray-500 hidden sm:block flex-shrink-0" />
+                <div className="flex flex-row items-center space-x-1 flex-1 sm:flex-initial min-w-0">
+                  <label className="text-xs sm:text-sm font-medium text-gray-600 whitespace-nowrap hidden sm:inline flex-shrink-0">From:</label>
                   <input
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="input text-sm w-40"
+                    className="input text-[10px] sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2"
                   />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-600">To:</label>
+                <div className="flex flex-row items-center space-x-1 flex-1 sm:flex-initial min-w-0">
+                  <label className="text-xs sm:text-sm font-medium text-gray-600 whitespace-nowrap hidden sm:inline flex-shrink-0">To:</label>
                   <input
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="input text-sm w-40"
+                    className="input text-[10px] sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2"
                   />
                 </div>
               </div>
               <button 
                 onClick={handleSearch}
-                className="btn btn-primary flex items-center space-x-2 px-4 py-2"
+                className="btn btn-primary flex items-center justify-center px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base flex-shrink-0 min-w-[40px] sm:min-w-0"
               >
-                <Search className="h-4 w-4" />
-                <span>Search</span>
+                <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline ml-1 sm:ml-2">Search</span>
               </button>
             </div>
           </div>
@@ -541,164 +550,164 @@ export const Dashboard = () => {
           
           {/* REVENUE, COST & DISCOUNT SECTION */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Revenue, Cost & Discounts</h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 lg:grid-cols-5">
+            <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Revenue, Cost & Discounts</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
             
             {/* Sales */}
             <div 
-              className="text-center p-4 border-2 border-green-300 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 hover:border-green-400 transition-colors relative group"
+              className="text-center p-2 sm:p-3 md:p-4 border-2 border-green-300 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 hover:border-green-400 transition-colors relative group"
               onClick={() => setShowSalesInvoicesModal(true)}
             >
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-4 w-4 text-green-600" />
+              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
               </div>
-              <div className="flex justify-center mb-2">
-                <div className="p-3 bg-green-500 rounded-full">
-                  <CreditCard className="h-6 w-6 text-white" />
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className="p-2 sm:p-2.5 md:p-3 bg-green-500 rounded-full">
+                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-green-700 mb-1">Sales (Revenue)</p>
-              <p className="text-xl font-bold text-green-800">{Math.round(totalSales).toLocaleString()}</p>
-              <p className="text-xs text-green-600 mt-1">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
+              <p className="text-xs sm:text-sm font-medium text-green-700 mb-1">Sales (Revenue)</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-green-800 break-words">{Math.round(totalSales).toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-green-600 mt-1 hidden sm:block">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
             </div>
 
             {/* Purchase (COGS) */}
             <div 
-              className="text-center p-4 border-2 border-purple-300 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 hover:border-purple-400 transition-colors relative group"
+              className="text-center p-2 sm:p-3 md:p-4 border-2 border-purple-300 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 hover:border-purple-400 transition-colors relative group"
               onClick={() => setShowPurchaseInvoicesModal(true)}
             >
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-4 w-4 text-purple-600" />
+              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
               </div>
-              <div className="flex justify-center mb-2">
-                <div className="p-3 bg-purple-500 rounded-full">
-                  <Truck className="h-6 w-6 text-white" />
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className="p-2 sm:p-2.5 md:p-3 bg-purple-500 rounded-full">
+                  <Truck className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-purple-700 mb-1">Purchase (COGS)</p>
-              <p className="text-xl font-bold text-purple-800">{Math.round(totalPurchases).toLocaleString()}</p>
-              <p className="text-xs text-purple-600 mt-1">PO: {Math.round(purchaseOrdersTotal)} | PI: {Math.round(purchaseInvoicesTotal)}</p>
+              <p className="text-xs sm:text-sm font-medium text-purple-700 mb-1">Purchase (COGS)</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-purple-800 break-words">{Math.round(totalPurchases).toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-purple-600 mt-1 hidden sm:block">PO: {Math.round(purchaseOrdersTotal)} | PI: {Math.round(purchaseInvoicesTotal)}</p>
             </div>
 
             {/* Discount */}
-            <div className="text-center p-4 border-2 border-red-300 bg-red-50 rounded-lg">
-              <div className="flex justify-center mb-2">
-                <div className="p-3 bg-red-500 rounded-full">
-                  <Tag className="h-6 w-6 text-white" />
+            <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-red-300 bg-red-50 rounded-lg">
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className="p-2 sm:p-2.5 md:p-3 bg-red-500 rounded-full">
+                  <Tag className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-red-700 mb-1">Discount Given</p>
-              <p className="text-xl font-bold text-red-800">{Math.round(totalDiscounts).toLocaleString()}</p>
+              <p className="text-xs sm:text-sm font-medium text-red-700 mb-1">Discount Given</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-red-800 break-words">{Math.round(totalDiscounts).toLocaleString()}</p>
             </div>
 
              {/* Pending Sales Orders */}
              <div 
-               className="text-center p-4 border-2 border-cyan-300 bg-cyan-50 rounded-lg cursor-pointer hover:bg-cyan-100 hover:border-cyan-400 transition-colors"
+               className="text-center p-2 sm:p-3 md:p-4 border-2 border-cyan-300 bg-cyan-50 rounded-lg cursor-pointer hover:bg-cyan-100 hover:border-cyan-400 transition-colors"
                onClick={() => navigate('/sales-orders')}
              >
-               <div className="flex justify-center mb-2">
-                 <div className="p-3 bg-cyan-500 rounded-full">
-                   <FileText className="h-6 w-6 text-white" />
+               <div className="flex justify-center mb-1 sm:mb-2">
+                 <div className="p-2 sm:p-2.5 md:p-3 bg-cyan-500 rounded-full">
+                   <FileText className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                  </div>
                </div>
-               <p className="text-sm font-medium text-cyan-700 mb-1">Pending Sales Orders</p>
-               <p className="text-xl font-bold text-cyan-800">{pendingSalesOrdersCount}</p>
+               <p className="text-xs sm:text-sm font-medium text-cyan-700 mb-1">Pending Sales Orders</p>
+               <p className="text-base sm:text-lg md:text-xl font-bold text-cyan-800 break-words">{pendingSalesOrdersCount}</p>
              </div>
  
              {/* Pending Purchase Orders */}
              <div 
-               className="text-center p-4 border-2 border-indigo-300 bg-indigo-50 rounded-lg cursor-pointer hover:bg-indigo-100 hover:border-indigo-400 transition-colors"
+               className="text-center p-2 sm:p-3 md:p-4 border-2 border-indigo-300 bg-indigo-50 rounded-lg cursor-pointer hover:bg-indigo-100 hover:border-indigo-400 transition-colors"
                onClick={() => navigate('/purchase-orders')}
              >
-               <div className="flex justify-center mb-2">
-                 <div className="p-3 bg-indigo-500 rounded-full">
-                   <Receipt className="h-6 w-6 text-white" />
+               <div className="flex justify-center mb-1 sm:mb-2">
+                 <div className="p-2 sm:p-2.5 md:p-3 bg-indigo-500 rounded-full">
+                   <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                  </div>
                </div>
-               <p className="text-sm font-medium text-indigo-700 mb-1">Pending Purchase Orders</p>
-               <p className="text-xl font-bold text-indigo-800">{pendingPurchaseOrdersCount}</p>
+               <p className="text-xs sm:text-sm font-medium text-indigo-700 mb-1">Pending Purchase Orders</p>
+               <p className="text-base sm:text-lg md:text-xl font-bold text-indigo-800 break-words">{pendingPurchaseOrdersCount}</p>
              </div>
             </div>
           </div>
           
           {/* PROFITABILITY & CASH FLOW SECTION */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Profitability & Cash Flow</h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Profitability & Cash Flow</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
             
             {/* Gross Profit */}
-            <div className="text-center p-4 border-2 border-blue-300 bg-blue-50 rounded-lg">
-              <div className="flex justify-center mb-2">
-                <div className="p-3 bg-blue-500 rounded-full">
-                  <BarChart3 className="h-6 w-6 text-white" />
+            <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-blue-300 bg-blue-50 rounded-lg">
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className="p-2 sm:p-2.5 md:p-3 bg-blue-500 rounded-full">
+                  <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-gray-700 mb-1">Gross Profit</p>
-              <p className={`text-xl font-bold ${grossProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Gross Profit</p>
+              <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${grossProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
                 {Math.round(grossProfit).toLocaleString()}
               </p>
-              <p className="text-xs text-gray-600 mt-1">Revenue - COGS</p>
+              <p className="text-[10px] sm:text-xs text-gray-600 mt-1 hidden sm:block">Revenue - COGS</p>
             </div>
             
             {/* Total Receipts */}
             <div 
-              className="text-center p-4 border-2 border-emerald-300 bg-emerald-50 rounded-lg cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-colors relative group"
+              className="text-center p-2 sm:p-3 md:p-4 border-2 border-emerald-300 bg-emerald-50 rounded-lg cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-colors relative group"
               onClick={() => setShowCashReceiptsModal(true)}
             >
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-4 w-4 text-emerald-600" />
+              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600" />
               </div>
-              <div className="flex justify-center mb-2">
-                <div className="p-3 bg-emerald-500 rounded-full">
-                  <Receipt className="h-6 w-6 text-white" />
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className="p-2 sm:p-2.5 md:p-3 bg-emerald-500 rounded-full">
+                  <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-emerald-700 mb-1">Total Receipts</p>
-              <p className="text-xl font-bold text-emerald-800">{Math.round(totalReceipts).toLocaleString()}</p>
-              <p className="text-xs text-emerald-600 mt-1">Cash: {Math.round(totalCashReceipts)} | Bank: {Math.round(totalBankReceipts)}</p>
+              <p className="text-xs sm:text-sm font-medium text-emerald-700 mb-1">Total Receipts</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-emerald-800 break-words">{Math.round(totalReceipts).toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-emerald-600 mt-1 hidden sm:block">Cash: {Math.round(totalCashReceipts)} | Bank: {Math.round(totalBankReceipts)}</p>
             </div>
             
             {/* Total Payments */}
             <div 
-              className="text-center p-4 border-2 border-orange-300 bg-orange-50 rounded-lg cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition-colors relative group"
+              className="text-center p-2 sm:p-3 md:p-4 border-2 border-orange-300 bg-orange-50 rounded-lg cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition-colors relative group"
               onClick={() => setShowCashPaymentsModal(true)}
             >
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-4 w-4 text-orange-600" />
+              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600" />
               </div>
-              <div className="flex justify-center mb-2">
-                <div className="p-3 bg-orange-500 rounded-full">
-                  <Banknote className="h-6 w-6 text-white" />
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className="p-2 sm:p-2.5 md:p-3 bg-orange-500 rounded-full">
+                  <Banknote className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-orange-700 mb-1">Total Payments</p>
-              <p className="text-xl font-bold text-orange-800">{Math.round(totalPayments).toLocaleString()}</p>
-              <p className="text-xs text-orange-600 mt-1">Cash: {Math.round(totalCashPayments)} | Bank: {Math.round(totalBankPayments)}</p>
+              <p className="text-xs sm:text-sm font-medium text-orange-700 mb-1">Total Payments</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-orange-800 break-words">{Math.round(totalPayments).toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs text-orange-600 mt-1 hidden sm:block">Cash: {Math.round(totalCashPayments)} | Bank: {Math.round(totalBankPayments)}</p>
             </div>
             
             {/* Net Cash Flow */}
-            <div className={`text-center p-4 border-2 rounded-lg ${netCashFlow >= 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-              <div className="flex justify-center mb-2">
-                <div className={`p-3 rounded-full ${netCashFlow >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
-                  <Wallet className="h-6 w-6 text-white" />
+            <div className={`text-center p-2 sm:p-3 md:p-4 border-2 rounded-lg ${netCashFlow >= 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className={`p-2 sm:p-2.5 md:p-3 rounded-full ${netCashFlow >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                  <Wallet className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-gray-700 mb-1">Net Cash Flow</p>
-              <p className={`text-xl font-bold ${netCashFlow >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Net Cash Flow</p>
+              <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${netCashFlow >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                 {Math.round(netCashFlow).toLocaleString()}
               </p>
-              <p className="text-xs text-gray-600 mt-1">Receipts - Payments</p>
+              <p className="text-[10px] sm:text-xs text-gray-600 mt-1 hidden sm:block">Receipts - Payments</p>
             </div>
             
             {/* Total Orders */}
-            <div className="text-center p-4 border-2 border-yellow-300 bg-yellow-50 rounded-lg">
-              <div className="flex justify-center mb-2">
-                <div className="p-3 bg-yellow-500 rounded-full">
-                  <ShoppingCart className="h-6 w-6 text-white" />
+            <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-yellow-300 bg-yellow-50 rounded-lg">
+              <div className="flex justify-center mb-1 sm:mb-2">
+                <div className="p-2 sm:p-2.5 md:p-3 bg-yellow-500 rounded-full">
+                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
                 </div>
               </div>
-              <p className="text-sm font-medium text-yellow-700 mb-1">Total Transactions</p>
-              <p className="text-xl font-bold text-yellow-800">{summary.totalOrders || 0}</p>
+              <p className="text-xs sm:text-sm font-medium text-yellow-700 mb-1">Total Transactions</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-yellow-800 break-words">{summary.totalOrders || 0}</p>
             </div>
             
             </div>
@@ -707,7 +716,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Stats Grid - Single Row */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-7">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 md:gap-5">
         <StatCard
           title="Today's Revenue"
           value={`${summary.totalRevenue?.toFixed(2) || '0.00'}`}
@@ -803,11 +812,11 @@ export const Dashboard = () => {
       />
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Orders */}
         <div className="card">
           <div className="card-header">
-            <h3 className="text-lg font-medium text-gray-900">Today's Orders</h3>
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Today's Orders</h3>
           </div>
           <div className="card-content">
             {summary.orderTypes ? (
@@ -838,7 +847,7 @@ export const Dashboard = () => {
         {/* Low Stock Alert */}
         <div className="card">
           <div className="card-header">
-            <h3 className="text-lg font-medium text-gray-900">Low Stock Alert</h3>
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Low Stock Alert</h3>
           </div>
           <div className="card-content">
             {lowStockCount > 0 ? (
@@ -873,10 +882,10 @@ export const Dashboard = () => {
       {summary.paymentMethods && (
         <div className="card">
           <div className="card-header">
-            <h3 className="text-lg font-medium text-gray-900">Payment Methods Today</h3>
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Payment Methods Today</h3>
           </div>
           <div className="card-content">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
               {Object.entries(summary.paymentMethods).map(([method, count]) => (
                 <div key={method} className="text-center">
                   <p className="text-2xl font-semibold text-gray-900">{count}</p>
@@ -893,8 +902,8 @@ export const Dashboard = () => {
       {/* Financial Metrics Legend */}
       <div className="card bg-blue-50 border-blue-200">
         <div className="card-content">
-          <h3 className="text-sm font-semibold text-blue-900 mb-3">📊 Financial Metrics Explained</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs text-blue-800">
+          <h3 className="text-xs sm:text-sm font-semibold text-blue-900 mb-3">📊 Financial Metrics Explained</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 text-xs text-blue-800">
             <div><strong>Sales:</strong> Total revenue from Sales Orders + Sales Invoices</div>
             <div><strong>Net Revenue:</strong> Sales minus discounts given</div>
             <div><strong>Purchase (COGS):</strong> Cost of goods purchased from suppliers</div>

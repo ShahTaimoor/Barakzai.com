@@ -1290,33 +1290,34 @@ export const PurchaseOrders = ({ tabId }) => {
 
   return (
     <div className="space-y-4 lg:space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                       <div>
-          <h1 className="text-2xl font-bold text-gray-900">Purchase Orders</h1>
-          <p className="text-gray-600">Process purchase order transactions</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Purchase Orders</h1>
+          <p className="text-sm sm:text-base text-gray-600">Process purchase order transactions</p>
                         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
             <button
             onClick={handleExport}
-            className="btn btn-secondary btn-md"
+            className="btn btn-secondary btn-md flex-1 sm:flex-initial"
           >
-            <Download className="h-4 w-4 mr-2" />
-            Export
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </button>
           <button
             onClick={resetForm}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-md flex-1 sm:flex-initial"
           >
             <Plus className="h-4 w-4 mr-2" />
-            New Purchase Order
+            <span className="hidden sm:inline">New Purchase Order</span>
+            <span className="sm:hidden">New PO</span>
             </button>
                       </div>
           </div>
 
       {/* Supplier Selection and Information Row */}
-      <div className="flex items-start space-x-4">
+      <div className="flex flex-col md:flex-row items-start space-y-4 md:space-y-0 md:space-x-4">
         {/* Supplier Selection */}
-        <div className="w-[500px] flex-shrink-0">
+        <div className="w-full md:w-[500px] flex-shrink-0">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700">
               Select Supplier
@@ -1399,8 +1400,101 @@ export const PurchaseOrders = ({ tabId }) => {
           {/* Product Search */}
           <div className="mb-6">
             <div className="space-y-4">
-              {/* Product Selection - Same format as Purchase */}
-                <div className="grid grid-cols-12 gap-4 items-end">
+              {/* Mobile Layout */}
+              <div className="md:hidden space-y-3">
+                {/* Product Search */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Product Search
+                  </label>
+                  <SearchableDropdown
+                    key={searchKey}
+                    ref={productSearchRef}
+                    placeholder="Search or select product..."
+                    items={productsData || []}
+                    onSelect={handleProductSelect}
+                    onSearch={handleProductSearch}
+                    displayKey={productDisplayKey}
+                    selectedItem={selectedProduct}
+                    loading={productsLoading || variantsLoading}
+                    emptyMessage={productSearchTerm.length > 0 ? "No products found" : "Start typing to search products..."}
+                    value={productSearchTerm}
+                  />
+                </div>
+
+                {/* Fields Grid - 2 columns on mobile */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Stock */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Stock
+                    </label>
+                    <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-2 rounded border border-gray-200 block text-center h-10 flex items-center justify-center">
+                      {selectedProduct ? selectedProduct.inventory?.currentStock || 0 : '0'}
+                    </span>
+                  </div>
+                  
+                  {/* Amount */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Amount
+                    </label>
+                    <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-2 rounded border border-gray-200 block text-center h-10 flex items-center justify-center">
+                      {selectedProduct ? Math.round(quantity * parseFloat(customCost || 0)) : 0}
+                    </span>
+                  </div>
+                  
+                  {/* Quantity */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                      onKeyDown={handleInputKeyDown}
+                      className="input text-center h-10 w-full"
+                      placeholder="1"
+                    />
+                  </div>
+                  
+                  {/* Cost */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Cost
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      value={customCost}
+                      onChange={(e) => setCustomCost(e.target.value)}
+                      onKeyDown={handleInputKeyDown}
+                      className="input text-center h-10 w-full"
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Add Button - Full width on mobile */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleAddItem}
+                    className="w-full btn btn-primary flex items-center justify-center px-4 py-2.5 h-11"
+                    disabled={!selectedProduct}
+                    title="Add to cart (or press Enter in Quantity/Cost fields - focus returns to search)"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Desktop Layout */}
+              <div className="hidden md:grid grid-cols-12 gap-4 items-end">
                 {/* Product Search - 7 columns */}
                 <div className="col-span-7">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1490,9 +1584,9 @@ export const PurchaseOrders = ({ tabId }) => {
                       Add
                     </button>
                 </div>
-                  </div>
-                </div>
               </div>
+            </div>
+          </div>
               
           {/* Cart Items */}
           {formData.items.length === 0 ? (
@@ -1503,7 +1597,7 @@ export const PurchaseOrders = ({ tabId }) => {
           ) : (
             <div className="space-y-4 border-t border-gray-200 pt-6">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="text-md font-medium text-gray-700">Cart Items</h4>
+                <h4 className="text-base sm:text-md font-medium text-gray-700">Cart Items</h4>
                 <button
                   type="button"
                   onClick={handleSortCartItems}
@@ -1511,9 +1605,36 @@ export const PurchaseOrders = ({ tabId }) => {
                   title="Sort products alphabetically"
                 >
                   <ArrowUpDown className="h-4 w-4" />
-                  <span>Sort A-Z</span>
+                  <span className="hidden sm:inline">Sort A-Z</span>
+                  <span className="sm:hidden">Sort</span>
                 </button>
               </div>
+              
+              {/* Desktop Table Header */}
+              <div className="hidden md:grid grid-cols-12 gap-4 items-center pb-2 border-b border-gray-300 mb-2">
+                <div className="col-span-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">#</span>
+                </div>
+                <div className="col-span-6">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">Product</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">Stock</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">Qty</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">Cost</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">Total</span>
+                </div>
+                <div className="col-span-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">Action</span>
+                </div>
+              </div>
+              
               {formData.items.map((item, index) => {
                 const product = item.productData || item.product; // Use stored product/variant data or fallback to product
                 const displayName = product?.isVariant 
@@ -1523,98 +1644,187 @@ export const PurchaseOrders = ({ tabId }) => {
                 const isLowStock = product?.inventory?.currentStock <= (product?.inventory?.reorderPoint || 0);
                 
                 return (
-                  <div key={index} className={`py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    {/* Following Product Selection Row Format - Exact Alignment */}
-                    <div className="grid grid-cols-12 gap-4 items-center">
-                      {/* Serial Number - 1 column (new field) */}
-                      <div className="col-span-1">
-                        <span className="text-sm font-medium text-gray-700 bg-gray-50 px-0.5 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
-                          {index + 1}
-                        </span>
-                      </div>
-                      
-                      {/* Product Name - 6 columns (adjusted to align with Product Search 7 columns) */}
-                      <div className="col-span-6 flex items-center h-8">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm truncate">
-                            {product?.isVariant 
-                              ? safeRender(product?.displayName || product?.variantName || product?.name || 'Unknown Variant')
-                              : safeRender(product?.name || 'Unknown Product')}
-                            {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low</span>}
-                          </span>
+                  <div key={index}>
+                    {/* Mobile Card View */}
+                    <div className="md:hidden mb-4 p-3 border border-gray-200 rounded-lg bg-white shadow-sm">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>
+                            <span className="font-medium text-sm truncate">
+                              {product?.isVariant 
+                                ? safeRender(product?.displayName || product?.variantName || product?.name || 'Unknown Variant')
+                                : safeRender(product?.name || 'Unknown Product')}
+                            </span>
+                          </div>
                           {product?.isVariant && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 block">
                               {product.variantType}: {product.variantValue}
                             </span>
                           )}
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low</span>}
+                          </div>
                         </div>
-                      </div>
-                      
-                      {/* Stock - 1 column (matches Product Selection Stock) */}
-                      <div className="col-span-1">
-                        <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
-                          {product?.inventory?.currentStock || 0}
-                        </span>
-                      </div>
-                      
-                      {/* Quantity - 1 column (matches Product Selection Quantity) */}
-                      <div className="col-span-1">
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const newQuantity = parseInt(e.target.value) || 1;
-                            if (newQuantity <= 0) {
-                              handleRemoveItem(index);
-                              return;
-                            }
-                            setFormData(prev => ({
-                              ...prev,
-                              items: prev.items.map((itm, i) => 
-                                i === index ? { ...itm, quantity: newQuantity, totalCost: newQuantity * itm.costPerUnit } : itm
-                              )
-                            }));
-                          }}
-                          className="input text-center h-8"
-                          min="1"
-                        />
-                      </div>
-                      
-                      {/* Cost - 1 column (matches Product Selection Cost) */}
-                      <div className="col-span-1">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={item.costPerUnit}
-                          onChange={(e) => {
-                            const newCost = parseFloat(e.target.value) || 0;
-                            setFormData(prev => ({
-                              ...prev,
-                              items: prev.items.map((itm, i) => 
-                                i === index ? { ...itm, costPerUnit: newCost, totalCost: itm.quantity * newCost } : itm
-                              )
-                            }));
-                          }}
-                          className="input text-center h-8"
-                          min="0"
-                        />
-                      </div>
-                      
-                      {/* Total - 1 column (matches Product Selection Amount) */}
-                      <div className="col-span-1">
-                        <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
-                          {Math.round(totalPrice)}
-                        </span>
-                      </div>
-                      
-                      {/* Delete Button - 1 column (matches Product Selection Add Button) */}
-                      <div className="col-span-1">
                         <button
                           onClick={() => handleRemoveItem(index)}
-                          className="btn btn-danger btn-sm h-8 w-full"
+                          className="btn btn-danger btn-sm h-8 w-8 p-0 flex-shrink-0 ml-2"
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Stock</label>
+                          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center">
+                            {product?.inventory?.currentStock || 0}
+                          </span>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Total</label>
+                          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center">
+                            {Math.round(totalPrice)}
+                          </span>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newQuantity = parseInt(e.target.value) || 1;
+                              if (newQuantity <= 0) {
+                                handleRemoveItem(index);
+                                return;
+                              }
+                              setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((itm, i) => 
+                                  i === index ? { ...itm, quantity: newQuantity, totalCost: newQuantity * itm.costPerUnit } : itm
+                                )
+                              }));
+                            }}
+                            className="input text-center h-8 w-full"
+                            min="1"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Cost</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.costPerUnit}
+                            onChange={(e) => {
+                              const newCost = parseFloat(e.target.value) || 0;
+                              setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((itm, i) => 
+                                  i === index ? { ...itm, costPerUnit: newCost, totalCost: itm.quantity * newCost } : itm
+                                )
+                              }));
+                            }}
+                            className="input text-center h-8 w-full"
+                            min="0"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Desktop Table Row */}
+                    <div className={`hidden md:block py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      <div className="grid grid-cols-12 gap-4 items-center">
+                        {/* Serial Number - 1 column (new field) */}
+                        <div className="col-span-1">
+                          <span className="text-sm font-medium text-gray-700 bg-gray-50 px-0.5 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+                            {index + 1}
+                          </span>
+                        </div>
+                        
+                        {/* Product Name - 6 columns (adjusted to align with Product Search 7 columns) */}
+                        <div className="col-span-6 flex items-center h-8">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm truncate">
+                              {product?.isVariant 
+                                ? safeRender(product?.displayName || product?.variantName || product?.name || 'Unknown Variant')
+                                : safeRender(product?.name || 'Unknown Product')}
+                              {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low</span>}
+                            </span>
+                            {product?.isVariant && (
+                              <span className="text-xs text-gray-500">
+                                {product.variantType}: {product.variantValue}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Stock - 1 column (matches Product Selection Stock) */}
+                        <div className="col-span-1">
+                          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+                            {product?.inventory?.currentStock || 0}
+                          </span>
+                        </div>
+                        
+                        {/* Quantity - 1 column (matches Product Selection Quantity) */}
+                        <div className="col-span-1">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newQuantity = parseInt(e.target.value) || 1;
+                              if (newQuantity <= 0) {
+                                handleRemoveItem(index);
+                                return;
+                              }
+                              setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((itm, i) => 
+                                  i === index ? { ...itm, quantity: newQuantity, totalCost: newQuantity * itm.costPerUnit } : itm
+                                )
+                              }));
+                            }}
+                            className="input text-center h-8"
+                            min="1"
+                          />
+                        </div>
+                        
+                        {/* Cost - 1 column (matches Product Selection Cost) */}
+                        <div className="col-span-1">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.costPerUnit}
+                            onChange={(e) => {
+                              const newCost = parseFloat(e.target.value) || 0;
+                              setFormData(prev => ({
+                                ...prev,
+                                items: prev.items.map((itm, i) => 
+                                  i === index ? { ...itm, costPerUnit: newCost, totalCost: itm.quantity * newCost } : itm
+                                )
+                              }));
+                            }}
+                            className="input text-center h-8"
+                            min="0"
+                          />
+                        </div>
+                        
+                        {/* Total - 1 column (matches Product Selection Amount) */}
+                        <div className="col-span-1">
+                          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+                            {Math.round(totalPrice)}
+                          </span>
+                        </div>
+                        
+                        {/* Delete Button - 1 column (matches Product Selection Add Button) */}
+                        <div className="col-span-1">
+                          <button
+                            onClick={() => handleRemoveItem(index)}
+                            className="btn btn-danger btn-sm h-8 w-full"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1630,14 +1840,88 @@ export const PurchaseOrders = ({ tabId }) => {
       {formData.items.length > 0 && !showEditModal && (
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg max-w-5xl ml-auto mt-4">
           {/* Purchase Details Section */}
-          <div className="px-6 py-4 border-b border-blue-200">
-            <h3 className="text-lg font-medium text-gray-900 text-right">
+          <div className="px-4 sm:px-6 py-4 border-b border-blue-200">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 text-left sm:text-right">
               Purchase Order Details
             </h3>
           </div>
-          <div className="px-6 py-4">
-            {/* Single Row Layout for Purchase Order Details */}
-            <div className="flex flex-nowrap gap-3 items-end justify-end">
+          <div className="px-4 sm:px-6 py-4">
+            {/* Mobile Layout - Stacked */}
+            <div className="md:hidden space-y-3">
+              {/* Invoice Number */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Invoice Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.invoiceNumber || "Auto-generated"}
+                  onChange={(e) => setFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                  className="input h-10 text-sm w-full"
+                  placeholder="Auto-generated"
+                  disabled
+                />
+              </div>
+
+              {/* Expected Delivery */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Expected Delivery
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={formData.expectedDelivery}
+                    onChange={(e) => setFormData(prev => ({ ...prev, expectedDelivery: e.target.value }))}
+                    className="input h-10 text-sm w-full pr-8"
+                  />
+                  <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none sm:hidden" />
+                </div>
+              </div>
+
+              {/* Tax Exemption Option */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Tax Status
+                </label>
+                <div className="flex items-center space-x-2 px-3 py-2 border border-gray-200 rounded h-10">
+                  <input
+                    type="checkbox"
+                    id="taxExemptMobile"
+                    checked={formData.isTaxExempt}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isTaxExempt: e.target.checked }))}
+                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="taxExemptMobile" className="text-sm font-medium text-gray-700 cursor-pointer">
+                      Tax Exempt
+                    </label>
+                  </div>
+                  {formData.isTaxExempt && (
+                    <div className="text-green-600 text-sm font-medium">
+                      ✓
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="input h-10 text-sm w-full"
+                  placeholder="Additional notes..."
+                />
+              </div>
+            </div>
+
+            {/* Desktop Layout - Horizontal */}
+            <div className="hidden md:flex flex-nowrap gap-3 items-end justify-end">
               {/* Invoice Number */}
               <div className="flex flex-col w-44">
                 <label className="block text-xs font-medium text-gray-700 mb-1">

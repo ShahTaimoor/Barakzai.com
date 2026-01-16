@@ -368,10 +368,132 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
 
   return (
     <div className="space-y-4">
-      {/* Product Selection - Horizontal Layout */}
+      {/* Product Selection - Responsive Layout */}
       <div>
-        {/* Product Search and Input Fields Row */}
-        <div className="grid grid-cols-12 gap-4 items-end">
+        {/* Mobile Layout */}
+        <div className="md:hidden space-y-3">
+          {/* Product Search */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Product Search
+            </label>
+            <div className="relative flex space-x-2">
+              <div className="flex-1">
+                <SearchableDropdown
+                  key={searchKey}
+                  ref={productSearchRef}
+                  placeholder="Search or select product..."
+                  items={products || []}
+                  onSelect={handleProductSelect}
+                  onSearch={setProductSearchTerm}
+                  displayKey={productDisplayKey}
+                  selectedItem={selectedProduct}
+                  loading={productsLoading || variantsLoading}
+                  emptyMessage={productSearchTerm.length > 0 ? "No products found" : "Start typing to search products..."}
+                  value={productSearchTerm}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBarcodeScanner(true)}
+                className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center flex-shrink-0"
+                title="Scan barcode to search product"
+              >
+                <Camera className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
+          </div>
+
+          {/* Fields Grid - 2 columns on mobile */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Stock */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Stock
+              </label>
+              <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-2 rounded border border-gray-200 block text-center h-10 flex items-center justify-center">
+                {selectedProduct ? selectedProduct.inventory.currentStock : '0'}
+              </span>
+            </div>
+            
+            {/* Amount */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Amount
+              </label>
+              <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-2 rounded border border-gray-200 block text-center h-10 flex items-center justify-center">
+                {isAddingProduct ? Math.round(quantity * parseInt(customRate || 0)) : 0}
+              </span>
+            </div>
+            
+            {/* Quantity */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Quantity
+              </label>
+              <input
+                type="number"
+                min="1"
+                max={selectedProduct?.inventory.currentStock}
+                value={quantity}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                onKeyDown={handleKeyDown}
+                onFocus={(e) => e.target.select()}
+                className="input text-center h-10"
+                placeholder="1"
+                autoFocus={isAddingProduct}
+              />
+            </div>
+            
+            {/* Rate */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Rate
+              </label>
+              <input
+                type="number"
+                step="1"
+                value={customRate}
+                onChange={(e) => setCustomRate(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={(e) => e.target.select()}
+                className="input text-center h-10"
+                placeholder="0"
+                required
+              />
+            </div>
+            
+            {/* Cost - Full width if shown */}
+            {showCostPrice && hasCostPricePermission && (
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Cost
+                </label>
+                <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-2 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Last Purchase Price">
+                  {lastPurchasePrice !== null ? `${Math.round(lastPurchasePrice)}` : selectedProduct ? 'N/A' : '0'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Add Button - Full width on mobile */}
+          <div>
+            <LoadingButton
+              type="button"
+              onClick={handleAddToCart}
+              isLoading={isAddingToCart}
+              className="w-full btn btn-primary flex items-center justify-center px-4 py-2.5 h-11"
+              disabled={!selectedProduct || isAddingToCart}
+              title="Add to cart (or press Enter in Quantity/Rate fields - focus returns to search)"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add
+            </LoadingButton>
+          </div>
+        </div>
+
+        {/* Desktop Layout */}
+        <div className="hidden md:grid grid-cols-12 gap-4 items-end">
           {/* Product Search - 7 columns */}
           <div className={searchColClass}>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2040,8 +2162,8 @@ export const Sales = ({ tabId, editData }) => {
                   </div>
                 </div>
                 
-                {/* Table Header Row */}
-                <div className="grid grid-cols-12 gap-4 items-center pb-2 border-b border-gray-300 mb-2">
+                {/* Desktop Table Header Row */}
+                <div className="hidden md:grid grid-cols-12 gap-4 items-center pb-2 border-b border-gray-300 mb-2">
                   <div className="col-span-1">
                     <span className="text-xs font-semibold text-gray-600 uppercase">#</span>
                   </div>
@@ -2075,160 +2197,272 @@ export const Sales = ({ tabId, editData }) => {
                   const isLowStock = item.product.inventory?.currentStock <= item.product.inventory?.reorderPoint;
                   
                   return (
-                    <div key={item.product._id} className={`py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                      {/* Structured Grid Layout - Following Purchase Orders Format */}
-                      <div className="grid grid-cols-12 gap-4 items-center">
-                        {/* Serial Number - 1 column */}
-                        <div className="col-span-1">
-                          <span className="text-sm font-medium text-gray-700 bg-gray-50 px-0.5 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
-                            {index + 1}
-                          </span>
-                        </div>
-                        
-                        {/* Product Name - mirror Sales Order layout (6 columns normally, 5 when cost column shown) */}
-                        <div className={`${showCostPrice && hasPermission('view_cost_prices') ? 'col-span-5' : 'col-span-6'} flex items-center h-8`}>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm truncate">
-                              {item.product.isVariant 
-                                ? (item.product.displayName || item.product.variantName || item.product.name)
-                                : item.product.name}
-                              {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
-                            {/* Warning if sale price is below cost price (always show, regardless of showCostPrice) */}
-                            {lastPurchasePrices[item.product._id] !== undefined && 
-                             item.unitPrice < lastPurchasePrices[item.product._id] && (
-                              <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold" title={`Sale price below cost! Loss: $${Math.round(lastPurchasePrices[item.product._id] - item.unitPrice)} per unit`}>
-                                ⚠️ Loss
+                    <div key={item.product._id}>
+                      {/* Mobile Card View */}
+                      <div className="md:hidden mb-4 p-3 border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>
+                              <span className="font-medium text-sm truncate">
+                                {item.product.isVariant 
+                                  ? (item.product.displayName || item.product.variantName || item.product.name)
+                                  : item.product.name}
                               </span>
-                            )}
-                            {isLastPricesApplied && priceStatus[item.product._id] && (
-                              <span className={`text-xs ml-2 px-1.5 py-0.5 rounded ${
-                                priceStatus[item.product._id] === 'updated'
-                                  ? 'bg-green-100 text-green-700'
-                                  : priceStatus[item.product._id] === 'unchanged'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                {priceStatus[item.product._id] === 'updated'
-                                  ? 'Updated'
-                                  : priceStatus[item.product._id] === 'unchanged'
-                                  ? 'Same Price'
-                                  : 'Not in Last Order'}
-                              </span>
-                            )}
-                            </span>
+                            </div>
                             {item.product.isVariant && (
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-500 block">
                                 {item.product.variantType}: {item.product.variantValue}
                               </span>
                             )}
-                          </div>
-                        </div>
-                        
-                        {/* Stock - 1 column */}
-                        <div className="col-span-1">
-                          <span className={`text-sm font-semibold px-2 py-1 rounded border block text-center h-8 flex items-center justify-center ${
-                            (item.product.inventory?.currentStock || 0) === 0
-                              ? 'text-red-700 bg-red-50 border-red-200'
-                              : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
-                              ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
-                              : 'text-gray-700 bg-gray-100 border-gray-200'
-                          }`}>
-                            {item.product.inventory?.currentStock || 0}
-                          </span>
-                        </div>
-                        
-                        {/* Quantity - 1 column */}
-                        <div className="col-span-1">
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(item.product._id, parseInt(e.target.value) || 1)}
-                            className="input text-center h-8"
-                            min="1"
-                            max={item.product.inventory?.currentStock || 999999}
-                            title={`Maximum available: ${item.product.inventory?.currentStock || 0}`}
-                          />
-                        </div>
-                        
-                        {/* Purchase Price (Cost) - 1 column (conditional) - Between Quantity and Rate */}
-                        {showCostPrice && hasPermission('view_cost_prices') && (
-                          <div className="col-span-1">
-                            <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-8 flex items-center justify-center" title="Last Purchase Price">
-                              {lastPurchasePrices[item.product._id] !== undefined 
-                                ? `$${Math.round(lastPurchasePrices[item.product._id])}` 
-                                : 'N/A'}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Rate - 1 column */}
-                        <div className="col-span-1 relative">
-                          <input
-                            type="number"
-                            step="1"
-                            value={Math.round(item.unitPrice)}
-                            onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
-                            className={`input text-center h-8 ${
-                              // Check if sale price is less than cost price - highest priority styling (always check)
-                              (lastPurchasePrices[item.product._id] !== undefined && 
-                               item.unitPrice < lastPurchasePrices[item.product._id])
-                                ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
-                                : priceStatus[item.product._id] === 'updated' 
-                                ? 'bg-green-50 border-green-300 ring-1 ring-green-200' 
-                                : priceStatus[item.product._id] === 'not-found'
-                                ? 'bg-yellow-50 border-yellow-300 ring-1 ring-yellow-200'
-                                : priceStatus[item.product._id] === 'unchanged'
-                                ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
-                                : ''
-                            }`}
-                            min="0"
-                            title={
-                              (lastPurchasePrices[item.product._id] !== undefined && 
-                               item.unitPrice < lastPurchasePrices[item.product._id])
-                                ? `⚠️ WARNING: Sale price ($${Math.round(item.unitPrice)}) is below cost price ($${Math.round(lastPurchasePrices[item.product._id])})`
-                                : ''
-                            }
-                          />
-                          {isLastPricesApplied && priceStatus[item.product._id] && (
-                            <div 
-                              className="absolute -right-7 top-1/2 transform -translate-y-1/2 flex items-center z-10"
-                              title={
-                                priceStatus[item.product._id] === 'updated'
-                                  ? 'Price updated from last order'
-                                  : priceStatus[item.product._id] === 'unchanged'
-                                  ? 'Price same as last order'
-                                  : 'Product not found in previous order'
-                              }
-                            >
-                              {priceStatus[item.product._id] === 'updated' && (
-                                <CheckCircle className="h-4 w-4 text-green-600 bg-white rounded-full" />
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low Stock</span>}
+                              {lastPurchasePrices[item.product._id] !== undefined && 
+                               item.unitPrice < lastPurchasePrices[item.product._id] && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">
+                                  ⚠️ Loss
+                                </span>
                               )}
-                              {priceStatus[item.product._id] === 'unchanged' && (
-                                <Info className="h-4 w-4 text-blue-600 bg-white rounded-full" />
-                              )}
-                              {priceStatus[item.product._id] === 'not-found' && (
-                                <AlertCircle className="h-4 w-4 text-yellow-600 bg-white rounded-full" />
+                              {isLastPricesApplied && priceStatus[item.product._id] && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                  priceStatus[item.product._id] === 'updated'
+                                    ? 'bg-green-100 text-green-700'
+                                    : priceStatus[item.product._id] === 'unchanged'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {priceStatus[item.product._id] === 'updated'
+                                    ? 'Updated'
+                                    : priceStatus[item.product._id] === 'unchanged'
+                                    ? 'Same Price'
+                                    : 'Not in Last Order'}
+                                </span>
                               )}
                             </div>
-                          )}
-                        </div>
-                        
-                        {/* Total - 1 column */}
-                        <div className="col-span-1">
-                          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
-                            {Math.round(totalPrice)}
-                          </span>
-                        </div>
-                        
-                        {/* Delete Button - 1 column */}
-                        <div className="col-span-1">
+                          </div>
                           <LoadingButton
                             onClick={() => removeFromCart(item.product._id)}
                             isLoading={isRemovingFromCart[item.product._id]}
-                            className="btn btn-danger btn-sm h-8 w-full"
+                            className="btn btn-danger btn-sm h-8 w-8 p-0 flex-shrink-0 ml-2"
+                            title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
                           </LoadingButton>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Stock</label>
+                            <span className={`text-sm font-semibold px-2 py-1 rounded border block text-center ${
+                              (item.product.inventory?.currentStock || 0) === 0
+                                ? 'text-red-700 bg-red-50 border-red-200'
+                                : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
+                                ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+                                : 'text-gray-700 bg-gray-100 border-gray-200'
+                            }`}>
+                              {item.product.inventory?.currentStock || 0}
+                            </span>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Total</label>
+                            <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center">
+                              {Math.round(totalPrice)}
+                            </span>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(item.product._id, parseInt(e.target.value) || 1)}
+                              className="input text-center h-8 w-full"
+                              min="1"
+                              max={item.product.inventory?.currentStock || 999999}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Rate</label>
+                            <input
+                              type="number"
+                              step="1"
+                              value={Math.round(item.unitPrice)}
+                              onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
+                              className={`input text-center h-8 w-full ${
+                                (lastPurchasePrices[item.product._id] !== undefined && 
+                                 item.unitPrice < lastPurchasePrices[item.product._id])
+                                  ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
+                                  : ''
+                              }`}
+                              min="0"
+                            />
+                          </div>
+                          {showCostPrice && hasPermission('view_cost_prices') && (
+                            <div className="col-span-2">
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Cost</label>
+                              <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center">
+                                {lastPurchasePrices[item.product._id] !== undefined 
+                                  ? `$${Math.round(lastPurchasePrices[item.product._id])}` 
+                                  : 'N/A'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Desktop Table Row */}
+                      <div className={`hidden md:block py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                        <div className="grid grid-cols-12 gap-4 items-center">
+                          {/* Serial Number - 1 column */}
+                          <div className="col-span-1">
+                            <span className="text-sm font-medium text-gray-700 bg-gray-50 px-0.5 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+                              {index + 1}
+                            </span>
+                          </div>
+                          
+                          {/* Product Name - mirror Sales Order layout (6 columns normally, 5 when cost column shown) */}
+                          <div className={`${showCostPrice && hasPermission('view_cost_prices') ? 'col-span-5' : 'col-span-6'} flex items-center h-8`}>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm truncate">
+                                {item.product.isVariant 
+                                  ? (item.product.displayName || item.product.variantName || item.product.name)
+                                  : item.product.name}
+                                {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
+                              {/* Warning if sale price is below cost price (always show, regardless of showCostPrice) */}
+                              {lastPurchasePrices[item.product._id] !== undefined && 
+                               item.unitPrice < lastPurchasePrices[item.product._id] && (
+                                <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold" title={`Sale price below cost! Loss: $${Math.round(lastPurchasePrices[item.product._id] - item.unitPrice)} per unit`}>
+                                  ⚠️ Loss
+                                </span>
+                              )}
+                              {isLastPricesApplied && priceStatus[item.product._id] && (
+                                <span className={`text-xs ml-2 px-1.5 py-0.5 rounded ${
+                                  priceStatus[item.product._id] === 'updated'
+                                    ? 'bg-green-100 text-green-700'
+                                    : priceStatus[item.product._id] === 'unchanged'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {priceStatus[item.product._id] === 'updated'
+                                    ? 'Updated'
+                                    : priceStatus[item.product._id] === 'unchanged'
+                                    ? 'Same Price'
+                                    : 'Not in Last Order'}
+                                </span>
+                              )}
+                              </span>
+                              {item.product.isVariant && (
+                                <span className="text-xs text-gray-500">
+                                  {item.product.variantType}: {item.product.variantValue}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Stock - 1 column */}
+                          <div className="col-span-1">
+                            <span className={`text-sm font-semibold px-2 py-1 rounded border block text-center h-8 flex items-center justify-center ${
+                              (item.product.inventory?.currentStock || 0) === 0
+                                ? 'text-red-700 bg-red-50 border-red-200'
+                                : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
+                                ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+                                : 'text-gray-700 bg-gray-100 border-gray-200'
+                            }`}>
+                              {item.product.inventory?.currentStock || 0}
+                            </span>
+                          </div>
+                          
+                          {/* Quantity - 1 column */}
+                          <div className="col-span-1">
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(item.product._id, parseInt(e.target.value) || 1)}
+                              className="input text-center h-8"
+                              min="1"
+                              max={item.product.inventory?.currentStock || 999999}
+                              title={`Maximum available: ${item.product.inventory?.currentStock || 0}`}
+                            />
+                          </div>
+                          
+                          {/* Purchase Price (Cost) - 1 column (conditional) - Between Quantity and Rate */}
+                          {showCostPrice && hasPermission('view_cost_prices') && (
+                            <div className="col-span-1">
+                              <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-8 flex items-center justify-center" title="Last Purchase Price">
+                                {lastPurchasePrices[item.product._id] !== undefined 
+                                  ? `$${Math.round(lastPurchasePrices[item.product._id])}` 
+                                  : 'N/A'}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Rate - 1 column */}
+                          <div className="col-span-1 relative">
+                            <input
+                              type="number"
+                              step="1"
+                              value={Math.round(item.unitPrice)}
+                              onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
+                              className={`input text-center h-8 ${
+                                // Check if sale price is less than cost price - highest priority styling (always check)
+                                (lastPurchasePrices[item.product._id] !== undefined && 
+                                 item.unitPrice < lastPurchasePrices[item.product._id])
+                                  ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
+                                  : priceStatus[item.product._id] === 'updated' 
+                                  ? 'bg-green-50 border-green-300 ring-1 ring-green-200' 
+                                  : priceStatus[item.product._id] === 'not-found'
+                                  ? 'bg-yellow-50 border-yellow-300 ring-1 ring-yellow-200'
+                                  : priceStatus[item.product._id] === 'unchanged'
+                                  ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
+                                  : ''
+                              }`}
+                              min="0"
+                              title={
+                                (lastPurchasePrices[item.product._id] !== undefined && 
+                                 item.unitPrice < lastPurchasePrices[item.product._id])
+                                  ? `⚠️ WARNING: Sale price ($${Math.round(item.unitPrice)}) is below cost price ($${Math.round(lastPurchasePrices[item.product._id])})`
+                                  : ''
+                              }
+                            />
+                            {isLastPricesApplied && priceStatus[item.product._id] && (
+                              <div 
+                                className="absolute -right-7 top-1/2 transform -translate-y-1/2 flex items-center z-10"
+                                title={
+                                  priceStatus[item.product._id] === 'updated'
+                                    ? 'Price updated from last order'
+                                    : priceStatus[item.product._id] === 'unchanged'
+                                    ? 'Price same as last order'
+                                    : 'Product not found in previous order'
+                                }
+                              >
+                                {priceStatus[item.product._id] === 'updated' && (
+                                  <CheckCircle className="h-4 w-4 text-green-600 bg-white rounded-full" />
+                                )}
+                                {priceStatus[item.product._id] === 'unchanged' && (
+                                  <Info className="h-4 w-4 text-blue-600 bg-white rounded-full" />
+                                )}
+                                {priceStatus[item.product._id] === 'not-found' && (
+                                  <AlertCircle className="h-4 w-4 text-yellow-600 bg-white rounded-full" />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Total - 1 column */}
+                          <div className="col-span-1">
+                            <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+                              {Math.round(totalPrice)}
+                            </span>
+                          </div>
+                          
+                          {/* Delete Button - 1 column */}
+                          <div className="col-span-1">
+                            <LoadingButton
+                              onClick={() => removeFromCart(item.product._id)}
+                              isLoading={isRemovingFromCart[item.product._id]}
+                              className="btn btn-danger btn-sm h-8 w-full"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </LoadingButton>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2243,10 +2477,121 @@ export const Sales = ({ tabId, editData }) => {
         {cart.length > 0 && (
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg max-w-5xl ml-auto mt-4">
             {/* Sales Details Section */}
-            <div className="px-6 py-4 border-b border-blue-200">
-              <h3 className="text-lg font-medium text-gray-900 text-right mb-4">Sales Details</h3>
-              {/* Single Row Layout for Sales Details */}
-              <div className="flex flex-nowrap gap-3 items-end justify-end">
+            <div className="px-4 sm:px-6 py-4 border-b border-blue-200">
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 text-left sm:text-right mb-4">Sales Details</h3>
+              
+              {/* Mobile Layout - Stacked */}
+              <div className="md:hidden space-y-3">
+                {/* Order Type */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Order Type
+                  </label>
+                  <select
+                    value={selectedCustomer?.businessType || 'wholesale'}
+                    className="input h-10 text-sm w-full"
+                    disabled
+                  >
+                    <option value="retail">Retail</option>
+                    <option value="wholesale">Wholesale</option>
+                    <option value="return">Return</option>
+                    <option value="exchange">Exchange</option>
+                  </select>
+                </div>
+
+                {/* Tax Exemption Option */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Tax Status
+                  </label>
+                  <div className="flex items-center space-x-2 px-3 py-2 border border-gray-200 rounded h-10">
+                    <input
+                      type="checkbox"
+                      id="taxExemptMobile"
+                      checked={isTaxExempt}
+                      onChange={(e) => setIsTaxExempt(e.target.checked)}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="taxExemptMobile" className="text-sm font-medium text-gray-700 cursor-pointer">
+                        Tax Exempt
+                      </label>
+                    </div>
+                    {isTaxExempt && (
+                      <div className="text-green-600 text-sm font-medium">
+                        ✓
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Invoice Number */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Invoice Number
+                    </label>
+                    <label
+                      htmlFor="autoGenerateInvoiceMobile"
+                      className="flex items-center space-x-1 text-xs text-gray-600 cursor-pointer select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        id="autoGenerateInvoiceMobile"
+                        checked={autoGenerateInvoice}
+                        onChange={(e) => {
+                          setAutoGenerateInvoice(e.target.checked);
+                          if (e.target.checked && selectedCustomer) {
+                            setInvoiceNumber(generateInvoiceNumber(selectedCustomer));
+                          }
+                        }}
+                        className="h-3.5 w-3.5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <span>Auto-generate</span>
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      className="w-full input pr-20 h-10 text-sm"
+                      placeholder={autoGenerateInvoice ? 'Auto-generated' : 'Enter invoice number'}
+                      disabled={autoGenerateInvoice}
+                    />
+                    {autoGenerateInvoice && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedCustomer) {
+                            setInvoiceNumber(generateInvoiceNumber(selectedCustomer));
+                          }
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-primary-600 hover:text-primary-800 font-medium"
+                      >
+                        Regenerate
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="input h-10 text-sm w-full"
+                    placeholder="Additional notes..."
+                  />
+                </div>
+              </div>
+
+              {/* Desktop Layout - Horizontal */}
+              <div className="hidden md:flex flex-nowrap gap-3 items-end justify-end">
                 {/* Order Type */}
                 <div className="flex flex-col w-44">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
