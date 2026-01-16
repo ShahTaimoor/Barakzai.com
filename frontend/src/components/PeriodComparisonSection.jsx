@@ -74,30 +74,32 @@ export const PeriodComparisonSection = ({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
         <div className="flex items-center space-x-2">
           <BarChart3 className="h-5 w-5 text-gray-600" />
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
         </div>
         
-        <PeriodSelector
-          value={periodType}
-          onChange={(value) => {
-            setPeriodType(value);
-            if (value !== 'custom') {
-              setCustomRange(null);
-            }
-          }}
-          showCustomDatePicker={periodType === 'custom'}
-          customStartDate={customRange?.start}
-          customEndDate={customRange?.end}
-          onCustomDateChange={setCustomRange}
-        />
+        <div className="w-full sm:w-auto">
+          <PeriodSelector
+            value={periodType}
+            onChange={(value) => {
+              setPeriodType(value);
+              if (value !== 'custom') {
+                setCustomRange(null);
+              }
+            }}
+            showCustomDatePicker={periodType === 'custom'}
+            customStartDate={customRange?.start}
+            customEndDate={customRange?.end}
+            onCustomDateChange={setCustomRange}
+          />
+        </div>
       </div>
 
       {/* Period Labels */}
       {!isLoading && comparisons.length > 0 && (
-        <div className="text-sm text-gray-600">
+        <div className="text-xs sm:text-sm text-gray-600 flex items-center flex-wrap">
           <span>
             <strong>Current:</strong> {getPeriodLabel(periodType === 'custom' ? 'custom' : `current-${periodType}`, new Date())}
           </span>

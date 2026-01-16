@@ -403,13 +403,6 @@ export const Layout = ({ children }) => {
             {/* Financial Transaction Buttons - Responsive */}
             <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto flex-shrink-0 scrollbar-hide">
               <button
-                onClick={() => navigate('/cash-receiving')}
-                className="bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
-              >
-                <Receipt className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Cash Receiving</span>
-              </button>
-              <button
                 onClick={() => navigate('/cash-receipts')}
                 className="bg-green-500 hover:bg-green-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
               >
@@ -436,13 +429,6 @@ export const Layout = ({ children }) => {
               >
                 <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden md:inline">Bank Payments</span>
-              </button>
-              <button
-                onClick={() => navigate('/expenses')}
-                className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-1 text-xs sm:text-sm font-medium flex-shrink-0"
-              >
-                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">Record Expense</span>
               </button>
             </div>
             <div className="flex flex-1 min-w-0"></div>

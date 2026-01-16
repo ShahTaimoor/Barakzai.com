@@ -437,13 +437,22 @@ export const Dashboard = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm sm:text-base text-gray-600">Welcome back! Here's what's happening today.</p>
         </div>
-        <button
-          onClick={() => navigate('/expenses')}
-          className="hidden md:flex btn btn-primary items-center justify-center space-x-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
-        >
-          <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
-          <span className="text-sm sm:text-base font-medium">Record Expense</span>
-        </button>
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            onClick={() => navigate('/cash-receiving')}
+            className="btn btn-primary items-center justify-center space-x-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex"
+          >
+            <Receipt className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-sm sm:text-base font-medium">Cash Receiving</span>
+          </button>
+          <button
+            onClick={() => navigate('/expenses')}
+            className="btn btn-primary items-center justify-center space-x-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex"
+          >
+            <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-sm sm:text-base font-medium">Record Expense</span>
+          </button>
+        </div>
       </div>
 
       {upcomingRecurringExpenses.length > 0 && (
