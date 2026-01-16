@@ -26,7 +26,7 @@ export const PeriodSelector = ({
   return (
     <div className={className}>
       <div className="flex items-center space-x-2">
-        <Calendar className="h-4 w-4 text-gray-500" />
+        <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
         <select
           value={value}
           onChange={(e) => {
@@ -37,7 +37,7 @@ export const PeriodSelector = ({
               setShowCustomPicker(false);
             }
           }}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         >
           {options.map(option => (
             <option key={option.value} value={option.value}>
@@ -49,7 +49,7 @@ export const PeriodSelector = ({
 
       {showCustomPicker && value === 'custom' && showCustomDatePicker && (
         <div className="mt-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Start Date
