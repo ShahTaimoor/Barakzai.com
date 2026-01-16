@@ -1134,59 +1134,46 @@ export const Settings2 = () => {
   }, [refetchSettings]);
 
   const tabs = [
-    { id: 'company', name: 'Company Information', icon: Building },
-    { id: 'users', name: 'Users Control', icon: Users },
-    { id: 'print', name: 'Print Preview Settings', icon: Printer }
+    { id: 'company', name: 'Company Information', shortName: 'Company', icon: Building },
+    { id: 'users', name: 'Users Control', shortName: 'Users', icon: Users },
+    { id: 'print', name: 'Print Preview Settings', shortName: 'Print', icon: Printer }
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings 2</h1>
-          <p className="text-gray-600">Advanced system configuration and management</p>
-        </div>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => {
-              refetchSettings();
-              refetchUsers();
-            }}
-            className="btn btn-primary btn-sm"
-            disabled={companyLoading || usersLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${(companyLoading || usersLoading) ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+      <div className="border-b border-gray-200 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide w-full">
+        <nav className="-mb-px flex space-x-4 md:space-x-8 w-full">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                className={`py-2 px-2 md:px-1 border-b-2 font-medium text-sm flex items-center space-x-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                <span>{tab.name}</span>
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">{tab.name}</span>
+                <span className="sm:hidden">{tab.shortName}</span>
               </button>
             );
           })}
         </nav>
-            </div>
+      </div>
 
       {/* Tab Content */}
-      <div className="mt-6">
+      <div className="mt-6 w-full overflow-x-hidden">
         {/* Company Information Tab */}
         {activeTab === 'company' && (
       <div className="card">
@@ -1330,7 +1317,7 @@ export const Settings2 = () => {
               <LoadingButton
                 type="submit"
                     isLoading={savingCompanySettings}
-                className="btn btn-primary"
+                className="btn btn-primary px-4 py-2"
               >
                 <Save className="h-4 w-4 mr-2" />
                     Save Company Information
@@ -1340,39 +1327,17 @@ export const Settings2 = () => {
 
               {/* Current Saved Company Information - Editable Section */}
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-                      <Building className="h-5 w-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold text-blue-800">Current Saved Company Information</h3>
-          </div>
-                    <div className="flex items-center space-x-4">
-                      <button
-                        onClick={() => {
-                          refetchSettings();
-                        }}
-                        className="btn btn-primary btn-sm"
-                        disabled={companyLoading}
-                      >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${companyLoading ? 'animate-spin' : ''}`} />
-                        {companyLoading ? 'Loading...' : 'Load Data'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          refetchSettings();
-                        }}
-                        className="btn btn-secondary btn-sm"
-                        disabled={companyLoading}
-                      >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${companyLoading ? 'animate-spin' : ''}`} />
-                        Force Refresh
-                      </button>
-                      <div className="text-sm text-blue-600">
-                        {settings?.updatedAt && (
-                          <span>Last Updated: {new Date(settings.updatedAt).toLocaleString()}</span>
-                        )}
-                      </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 md:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                    <div className="flex items-center space-x-2">
+                      <Building className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                      <h3 className="text-base sm:text-lg font-semibold text-blue-800">Current Saved Company Information</h3>
                     </div>
+                    {settings?.updatedAt && (
+                      <div className="text-xs sm:text-sm text-blue-600">
+                        <span>Last Updated: {new Date(settings.updatedAt).toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-sm text-gray-600 mb-6">
                     View and edit your currently saved company information. Changes here will update the saved data.
@@ -1504,11 +1469,11 @@ export const Settings2 = () => {
                 </div>
 
                     {/* Update Button */}
-                    <div className="flex justify-end pt-4 border-t border-blue-200">
+                    <div className="flex justify-end pt-6 mt-6 border-t border-blue-200">
                   <LoadingButton
                     type="submit"
                         isLoading={savingCompanySettings}
-                        className="btn btn-primary bg-blue-600 hover:bg-blue-700"
+                        className="btn btn-primary bg-blue-600 hover:bg-blue-700 px-6 py-2.5"
                   >
                         <Save className="h-4 w-4 mr-2" />
                         Update Company Information
@@ -1528,12 +1493,12 @@ export const Settings2 = () => {
             {/* Users List */}
             <div className="card">
               <div className="card-header">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center space-x-2">
                     <UserCheck className="h-5 w-5 text-gray-600" />
                     <h2 className="text-lg font-semibold">System Users ({users.length})</h2>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2">
                     <button
                       onClick={() => {
                         resetNewUserForm();
@@ -1553,14 +1518,6 @@ export const Settings2 = () => {
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add New User
-                    </button>
-                    <button
-                      onClick={() => refetchUsers()}
-                      className="btn btn-secondary btn-sm"
-                      disabled={usersLoading}
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${usersLoading ? 'animate-spin' : ''}`} />
-                      {usersLoading ? 'Loading...' : 'Refresh Users'}
                     </button>
                   </div>
                 </div>
@@ -1603,20 +1560,20 @@ export const Settings2 = () => {
                     {users.map((systemUser) => (
                         <div
                           key={systemUser._id}
-                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 gap-4 w-full overflow-hidden"
                       >
-                        <div className="flex items-center space-x-4">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <div className="flex items-center space-x-4 flex-1 min-w-0">
+                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                             <User className="h-5 w-5 text-blue-600" />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 truncate">
                                 {systemUser.firstName} {systemUser.lastName}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-gray-500 truncate">
                                 {systemUser.email}
                               </p>
-                              <div className="flex items-center space-x-3 mt-1">
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                   systemUser.role === 'admin' ? 'bg-red-100 text-red-800' :
                                   systemUser.role === 'manager' ? 'bg-blue-100 text-blue-800' :
@@ -1624,38 +1581,40 @@ export const Settings2 = () => {
                                 systemUser.role === 'inventory' ? 'bg-purple-100 text-purple-800' :
                                 'bg-gray-100 text-gray-800'
                               }`}>
-                                {systemUser.role.charAt(0).toUpperCase() + systemUser.role.slice(1)}
-                              </span>
-                              
-                              {/* Activity Status */}
-                              {systemUser.lastLogin && (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  systemUser.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                }`}>
-                                  <div className={`w-2 h-2 rounded-full mr-1 ${systemUser.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                                  {systemUser.isActive ? 'Active' : 'Inactive'}
+                                  {systemUser.role.charAt(0).toUpperCase() + systemUser.role.slice(1)}
                                 </span>
-                              )}
-                              
-                              {/* Login Count */}
-                              {systemUser.loginCount > 0 && (
-                                <span className="text-xs text-gray-500">
-                                  {systemUser.loginCount} logins
-                                </span>
-                              )}
-                            </div>
+                                
+                                {/* Activity Status */}
+                                {systemUser.lastLogin && (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    systemUser.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    <div className={`w-2 h-2 rounded-full mr-1 ${systemUser.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                                    {systemUser.isActive ? 'Active' : 'Inactive'}
+                                  </span>
+                                )}
+                                
+                                {/* Login Count */}
+                                {systemUser.loginCount > 0 && (
+                                  <span className="text-xs text-gray-500">
+                                    {systemUser.loginCount} logins
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           
-                        <div className="flex items-center space-x-3">
-                            <div className={`h-2 w-2 rounded-full ${systemUser.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <span className="text-xs text-gray-500">
-                              {systemUser.status === 'active' ? 'Active' : 'Inactive'}
-                            </span>
-                            {systemUser._id === user?._id && (
-                              <span className="text-xs text-blue-600 font-medium">(You)</span>
-                            )}
-                          <div className="flex space-x-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-3 flex-shrink-0">
+                            <div className="flex items-center space-x-2 sm:space-x-3">
+                              <div className={`h-2 w-2 rounded-full ${systemUser.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                              <span className="text-xs text-gray-500">
+                                {systemUser.status === 'active' ? 'Active' : 'Inactive'}
+                              </span>
+                              {systemUser._id === user?._id && (
+                                <span className="text-xs text-blue-600 font-medium">(You)</span>
+                              )}
+                            </div>
+                          <div className="flex flex-wrap sm:flex-nowrap gap-2">
                             <button
                               onClick={() => openActivityModal(systemUser)}
                               className="btn btn-primary btn-sm"
@@ -1952,7 +1911,7 @@ export const Settings2 = () => {
                               <LoadingButton
                                 type="submit"
                                 isLoading={isCreatingUser}
-                                className="btn btn-primary w-full"
+                                className="btn btn-primary w-full px-6 py-2.5"
                               >
                                 <Plus className="h-4 w-4 mr-2" />
                                 Create User

@@ -323,7 +323,7 @@ const Attendance = () => {
                 <button
                   onClick={handleClockOut}
                   disabled={clockOutLoading}
-                  className="btn btn-danger w-full"
+                  className="btn btn-danger w-full px-6 py-2.5"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   {clockOutLoading ? 'Clocking Out...' : 'Clock Out'}
@@ -351,7 +351,7 @@ const Attendance = () => {
               <button
                 onClick={handleClockIn}
                 disabled={clockInLoading}
-                className="btn btn-primary w-full"
+                className="btn btn-primary w-full px-6 py-2.5"
               >
                 <LogIn className="h-4 w-4 mr-2" />
                 {clockInLoading ? 'Clocking In...' : 'Clock In'}

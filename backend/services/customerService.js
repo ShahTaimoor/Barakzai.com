@@ -603,13 +603,22 @@ class CustomerService {
         if (!hasMatchingCity) return false;
       }
 
-      // Filter by balance if showZeroBalance is false
-      if (!showZeroBalance) {
-        const balance = customer.pendingBalance || 0;
-        return balance > 0;
-      }
+      // Calculate currentBalance (net balance) for filtering
+      // currentBalance = pendingBalance - advanceBalance
+      const currentBalance = customer.currentBalance !== undefined 
+        ? customer.currentBalance 
+        : (customer.pendingBalance || 0) - (customer.advanceBalance || 0);
 
-      return true;
+      // Filter by balance based on showZeroBalance checkbox
+      // When showZeroBalance is true: Show customers with zero (0) and negative balances
+      // When showZeroBalance is false: Show only customers with positive balance
+      if (showZeroBalance) {
+        // Show zero balance (within 0.01 threshold) and negative balances
+        return currentBalance <= 0.01;
+      } else {
+        // Show only customers with positive balance (> 0.01 to account for floating point precision)
+        return currentBalance > 0.01;
+      }
     });
 
     // Format response
