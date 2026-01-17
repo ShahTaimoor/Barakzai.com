@@ -671,17 +671,29 @@ const PLStatementDetail = ({ statement, onExport, onShare }) => {
           </div>
 
           {/* Net Income */}
-          <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-300 rounded-lg p-8">
+          <div className={`border-2 rounded-xl p-8 shadow-sm transition-all ${
+            netIncome >= 0 
+              ? 'bg-slate-900 border-slate-900' 
+              : 'bg-white border-rose-200 shadow-rose-100/50'
+          }`}>
             <div className="flex justify-between items-center">
               <div>
-                <span className="text-2xl font-bold text-gray-900">Net Income</span>
-                <p className="text-sm text-gray-600 mt-1">After all expenses and taxes</p>
+                <span className={`text-2xl font-bold tracking-tight ${
+                  netIncome >= 0 ? 'text-white' : 'text-slate-900'
+                }`}>Net Income</span>
+                <p className={`text-sm mt-1 font-medium ${
+                  netIncome >= 0 ? 'text-slate-400' : 'text-slate-500'
+                }`}>Comprehensive profit/loss after all deductions</p>
               </div>
               <div className="text-right">
-                <span className={`text-3xl font-bold ${getAmountColor(statement.netIncome?.amount)}`}>
+                <span className={`text-4xl font-extrabold tracking-tighter ${
+                  netIncome >= 0 ? 'text-emerald-400' : 'text-rose-600'
+                }`}>
                   {formatCurrency(statement.netIncome?.amount)}
                 </span>
-                <p className="text-sm text-green-700 mt-1">
+                <p className={`text-sm mt-1 font-bold ${
+                  netIncome >= 0 ? 'text-emerald-500/80' : 'text-rose-500'
+                }`}>
                   {formatPercent(statement.netIncome?.margin)} net margin
                 </p>
               </div>
