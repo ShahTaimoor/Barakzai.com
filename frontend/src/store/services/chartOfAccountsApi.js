@@ -8,8 +8,16 @@ export const chartOfAccountsApi = api.injectEndpoints({
         method: 'get',
         params,
       }),
+      transformResponse: (response) => {
+        // Backend returns { success: true, data: accounts } where data is the array directly
+        if (Array.isArray(response)) return response;
+        if (Array.isArray(response?.data)) return response.data;
+        if (Array.isArray(response?.data?.accounts)) return response.data.accounts;
+        if (Array.isArray(response?.accounts)) return response.accounts;
+        return [];
+      },
       providesTags: (result) => {
-        const accounts = Array.isArray(result) ? result : (result?.data?.accounts || result?.accounts || []);
+        const accounts = Array.isArray(result) ? result : [];
         return accounts.length
           ? [
               ...accounts.map(({ _id, id }) => ({ type: 'ChartOfAccounts', id: _id || id })),

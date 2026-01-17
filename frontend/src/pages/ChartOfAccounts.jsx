@@ -846,9 +846,11 @@ export const ChartOfAccounts = () => {
     }
   );
 
-  // Extract accounts array from response
+  // Extract accounts array from response (RTK Query transformResponse normalizes it)
   const accounts = React.useMemo(() => {
     if (Array.isArray(accountsResponse)) return accountsResponse;
+    // Fallback in case transformResponse doesn't work
+    if (Array.isArray(accountsResponse?.data)) return accountsResponse.data;
     if (Array.isArray(accountsResponse?.data?.accounts)) return accountsResponse.data.accounts;
     if (Array.isArray(accountsResponse?.accounts)) return accountsResponse.accounts;
     return [];
@@ -1113,7 +1115,7 @@ export const ChartOfAccounts = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {!accounts?.data || accounts.data.length === 0 ? (
+              {!accounts || accounts.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
                     <FolderTree className="mx-auto h-12 w-12 text-gray-400 mb-2" />
