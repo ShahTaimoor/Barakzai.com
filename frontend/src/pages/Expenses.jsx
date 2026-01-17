@@ -59,10 +59,15 @@ const Expenses = () => {
     accountType: 'expense',
     isActive: 'true',
   });
-  const expenseAccounts = useMemo(
-    () => expenseAccountsResponse?.data?.accounts || expenseAccountsResponse?.accounts || expenseAccountsResponse?.data || [],
-    [expenseAccountsResponse]
-  );
+  const expenseAccounts = useMemo(() => {
+    // transformResponse in chartOfAccountsApi already returns an array
+    if (Array.isArray(expenseAccountsResponse)) return expenseAccountsResponse;
+    // Fallback in case transformResponse doesn't work
+    if (Array.isArray(expenseAccountsResponse?.data)) return expenseAccountsResponse.data;
+    if (Array.isArray(expenseAccountsResponse?.data?.accounts)) return expenseAccountsResponse.data.accounts;
+    if (Array.isArray(expenseAccountsResponse?.accounts)) return expenseAccountsResponse.accounts;
+    return [];
+  }, [expenseAccountsResponse]);
 
   const { data: banksResponse, isLoading: banksLoading } = useGetBanksQuery({ isActive: true });
   const banks = useMemo(
