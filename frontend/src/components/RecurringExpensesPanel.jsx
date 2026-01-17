@@ -128,10 +128,12 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
     setFormData(defaultFormState);
   };
 
-  const [createRecurringExpense] = useCreateRecurringExpenseMutation();
-  const [recordPayment] = useRecordPaymentMutation();
-  const [deactivateRecurringExpense] = useDeactivateRecurringExpenseMutation();
-  const [snoozeRecurringExpense] = useSnoozeRecurringExpenseMutation();
+  const [createRecurringExpense, { isLoading: isCreatingRecurringExpense }] = useCreateRecurringExpenseMutation();
+  const [recordPayment, { isLoading: isRecordingPayment }] = useRecordPaymentMutation();
+  const [deactivateRecurringExpense, { isLoading: isDeactivating }] = useDeactivateRecurringExpenseMutation();
+  const [snoozeRecurringExpense, { isLoading: isSnoozing }] = useSnoozeRecurringExpenseMutation();
+
+  const isSubmitting = isCreatingRecurringExpense || isRecordingPayment || isDeactivating || isSnoozing;
 
   const handleCreateRecurringExpense = async (payload) => {
     try {

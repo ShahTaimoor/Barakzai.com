@@ -403,6 +403,16 @@ export const MultiTabLayout = ({ children }) => {
                 <span className="hidden sm:inline">Bank Payment</span>
                 <span className="sm:hidden">Bank P.</span>
               </button>
+              
+              {/* Record Expense Button - Right side next to Bank Payment */}
+              <button
+                onClick={() => handleNavigationClick({ href: '/expenses', name: 'Record Expense' })}
+                className="bg-red-500 hover:bg-red-600 text-white px-2.5 sm:px-3 py-2 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Record Expense</span>
+                <span className="sm:hidden">Expense</span>
+              </button>
             </div>
 
             {/* User Profile Section - Right Aligned with Dropdown */}

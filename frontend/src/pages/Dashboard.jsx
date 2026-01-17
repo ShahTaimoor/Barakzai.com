@@ -445,13 +445,6 @@ export const Dashboard = () => {
             <Receipt className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="text-sm sm:text-base font-medium">Cash Receiving</span>
           </button>
-          <button
-            onClick={() => navigate('/expenses')}
-            className="btn btn-primary items-center justify-center space-x-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex"
-          >
-            <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-sm sm:text-base font-medium">Record Expense</span>
-          </button>
         </div>
       </div>
 
