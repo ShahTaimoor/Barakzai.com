@@ -200,47 +200,47 @@ const Discounts = () => {
   return (
     <ResponsiveContainer className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Discount Management</h1>
-          <p className="text-gray-600">Manage percentage and fixed amount discounts</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Discount Management</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage percentage and fixed amount discounts</p>
         </div>
         
-        <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => refetchDiscounts()}
-            className="btn btn-secondary"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            <RefreshCw className="h-4 w-4" />
+            <span>Refresh</span>
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Discount
+            <Plus className="h-4 w-4" />
+            <span>Create Discount</span>
           </button>
         </div>
       </div>
 
       {/* Statistics Cards */}
       {!statsLoading && (
-        <ResponsiveGrid cols={{ default: 1, md: 2, lg: 4 }} gap={6}>
+        <ResponsiveGrid cols={{ default: 2, md: 2, lg: 4 }} gap={6}>
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="p-3 rounded-md bg-blue-50 text-blue-600">
-                    <Tag className="h-5 w-5" />
+                  <div className="p-2 sm:p-3 rounded-md bg-blue-50 text-blue-600">
+                    <Tag className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
                       Total Discounts
                     </dt>
-                    <dd className="text-2xl font-semibold text-gray-900">
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
                       {stats.totalDiscounts || 0}
                     </dd>
                   </dl>
@@ -250,19 +250,19 @@ const Discounts = () => {
           </div>
 
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="p-3 rounded-md bg-green-50 text-green-600">
-                    <CheckCircle className="h-5 w-5" />
+                  <div className="p-2 sm:p-3 rounded-md bg-green-50 text-green-600">
+                    <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
                       Active Discounts
                     </dt>
-                    <dd className="text-2xl font-semibold text-gray-900">
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
                       {stats.activeDiscounts || 0}
                     </dd>
                   </dl>
@@ -272,19 +272,19 @@ const Discounts = () => {
           </div>
 
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="p-3 rounded-md bg-purple-50 text-purple-600">
-                    <TrendingUp className="h-5 w-5" />
+                  <div className="p-2 sm:p-3 rounded-md bg-purple-50 text-purple-600">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
                       Total Usage
                     </dt>
-                    <dd className="text-2xl font-semibold text-gray-900">
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
                       {stats.totalUsage || 0}
                     </dd>
                   </dl>
@@ -294,19 +294,19 @@ const Discounts = () => {
           </div>
 
           <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="p-3 rounded-md bg-yellow-50 text-yellow-600">
-                    <TrendingUp className="h-5 w-5" />
+                  <div className="p-2 sm:p-3 rounded-md bg-yellow-50 text-yellow-600">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
                       Total Discount Amount
                     </dt>
-                    <dd className="text-2xl font-semibold text-gray-900">
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
                       {formatCurrency(stats.totalDiscountAmount || 0)}
                     </dd>
                   </dl>
@@ -327,9 +327,9 @@ const Discounts = () => {
       {/* Discounts Table */}
       <div className="card">
         <div className="card-header">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">Discounts</h3>
-            <span className="text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Discounts</h3>
+            <span className="text-xs sm:text-sm text-gray-600">
               {pagination.total || 0} total discounts
             </span>
           </div>

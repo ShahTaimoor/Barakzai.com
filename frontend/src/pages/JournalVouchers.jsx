@@ -290,28 +290,20 @@ export const JournalVouchers = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Journal Vouchers</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Journal Vouchers</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Record manual ledger adjustments while keeping debits and credits balanced.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={resetForm}
-          className="btn btn-secondary flex items-center gap-2"
-        >
-          <RefreshCcw className="h-4 w-4" />
-          Reset Form
-        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="card">
         <div className="card-content space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                 Voucher Date
               </label>
               <div className="relative">
@@ -327,7 +319,7 @@ export const JournalVouchers = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                 Reference
               </label>
               <input
@@ -340,8 +332,8 @@ export const JournalVouchers = () => {
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="sm:col-span-2 md:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                 Description
               </label>
               <input
@@ -366,16 +358,16 @@ export const JournalVouchers = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Account
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Particulars
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Debit
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Credit
                   </th>
                   <th className="px-4 py-3" />
@@ -384,7 +376,7 @@ export const JournalVouchers = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {formState.entries.map((entry, index) => (
                   <tr key={index}>
-                    <td className="px-4 py-3">
+                    <td className="px-2 sm:px-4 py-3">
                       <div className="space-y-2">
                         <AsyncSelect
                           cacheOptions
@@ -415,39 +407,39 @@ export const JournalVouchers = () => {
                         />
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 sm:px-4 py-3">
                       <input
                         type="text"
                         value={entry.particulars}
                         onChange={(e) => handleEntryChange(index, 'particulars', e.target.value)}
-                        className="input w-full min-w-[220px]"
+                        className="input w-full min-w-[150px] sm:min-w-[220px]"
                         placeholder="Narration / memo"
                         maxLength={500}
                       />
                     </td>
-                    <td className="px-4 py-3 w-28">
+                    <td className="px-2 sm:px-4 py-3 w-24 sm:w-28">
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         value={entry.debit}
                         onChange={(e) => handleEntryChange(index, 'debit', e.target.value)}
-                        className="input text-right w-full min-w-[90px]"
+                        className="input text-right w-full min-w-[70px] sm:min-w-[90px]"
                         placeholder="0.00"
                       />
                     </td>
-                    <td className="px-4 py-3 w-28">
+                    <td className="px-2 sm:px-4 py-3 w-24 sm:w-28">
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         value={entry.credit}
                         onChange={(e) => handleEntryChange(index, 'credit', e.target.value)}
-                        className="input text-right w-full min-w-[90px]"
+                        className="input text-right w-full min-w-[70px] sm:min-w-[90px]"
                         placeholder="0.00"
                       />
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-2 sm:px-4 py-3 text-right">
                       <button
                         type="button"
                         onClick={() => handleRemoveEntry(index)}
@@ -462,27 +454,27 @@ export const JournalVouchers = () => {
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>
-                  <td className="px-4 py-3">
+                  <td className="px-2 sm:px-4 py-3">
                     <button
                       type="button"
                       onClick={handleAddEntry}
-                      className="btn btn-secondary btn-sm flex items-center gap-2"
+                      className="btn btn-secondary btn-md flex items-center gap-2"
                     >
                       <Plus className="h-4 w-4" />
                       Add Line
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-700">Totals</td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                  <td className="px-2 sm:px-4 py-3 text-right font-medium text-gray-700">Totals</td>
+                  <td className="px-2 sm:px-4 py-3 text-right font-semibold text-gray-900">
                     {totals.debitTotal.toFixed(2)}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                  <td className="px-2 sm:px-4 py-3 text-right font-semibold text-gray-900">
                     {totals.creditTotal.toFixed(2)}
                   </td>
-                  <td className="px-4 py-3" />
+                  <td className="px-2 sm:px-4 py-3" />
                 </tr>
                 <tr>
-                  <td colSpan="5" className="px-4 pb-3 text-right">
+                  <td colSpan="5" className="px-2 sm:px-4 pb-3 text-right">
                     <span
                       className={`text-sm font-medium ${
                         Math.abs(totals.difference) < 0.01 ? 'text-green-600' : 'text-red-600'
@@ -497,7 +489,7 @@ export const JournalVouchers = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
               Notes
             </label>
             <textarea
@@ -512,7 +504,7 @@ export const JournalVouchers = () => {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="btn btn-primary flex items-center gap-2"
+              className="btn btn-primary btn-md flex items-center gap-2"
               disabled={creatingJournalVoucher || accountsLoading}
             >
               {creatingJournalVoucher ? (
@@ -534,9 +526,9 @@ export const JournalVouchers = () => {
       <div className="card">
         <div className="card-content">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   From Date
                 </label>
                 <input
@@ -547,7 +539,7 @@ export const JournalVouchers = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   To Date
                 </label>
                 <input
@@ -557,8 +549,8 @@ export const JournalVouchers = () => {
                   className="input"
                 />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="sm:col-span-2 md:col-span-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Search
                 </label>
                 <input
@@ -573,7 +565,7 @@ export const JournalVouchers = () => {
             <button
               type="button"
               onClick={() => queryClient.invalidateQueries('journalVouchers')}
-              className="btn btn-secondary flex items-center gap-2 self-start md:self-auto"
+              className="btn btn-secondary btn-md flex items-center gap-2 self-start md:self-auto"
             >
               <FileText className="h-4 w-4" />
               Refresh List

@@ -315,11 +315,11 @@ const DropShipping = () => {
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Drop Shipping</h1>
-          <p className="text-gray-600 mt-1">Manage drop shipping transactions</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Drop Shipping</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage drop shipping transactions</p>
         </div>
       </div>
 
@@ -327,15 +327,15 @@ const DropShipping = () => {
         {/* Supplier Detail */}
         <div className="card">
           <div className="card-header">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Building className="h-5 w-5 mr-2 text-blue-600" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
+                <Building className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
                 Supplier Detail
               </h3>
               {supplier?.phone && (
                 <div className="flex items-center space-x-1">
                   <Phone className="h-3 w-3 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">{supplier.phone}</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-700">{supplier.phone}</span>
                 </div>
               )}
             </div>
@@ -343,7 +343,7 @@ const DropShipping = () => {
           <div className="card-content space-y-4">
             <div>
               <div className="flex items-center gap-4 mb-2 flex-wrap">
-                <label className="text-sm font-medium text-gray-700">Supplier</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-700">Supplier</label>
                 {supplier && (
                   <div className="flex items-center space-x-1 whitespace-nowrap">
                     <span className="text-xs text-gray-500">Outstanding Balance:</span>
@@ -364,7 +364,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Bill No</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Bill No</label>
               <input
                 type="text"
                 value={billNumber}
@@ -375,7 +375,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Description</label>
               <textarea
                 value={supplierDescription}
                 onChange={(e) => setSupplierDescription(e.target.value)}
@@ -386,7 +386,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Amount</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Invoice Amount</label>
               <input
                 type="number"
                 value={supplierInvoiceAmount}
@@ -396,7 +396,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Paid Amount</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Paid Amount</label>
               <input
                 type="number"
                 value={supplierPaidAmount}
@@ -411,15 +411,15 @@ const DropShipping = () => {
         {/* Customer Detail */}
         <div className="card">
           <div className="card-header">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <User className="h-5 w-5 mr-2 text-green-600" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
+                <User className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-green-600" />
                 Customer Detail
               </h3>
               {customer?.phone && (
                 <div className="flex items-center space-x-1">
                   <Phone className="h-3 w-3 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">{customer.phone}</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-700">{customer.phone}</span>
                 </div>
               )}
             </div>
@@ -427,7 +427,7 @@ const DropShipping = () => {
           <div className="card-content space-y-4">
             <div>
               <div className="flex items-center gap-4 mb-2 flex-wrap">
-                <label className="text-sm font-medium text-gray-700">Customer</label>
+                <label className="text-xs sm:text-sm font-medium text-gray-700">Customer</label>
                 {customer && (() => {
                   const netBalance = customerBalance || 0;
                   const isPayable = netBalance < 0;
@@ -497,7 +497,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Rate</label>
               <select
                 value={rateType}
                 onChange={(e) => setRateType(e.target.value)}
@@ -510,7 +510,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Description</label>
               <textarea
                 value={customerDescription}
                 onChange={(e) => setCustomerDescription(e.target.value)}
@@ -521,7 +521,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Amount</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Invoice Amount</label>
               <input
                 type="number"
                 value={customerInvoiceAmount}
@@ -531,7 +531,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Received Amount</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Received Amount</label>
               <input
                 type="number"
                 value={customerReceivedAmount}
@@ -542,7 +542,7 @@ const DropShipping = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Customer Amount</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Customer Amount</label>
               <input
                 type="number"
                 value={customerAmount}
@@ -554,10 +554,10 @@ const DropShipping = () => {
 
             <button
               onClick={handleAddToCart}
-              className="w-full btn btn-success flex items-center justify-center"
+              className="w-full btn btn-success btn-md flex items-center justify-center gap-2"
               disabled={!selectedProduct}
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               Add
             </button>
           </div>
@@ -567,15 +567,15 @@ const DropShipping = () => {
       {/* Product Details */}
       <div className="card mt-6">
         <div className="card-header">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Package className="h-5 w-5 mr-2 text-purple-600" />
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
+            <Package className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-purple-600" />
             Product Details
           </h3>
         </div>
         <div className="card-content">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
-            <div className="md:col-span-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 sm:gap-4 mb-4">
+            <div className="sm:col-span-2 md:col-span-4">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Product</label>
               <SearchableDropdown
                 placeholder="--Select--"
                 items={products}
@@ -586,14 +586,14 @@ const DropShipping = () => {
               />
             </div>
 
-            <div className="md:col-span-1">
-              <button className="btn btn-secondary w-full mt-7">
+            <div className="sm:col-span-1 md:col-span-1">
+              <button className="btn btn-secondary btn-md w-full mt-7 sm:mt-7 flex items-center justify-center">
                 <RefreshCw className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+            <div className="sm:col-span-1 md:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Quantity</label>
               <input
                 type="number"
                 value={quantity}
@@ -603,8 +603,8 @@ const DropShipping = () => {
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Supplier Rate</label>
+            <div className="sm:col-span-1 md:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Supplier Rate</label>
               <input
                 type="number"
                 value={supplierRate}
@@ -614,8 +614,8 @@ const DropShipping = () => {
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Supplier Amount</label>
+            <div className="sm:col-span-1 md:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Supplier Amount</label>
               <input
                 type="number"
                 value={quantity * (supplierRate || 0)}
@@ -624,8 +624,8 @@ const DropShipping = () => {
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Customer Rate</label>
+            <div className="sm:col-span-1 md:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Customer Rate</label>
               <input
                 type="number"
                 value={customerRate}
@@ -635,8 +635,8 @@ const DropShipping = () => {
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Customer Amount</label>
+            <div className="sm:col-span-1 md:col-span-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Customer Amount</label>
               <input
                 type="number"
                 value={quantity * (customerRate || 0)}
@@ -648,10 +648,10 @@ const DropShipping = () => {
 
           <button
             onClick={handleAddToCart}
-            className="btn btn-success flex items-center"
+            className="btn btn-success btn-md flex items-center justify-center gap-2"
             disabled={!selectedProduct}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add
           </button>
         </div>
@@ -661,29 +661,29 @@ const DropShipping = () => {
       {cartItems.length > 0 && (
         <div className="card mt-6">
           <div className="card-header">
-            <h3 className="text-lg font-semibold text-gray-900">Product List</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">Product List</h3>
           </div>
           <div className="card-content">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">S.No</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Product</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Quantity</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">S_Rate</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">S_Amount</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">C_Rate</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">C_Amount</th>
-                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Action</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">S.No</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Product</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Quantity</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">S_Rate</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">S_Amount</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">C_Rate</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">C_Amount</th>
+                    <th className="px-2 py-2 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-gray-700">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cartItems.map((item, index) => (
                     <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm">{index + 1}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{item.product.name}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm">{index + 1}</td>
+                      <td className="px-2 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium">{item.product.name}</td>
+                      <td className="px-2 py-2 sm:px-4 sm:py-2">
                         <input
                           type="number"
                           value={item.quantity}
@@ -699,29 +699,29 @@ const DropShipping = () => {
                           min="1"
                         />
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 py-2 sm:px-4 sm:py-2">
                         <input
                           type="number"
                           step="0.01"
                           value={item.supplierRate}
                           onChange={(e) => handleUpdateCartItem(index, 'supplierRate', parseFloat(e.target.value) || 0)}
-                          className="input text-center h-8 w-24"
+                          className="input text-center h-8 w-20 sm:w-24"
                           min="0"
                         />
                       </td>
-                      <td className="px-4 py-2 text-sm">{item.supplierAmount.toFixed(2)}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm">{item.supplierAmount.toFixed(2)}</td>
+                      <td className="px-2 py-2 sm:px-4 sm:py-2">
                         <input
                           type="number"
                           step="0.01"
                           value={item.customerRate}
                           onChange={(e) => handleUpdateCartItem(index, 'customerRate', parseFloat(e.target.value) || 0)}
-                          className="input text-center h-8 w-24"
+                          className="input text-center h-8 w-20 sm:w-24"
                           min="0"
                         />
                       </td>
-                      <td className="px-4 py-2 text-sm">{item.customerAmount.toFixed(2)}</td>
-                      <td className="px-4 py-2">
+                      <td className="px-2 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm">{item.customerAmount.toFixed(2)}</td>
+                      <td className="px-2 py-2 sm:px-4 sm:py-2">
                         <button
                           onClick={() => handleRemoveItem(index)}
                           className="text-red-600 hover:text-red-800"
@@ -739,21 +739,21 @@ const DropShipping = () => {
       )}
 
       {/* Action Buttons */}
-      <div className="mt-6 flex gap-4">
+      <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:gap-4">
         <LoadingButton
           onClick={handleSave}
           isLoading={creating}
-          className="btn btn-primary"
+          className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
         >
-          <Save className="h-4 w-4 mr-2" />
+          <Save className="h-4 w-4" />
           Save
         </LoadingButton>
 
         <button
           onClick={handleReset}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="h-4 w-4" />
           Reset
         </button>
       </div>

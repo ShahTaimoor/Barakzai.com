@@ -98,110 +98,103 @@ const AnomalyDetection = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex flex-col">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Anomaly Detection & Fraud Prevention</h1>
-          <p className="text-gray-600">AI-powered detection of unusual patterns and potential fraud</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => refetch()}
-            className="btn btn-secondary flex items-center"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </button>
+          <p className="text-gray-600 text-sm md:text-base mt-1">AI-powered detection of unusual patterns and potential fraud</p>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-4 md:p-5 border-l-4 border-red-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Critical Anomalies</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.summary?.critical || 0}</p>
+              <p className="text-xs sm:text-sm text-gray-600">Critical Anomalies</p>
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{summary.summary?.critical || 0}</p>
             </div>
-            <XCircle className="h-8 w-8 text-red-400" />
+            <XCircle className="h-7 w-7 md:h-8 md:w-8 text-red-400 flex-shrink-0" />
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+        <div className="bg-white rounded-lg shadow p-4 md:p-5 border-l-4 border-orange-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">High Priority</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.summary?.high || 0}</p>
+              <p className="text-xs sm:text-sm text-gray-600">High Priority</p>
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{summary.summary?.high || 0}</p>
             </div>
-            <AlertTriangle className="h-8 w-8 text-orange-400" />
+            <AlertTriangle className="h-7 w-7 md:h-8 md:w-8 text-orange-400 flex-shrink-0" />
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
+        <div className="bg-white rounded-lg shadow p-4 md:p-5 border-l-4 border-yellow-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Medium Priority</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.summary?.medium || 0}</p>
+              <p className="text-xs sm:text-sm text-gray-600">Medium Priority</p>
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{summary.summary?.medium || 0}</p>
             </div>
-            <AlertCircle className="h-8 w-8 text-yellow-400" />
+            <AlertCircle className="h-7 w-7 md:h-8 md:w-8 text-yellow-400 flex-shrink-0" />
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+        <div className="bg-white rounded-lg shadow p-4 md:p-5 border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Anomalies</p>
-              <p className="text-2xl font-bold text-gray-900">{anomaliesData?.data?.total || 0}</p>
+              <p className="text-xs sm:text-sm text-gray-600">Total Anomalies</p>
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">{anomaliesData?.data?.total || 0}</p>
             </div>
-            <Info className="h-8 w-8 text-blue-400" />
+            <Info className="h-7 w-7 md:h-8 md:w-8 text-blue-400 flex-shrink-0" />
           </div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+        <div className="flex flex-col gap-3">
           <div className="flex items-center space-x-2">
             <Filter className="h-5 w-5 text-gray-400" />
             <span className="text-sm font-medium text-gray-700">Filters:</span>
           </div>
-          <select
-            value={filters.type}
-            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-            className="input"
-          >
-            <option value="">All Types</option>
-            {Object.entries(typeLabels).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-          <select
-            value={filters.severity}
-            onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
-            className="input"
-          >
-            <option value="">All Severities</option>
-            <option value="critical">Critical</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="input"
-          />
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="input"
-          />
-          <button
-            onClick={() => setFilters({ type: '', severity: '', startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] })}
-            className="btn btn-secondary text-sm"
-          >
-            Clear Filters
-          </button>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <select
+              value={filters.type}
+              onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+              className="input text-sm"
+            >
+              <option value="">All Types</option>
+              {Object.entries(typeLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <select
+              value={filters.severity}
+              onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
+              className="input text-sm"
+            >
+              <option value="">All Severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              className="input text-sm"
+            />
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              className="input text-sm"
+            />
+            <button
+              onClick={() => setFilters({ type: '', severity: '', startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] })}
+              className="btn btn-secondary text-sm w-full py-2.5 px-4"
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
       </div>
 
@@ -219,21 +212,21 @@ const AnomalyDetection = () => {
               const TypeIcon = typeIcons[anomaly.type] || AlertTriangle;
               
               return (
-                <div key={index} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <TypeIcon className="h-5 w-5 text-gray-400" />
-                        <h3 className="text-lg font-semibold text-gray-900">
+                <div key={index} className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <TypeIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                        <h3 className="text-base md:text-lg font-semibold text-gray-900 truncate">
                           {anomaly.title}
                         </h3>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${severityColors[anomaly.severity] || severityColors.low}`}>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border flex-shrink-0 ${severityColors[anomaly.severity] || severityColors.low}`}>
                           {anomaly.severity.toUpperCase()}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-3">{anomaly.description}</p>
                       
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 text-sm">
                         {anomaly.amount && (
                           <div>
                             <span className="text-gray-500">Amount:</span>
@@ -302,7 +295,7 @@ const AnomalyDetection = () => {
                         </div>
                       )}
                     </div>
-                    <div className="ml-4">
+                    <div className="flex sm:ml-4 justify-end sm:justify-start">
                       {anomaly.transactionId && (
                         <button
                           className="btn btn-outline btn-sm"

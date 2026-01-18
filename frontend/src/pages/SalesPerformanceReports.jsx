@@ -289,13 +289,6 @@ const SalesPerformanceReports = () => {
           </div>
           <div className="mt-4 sm:mt-0 flex space-x-3">
             <button
-              onClick={handleRefresh}
-              className="btn btn-secondary"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </button>
-            <button
               onClick={() => setShowCreateModal(true)}
               className="btn btn-primary btn-md"
             >
@@ -306,18 +299,18 @@ const SalesPerformanceReports = () => {
         </div>
 
         {/* Quick Stats Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Total Revenue */}
           <div className="card">
-            <div className="card-content">
+            <div className="card-content pt-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <TrendingUp className="h-8 w-8 text-green-600" />
+                  <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Revenue (30d)</p>
+                <div className="ml-2 md:ml-4 min-w-0 flex-1">
+                  <p className="text-xs md:text-sm font-medium text-gray-500 truncate">Total Revenue (30d)</p>
                   <div className="flex items-center">
-                    <p className="text-2xl font-semibold text-gray-900">
+                    <p className="text-lg md:text-2xl font-semibold text-gray-900">
                       {summaryLoading ? (
                         <LoadingInline />
                       ) : (
@@ -346,15 +339,15 @@ const SalesPerformanceReports = () => {
 
           {/* Total Orders */}
           <div className="card">
-            <div className="card-content">
+            <div className="card-content pt-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <ShoppingCart className="h-8 w-8 text-blue-600" />
+                  <ShoppingCart className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Orders (30d)</p>
+                <div className="ml-2 md:ml-4 min-w-0 flex-1">
+                  <p className="text-xs md:text-sm font-medium text-gray-500 truncate">Total Orders (30d)</p>
                   <div className="flex items-center">
-                    <p className="text-2xl font-semibold text-gray-900">
+                    <p className="text-lg md:text-2xl font-semibold text-gray-900">
                       {summaryLoading ? (
                         <LoadingInline />
                       ) : (
@@ -383,15 +376,15 @@ const SalesPerformanceReports = () => {
 
           {/* Average Order Value */}
           <div className="card">
-            <div className="card-content">
+            <div className="card-content pt-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <Target className="h-8 w-8 text-purple-600" />
+                  <Target className="h-6 w-6 md:h-8 md:w-8 text-purple-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Avg Order Value (30d)</p>
+                <div className="ml-2 md:ml-4 min-w-0 flex-1">
+                  <p className="text-xs md:text-sm font-medium text-gray-500 truncate">Avg Order Value (30d)</p>
                   <div className="flex items-center">
-                    <p className="text-2xl font-semibold text-gray-900">
+                    <p className="text-lg md:text-2xl font-semibold text-gray-900">
                       {summaryLoading ? (
                         <LoadingInline />
                       ) : (
@@ -420,15 +413,15 @@ const SalesPerformanceReports = () => {
 
           {/* Total Customers */}
           <div className="card">
-            <div className="card-content">
+            <div className="card-content pt-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <Users className="h-8 w-8 text-orange-600" />
+                  <Users className="h-6 w-6 md:h-8 md:w-8 text-orange-600" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Customers (30d)</p>
+                <div className="ml-2 md:ml-4 min-w-0 flex-1">
+                  <p className="text-xs md:text-sm font-medium text-gray-500 truncate">Total Customers (30d)</p>
                   <div className="flex items-center">
-                    <p className="text-2xl font-semibold text-gray-900">
+                    <p className="text-lg md:text-2xl font-semibold text-gray-900">
                       {summaryLoading ? (
                         <LoadingInline />
                       ) : (
@@ -598,7 +591,7 @@ const SalesPerformanceReports = () => {
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`btn ${showFilters ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn btn-md ${showFilters ? 'btn-primary' : 'btn-secondary'}`}
           >
             <Filter className="h-4 w-4 mr-2" />
             Filters

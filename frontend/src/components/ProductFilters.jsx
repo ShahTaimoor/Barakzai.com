@@ -45,34 +45,34 @@ const ProductFilters = ({ filters, onFiltersChange, categories = [], onClearFilt
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {/* Filter Header */}
       <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 cursor-pointer hover:bg-gray-50"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center space-x-3">
-          <Filter className="h-5 w-5 text-gray-600" />
-          <span className="font-medium text-gray-900">Filters</span>
+        <div className="flex items-center space-x-2 sm:space-x-3 flex-wrap">
+          <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+          <span className="text-sm sm:text-base font-medium text-gray-900">Filters</span>
           {hasActiveFilters && (
             <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
               {getActiveFiltersCount()} active
             </span>
           )}
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
           {hasActiveFilters && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleClearAll();
               }}
-              className="text-sm text-red-600 hover:text-red-800 font-medium"
+              className="text-xs sm:text-sm text-red-600 hover:text-red-800 font-medium btn-md"
             >
               Clear All
             </button>
           )}
           {isExpanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
+            <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
           )}
         </div>
       </div>
@@ -80,12 +80,12 @@ const ProductFilters = ({ filters, onFiltersChange, categories = [], onClearFilt
       {/* Filter Content */}
       {isExpanded && (
         <div className="border-t border-gray-200 p-4 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
             {/* Search Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Search className="h-4 w-4 inline mr-1" />
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <Search className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
                 Search Products
               </label>
               <div className="relative">
@@ -110,8 +110,8 @@ const ProductFilters = ({ filters, onFiltersChange, categories = [], onClearFilt
 
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Package className="h-4 w-4 inline mr-1" />
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <Package className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
                 Status
               </label>
               <select
@@ -128,8 +128,8 @@ const ProductFilters = ({ filters, onFiltersChange, categories = [], onClearFilt
 
             {/* Category Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Tag className="h-4 w-4 inline mr-1" />
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <Tag className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
                 Category
               </label>
               <select
@@ -148,8 +148,8 @@ const ProductFilters = ({ filters, onFiltersChange, categories = [], onClearFilt
 
             {/* Stock Status Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <AlertTriangle className="h-4 w-4 inline mr-1" />
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 inline mr-1" />
                 Stock Status
               </label>
               <select
@@ -169,7 +169,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories = [], onClearFilt
           {/* Active Filters Display */}
           {hasActiveFilters && (
             <div className="border-t border-gray-200 pt-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Active Filters:</h4>
+              <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-3">Active Filters:</h4>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(filters).map(([key, value]) => {
                   if (!value || value === '') return null;

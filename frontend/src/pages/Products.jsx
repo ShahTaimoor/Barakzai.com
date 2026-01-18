@@ -177,12 +177,12 @@ const Products = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Products</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage your product catalog</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your product catalog</p>
         </div>
-        <div className="flex-shrink-0 flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="flex-shrink-0 grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => {
               const componentInfo = getComponentInfo('/categories');
@@ -197,44 +197,44 @@ const Products = () => {
                 });
               }
             }}
-            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2"
           >
-            <Tag className="h-4 w-4 sm:mr-2 flex-shrink-0" />
-            <span className="hidden sm:inline">Add Product Category</span>
+            <Tag className="h-4 w-4" />
+            <span className="hidden sm:inline">Category</span>
             <span className="sm:hidden">Category</span>
           </button>
           <button
             onClick={refreshCategories}
-            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2"
             title="Refresh categories list"
           >
-            <RefreshCw className="h-4 w-4 sm:mr-2 flex-shrink-0" />
-            <span className="hidden sm:inline">Refresh Categories</span>
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Refresh</span>
             <span className="sm:hidden">Refresh</span>
           </button>
           <button
             onClick={() => setShowBarcodeScanner(true)}
-            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2"
             title="Scan barcode to search product"
           >
-            <Camera className="h-4 w-4 sm:mr-2 flex-shrink-0" />
-            <span className="hidden sm:inline">Scan Barcode</span>
+            <Camera className="h-4 w-4" />
+            <span className="hidden sm:inline">Scan</span>
             <span className="sm:hidden">Scan</span>
           </button>
           <button
             onClick={() => setShowLabelPrinter(true)}
-            className="btn btn-outline btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2"
             title="Print barcode labels"
           >
-            <Printer className="h-4 w-4 sm:mr-2 flex-shrink-0" />
-            <span className="hidden sm:inline">Print Labels</span>
+            <Printer className="h-4 w-4" />
+            <span className="hidden sm:inline">Print</span>
             <span className="sm:hidden">Print</span>
           </button>
           <button
             onClick={() => productOps.setIsModalOpen(true)}
-            className="btn btn-primary btn-sm sm:btn-md flex-1 sm:flex-none min-w-0"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 col-span-2 sm:col-span-1"
           >
-            <Plus className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+            <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Add Product</span>
             <span className="sm:hidden">Add</span>
           </button>

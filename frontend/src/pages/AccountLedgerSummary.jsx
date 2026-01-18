@@ -196,12 +196,18 @@ const AccountLedgerSummary = () => {
     setSelectedCustomerId(customer._id);
     setCustomerSearchQuery(customer.businessName || customer.name || '');
     setShowCustomerDropdown(false);
+    // Clear supplier selection when customer is selected
+    setSelectedSupplierId('');
+    setSupplierSearchQuery('');
   };
 
   const handleSupplierSelect = (supplier) => {
     setSelectedSupplierId(supplier._id);
     setSupplierSearchQuery(supplier.companyName || supplier.name || '');
     setShowSupplierDropdown(false);
+    // Clear customer selection when supplier is selected
+    setSelectedCustomerId('');
+    setCustomerSearchQuery('');
   };
 
   const formatCurrency = (amount) => {
@@ -386,15 +392,15 @@ const AccountLedgerSummary = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Account Ledger Summary</h1>
-          <p className="text-gray-600 mt-1">Customer Receivables and Supplier Payables</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Account Ledger Summary</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Customer Receivables and Supplier Payables</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
-            className="btn btn-secondary flex items-center gap-2"
+            className="btn btn-secondary btn-md flex items-center gap-2"
             disabled={!selectedCustomerId && !selectedSupplierId}
             title={!selectedCustomerId && !selectedSupplierId ? 'Please select a customer or supplier to print' : 'Print ledger summary'}
           >
@@ -403,7 +409,7 @@ const AccountLedgerSummary = () => {
           </button>
           <button
             onClick={handleExport}
-            className="btn btn-secondary flex items-center gap-2"
+            className="btn btn-secondary btn-md flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
             Export
@@ -413,10 +419,10 @@ const AccountLedgerSummary = () => {
 
       {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4">
           {/* Customer Dropdown */}
           <div className="relative" ref={customerDropdownRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
               Select Customer
             </label>
             <div className="relative">
@@ -458,7 +464,7 @@ const AccountLedgerSummary = () => {
 
           {/* Supplier Dropdown */}
           <div className="relative" ref={supplierDropdownRef}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
               Select Supplier
             </label>
             <div className="relative">
@@ -500,7 +506,7 @@ const AccountLedgerSummary = () => {
 
           {/* Search */}
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
               Search
             </label>
             <div className="relative">
@@ -517,7 +523,7 @@ const AccountLedgerSummary = () => {
 
           {/* Start Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
               From Date
             </label>
             <div className="relative">
@@ -533,7 +539,7 @@ const AccountLedgerSummary = () => {
 
           {/* End Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
               To Date
             </label>
             <div className="relative">
@@ -551,7 +557,7 @@ const AccountLedgerSummary = () => {
           <div className="flex items-end">
             <button
               onClick={handleClearFilters}
-              className="btn btn-outline w-full"
+              className="btn btn-outline btn-md w-full"
             >
               Clear Filters
             </button>
@@ -572,8 +578,8 @@ const AccountLedgerSummary = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Customers Section - Only show if customer is selected */}
-          {selectedCustomerId ? (
+          {/* Customers Section - Show only if customer is selected and supplier is not */}
+          {selectedCustomerId && !selectedSupplierId && (
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -703,15 +709,10 @@ const AccountLedgerSummary = () => {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-12 text-center">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">Please select a customer from the dropdown above to view their ledger summary</p>
-            </div>
           )}
 
-          {/* Suppliers Section - Only show if supplier is selected */}
-          {selectedSupplierId ? (
+          {/* Suppliers Section - Show only if supplier is selected and customer is not */}
+          {selectedSupplierId && !selectedCustomerId && (
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -828,13 +829,17 @@ const AccountLedgerSummary = () => {
                 </div>
               )}
             </div>
-          ) : (
-            !selectedCustomerId && (
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-12 text-center">
-                <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">Please select a supplier from the dropdown above to view their ledger summary</p>
+          )}
+
+          {/* Empty State - Show only if neither customer nor supplier is selected */}
+          {!selectedCustomerId && !selectedSupplierId && (
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-12 text-center">
+              <div className="flex justify-center gap-4 mb-4">
+                <Users className="h-12 w-12 text-gray-400" />
+                <Building2 className="h-12 w-12 text-gray-400" />
               </div>
-            )
+              <p className="text-gray-500 text-lg">Please select a customer or supplier from the dropdown above to view their ledger summary</p>
+            </div>
           )}
         </div>
       )}

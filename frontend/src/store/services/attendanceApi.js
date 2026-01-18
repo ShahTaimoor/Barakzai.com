@@ -8,7 +8,11 @@ export const attendanceApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'Settings', id: 'ATTENDANCE_STATUS' }],
+      invalidatesTags: [
+        { type: 'Settings', id: 'ATTENDANCE_STATUS' },
+        { type: 'Settings', id: 'MY_ATTENDANCE' },
+        { type: 'Settings', id: 'TEAM_ATTENDANCE' }
+      ],
     }),
     clockOut: builder.mutation({
       query: (data) => ({
@@ -16,7 +20,11 @@ export const attendanceApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'Settings', id: 'ATTENDANCE_STATUS' }],
+      invalidatesTags: [
+        { type: 'Settings', id: 'ATTENDANCE_STATUS' },
+        { type: 'Settings', id: 'MY_ATTENDANCE' },
+        { type: 'Settings', id: 'TEAM_ATTENDANCE' }
+      ],
     }),
     startBreak: builder.mutation({
       query: ({ type }) => ({
@@ -24,14 +32,20 @@ export const attendanceApi = api.injectEndpoints({
         method: 'post',
         data: { type },
       }),
-      invalidatesTags: [{ type: 'Settings', id: 'ATTENDANCE_STATUS' }],
+      invalidatesTags: [
+        { type: 'Settings', id: 'ATTENDANCE_STATUS' },
+        { type: 'Settings', id: 'MY_ATTENDANCE' }
+      ],
     }),
     endBreak: builder.mutation({
       query: () => ({
         url: 'attendance/breaks/end',
         method: 'post',
       }),
-      invalidatesTags: [{ type: 'Settings', id: 'ATTENDANCE_STATUS' }],
+      invalidatesTags: [
+        { type: 'Settings', id: 'ATTENDANCE_STATUS' },
+        { type: 'Settings', id: 'MY_ATTENDANCE' }
+      ],
     }),
     getStatus: builder.query({
       query: () => ({

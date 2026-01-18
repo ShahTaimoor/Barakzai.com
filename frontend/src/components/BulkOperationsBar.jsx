@@ -38,21 +38,21 @@ export const BulkOperationsBar = ({
   }
 
   return (
-    <div className={`bg-primary-50 border border-primary-200 rounded-lg p-4 ${className}`}>
-      <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className={`bg-primary-50 border border-primary-200 rounded-lg p-3 sm:p-4 ${className}`}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         {/* Selection Info */}
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
           <div className="flex items-center space-x-2">
-            <CheckSquare className="h-5 w-5 text-primary-600" />
-            <span className="text-sm font-medium text-gray-900">
+            <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary-600" />
+            <span className="text-xs sm:text-sm font-medium text-gray-900">
               {selectedCount} {selectedCount === 1 ? 'item' : 'items'} selected
             </span>
           </div>
           
           {isOperationInProgress && (
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-600 border-t-transparent"></div>
-              <span className="text-sm text-gray-600">
+              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-2 border-primary-600 border-t-transparent"></div>
+              <span className="text-xs sm:text-sm text-gray-600">
                 {operationProgress.message || 'Processing...'} ({operationProgress.current}/{operationProgress.total})
               </span>
             </div>
@@ -60,15 +60,16 @@ export const BulkOperationsBar = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center space-x-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 sm:gap-2 w-full sm:w-auto">
           {canUndo && (
             <button
               onClick={onUndo}
-              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2"
               title="Undo last operation"
             >
-              <Undo2 className="h-4 w-4 mr-1" />
-              Undo
+              <Undo2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Undo</span>
+              <span className="sm:hidden">Undo</span>
             </button>
           )}
 
@@ -76,9 +77,9 @@ export const BulkOperationsBar = ({
             <button
               onClick={onBulkUpdate}
               disabled={isOperationInProgress}
-              className="flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary btn-md flex items-center justify-center gap-2"
             >
-              <Edit className="h-4 w-4 mr-1" />
+              <Edit className="h-4 w-4" />
               Update
             </button>
           )}
@@ -87,10 +88,11 @@ export const BulkOperationsBar = ({
             <button
               onClick={onBulkStatusChange}
               disabled={isOperationInProgress}
-              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2"
             >
-              <CheckSquare className="h-4 w-4 mr-1" />
-              Change Status
+              <CheckSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Change Status</span>
+              <span className="sm:hidden">Status</span>
             </button>
           )}
 
@@ -98,10 +100,11 @@ export const BulkOperationsBar = ({
             <button
               onClick={onBulkCategoryChange}
               disabled={isOperationInProgress}
-              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2"
             >
-              <Tag className="h-4 w-4 mr-1" />
-              Change Category
+              <Tag className="h-4 w-4" />
+              <span className="hidden sm:inline">Change Category</span>
+              <span className="sm:hidden">Category</span>
             </button>
           )}
 
@@ -109,10 +112,11 @@ export const BulkOperationsBar = ({
             <button
               onClick={onBulkPriceUpdate}
               disabled={isOperationInProgress}
-              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2"
             >
-              <TrendingUp className="h-4 w-4 mr-1" />
-              Update Prices
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Update Prices</span>
+              <span className="sm:hidden">Prices</span>
             </button>
           )}
 
@@ -120,10 +124,11 @@ export const BulkOperationsBar = ({
             <button
               onClick={onBulkStockAdjust}
               disabled={isOperationInProgress}
-              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2"
             >
-              <Package className="h-4 w-4 mr-1" />
-              Adjust Stock
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">Adjust Stock</span>
+              <span className="sm:hidden">Stock</span>
             </button>
           )}
 
@@ -131,9 +136,9 @@ export const BulkOperationsBar = ({
             <button
               onClick={onBulkExport}
               disabled={isOperationInProgress}
-              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2"
             >
-              <Download className="h-4 w-4 mr-1" />
+              <Download className="h-4 w-4" />
               Export
             </button>
           )}
@@ -142,9 +147,9 @@ export const BulkOperationsBar = ({
             <button
               onClick={onBulkDelete}
               disabled={isOperationInProgress}
-              className="flex items-center px-3 py-2 text-sm font-medium text-red-700 bg-white border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2 border-red-300 text-red-700 hover:bg-red-50"
             >
-              <Trash2 className="h-4 w-4 mr-1" />
+              <Trash2 className="h-4 w-4" />
               Delete
             </button>
           )}
@@ -152,9 +157,9 @@ export const BulkOperationsBar = ({
           <button
             onClick={onClearSelection}
             disabled={isOperationInProgress}
-            className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2 col-span-2 sm:col-span-1"
           >
-            <X className="h-4 w-4 mr-1" />
+            <X className="h-4 w-4" />
             Clear
           </button>
         </div>

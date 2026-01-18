@@ -25,20 +25,20 @@ const ReturnStatsCard = ({ title, value, icon, color = 'blue', subtitle, trend }
 
   return (
     <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="p-5">
+      <div className="p-4 sm:p-5">
         <div className="flex items-center">
           <div className="flex-shrink-0">
-            <div className={`p-3 rounded-md ${colorClasses[color]}`}>
-              {icon}
+            <div className={`p-2 sm:p-3 rounded-md ${colorClasses[color]}`}>
+              {React.cloneElement(icon, { className: 'h-4 w-4 sm:h-5 sm:w-5' })}
             </div>
           </div>
-          <div className="ml-5 w-0 flex-1">
+          <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
             <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">
+              <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
                 {title}
               </dt>
               <dd className="flex items-baseline">
-                <div className="text-2xl font-semibold text-gray-900">
+                <div className="text-lg sm:text-2xl font-semibold text-gray-900">
                   {value}
                 </div>
                 {trend && (

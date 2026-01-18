@@ -907,17 +907,17 @@ export const Suppliers = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Suppliers</h1>
-          <p className="text-gray-600">Manage your supplier relationships and information</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Suppliers</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your supplier relationships and information</p>
         </div>
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 w-full sm:w-auto">
           <button
             onClick={handleAddNew}
-            className="btn btn-primary btn-md w-full sm:w-auto"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add Supplier
           </button>
         </div>
@@ -964,33 +964,33 @@ export const Suppliers = () => {
       ) : filteredSuppliers.length > 0 ? (
         <div className="card w-full">
           <div className="card-content p-0 w-full">
-              {/* Table Header */}
-              <div className="bg-gray-50 px-8 py-6 border-b border-gray-200">
-                <div className="grid grid-cols-12 gap-6 items-center">
+              {/* Table Header - Hidden on mobile */}
+              <div className="hidden md:block bg-gray-50 px-4 lg:px-8 py-4 lg:py-6 border-b border-gray-200">
+                <div className="grid grid-cols-12 gap-4 lg:gap-6 items-center">
                   <div className="col-span-4">
-                    <h3 className="text-base font-medium text-gray-700">Company Name</h3>
-                    <p className="text-sm text-gray-500">Contact Person</p>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Company Name</h3>
+                    <p className="text-xs lg:text-sm text-gray-500">Contact Person</p>
                   </div>
                   <div className="col-span-2">
-                    <h3 className="text-base font-medium text-gray-700">Email</h3>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Email</h3>
                   </div>
                   <div className="col-span-1">
-                    <h3 className="text-base font-medium text-gray-700">Phone</h3>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Phone</h3>
                   </div>
                   <div className="col-span-1">
-                    <h3 className="text-base font-medium text-gray-700">Status</h3>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Status</h3>
                   </div>
                   <div className="col-span-1">
-                    <h3 className="text-base font-medium text-gray-700">Type</h3>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Type</h3>
                   </div>
                   <div className="col-span-1">
-                    <h3 className="text-base font-medium text-gray-700">Rating</h3>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Rating</h3>
                   </div>
                   <div className="col-span-1">
-                    <h3 className="text-base font-medium text-gray-700">Credit</h3>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Credit</h3>
                   </div>
                   <div className="col-span-1">
-                    <h3 className="text-base font-medium text-gray-700">Actions</h3>
+                    <h3 className="text-sm lg:text-base font-medium text-gray-700">Actions</h3>
                   </div>
                 </div>
               </div>
@@ -998,17 +998,106 @@ export const Suppliers = () => {
               {/* Supplier Rows */}
               <div className="divide-y divide-gray-200">
                 {filteredSuppliers.map((supplier) => (
-                <div key={supplier._id} className="px-8 py-6 hover:bg-gray-50">
-                  <div className="grid grid-cols-12 gap-6 items-center">
-                    {/* Company Name & Contact Person */}
-                    <div className="col-span-4">
-                      <div className="flex items-center space-x-4">
-                        <Building className="h-6 w-6 text-gray-400" />
-                        <div>
-                          <h3 className="text-base font-medium text-gray-900">
+                <div key={supplier._id} className="px-4 py-4 lg:px-8 lg:py-6 hover:bg-gray-50">
+                  {/* Mobile Card Layout */}
+                  <div className="md:hidden space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <Building className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-medium text-gray-900 truncate">
                             {supplier.companyName}
                           </h3>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-xs text-gray-500 truncate">
+                            {supplier.contactPerson.name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-2">
+                        <button
+                          onClick={() => {
+                            setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName });
+                            setShowNotes(true);
+                          }}
+                          className="text-green-600 hover:text-green-800 p-1"
+                          title="Notes"
+                        >
+                          <MessageSquare className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(supplier)}
+                          className="text-primary-600 hover:text-primary-800 p-1"
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(supplier)}
+                          className="text-danger-600 hover:text-danger-800 p-1"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <p className="text-gray-500 mb-1">Email</p>
+                        <p className="text-gray-700 truncate">{supplier.email || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-1">Phone</p>
+                        <p className="text-gray-700">{supplier.phone || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-1">Status</p>
+                        <span className={`badge ${
+                          supplier.status === 'active' ? 'badge-success' : 
+                          supplier.status === 'inactive' ? 'badge-gray' :
+                          supplier.status === 'suspended' ? 'badge-danger' : 'badge-gray'
+                        }`}>
+                          {supplier.status}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-1">Type</p>
+                        <span className={`badge ${
+                          supplier.businessType === 'wholesaler' ? 'badge-info' : 'badge-gray'
+                        }`}>
+                          {supplier.businessType}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-1">Rating</p>
+                        <div className="flex items-center">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-3 w-3 ${
+                                i < supplier.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                          <span className="ml-1 text-xs text-gray-600">({supplier.rating})</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 mb-1">Credit</p>
+                        <p className="text-gray-700">{Math.round(supplier.creditLimit || 0)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Table Layout */}
+                  <div className="hidden md:grid grid-cols-12 gap-4 lg:gap-6 items-center">
+                    {/* Company Name & Contact Person */}
+                    <div className="col-span-4">
+                      <div className="flex items-center space-x-3 lg:space-x-4">
+                        <Building className="h-5 w-5 lg:h-6 lg:w-6 text-gray-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <h3 className="text-sm lg:text-base font-medium text-gray-900 truncate">
+                            {supplier.companyName}
+                          </h3>
+                          <p className="text-xs lg:text-sm text-gray-500 truncate">
                             {supplier.contactPerson.name}
                           </p>
                         </div>
@@ -1017,12 +1106,12 @@ export const Suppliers = () => {
 
                     {/* Email */}
                     <div className="col-span-2">
-                      <p className="text-sm text-gray-600">{supplier.email || '-'}</p>
+                      <p className="text-xs lg:text-sm text-gray-600 truncate">{supplier.email || '-'}</p>
                     </div>
 
                     {/* Phone */}
                     <div className="col-span-1">
-                      <p className="text-sm text-gray-600">{supplier.phone || '-'}</p>
+                      <p className="text-xs lg:text-sm text-gray-600">{supplier.phone || '-'}</p>
                     </div>
 
                     {/* Status */}
@@ -1062,33 +1151,33 @@ export const Suppliers = () => {
 
                     {/* Credit */}
                     <div className="col-span-1">
-                      <p className="text-sm text-gray-600">{Math.round(supplier.creditLimit || 0)}</p>
+                      <p className="text-xs lg:text-sm text-gray-600">{Math.round(supplier.creditLimit || 0)}</p>
                     </div>
 
                     {/* Actions */}
                     <div className="col-span-1">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2 lg:space-x-3">
                         <button
                           onClick={() => {
                             setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName });
                             setShowNotes(true);
                           }}
-                          className="text-green-600 hover:text-green-800"
+                          className="text-green-600 hover:text-green-800 p-1"
                           title="Notes"
                         >
-                          <MessageSquare className="h-5 w-5" />
+                          <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
                         </button>
                         <button
                           onClick={() => handleEdit(supplier)}
-                          className="text-primary-600 hover:text-primary-800"
+                          className="text-primary-600 hover:text-primary-800 p-1"
                         >
-                          <Edit className="h-5 w-5" />
+                          <Edit className="h-4 w-4 lg:h-5 lg:w-5" />
                         </button>
                         <button
                           onClick={() => handleDelete(supplier)}
-                          className="text-danger-600 hover:text-danger-800"
+                          className="text-danger-600 hover:text-danger-800 p-1"
                         >
-                          <Trash2 className="h-5 w-5" />
+                          <Trash2 className="h-4 w-4 lg:h-5 lg:w-5" />
                         </button>
                       </div>
                     </div>

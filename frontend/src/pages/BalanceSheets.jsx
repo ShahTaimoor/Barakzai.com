@@ -205,13 +205,6 @@ const BalanceSheets = () => {
         
         <div className="flex space-x-3">
           <button
-            onClick={() => refetchBalanceSheets()}
-            className="btn btn-secondary"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </button>
-          <button
             onClick={() => setShowCreateModal(true)}
             className="btn btn-primary btn-md"
           >
@@ -223,7 +216,7 @@ const BalanceSheets = () => {
 
       {/* Statistics Cards */}
       {!statsLoading && (
-        <ResponsiveGrid cols={{ default: 1, md: 2, lg: 4 }} gap={6}>
+        <ResponsiveGrid cols={{ default: 2, md: 2, lg: 4 }} gap={6}>
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">

@@ -951,33 +951,34 @@ export const ChartOfAccounts = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
-          <p className="text-gray-600">Manage your accounting structure and account heads</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Chart of Accounts</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your accounting structure and account heads</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => setShowCategoryManagement(!showCategoryManagement)}
-            className="btn btn-secondary btn-md"
+            className="btn btn-secondary btn-md flex items-center justify-center gap-2"
           >
-            <FolderTree className="h-4 w-4 mr-2" />
-            {showCategoryManagement ? 'Hide Categories' : 'Manage Categories'}
+            <FolderTree className="h-4 w-4" />
+            <span className="hidden sm:inline">{showCategoryManagement ? 'Hide Categories' : 'Manage Categories'}</span>
+            <span className="sm:hidden">Categories</span>
           </button>
           <button
             onClick={handleAddNew}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Create Account
           </button>
         </div>
       </div>
 
       {/* Quick Create Buttons */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Create Accounts</h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">Quick Create Accounts</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
           {/* Asset */}
           <button
             onClick={() => handleQuickCreate('asset', 'current_assets')}
@@ -1051,7 +1052,7 @@ export const ChartOfAccounts = () => {
       )}
 
       {/* Filters */}
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -1059,14 +1060,14 @@ export const ChartOfAccounts = () => {
             placeholder="Search by account code, name, or description..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 input"
+            className="pl-10 input w-full"
           />
         </div>
 
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="input w-48"
+          className="input w-full sm:w-48"
         >
           <option value="">All Types</option>
           <option value="asset">Assets</option>
@@ -1078,7 +1079,7 @@ export const ChartOfAccounts = () => {
 
         <button
           onClick={() => setShowInactive(!showInactive)}
-          className={`btn ${showInactive ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-md ${showInactive ? 'btn-primary' : 'btn-secondary'} flex items-center justify-center gap-2 w-full sm:w-auto`}
         >
           {showInactive ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
           {showInactive ? 'Show Active' : 'Show All'}

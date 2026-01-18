@@ -842,25 +842,25 @@ const CashReceipts = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cash Receipts</h1>
-          <p className="text-gray-600">Manage and view all cash receipt transactions</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Cash Receipts</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage and view all cash receipt transactions</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={handleExport}
-            className="btn btn-secondary flex items-center space-x-2"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Download className="h-4 w-4" />
             <span>Export</span>
           </button>
           <button
             onClick={resetForm}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            New Receipt
+            <Plus className="h-4 w-4" />
+            <span>New Receipt</span>
           </button>
         </div>
       </div>
@@ -868,18 +868,18 @@ const CashReceipts = () => {
       {/* Cash Receipt Form */}
       <div className="card">
         <div className="card-header">
-          <h3 className="text-lg font-medium text-gray-900">Receipt Details</h3>
+          <h3 className="text-base sm:text-lg font-medium text-gray-900">Receipt Details</h3>
         </div>
         <div className="card-content">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Left Column */}
             <div className="space-y-4">
               {/* Payment Type Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                   Receipt Type
                 </label>
-                <div className="flex space-x-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <label className="flex items-center">
                     <input
                       type="radio"
@@ -893,7 +893,7 @@ const CashReceipts = () => {
                       }}
                       className="mr-2"
                     />
-                    <span className="text-sm text-gray-700">Customer</span>
+                    <span className="text-xs sm:text-sm text-gray-700">Customer</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -908,7 +908,7 @@ const CashReceipts = () => {
                       }}
                       className="mr-2"
                     />
-                    <span className="text-sm text-gray-700">Supplier</span>
+                    <span className="text-xs sm:text-sm text-gray-700">Supplier</span>
                   </label>
                 </div>
               </div>
@@ -1153,10 +1153,10 @@ const CashReceipts = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={resetForm}
-              className="btn btn-secondary flex items-center space-x-2"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <RotateCcw className="h-4 w-4" />
               <span>Reset</span>
@@ -1164,7 +1164,7 @@ const CashReceipts = () => {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="btn btn-primary flex items-center space-x-2"
+              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Save className="h-4 w-4" />
               <span>{creating ? 'Saving...' : 'Save Receipt'}</span>
@@ -1253,7 +1253,7 @@ const CashReceipts = () => {
             <div className="flex items-end">
               <button
                 onClick={() => refetch()}
-                className="btn btn-primary w-full flex items-center justify-center space-x-2"
+                className="btn btn-primary btn-md w-full flex items-center justify-center gap-2"
               >
                 <Search className="h-4 w-4" />
                 <span>Search</span>
@@ -1617,18 +1617,18 @@ const CashReceipts = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+            <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-8 pt-6 border-t border-gray-200">
               <button
                 onClick={resetForm}
-                className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 <RotateCcw className="h-4 w-4" />
                 <span>Reset</span>
               </button>
               
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                  className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <Printer className="h-4 w-4" />
                   <span>Print Preview</span>
@@ -1636,7 +1636,7 @@ const CashReceipts = () => {
                 <button
                   onClick={handleCreate}
                   disabled={creating}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <Save className="h-4 w-4" />
                   <span>{creating ? 'Saving...' : 'Save Receipt'}</span>

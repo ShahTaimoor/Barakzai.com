@@ -328,10 +328,10 @@ const WarehouseFormModal = ({ warehouse, onSave, onCancel, isSubmitting }) => {
           </div>
 
           <div className="flex items-center justify-end space-x-3 border-t pt-4">
-            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={isSubmitting}>
+            <button type="button" className="btn btn-secondary btn-md" onClick={onCancel} disabled={isSubmitting}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="btn btn-primary btn-md" disabled={isSubmitting}>
               {isSubmitting ? (
                 <LoadingButton />
               ) : (
@@ -448,12 +448,12 @@ const Warehouses = () => {
     <div className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Warehouses</h1>
-          <p className="text-sm text-gray-600">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Warehouses</h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">
             Manage warehouse locations, contacts, capacity, and availability.
           </p>
         </div>
-        <button onClick={handleAdd} className="btn btn-primary flex items-center space-x-2">
+        <button onClick={handleAdd} className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           <span>Add Warehouse</span>
         </button>
@@ -462,7 +462,7 @@ const Warehouses = () => {
       <div className="rounded-lg bg-white p-4 shadow">
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Search</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
@@ -653,13 +653,13 @@ const Warehouses = () => {
                   <div className="mt-4 flex space-x-2">
                     <button
                       onClick={() => handleEdit(warehouse)}
-                      className="btn btn-secondary flex-1"
+                      className="btn btn-secondary btn-md flex-1"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(warehouse)}
-                      className="btn btn-danger flex-1"
+                      className="btn btn-danger btn-md flex-1"
                     >
                       Delete
                     </button>

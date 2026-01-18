@@ -77,17 +77,17 @@ export const Customers = () => {
 
   return (
     <div className="space-y-6 w-full ">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-          <p className="text-gray-600">Manage your customer database</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customers</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your customer database</p>
         </div>
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 w-full sm:w-auto">
           <button
             onClick={() => customerOps.setIsModalOpen(true)}
-            className="btn btn-primary btn-md w-full sm:w-auto"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Add Customer
           </button>
         </div>
