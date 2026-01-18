@@ -428,46 +428,46 @@ const Returns = () => {
   return (
     <ResponsiveContainer className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Return Management</h1>
-          <p className="text-gray-600">Manage returns, exchanges, and refunds</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Return Management</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage returns, exchanges, and refunds</p>
         </div>
         
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => refetchReturns()}
-            className="btn btn-secondary"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            <RefreshCw className="h-4 w-4" />
+            <span>Refresh</span>
           </button>
           <button
             onClick={() => {
               setPreselectedReturnType('sales');
               setShowCreateModal(true);
             }}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Sales Return
+            <Plus className="h-4 w-4" />
+            <span>Create Sales Return</span>
           </button>
           <button
             onClick={() => {
               setPreselectedReturnType('purchase');
               setShowCreateModal(true);
             }}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Purchase Return
+            <Plus className="h-4 w-4" />
+            <span>Create Purchase Return</span>
           </button>
         </div>
       </div>
 
       {/* Statistics Cards */}
       {!statsLoading && (
-        <ResponsiveGrid cols={{ default: 1, md: 2, lg: 4 }} gap={6}>
+        <ResponsiveGrid cols={{ default: 2, md: 2, lg: 4 }} gap={6}>
           <ReturnStatsCard
             title="Total Returns"
             value={stats.totalReturns || 0}
@@ -505,9 +505,9 @@ const Returns = () => {
       {/* Returns Table */}
       <div className="card">
         <div className="card-header">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">Returns</h3>
-            <span className="text-sm text-gray-600">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Returns</h3>
+            <span className="text-xs sm:text-sm text-gray-600">
               {pagination.total || 0} total returns
             </span>
           </div>

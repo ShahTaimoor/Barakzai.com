@@ -47,30 +47,32 @@ export const Reports = () => {
   const topCustomers = customerData?.data?.customers?.slice(0, 5) || [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-600">Analyze your business performance</p>
+          <p className="text-gray-600 text-sm md:text-base">Analyze your business performance</p>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-gray-400" />
-            <input
-              type="date"
-              value={dateRange.from}
-              onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
-              className="input"
-            />
-            <span className="text-gray-500">to</span>
-            <input
-              type="date"
-              value={dateRange.to}
-              onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
-              className="input"
-            />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <Calendar className="h-4 w-4 text-gray-400 hidden sm:block flex-shrink-0" />
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateRange.from}
+                onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
+                className="input text-sm flex-1 sm:flex-initial sm:min-w-[140px]"
+              />
+              <span className="text-gray-500 text-sm whitespace-nowrap">to</span>
+              <input
+                type="date"
+                value={dateRange.to}
+                onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
+                className="input text-sm flex-1 sm:flex-initial sm:min-w-[140px]"
+              />
+            </div>
           </div>
-          <button className="btn btn-secondary btn-md">
+          <button className="btn btn-secondary btn-md w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Export
           </button>
@@ -78,7 +80,7 @@ export const Reports = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card">
           <div className="card-content">
             <div className="flex items-center">
@@ -157,15 +159,15 @@ export const Reports = () => {
             ) : (
               <div className="space-y-3">
                 {topProducts.map((product, index) => (
-                  <div key={product.product._id} className="flex items-center justify-between">
+                  <div key={product.product._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-2 sm:p-0">
                     <div className="flex items-center space-x-3">
                       <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{product.product.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{product.product.name}</p>
                         <p className="text-xs text-gray-500">Category: {product.product.category || 'N/A'}</p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right pl-6 sm:pl-0">
                       <p className="text-sm font-medium text-gray-900">
                         {product.totalQuantity} sold
                       </p>
@@ -191,11 +193,11 @@ export const Reports = () => {
             ) : (
               <div className="space-y-3">
                 {topCustomers.map((customer, index) => (
-                  <div key={customer.customer._id} className="flex items-center justify-between">
+                  <div key={customer.customer._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-2 sm:p-0">
                     <div className="flex items-center space-x-3">
                       <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">
                           {customer.customer.displayName}
                         </p>
                         <p className="text-xs text-gray-500 capitalize">
@@ -203,7 +205,7 @@ export const Reports = () => {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right pl-6 sm:pl-0">
                       <p className="text-sm font-medium text-gray-900">
                         {customer.totalOrders} orders
                       </p>

@@ -226,40 +226,42 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
 
   return (
     <div className="card">
-      <div className="card-header flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-            <Bell className="h-5 w-5 text-primary-600" />
-            <span>Recurring Expense Reminders</span>
+      <div className="card-header flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 flex items-center space-x-2">
+            <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-primary-600 flex-shrink-0" />
+            <span className="min-w-0">Recurring Expense Reminders</span>
           </h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             Track monthly obligations and record payments in a single click.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <label className="text-sm text-gray-600">Show next</label>
-          <select
-            value={reminderWindow}
-            onChange={(e) => setReminderWindow(Number(e.target.value))}
-            className="input w-24"
-          >
-            <option value={3}>3 days</option>
-            <option value={7}>7 days</option>
-            <option value={14}>14 days</option>
-            <option value={30}>30 days</option>
-          </select>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <label className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">Show next</label>
+            <select
+              value={reminderWindow}
+              onChange={(e) => setReminderWindow(Number(e.target.value))}
+              className="input w-20 sm:w-24 text-xs sm:text-sm"
+            >
+              <option value={3}>3 days</option>
+              <option value={7}>7 days</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+            </select>
+          </div>
           <button
             type="button"
             onClick={() => refetchUpcoming()}
-            className="btn btn-light flex items-center space-x-1"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2 whitespace-nowrap"
             disabled={upcomingFetching}
           >
-            <RefreshCw className={`h-4 w-4 ${upcomingFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 flex-shrink-0 ${upcomingFetching ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 whitespace-nowrap"
             onClick={() => setShowCreateForm((prev) => !prev)}
           >
             {showCreateForm ? 'Close' : 'Add Recurring Expense'}
@@ -392,10 +394,10 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                   onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                 />
               </div>
-              <div className="md:col-span-2 flex justify-end space-x-3">
+              <div className="md:col-span-2 flex flex-col-reverse sm:flex-row justify-end gap-3">
                 <button
                   type="button"
-                  className="btn btn-light"
+                  className="btn btn-outline btn-md w-full sm:w-auto"
                   onClick={() => {
                     setShowCreateForm(false);
                     resetForm();
@@ -406,7 +408,7 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
+                  className="btn btn-primary btn-md w-full sm:w-auto"
                   disabled={!formData.amount || !formData.expenseAccount}
                 >
                   Save Recurring Expense
@@ -417,10 +419,10 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="border rounded-lg p-4 bg-gray-50">
+          <div className="border rounded-lg p-3 sm:p-4 bg-gray-50">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                <Clock className="h-4 w-4 text-primary-500" />
+              <h3 className="text-sm sm:text-base font-semibold text-gray-700 flex items-center space-x-2">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-primary-500" />
                 <span>Upcoming</span>
               </h3>
               {(upcomingLoading || upcomingFetching) && (
@@ -428,7 +430,7 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
               )}
             </div>
             {upcomingExpenses.length === 0 ? (
-              <div className="text-center text-sm text-gray-500 bg-white border border-dashed border-gray-200 rounded-lg py-6">
+              <div className="text-center text-xs sm:text-sm text-gray-500 bg-white border border-dashed border-gray-200 rounded-lg py-6 px-4">
                 <CheckCircle className="h-5 w-5 mx-auto text-success-500 mb-2" />
                 <p>No reminders due in the next {reminderWindow} days.</p>
               </div>
@@ -440,47 +442,47 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                   return (
                     <div
                       key={expense._id}
-                      className={`rounded-lg border bg-white p-4 shadow-sm ${
+                      className={`rounded-lg border bg-white p-3 sm:p-4 shadow-sm ${
                         isOverdue ? 'border-danger-200 bg-danger-50/40' : 'border-gray-200'
                       }`}
                     >
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="flex flex-col gap-3">
                         <div>
-                          <div className="flex items-center space-x-2">
-                            <h4 className="font-semibold text-gray-900">{expense.name}</h4>
+                          <div className="flex items-center flex-wrap gap-2">
+                            <h4 className="text-sm sm:text-base font-semibold text-gray-900">{expense.name}</h4>
                             <span className="text-xs px-2 py-1 rounded-full bg-primary-100 text-primary-700">
                               {expense.defaultPaymentType === 'bank' ? 'Bank' : 'Cash'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-xs sm:text-sm text-gray-600 mt-1">
                             {formatCurrency(expense.amount)} • Due {formatDate(expense.nextDueDate)}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 mt-0.5">
                             {getPayeeLabel(expense)}
                           </p>
                         </div>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2 border-t border-gray-100">
                           <div
-                            className={`flex items-center space-x-1 text-sm font-semibold ${
+                            className={`flex items-center space-x-1 text-xs sm:text-sm font-semibold ${
                               isOverdue ? 'text-danger-600' : 'text-primary-600'
                             }`}
                           >
                             {isOverdue ? (
                               <>
-                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4" />
                                 <span>{Math.abs(daysLeft)} day(s) overdue</span>
                               </>
                             ) : (
                               <>
-                                <Calendar className="h-4 w-4" />
+                                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                                 <span>{daysLeft} day(s) left</span>
                               </>
                             )}
                           </div>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                             <button
                               type="button"
-                              className="btn btn-secondary flex items-center space-x-1"
+                              className="btn btn-outline btn-md flex items-center justify-center gap-2"
                               onClick={() => handleSnoozeClick(expense, 3)}
                               disabled={false}
                             >
@@ -489,7 +491,7 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                             </button>
                             <button
                               type="button"
-                              className="btn btn-primary flex items-center space-x-1"
+                              className="btn btn-primary btn-md flex items-center justify-center gap-2"
                               onClick={() => handleRecordPaymentClick(expense)}
                               disabled={false}
                             >
@@ -506,36 +508,36 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
             )}
           </div>
 
-          <div className="border rounded-lg p-4 bg-white">
+          <div className="border rounded-lg p-3 sm:p-4 bg-white">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
+              <h3 className="text-sm sm:text-base font-semibold text-gray-700 flex items-center space-x-2">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
                 <span>Active Recurring Expenses</span>
               </h3>
               {activeLoading && <span className="text-xs text-gray-500">Loading...</span>}
             </div>
             {activeExpenses.length === 0 ? (
-              <div className="text-center text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg py-6">
+              <div className="text-center text-xs sm:text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg py-6 px-4">
                 <p>No recurring expenses configured yet.</p>
               </div>
             ) : (
               <div className="max-h-72 overflow-y-auto divide-y">
                 {activeExpenses.map((expense) => (
-                  <div key={expense._id} className="py-3 flex items-start justify-between space-x-3">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">{expense.name}</p>
-                      <p className="text-xs text-gray-500">
+                  <div key={expense._id} className="py-3 flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 sm:gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-semibold text-gray-800">{expense.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
                         Due every month on day {expense.dayOfMonth} •{' '}
                         {expense.reminderDaysBefore} day(s) reminder
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 mt-0.5">
                         Next: {formatDate(expense.nextDueDate)} • {formatCurrency(expense.amount)}
                       </p>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                       <button
                         type="button"
-                        className="btn btn-light text-xs"
+                        className="btn btn-outline btn-md flex items-center justify-center gap-2 flex-1 sm:flex-none"
                         onClick={() => handleSnoozeClick(expense, 30)}
                         disabled={isSubmitting}
                       >
@@ -543,7 +545,7 @@ const RecurringExpensesPanel = ({ expenseAccounts = [], onPaymentRecorded }) => 
                       </button>
                       <button
                         type="button"
-                        className="btn btn-danger text-xs"
+                        className="btn btn-danger btn-md flex items-center justify-center gap-2 flex-1 sm:flex-none"
                         onClick={() => handleDeactivateClick(expense._id)}
                         disabled={isSubmitting}
                       >

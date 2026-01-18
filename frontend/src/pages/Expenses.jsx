@@ -381,17 +381,17 @@ const Expenses = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-          <Wallet className="h-6 w-6 text-primary-600" />
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center space-x-2">
+          <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-primary-600" />
           <span>Record Expense</span>
         </h1>
         <div className="mt-1 lg:mt-0 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.45fr)] gap-3 lg:gap-6 lg:items-start lg:mt-1">
-          <p className="text-gray-600 lg:mt-1">
+          <p className="text-sm sm:text-base text-gray-600 lg:mt-1">
             Log operating expenses directly from cash or bank while posting to the right expense account.
           </p>
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 w-full">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Payment Method</p>
-            <div className="flex items-center gap-3 mt-1">
+          <div className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gray-50 w-full">
+            <p className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">Payment Method</p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mt-1">
               {[
                 { value: 'cash', label: 'Cash', helper: 'Use cash on hand' },
                 { value: 'bank', label: 'Bank', helper: 'Use a bank account' }
@@ -407,7 +407,7 @@ const Expenses = () => {
                         setFormData((prev) => ({ ...prev, bank: '' }));
                       }
                     }}
-                    className={`flex-1 px-4 py-3 rounded-xl border-2 text-left transition-all duration-200 ${
+                    className={`flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border-2 text-left transition-all duration-200 ${
                       isActive
                         ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm'
                         : 'border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-primary-50/40'
@@ -415,11 +415,11 @@ const Expenses = () => {
                   >
                     <div className="flex items-center space-x-2">
                       <div
-                        className={`h-4 w-4 rounded-full border ${
+                        className={`h-4 w-4 rounded-full border flex-shrink-0 ${
                           isActive ? 'border-primary-500 bg-primary-500' : 'border-gray-300 bg-white'
                         }`}
                       />
-                      <span className="text-sm font-semibold">{option.label}</span>
+                      <span className="text-xs sm:text-sm font-semibold">{option.label}</span>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">{option.helper}</p>
                   </button>
@@ -435,14 +435,14 @@ const Expenses = () => {
           <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="form-label flex items-center justify-between">
+                <label className="form-label flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                   <span>Expense Account</span>
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="text-sm text-primary-600 hover:text-primary-700 flex items-center space-x-1"
+                    className="btn btn-outline btn-md flex items-center justify-center gap-2 text-xs sm:text-sm"
                   >
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span>Reset</span>
                   </button>
                 </label>
@@ -567,7 +567,7 @@ const Expenses = () => {
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  className="btn btn-primary flex items-center space-x-2"
+                  className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
                   disabled={
                     creatingCashPayment ||
                     updatingCashPayment ||

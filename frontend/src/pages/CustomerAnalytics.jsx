@@ -7,7 +7,6 @@ import {
   Target,
   PieChart,
   BarChart3,
-  RefreshCw,
   Filter,
   Download,
   Crown,
@@ -98,71 +97,59 @@ const CustomerAnalytics = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Customer Analytics</h1>
-          <p className="text-gray-600">AI-powered customer segmentation, CLV prediction, and churn risk analysis</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => {
-              refetchSummary();
-              refetchAnalytics();
-            }}
-            className="btn btn-secondary flex items-center"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Customer Analytics</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">AI-powered customer segmentation, CLV prediction, and churn risk analysis</p>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 border-l-4 border-purple-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Customers</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.totalCustomers || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Customers</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{summary.totalCustomers || 0}</p>
             </div>
-            <Users className="h-8 w-8 text-purple-400" />
+            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-purple-400 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 border-l-4 border-green-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Predicted CLV</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Predicted CLV</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">
                 {formatCurrency(summary.summary?.totalCLV || 0)}
               </p>
             </div>
-            <TrendingUp className="h-8 w-8 text-green-400" />
+            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-400 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 border-l-4 border-orange-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">At-Risk Customers</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.summary?.highRiskCount || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">At-Risk Customers</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{summary.summary?.highRiskCount || 0}</p>
             </div>
-            <AlertTriangle className="h-8 w-8 text-orange-400" />
+            <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-orange-400 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 border-l-4 border-red-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Churned Customers</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.summary?.churnedCount || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Churned Customers</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{summary.summary?.churnedCount || 0}</p>
             </div>
-            <XCircle className="h-8 w-8 text-red-400" />
+            <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-400 flex-shrink-0 ml-2" />
           </div>
         </div>
       </div>
 
       {/* Segment Distribution */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Segments</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Customer Segments</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
           {Object.entries(summary.segmentCounts || {}).map(([segment, count]) => {
             const Icon = segmentIcons[segment] || User;
             return (
@@ -226,7 +213,7 @@ const CustomerAnalytics = () => {
           />
           <button
             onClick={() => setFilters({ segment: '', churnRisk: '', minOrders: 0 })}
-            className="btn btn-secondary text-sm"
+            className="btn btn-secondary btn-md w-full sm:w-auto"
           >
             Clear Filters
           </button>
@@ -235,29 +222,29 @@ const CustomerAnalytics = () => {
 
       {/* Top Customers by CLV */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Top Customers by Predicted CLV</h2>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Top Customers by Predicted CLV</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Segment
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Predicted CLV
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Churn Risk
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   RFM Score
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Purchase
                 </th>
               </tr>
@@ -265,38 +252,38 @@ const CustomerAnalytics = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {(summary.topCustomers || []).map((customer) => (
                 <tr key={customer.customer._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
                         {customer.customer.businessName || customer.customer.name}
                       </div>
-                      <div className="text-sm text-gray-500">{customer.customer.email}</div>
+                      <div className="text-xs sm:text-sm text-gray-500 truncate">{customer.customer.email}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       segmentColors[customer.segment] || segmentColors.regular
                     }`}>
                       {customer.segment}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-semibold text-gray-900">
+                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+                    <div className="text-xs sm:text-sm font-semibold text-gray-900">
                       {formatCurrency(customer.clv)}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       riskColors[customer.churnRisk] || riskColors.medium
                     }`}>
                       {customer.churnRisk.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                     {/* RFM score would be here if available in summary */}
                     -
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                     {/* Last purchase date would be here if available in summary */}
                     -
                   </td>
@@ -310,8 +297,8 @@ const CustomerAnalytics = () => {
       {/* Detailed Customer List */}
       {analytics.customers && analytics.customers.length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
               Customer Details ({analytics.filteredCount || analytics.customers.length} customers)
             </h2>
           </div>
@@ -319,22 +306,22 @@ const CustomerAnalytics = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Customer
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Segment
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     RFM
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Predicted CLV
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Churn Risk
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -342,35 +329,35 @@ const CustomerAnalytics = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {analytics.customers.slice(0, 50).map((item) => (
                   <tr key={item.customer._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
                           {item.customer.businessName || item.customer.name}
                         </div>
-                        <div className="text-sm text-gray-500">{item.customer.email}</div>
+                        <div className="text-xs sm:text-sm text-gray-500 truncate">{item.customer.email}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div>
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           segmentColors[item.segment.segment] || segmentColors.regular
                         }`}>
                           {item.segment.segmentName}
                         </span>
-                        <p className="text-xs text-gray-500 mt-1">{item.segment.description}</p>
+                        <p className="text-xs text-gray-500 mt-1 truncate">{item.segment.description}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
+                    <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+                      <div className="text-xs sm:text-sm">
                         <div className="font-medium">R{item.rfm.recencyScore} F{item.rfm.frequencyScore} M{item.rfm.monetaryScore}</div>
                         <div className="text-xs text-gray-500">
                           {item.rfm.recency} days ago
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">
+                        <div className="text-xs sm:text-sm font-semibold text-gray-900">
                           {formatCurrency(item.clv.predictedCLV)}
                         </div>
                         <div className="text-xs text-gray-500">
@@ -378,7 +365,7 @@ const CustomerAnalytics = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div>
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           riskColors[item.churnRisk.riskLevel] || riskColors.medium
@@ -390,7 +377,7 @@ const CustomerAnalytics = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                       <button
                         className="text-primary-600 hover:text-primary-800"
                         title="View Details"

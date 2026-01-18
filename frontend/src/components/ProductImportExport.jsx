@@ -217,28 +217,29 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
       {/* Collapsible Header */}
       <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 p-4 cursor-pointer hover:bg-gray-50"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center space-x-3">
-          <Database className="h-5 w-5 text-gray-600" />
-          <span className="font-medium text-gray-900">Import / Export Products</span>
+          <Database className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+          <span className="text-sm sm:text-base font-medium text-gray-900">Import / Export Products</span>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
           <button
             onClick={(e) => {
               e.stopPropagation();
               setShowImportModal(true);
             }}
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <Upload className="h-4 w-4 mr-2" />
-            Import Products
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Import Products</span>
+            <span className="sm:hidden">Import</span>
           </button>
           {isExpanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
+            <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
           )}
         </div>
       </div>
@@ -248,51 +249,51 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
         <div className="border-t border-gray-200 p-4">
 
       {/* Export Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div className="border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center mb-3">
-            <FileText className="h-5 w-5 text-blue-600 mr-2" />
-            <h4 className="font-medium text-gray-900">Export to CSV</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4">
+        <div className="border border-gray-200 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center mb-2 sm:mb-3">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 mr-2" />
+            <h4 className="text-sm sm:text-base font-medium text-gray-900">Export to CSV</h4>
           </div>
-          <p className="text-sm text-gray-600 mb-3">
+          <p className="text-xs sm:text-sm text-gray-600 mb-3">
             Export all products to a CSV file for backup or analysis.
           </p>
           <LoadingButton
             onClick={handleExportCSV}
             isLoading={isExporting}
-            className="btn btn-secondary btn-sm w-full"
+            className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full"
           >
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-4 w-4" />
             Export CSV
           </LoadingButton>
         </div>
 
-        <div className="border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center mb-3">
-            <FileSpreadsheet className="h-5 w-5 text-green-600 mr-2" />
-            <h4 className="font-medium text-gray-900">Export to Excel</h4>
+        <div className="border border-gray-200 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center mb-2 sm:mb-3">
+            <FileSpreadsheet className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 mr-2" />
+            <h4 className="text-sm sm:text-base font-medium text-gray-900">Export to Excel</h4>
           </div>
-          <p className="text-sm text-gray-600 mb-3">
+          <p className="text-xs sm:text-sm text-gray-600 mb-3">
             Export all products to an Excel file with formatting.
           </p>
           <LoadingButton
             onClick={handleExportExcel}
             isLoading={isExporting}
-            className="btn btn-secondary btn-sm w-full"
+            className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full"
           >
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-4 w-4" />
             Export Excel
           </LoadingButton>
         </div>
       </div>
 
       {/* Help Section */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
         <div className="flex items-start">
-          <HelpCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-blue-900 mb-2">Import Guidelines</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
+          <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 mr-2 sm:mr-3 mt-0.5 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h4 className="text-sm sm:text-base font-medium text-blue-900 mb-2">Import Guidelines</h4>
+            <ul className="text-xs sm:text-sm text-blue-800 space-y-1">
               <li>• Download the template to see the required format</li>
               <li>• Required fields: Product Name, Category</li>
               <li>• Supported formats: CSV, Excel (.xlsx)</li>
@@ -301,9 +302,9 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
             </ul>
             <button
               onClick={handleDownloadTemplate}
-              className="btn btn-primary btn-xs mt-3"
+              className="btn btn-primary btn-md flex items-center justify-center gap-2 mt-3"
             >
-              <Download className="h-3 w-3 mr-1" />
+              <Download className="h-4 w-4" />
               Download Template
             </button>
           </div>
@@ -314,8 +315,8 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Import Products</h3>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Import Products</h3>
               <button
                 onClick={resetImport}
                 className="text-gray-400 hover:text-gray-600"
@@ -324,7 +325,7 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {!importResults ? (
                 <div>
                   <div className="mb-4">
@@ -351,10 +352,10 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
                     </div>
                   )}
 
-                  <div className="flex justify-end space-x-3">
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
                     <button
                       onClick={resetImport}
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-secondary btn-md w-full sm:w-auto"
                     >
                       Cancel
                     </button>
@@ -362,7 +363,7 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
                       onClick={handleImport}
                       isLoading={isImporting}
                       disabled={!importFile}
-                      className="btn btn-primary btn-sm"
+                      className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
                       Import Products
                     </LoadingButton>
@@ -413,7 +414,7 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
                   <div className="flex justify-end">
                     <button
                       onClick={resetImport}
-                      className="btn btn-primary btn-sm"
+                      className="btn btn-primary btn-md w-full sm:w-auto"
                     >
                       Close
                     </button>

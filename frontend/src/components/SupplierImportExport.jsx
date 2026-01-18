@@ -141,15 +141,15 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-900">Import / Export Suppliers</h3>
-        <div className="flex items-center space-x-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-3">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900">Import / Export Suppliers</h3>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <div className="relative group">
             <button
               onClick={handleDownloadTemplate}
-              className="btn btn-outline btn-sm"
+              className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
             >
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-4 w-4" />
               Template
             </button>
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -166,9 +166,9 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
             <LoadingButton
               onClick={handleExportExcel}
               isLoading={isExporting}
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
             >
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-4 w-4" />
               Export Excel
             </LoadingButton>
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -184,9 +184,9 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
           <div className="relative group">
             <button
               onClick={() => setShowImportModal(true)}
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
             >
-              <Upload className="h-4 w-4 mr-2" />
+              <Upload className="h-4 w-4" />
               Import Suppliers
             </button>
             <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -244,10 +244,10 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
                     </div>
                   )}
 
-                  <div className="flex justify-end space-x-3">
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
                     <button
                       onClick={resetImport}
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-secondary btn-md w-full sm:w-auto"
                     >
                       Cancel
                     </button>
@@ -255,7 +255,7 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
                       onClick={handleImport}
                       isLoading={isImporting}
                       disabled={!importFile}
-                      className="btn btn-primary btn-sm"
+                      className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
                       Import Suppliers
                     </LoadingButton>
@@ -306,7 +306,7 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
                   <div className="flex justify-end">
                     <button
                       onClick={resetImport}
-                      className="btn btn-primary btn-sm"
+                      className="btn btn-primary btn-md w-full sm:w-auto"
                     >
                       Close
                     </button>

@@ -329,32 +329,32 @@ export const Inventory = () => {
   return (
     <ResponsiveContainer className="space-y-6">
       {/* Header */}
-      <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'items-center justify-between'}`}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-gray-900`}>Inventory Management</h1>
-          <p className="text-gray-600">Track and manage product stock levels</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventory Management</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Track and manage product stock levels</p>
         </div>
         
-        <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-center space-x-3'}`}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => setShowAdjustmentModal(true)}
-            className="btn btn-primary btn-md"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Stock Adjustment
           </button>
           <button
             onClick={() => refetch()}
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-md flex items-center justify-center gap-2"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4" />
             Refresh
           </button>
           <button
             onClick={handleOpenWarehousesTab}
-            className="btn btn-light"
+            className="btn btn-light btn-md flex items-center justify-center gap-2"
           >
-            <Warehouse className="h-4 w-4 mr-2" />
+            <Warehouse className="h-4 w-4" />
             Add Warehouse
           </button>
         </div>
@@ -421,9 +421,9 @@ export const Inventory = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-4'} gap-4`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Search</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -437,7 +437,7 @@ export const Inventory = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Status</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -452,7 +452,7 @@ export const Inventory = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Warehouse</label>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Warehouse</label>
             <select
               value={warehouseFilter}
               onChange={(e) => setWarehouseFilter(e.target.value)}
@@ -480,7 +480,7 @@ export const Inventory = () => {
                 onChange={(e) => setLowStockFilter(e.target.checked)}
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
-              <span className="text-sm font-medium text-gray-700">Low Stock Only</span>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">Low Stock Only</span>
             </label>
           </div>
         </div>
@@ -502,8 +502,8 @@ export const Inventory = () => {
 
       {/* Pagination */}
       {(inventoryData?.pagination || inventoryData?.data?.pagination) && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-700">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="text-xs sm:text-sm text-gray-700">
             {(() => {
               const pagination = inventoryData?.pagination || inventoryData?.data?.pagination;
               const total = pagination?.total || 0;
@@ -512,7 +512,7 @@ export const Inventory = () => {
               return `Showing ${start} to ${end} of ${total} results`;
             })()}
           </div>
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 w-full sm:w-auto">
             {(() => {
               const pagination = inventoryData?.pagination || inventoryData?.data?.pagination;
               return (
@@ -520,14 +520,14 @@ export const Inventory = () => {
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={!pagination?.hasPrev}
-                    className="btn btn-secondary"
+                    className="btn btn-secondary btn-md flex-1 sm:flex-none"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setCurrentPage(prev => prev + 1)}
                     disabled={!pagination?.hasNext}
-                    className="btn btn-secondary"
+                    className="btn btn-secondary btn-md flex-1 sm:flex-none"
                   >
                     Next
                   </button>

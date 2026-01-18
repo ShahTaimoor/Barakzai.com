@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, 
-  RefreshCw,
   ShoppingCart,
   TrendingDown,
   Package,
@@ -110,88 +109,81 @@ const InventoryAlerts = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory Alerts</h1>
-          <p className="text-gray-600">Monitor low stock and auto-generate purchase orders</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Inventory Alerts</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Monitor low stock and auto-generate purchase orders</p>
         </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => refetch()}
-            className="btn btn-secondary flex items-center"
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={handleGeneratePOs}
-              disabled={generating || alerts.length === 0}
-            className="btn btn-primary flex items-center"
+            disabled={generating || alerts.length === 0}
+            className="btn btn-primary btn-md flex items-center justify-center gap-2"
           >
-                {generating ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            {generating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Zap className="h-4 w-4 mr-2" />
+              <Zap className="h-4 w-4" />
             )}
-            Generate Purchase Orders
+            <span className="hidden sm:inline">Generate Purchase Orders</span>
+            <span className="sm:hidden">Generate POs</span>
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Alerts</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.total || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Alerts</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">{summary.total || 0}</p>
             </div>
-            <AlertTriangle className="h-8 w-8 text-gray-400" />
+            <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="bg-red-50 rounded-lg shadow p-4 border-l-4 border-red-500">
+        <div className="bg-red-50 rounded-lg shadow p-3 sm:p-4 border-l-4 border-red-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-red-600">Critical</p>
-              <p className="text-2xl font-bold text-red-700">{summary.critical || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-red-600 truncate">Critical</p>
+              <p className="text-lg sm:text-2xl font-bold text-red-700">{summary.critical || 0}</p>
             </div>
-            <XCircle className="h-8 w-8 text-red-400" />
+            <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-400 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="bg-yellow-50 rounded-lg shadow p-4 border-l-4 border-yellow-500">
+        <div className="bg-yellow-50 rounded-lg shadow p-3 sm:p-4 border-l-4 border-yellow-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-yellow-600">Warning</p>
-              <p className="text-2xl font-bold text-yellow-700">{summary.warning || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-yellow-600 truncate">Warning</p>
+              <p className="text-lg sm:text-2xl font-bold text-yellow-700">{summary.warning || 0}</p>
             </div>
-            <AlertTriangle className="h-8 w-8 text-yellow-400" />
+            <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="bg-gray-50 rounded-lg shadow p-4 border-l-4 border-gray-500">
+        <div className="bg-gray-50 rounded-lg shadow p-3 sm:p-4 border-l-4 border-gray-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Out of Stock</p>
-              <p className="text-2xl font-bold text-gray-700">{summary.outOfStock || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Out of Stock</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-700">{summary.outOfStock || 0}</p>
             </div>
-            <Package className="h-8 w-8 text-gray-400" />
+            <Package className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 flex-shrink-0 ml-2" />
           </div>
         </div>
-        <div className="bg-blue-50 rounded-lg shadow p-4 border-l-4 border-blue-500">
+        <div className="bg-blue-50 rounded-lg shadow p-3 sm:p-4 border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-600">Low Stock</p>
-              <p className="text-2xl font-bold text-blue-700">{summary.lowStock || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm text-blue-600 truncate">Low Stock</p>
+              <p className="text-lg sm:text-2xl font-bold text-blue-700">{summary.lowStock || 0}</p>
             </div>
-            <TrendingDown className="h-8 w-8 text-blue-400" />
+            <TrendingDown className="h-6 w-6 sm:h-8 sm:w-8 text-blue-400 flex-shrink-0 ml-2" />
           </div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center space-x-4">
-          <label className="text-sm font-medium text-gray-700">Filter by Level:</label>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+          <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Filter by Level:</label>
           <select
             value={filterLevel}
             onChange={(e) => setFilterLevel(e.target.value)}

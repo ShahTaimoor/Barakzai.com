@@ -259,18 +259,18 @@ const InvestorFormModal = ({ investor, onSave, onCancel, isSubmitting }) => {
             </div>
 
             {/* Form Actions */}
-            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200">
               <button
                 type="button"
                 onClick={onCancel}
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-md w-full sm:w-auto"
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="btn btn-primary btn-md w-full sm:w-auto"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Saving...' : (investor ? 'Update Investor' : 'Add Investor')}
@@ -372,20 +372,20 @@ export const Investors = ({ tabId }) => {
   if (error) return <div className="p-6 text-red-600">Error loading investors: {error.message}</div>;
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Investors</h1>
-          <p className="text-sm text-gray-600 mt-1">Manage investors and track profit distributions</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Investors</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage investors and track profit distributions</p>
         </div>
         <button
           onClick={() => {
             setSelectedInvestor(null);
             setIsModalOpen(true);
           }}
-          className="btn btn-primary flex items-center space-x-2"
+          className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-4 w-4" />
           <span>Add Investor</span>
         </button>
       </div>
@@ -973,18 +973,18 @@ const PayoutModal = ({ investor, onSave, onCancel, isSubmitting }) => {
               )}
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
               <button
                 type="button"
                 onClick={onCancel}
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-md w-full sm:w-auto"
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="btn btn-primary btn-md w-full sm:w-auto"
                 disabled={isSubmitting || parseFloat(amount) <= 0 || parseFloat(amount) > investor.currentBalance}
               >
                 {isSubmitting ? 'Recording...' : 'Record Payout'}
@@ -1089,18 +1089,18 @@ const InvestmentModal = ({ investor, onSave, onCancel, isSubmitting }) => {
               />
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-200">
               <button
                 type="button"
                 onClick={onCancel}
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-md w-full sm:w-auto"
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="btn btn-primary btn-md w-full sm:w-auto"
                 disabled={isSubmitting || parseFloat(amount) <= 0}
               >
                 {isSubmitting ? 'Recording...' : 'Record Investment'}

@@ -307,80 +307,80 @@ export const StockMovements = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Stock Movement Tracking</h1>
-          <p className="text-gray-600">Detailed inventory history and movement tracking</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Stock Movement Tracking</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Detailed inventory history and movement tracking</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={() => setShowAdjustmentModal(true)}
-            className="btn btn-primary"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Stock Adjustment
           </button>
-          <button className="btn btn-secondary">
-            <Download className="h-4 w-4 mr-2" />
+          <button className="btn btn-secondary btn-md flex items-center justify-center gap-2">
+            <Download className="h-4 w-4" />
             Export
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
         <div className="card">
-          <div className="card-content">
+          <div className="card-content pt-6">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-blue-100">
-                <Package className="h-6 w-6 text-blue-600" />
+                <Package className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Movements</p>
-                <p className="text-2xl font-semibold text-gray-900">{summary.totalMovements || 0}</p>
+              <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Movements</p>
+                <p className="text-lg sm:text-2xl font-semibold text-gray-900">{summary.totalMovements || 0}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="card-content">
+          <div className="card-content pt-6">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-green-100">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+                <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Stock In</p>
-                <p className="text-2xl font-semibold text-gray-900">{summary.stockIn || 0}</p>
+              <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Stock In</p>
+                <p className="text-lg sm:text-2xl font-semibold text-gray-900">{summary.stockIn || 0}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="card-content">
+          <div className="card-content pt-6">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-red-100">
-                <TrendingDown className="h-6 w-6 text-red-600" />
+                <TrendingDown className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Stock Out</p>
-                <p className="text-2xl font-semibold text-gray-900">{summary.stockOut || 0}</p>
+              <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Stock Out</p>
+                <p className="text-lg sm:text-2xl font-semibold text-gray-900">{summary.stockOut || 0}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="card-content">
+          <div className="card-content pt-6">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-purple-100">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
+                <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {formatCurrency(summary.totalValue || 0)}
+              <div className="ml-2 sm:ml-4 min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Value</p>
+                <p className="text-lg sm:text-2xl font-semibold text-gray-900">
+                  {(summary.totalValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -482,7 +482,7 @@ export const StockMovements = () => {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="btn btn-secondary flex items-center gap-2"
+                className="btn btn-secondary btn-md flex items-center gap-2"
                 disabled={isFetching && !isLoading}
               >
                 <RotateCcw className="h-4 w-4" />
@@ -491,7 +491,7 @@ export const StockMovements = () => {
               <button
                 type="button"
                 onClick={handleSearch}
-                className="btn btn-primary flex items-center gap-2"
+                className="btn btn-primary btn-md flex items-center gap-2"
                 disabled={isFetching && !isLoading}
               >
                 {isFetching && !isLoading ? (

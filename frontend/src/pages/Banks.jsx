@@ -326,11 +326,11 @@ const BankFormModal = ({ bank, onSave, onCancel, isSubmitting }) => {
             )}
 
             {/* Actions */}
-            <div className="flex justify-end space-x-3 pt-4 border-t">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
               <button
                 type="button"
                 onClick={onCancel}
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-md w-full sm:w-auto"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -338,10 +338,10 @@ const BankFormModal = ({ bank, onSave, onCancel, isSubmitting }) => {
               <LoadingButton
                 type="submit"
                 isLoading={isSubmitting}
-                className="btn btn-primary"
+                className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
                 disabled={isSubmitting}
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4" />
                 {bank ? 'Update Bank' : 'Add Bank'}
               </LoadingButton>
             </div>
@@ -452,7 +452,7 @@ const Banks = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-red-600 mb-4">Error loading banks</p>
-          <button onClick={() => queryClient.invalidateQueries('banks')} className="btn btn-primary">
+          <button onClick={() => queryClient.invalidateQueries('banks')} className="btn btn-primary btn-md">
             Retry
           </button>
         </div>
@@ -463,16 +463,16 @@ const Banks = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bank Accounts</h1>
-          <p className="text-gray-600">Manage your bank accounts</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Bank Accounts</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your bank accounts</p>
         </div>
         <button
           onClick={handleAddNew}
-          className="btn btn-primary"
+          className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
         >
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4" />
           Add Bank Account
         </button>
       </div>
@@ -500,8 +500,8 @@ const Banks = () => {
             {searchTerm ? 'Try adjusting your search terms' : 'Get started by adding your first bank account'}
           </p>
           {!searchTerm && (
-            <button onClick={handleAddNew} className="btn btn-primary mt-4">
-              <Plus className="h-4 w-4 mr-2" />
+            <button onClick={handleAddNew} className="btn btn-primary btn-md flex items-center justify-center gap-2 mt-4">
+              <Plus className="h-4 w-4" />
               Add Bank Account
             </button>
           )}

@@ -192,6 +192,14 @@ class EmployeeRepository extends BaseRepository {
     if (!userAccountId) return null;
     return await this.findOne({ userAccount: userAccountId }, options);
   }
+
+  /**
+   * Find the latest employee (for generating next employee ID)
+   * @returns {Promise<Employee|null>}
+   */
+  async findLatest() {
+    return await this.Model.findOne().sort({ createdAt: -1 }).lean();
+  }
 }
 
 module.exports = new EmployeeRepository();
