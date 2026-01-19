@@ -51,8 +51,8 @@ const StatusBadge = ({ status }) => {
   const Icon = config.icon;
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-      <Icon className="h-3 w-3 mr-1" />
+    <span className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+      <Icon className="h-3 w-3 mr-0.5 sm:mr-1" />
       {config.label}
     </span>
   );
@@ -580,9 +580,9 @@ export const PurchaseInvoices = () => {
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600">Failed to load purchase invoices</p>
-        <button onClick={refetch} className="btn btn-primary mt-4">
+      <div className="text-center py-8 sm:py-12 px-4">
+        <p className="text-sm sm:text-base text-red-600">Failed to load purchase invoices</p>
+        <button onClick={refetch} className="btn btn-primary btn-md mt-4">
           Try Again
         </button>
       </div>
@@ -590,15 +590,29 @@ export const PurchaseInvoices = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Purchase Invoices</h1>
-          <p className="text-gray-600">Track and manage supplier invoices and receipts</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Purchase Invoices</h1>
+          <p className="text-sm sm:text-base text-gray-600">Track and manage supplier invoices and receipts</p>
         </div>
-        <button className="btn btn-primary btn-md">
-          <Plus className="h-4 w-4 mr-2" />
-          New Invoice
+        <button 
+          onClick={() => {
+            const componentInfo = getComponentInfo('/purchase');
+            if (componentInfo) {
+              openTab({
+                title: 'New Purchase Invoice',
+                path: '/purchase',
+                component: componentInfo.component,
+                icon: componentInfo.icon,
+                allowMultiple: true
+              });
+            }
+          }}
+          className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+        >
+          <Plus className="h-4 w-4" />
+          <span>New Invoice</span>
         </button>
       </div>
 
@@ -606,15 +620,15 @@ export const PurchaseInvoices = () => {
       <div className="card">
         <div className="card-header">
           <div className="flex items-center space-x-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <h3 className="text-lg font-medium text-gray-900">Filters</h3>
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Filters</h3>
           </div>
         </div>
         <div className="card-content">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Search
               </label>
               <div className="relative">
@@ -624,46 +638,46 @@ export const PurchaseInvoices = () => {
                   placeholder="Invoice number, supplier, amount..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="input pl-10 w-full h-[42px]"
+                  className="input pl-10 w-full h-[42px] text-sm sm:text-base"
                 />
               </div>
             </div>
 
             {/* Date From */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 From Date
               </label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] text-sm sm:text-base"
               />
             </div>
 
             {/* Date To */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 To Date
               </label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] text-sm sm:text-base"
               />
             </div>
 
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] text-sm sm:text-base"
               >
                 <option value="">All Status</option>
                 <option value="draft">Draft</option>
@@ -680,18 +694,18 @@ export const PurchaseInvoices = () => {
 
       {/* Purchase Invoices Table */}
       {invoices.length === 0 ? (
-        <div className="text-center py-12">
-          <FileText className="mx-auto h-12 w-12 text-gray-400" />
+        <div className="text-center py-8 sm:py-12">
+          <FileText className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No purchase invoices found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-xs sm:text-sm text-gray-500 px-4">
             {searchTerm || statusFilter || dateFrom || dateTo ? 'Try adjusting your filters.' : 'No purchase invoices have been created yet.'}
           </p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {/* Table Header */}
-          <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
-            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+          {/* Table Header - Desktop Only */}
+          <div className="hidden md:block bg-gray-50 px-4 lg:px-6 py-3 border-b border-gray-200">
+            <div className="grid grid-cols-12 gap-3 lg:gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
               <div className="col-span-2">Invoice Number</div>
               <div className="col-span-2">Supplier</div>
               <div className="col-span-1">Date</div>
@@ -707,11 +721,87 @@ export const PurchaseInvoices = () => {
           {/* Table Body */}
           <div className="divide-y divide-gray-200">
             {invoices.map((invoice) => (
-              <div key={invoice._id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                <div className="grid grid-cols-12 gap-4 items-center">
+              <div key={invoice._id} className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors">
+                {/* Mobile Card Layout */}
+                <div className="md:hidden space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-sm text-gray-900 truncate">{invoice.invoiceNumber}</h3>
+                        <StatusBadge status={invoice.status} />
+                      </div>
+                      <p className="text-xs text-gray-600 truncate">
+                        {invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
+                      </p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                        <span>{new Date(invoice.createdAt).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span>{invoice.items?.length || 0} items</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-1 flex-shrink-0">
+                      <button
+                        onClick={() => handleView(invoice)}
+                        className="text-gray-600 hover:text-gray-800 p-1"
+                        title="View Invoice"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handlePrint(invoice)}
+                        className="text-green-600 hover:text-green-800 p-1"
+                        title="Print Invoice"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(invoice)}
+                        className="text-blue-600 hover:text-blue-800 p-1"
+                        title="Edit Invoice"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      {!['paid', 'closed'].includes(invoice.status) && (
+                        <button
+                          onClick={() => handleDelete(invoice)}
+                          className="text-red-600 hover:text-red-800 p-1"
+                          title="Delete Invoice"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div>
+                      <span className="text-xs text-gray-500">Payment:</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ml-1 ${
+                        invoice.payment?.status === 'paid' ? 'bg-green-100 text-green-800' :
+                        invoice.payment?.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                        invoice.payment?.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {invoice.payment?.status || 'pending'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-gray-500">Total:</span>
+                      <p className="font-semibold text-sm text-gray-900">{Math.round(invoice.pricing?.total || 0)}</p>
+                    </div>
+                  </div>
+                  {invoice.notes?.trim() && (
+                    <div className="pt-2 border-t border-gray-100">
+                      <span className="text-xs text-gray-500">Notes: </span>
+                      <span className="text-xs text-gray-600">{invoice.notes.trim()}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop Table Layout */}
+                <div className="hidden md:grid grid-cols-12 gap-3 lg:gap-4 items-center">
                   {/* Invoice Number */}
                   <div className="col-span-2">
-                    <div className="font-medium text-gray-900 truncate">
+                    <div className="font-medium text-sm text-gray-900 truncate">
                       {invoice.invoiceNumber}
                     </div>
                   </div>
@@ -725,21 +815,21 @@ export const PurchaseInvoices = () => {
                   
                   {/* Date */}
                   <div className="col-span-1">
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-600">
                       {new Date(invoice.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   
                   {/* Items */}
                   <div className="col-span-1">
-                    <span className="text-sm text-gray-600">
+                    <span className="text-xs sm:text-sm text-gray-600">
                       {invoice.items?.length || 0}
                     </span>
                   </div>
                   
                   {/* Total */}
                   <div className="col-span-1">
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-sm text-gray-900">
                       {Math.round(invoice.pricing?.total || 0)}
                     </span>
                   </div>
@@ -820,23 +910,23 @@ export const PurchaseInvoices = () => {
 
       {/* View Modal */}
       {showViewModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
               {/* Header */}
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Purchase Invoice Details</h2>
-                <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Purchase Invoice Details</h2>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => handlePrint(selectedInvoice)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+                    className="btn btn-md bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
                     <Printer className="h-4 w-4" />
                     <span>Print</span>
                   </button>
                   <button
                     onClick={() => setShowViewModal(false)}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                    className="btn btn-outline btn-md w-full sm:w-auto"
                   >
                     Close
                   </button>
@@ -844,13 +934,13 @@ export const PurchaseInvoices = () => {
               </div>
 
               {/* Invoice Header */}
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Your Company Name</h1>
-                <p className="text-lg text-gray-600">Purchase Invoice</p>
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Your Company Name</h1>
+                <p className="text-base sm:text-lg text-gray-600">Purchase Invoice</p>
               </div>
 
               {/* Invoice Details */}
-              <div className="grid grid-cols-3 gap-8 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 mb-6 sm:mb-8">
                 {/* Supplier Information */}
                 <div>
                   <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Supplier Details:</h3>
@@ -885,31 +975,36 @@ export const PurchaseInvoices = () => {
               </div>
 
               {/* Items Table */}
-              <div className="mb-8">
-                <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Items:</h3>
+              <div className="mb-6 sm:mb-8">
+                <h3 className="font-semibold text-sm sm:text-base text-gray-900 border-b border-gray-300 pb-2 mb-3 sm:mb-4">Items:</h3>
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300">
+                  <table className="w-full border-collapse border border-gray-300 text-xs sm:text-sm">
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="border border-gray-300 px-4 py-2 text-left">Item</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Description</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right">Qty</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right">Cost</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right">Total</th>
+                        <th className="border border-gray-300 px-2 sm:px-4 py-2 text-left">Item</th>
+                        <th className="border border-gray-300 px-2 sm:px-4 py-2 text-left hidden sm:table-cell">Description</th>
+                        <th className="border border-gray-300 px-2 sm:px-4 py-2 text-right">Qty</th>
+                        <th className="border border-gray-300 px-2 sm:px-4 py-2 text-right">Cost</th>
+                        <th className="border border-gray-300 px-2 sm:px-4 py-2 text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedInvoice.items?.map((item, index) => (
                         <tr key={index}>
-                          <td className="border border-gray-300 px-4 py-2">{item.product?.name || 'Unknown Product'}</td>
-                          <td className="border border-gray-300 px-4 py-2">{item.product?.description || ''}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-right">{item.quantity}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-right">{Math.round(item.unitCost || 0)}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-right">{Math.round(item.totalCost || 0)}</td>
+                          <td className="border border-gray-300 px-2 sm:px-4 py-2">
+                            <div className="font-medium">{item.product?.name || 'Unknown Product'}</div>
+                            {item.product?.description && (
+                              <div className="text-xs text-gray-500 sm:hidden mt-1">{item.product.description}</div>
+                            )}
+                          </td>
+                          <td className="border border-gray-300 px-2 sm:px-4 py-2 hidden sm:table-cell">{item.product?.description || ''}</td>
+                          <td className="border border-gray-300 px-2 sm:px-4 py-2 text-right">{item.quantity}</td>
+                          <td className="border border-gray-300 px-2 sm:px-4 py-2 text-right">{Math.round(item.unitCost || 0)}</td>
+                          <td className="border border-gray-300 px-2 sm:px-4 py-2 text-right">{Math.round(item.totalCost || 0)}</td>
                         </tr>
                       )) || (
                         <tr>
-                          <td colSpan="5" className="border border-gray-300 px-4 py-2 text-center text-gray-500">
+                          <td colSpan="5" className="border border-gray-300 px-2 sm:px-4 py-2 text-center text-gray-500">
                             No items found
                           </td>
                         </tr>
@@ -921,7 +1016,7 @@ export const PurchaseInvoices = () => {
 
               {/* Totals */}
               <div className="flex justify-end">
-                <div className="w-80">
+                <div className="w-full sm:w-80">
                   <table className="w-full">
                     <tbody>
                       <tr>
@@ -950,7 +1045,7 @@ export const PurchaseInvoices = () => {
               </div>
 
               {/* Footer */}
-              <div className="mt-8 text-center text-sm text-gray-500">
+              <div className="mt-6 sm:mt-8 text-center text-xs sm:text-sm text-gray-500">
                 Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
               </div>
             </div>
