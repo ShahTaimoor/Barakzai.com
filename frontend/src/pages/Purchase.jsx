@@ -56,25 +56,84 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
     : (product.name || 'Unknown Product');
   
   return (
-    <div className={`py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-      {/* Structured Grid Layout - Following Purchase Orders Format */}
-      <div className="grid grid-cols-12 gap-4 items-center">
+    <div className={`py-2 sm:py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+      {/* Mobile Card Layout */}
+      <div className="md:hidden space-y-3 p-3 border border-gray-200 rounded-lg">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>
+              {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low Stock</span>}
+            </div>
+            <p className="font-medium text-sm truncate">{displayName}</p>
+            {product.isVariant && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                {product.variantType}: {product.variantValue}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => onRemove(item.product?._id)}
+            className="btn btn-danger btn-sm p-1 flex-shrink-0"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Stock</label>
+            <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center">
+              {currentStock}
+            </span>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Total</label>
+            <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center">
+              {totalPrice.toFixed(2)}
+            </span>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Quantity</label>
+            <input
+              type="number"
+              value={item.quantity}
+              onChange={(e) => onUpdateQuantity(item.product?._id, parseInt(e.target.value) || 1)}
+              className="input text-center text-sm h-8"
+              min="1"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Cost</label>
+            <input
+              type="number"
+              step="0.01"
+              value={item.costPerUnit}
+              onChange={(e) => onUpdateCost(item.product?._id, parseFloat(e.target.value) || 0)}
+              className="input text-center text-sm h-8"
+              min="0"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Table Layout */}
+      <div className="hidden md:grid grid-cols-12 gap-3 sm:gap-4 items-center">
         {/* Serial Number - 1 column */}
         <div className="col-span-1">
-          <span className="text-sm font-medium text-gray-700 bg-gray-50 px-0.5 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+          <span className="text-xs sm:text-sm font-medium text-gray-700 bg-gray-50 px-0.5 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
             {index + 1}
           </span>
         </div>
         
         {/* Product Name - 6 columns */}
-        <div className="col-span-6 flex items-center h-8">
-          <div className="flex flex-col">
-            <span className="font-medium text-sm truncate">
+        <div className="col-span-6 flex items-center h-8 min-w-0">
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="font-medium text-xs sm:text-sm truncate">
               {displayName}
               {isLowStock && <span className="text-yellow-600 text-xs ml-2">⚠️ Low Stock</span>}
             </span>
             {product.isVariant && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 truncate">
                 {product.variantType}: {product.variantValue}
               </span>
             )}
@@ -83,7 +142,7 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
         
         {/* Stock - 1 column */}
         <div className="col-span-1">
-          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+          <span className="text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
             {currentStock}
           </span>
         </div>
@@ -94,7 +153,7 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
             type="number"
             value={item.quantity}
             onChange={(e) => onUpdateQuantity(item.product?._id, parseInt(e.target.value) || 1)}
-            className="input text-center h-8"
+            className="input text-center text-xs sm:text-sm h-8"
             min="1"
           />
         </div>
@@ -106,14 +165,14 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
             step="0.01"
             value={item.costPerUnit}
             onChange={(e) => onUpdateCost(item.product?._id, parseFloat(e.target.value) || 0)}
-            className="input text-center h-8"
+            className="input text-center text-xs sm:text-sm h-8"
             min="0"
           />
         </div>
         
         {/* Total - 1 column */}
         <div className="col-span-1">
-          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
+          <span className="text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-8 flex items-center justify-center">
             {totalPrice.toFixed(2)}
           </span>
         </div>
@@ -301,10 +360,10 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
   return (
     <div className="space-y-4">
       {/* Product Selection - Same format as Sales */}
-      <div className="grid grid-cols-12 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 items-end">
         {/* Product Search - 7 columns (increased from 6) */}
-        <div className="col-span-7">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="col-span-1 sm:col-span-7">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             Product Search
           </label>
           <SearchableDropdown
@@ -330,18 +389,18 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
         </div>
         
         {/* Stock - 1 column */}
-        <div className="col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="col-span-1 sm:col-span-1">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             Stock
           </label>
-          <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-10 flex items-center justify-center">
+          <span className="text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 px-2 py-1 rounded border border-gray-200 block text-center h-10 flex items-center justify-center">
             {selectedProduct ? (selectedProduct.inventory?.currentStock || 0) : '0'}
           </span>
         </div>
         
         {/* Quantity - 1 column */}
-        <div className="col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="col-span-1 sm:col-span-1">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             Quantity
           </label>
           <input
@@ -355,14 +414,14 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
                 handleAddToCart();
               }
             }}
-            className="input text-center"
+            className="input text-center text-sm sm:text-base"
             placeholder="1 (Enter to add & focus search)"
           />
         </div>
         
         {/* Cost - 1 column (reduced from 2) */}
-        <div className="col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="col-span-1 sm:col-span-1">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             Cost
           </label>
           <input
@@ -376,40 +435,40 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
                 handleAddToCart();
               }
             }}
-            className="input text-center"
+            className="input text-center text-sm sm:text-base"
             placeholder="0 (Enter to add & focus search)"
             required
           />
         </div>
         
         {/* Amount - 1 column */}
-        <div className="col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="col-span-1 sm:col-span-1">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             Amount
           </label>
           <input
             type="text"
             value={selectedProduct ? Math.round(quantity * parseFloat(costPerUnit || 0)) : ''}
-            className="input text-center font-medium"
+            className="input text-center font-medium text-sm sm:text-base"
             disabled
             placeholder=""
           />
         </div>
         
         {/* Add Button - 1 column */}
-        <div className="col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="col-span-1 sm:col-span-1">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             &nbsp;
           </label>
           <button
             type="button"
             onClick={handleAddToCart}
-            className="w-full btn btn-primary flex items-center justify-center px-3 py-2"
+            className="w-full btn btn-primary btn-md flex items-center justify-center gap-2"
             disabled={!selectedProduct}
             title="Add to cart (or press Enter in Quantity/Cost fields - focus returns to search)"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Add
+            <Plus className="h-4 w-4" />
+            <span>Add</span>
           </button>
         </div>
       </div>
@@ -1128,19 +1187,20 @@ export const Purchase = ({ tabId, editData }) => {
   return (
     <>
       <div className="space-y-4 lg:space-y-6">
-      <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'items-start justify-between'}`}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-gray-900`}>Purchase</h1>
-          <p className="text-gray-600">Process purchase transactions</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Purchase</h1>
+          <p className="text-sm sm:text-base text-gray-600">Process purchase transactions</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 w-full sm:w-auto">
             <button
               onClick={handleExport}
-              className="btn btn-secondary btn-md"
+              className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
               title="Export Purchase Report"
             >
-              <Download className="h-4 w-4 mr-2" />
-              Export Purchase Report
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Export Purchase Report</span>
+              <span className="sm:hidden">Export</span>
             </button>
             <button
               onClick={() => {
@@ -1157,20 +1217,20 @@ export const Purchase = ({ tabId, editData }) => {
                   });
                 }
               }}
-              className="btn btn-primary btn-md"
+              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
             >
-            <Plus className="h-4 w-4 mr-2" />
-            New Purchase
+            <Plus className="h-4 w-4" />
+            <span>New Purchase</span>
           </button>
         </div>
       </div>
 
       {/* Supplier Selection and Information Row */}
-      <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'items-start space-x-4'}`}>
+      <div className="flex flex-col lg:flex-row items-start gap-4 lg:space-x-4">
         {/* Supplier Selection */}
-        <div className={`${isMobile ? 'w-full' : 'w-[500px] flex-shrink-0'}`}>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">
+        <div className="w-full lg:w-[500px] lg:flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700">
               Select Supplier
             </label>
             <div className="flex items-center space-x-2">
@@ -1215,43 +1275,43 @@ export const Purchase = ({ tabId, editData }) => {
         </div>
 
         {/* Supplier Information - Right Side */}
-        <div className={`${isMobile ? 'w-full' : 'flex-1'}`}>
+        <div className="w-full lg:flex-1">
           {selectedSupplier ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center space-x-3">
-                <Building className="h-5 w-5 text-gray-400" />
-                <div className="flex-1">
-                  <p className="font-medium">{selectedSupplier.displayName || selectedSupplier.name || selectedSupplier.companyName || 'Unknown Supplier'}</p>
-                  <p className="text-sm text-gray-600 capitalize">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
+              <div className="flex items-start sm:items-center space-x-3">
+                <Building className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0 mt-1 sm:mt-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm sm:text-base truncate">{selectedSupplier.displayName || selectedSupplier.name || selectedSupplier.companyName || 'Unknown Supplier'}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 capitalize mt-1">
                     {selectedSupplier.businessType && selectedSupplier.reliability 
                       ? `${selectedSupplier.businessType} • ${selectedSupplier.reliability}`
                       : selectedSupplier.businessType || selectedSupplier.reliability || 'Supplier Information'
                     }
                   </p>
-                  <div className="flex items-center space-x-4 mt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:space-x-4 mt-2">
                     <div className="flex items-center space-x-1">
                       <span className="text-xs text-gray-500">Outstanding Balance:</span>
-                      <span className={`text-sm font-medium ${(selectedSupplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className={`text-xs sm:text-sm font-medium ${(selectedSupplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         ${Math.round(selectedSupplier.pendingBalance || 0)}
                       </span>
                     </div>
                     {selectedSupplier.phone && (
                       <div className="flex items-center space-x-1">
                         <Phone className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-500">{selectedSupplier.phone}</span>
+                        <span className="text-xs text-gray-500 truncate">{selectedSupplier.phone}</span>
                       </div>
                     )}
                     {selectedSupplier.email && (
-                      <div className="flex items-center space-x-1">
-                        <Mail className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-500">{selectedSupplier.email}</span>
+                      <div className="flex items-center space-x-1 min-w-0">
+                        <Mail className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                        <span className="text-xs text-gray-500 truncate">{selectedSupplier.email}</span>
                       </div>
                     )}
                   </div>
                   {selectedSupplier.address && (
-                    <div className="flex items-center space-x-1 mt-1">
-                      <MapPin className="h-3 w-3 text-gray-400" />
-                      <span className="text-xs text-gray-500">{selectedSupplier.address}</span>
+                    <div className="flex items-start space-x-1 mt-1">
+                      <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-xs text-gray-500 break-words">{selectedSupplier.address}</span>
                     </div>
                   )}
                 </div>
@@ -1268,28 +1328,28 @@ export const Purchase = ({ tabId, editData }) => {
       {/* Combined Product Selection and Cart Section */}
       <div className="card">
         <div className="card-header">
-          <h3 className="text-lg font-medium text-gray-900">Product Selection & Cart</h3>
+          <h3 className="text-base sm:text-lg font-medium text-gray-900">Product Selection & Cart</h3>
         </div>
         <div className="card-content">
           {/* Product Search */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <ProductSearch onAddProduct={addToPurchase} onRefetchReady={setRefetchProducts} />
           </div>
 
           {/* Cart Items */}
           {purchaseItems.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 border-t border-gray-200">
-              <Package className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2">No items in cart</p>
+            <div className="p-6 sm:p-8 text-center text-gray-500 border-t border-gray-200">
+              <Package className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
+              <p className="mt-2 text-sm sm:text-base">No items in cart</p>
             </div>
           ) : (
-            <div className="space-y-4 border-t border-gray-200 pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-md font-medium text-gray-700">Cart Items</h4>
+            <div className="space-y-4 border-t border-gray-200 pt-4 sm:pt-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+                <h4 className="text-sm sm:text-md font-medium text-gray-700">Cart Items</h4>
                 <button
                   type="button"
                   onClick={handleSortPurchaseItems}
-                  className="btn btn-secondary btn-sm flex items-center space-x-2"
+                  className="btn btn-secondary btn-sm flex items-center justify-center gap-2 w-full sm:w-auto"
                   title="Sort products alphabetically"
                 >
                   <ArrowUpDown className="h-4 w-4" />
@@ -1313,14 +1373,14 @@ export const Purchase = ({ tabId, editData }) => {
 
       {/* Combined Purchase Details and Order Summary */}
       {purchaseItems.length > 0 && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg max-w-5xl ml-auto mt-4">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg w-full lg:max-w-5xl lg:ml-auto mt-4">
           {/* Purchase Details Section */}
-          <div className="px-6 py-4 border-b border-blue-200">
-            <h3 className="text-lg font-medium text-gray-900 text-right mb-4">Purchase Details</h3>
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-blue-200">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 text-left sm:text-right mb-3 sm:mb-4">Purchase Details</h3>
             {/* Single Row Layout for Purchase Details */}
-            <div className="flex flex-nowrap gap-3 items-end justify-end">
+            <div className="flex flex-col sm:flex-row sm:flex-nowrap gap-3 sm:items-end sm:justify-end">
               {/* Invoice Number */}
-              <div className="flex flex-col w-44">
+              <div className="flex flex-col w-full sm:w-44">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Invoice Number
                 </label>
@@ -1328,14 +1388,14 @@ export const Purchase = ({ tabId, editData }) => {
                   type="text"
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
-                  className="input h-8 text-sm"
+                  className="input h-8 sm:h-8 text-sm"
                   placeholder={autoGenerateInvoice ? "Auto-generated" : "Enter invoice number"}
                   disabled={autoGenerateInvoice}
                 />
               </div>
 
               {/* Expected Delivery */}
-              <div className="flex flex-col w-48">
+              <div className="flex flex-col w-full sm:w-48">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Expected Delivery
                 </label>
@@ -1343,12 +1403,12 @@ export const Purchase = ({ tabId, editData }) => {
                   type="date"
                   value={expectedDelivery}
                   onChange={(e) => setExpectedDelivery(e.target.value)}
-                  className="input h-8 text-sm"
+                  className="input h-8 sm:h-8 text-sm"
                 />
               </div>
 
               {/* Tax Exemption Option */}
-              <div className="flex flex-col w-40">
+              <div className="flex flex-col w-full sm:w-40">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Tax Status
                 </label>
@@ -1374,7 +1434,7 @@ export const Purchase = ({ tabId, editData }) => {
               </div>
 
               {/* Notes */}
-              <div className="flex flex-col w-[28rem]">
+              <div className="flex flex-col w-full sm:w-[28rem]">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Notes
                 </label>
@@ -1382,7 +1442,7 @@ export const Purchase = ({ tabId, editData }) => {
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="input h-8 text-sm"
+                  className="input h-8 sm:h-8 text-sm"
                   placeholder="Additional notes..."
                 />
               </div>
@@ -1390,50 +1450,50 @@ export const Purchase = ({ tabId, editData }) => {
           </div>
 
           {/* Order Summary Section */}
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
-                <h3 className="text-lg font-semibold text-white">Order Summary</h3>
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 sm:px-6 py-3 sm:py-4">
+                <h3 className="text-base sm:text-lg font-semibold text-white">Order Summary</h3>
               </div>
               
               {/* Order Summary Details */}
-              <div className="px-6 py-4">
-                <div className="space-y-3 mb-6">
+              <div className="px-4 sm:px-6 py-3 sm:py-4">
+                <div className="space-y-3 mb-4 sm:mb-6">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-800 font-semibold">Subtotal:</span>
-                    <span className="text-xl font-bold text-gray-900">{subtotal.toFixed(2)}</span>
+                    <span className="text-sm sm:text-base text-gray-800 font-semibold">Subtotal:</span>
+                    <span className="text-lg sm:text-xl font-bold text-gray-900">{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-800 font-semibold">
+                    <span className="text-sm sm:text-base text-gray-800 font-semibold">
                       {taxExempt ? 'Tax (Exempt):' : 'Tax (8%):'}
                     </span>
-                    <span className="text-xl font-bold text-gray-900">{tax.toFixed(2)}</span>
+                    <span className="text-lg sm:text-xl font-bold text-gray-900">{tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-800 font-semibold">Purchase Total:</span>
-                    <span className="text-xl font-bold text-gray-900">{total.toFixed(2)}</span>
+                    <span className="text-sm sm:text-base text-gray-800 font-semibold">Purchase Total:</span>
+                    <span className="text-lg sm:text-xl font-bold text-gray-900">{total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-800 font-semibold">Previous Outstanding:</span>
-                    <span className="text-xl font-bold text-red-600">{supplierOutstanding.toFixed(2)}</span>
+                    <span className="text-sm sm:text-base text-gray-800 font-semibold">Previous Outstanding:</span>
+                    <span className="text-lg sm:text-xl font-bold text-red-600">{supplierOutstanding.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xl font-bold border-t-2 border-blue-400 pt-3 mt-2">
+                  <div className="flex justify-between items-center text-base sm:text-xl font-bold border-t-2 border-blue-400 pt-3 mt-2">
                     <span className="text-blue-900">Total Payables:</span>
-                    <span className="text-blue-900 text-3xl">{totalPayables.toFixed(2)}</span>
+                    <span className="text-blue-900 text-2xl sm:text-3xl">{totalPayables.toFixed(2)}</span>
                   </div>
                 </div>
 
               {/* Payment and Discount Section - One Row */}
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 items-start">
                   {/* Apply Discount */}
                   <div className="flex flex-col">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-800 mb-2">
                       Apply Discount
                     </label>
                     <div className="flex space-x-2">
                       <select
                         value={directDiscount.type}
                         onChange={(e) => setDirectDiscount({ ...directDiscount, type: e.target.value })}
-                        className="px-3 py-2 border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium h-[42px]"
+                        className="px-2 sm:px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium h-[42px]"
                       >
                         <option value="amount">Amount</option>
                         <option value="percentage">%</option>
@@ -1446,13 +1506,13 @@ export const Purchase = ({ tabId, editData }) => {
                           const value = parseFloat(e.target.value) || 0;
                           setDirectDiscount({ ...directDiscount, value });
                         }}
-                        className="flex-1 px-3 py-2 border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 h-[42px]"
+                        className="flex-1 px-2 sm:px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 h-[42px]"
                         min="0"
                         step={directDiscount.type === 'percentage' ? '0.1' : '0.01'}
                       />
                     </div>
                     {directDiscount.value > 0 && (
-                      <div className="text-sm text-green-700 font-semibold mt-2 bg-green-50 px-2 py-1 rounded">
+                      <div className="text-xs sm:text-sm text-green-700 font-semibold mt-2 bg-green-50 px-2 py-1 rounded">
                         {directDiscount.type === 'percentage' 
                           ? `${directDiscount.value}% = ${directDiscountAmount.toFixed(2)} off`
                           : `${directDiscount.value} off`
@@ -1463,13 +1523,13 @@ export const Purchase = ({ tabId, editData }) => {
 
                   {/* Payment Method */}
                   <div className="flex flex-col">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-800 mb-2">
                       Payment Method
                     </label>
                     <select
                       value={paymentMethod}
                       onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="w-full px-3 py-2 border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 h-[42px]"
+                      className="w-full px-2 sm:px-3 py-2 text-xs sm:text-sm border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 h-[42px]"
                     >
                       <option value="cash">Cash</option>
                       <option value="credit_card">Credit Card</option>
@@ -1480,7 +1540,7 @@ export const Purchase = ({ tabId, editData }) => {
 
                   {/* Amount Paid */}
                   <div className="flex flex-col">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-gray-800 mb-2">
                       Amount Paid
                     </label>
                     <input
@@ -1489,7 +1549,7 @@ export const Purchase = ({ tabId, editData }) => {
                       value={amountPaid}
                       onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
                       onFocus={(e) => e.target.select()}
-                      className="w-full px-3 py-2 border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 text-lg h-[42px]"
+                      className="w-full px-2 sm:px-3 py-2 text-sm sm:text-base border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 h-[42px]"
                       placeholder="0.00"
                     />
                   </div>
@@ -1500,7 +1560,7 @@ export const Purchase = ({ tabId, editData }) => {
                   <div className="mt-2">
                     <button
                       onClick={() => setDirectDiscount({ type: 'amount', value: 0 })}
-                      className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+                      className="btn btn-danger btn-sm"
                     >
                       Clear Discount
                     </button>
@@ -1511,7 +1571,7 @@ export const Purchase = ({ tabId, editData }) => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex space-x-3 mt-6 px-6 pb-6">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 mt-4 sm:mt-6 px-4 sm:px-6 pb-4 sm:pb-6">
                 {purchaseItems.length > 0 && (
                   <button
                     onClick={() => {
@@ -1524,10 +1584,10 @@ export const Purchase = ({ tabId, editData }) => {
                       setPaymentMethod('cash');
                       toast.success('Cart cleared');
                     }}
-                    className="btn btn-secondary flex-1"
+                    className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:flex-1"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Clear Cart
+                    <Trash2 className="h-4 w-4" />
+                    <span>Clear Cart</span>
                   </button>
                 )}
                  {purchaseItems.length > 0 && (
@@ -1584,19 +1644,20 @@ export const Purchase = ({ tabId, editData }) => {
                        setCurrentOrder(tempOrder);
                        setShowPrintModal(true);
                      }}
-                     className="btn btn-secondary flex-1"
+                     className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:flex-1"
                    >
-                     <Receipt className="h-4 w-4 mr-2" />
-                     Print Preview
+                     <Receipt className="h-4 w-4" />
+                     <span>Print Preview</span>
                    </button>
                  )}
                 <LoadingButton
                   onClick={handleProcessPurchase}
                   isLoading={false}
-                  className="btn btn-primary btn-lg flex-2"
+                  className="btn btn-primary btn-md sm:btn-lg flex items-center justify-center gap-2 w-full sm:flex-2"
                 >
-                  <Truck className="h-4 w-4 mr-2" />
-                  {editData?.isEditMode ? 'Update Purchase Invoice' : 'Complete Purchase & Update Inventory'}
+                  <Truck className="h-4 w-4" />
+                  <span className="hidden sm:inline">{editData?.isEditMode ? 'Update Purchase Invoice' : 'Complete Purchase & Update Inventory'}</span>
+                  <span className="sm:hidden">{editData?.isEditMode ? 'Update' : 'Complete Purchase'}</span>
                 </LoadingButton>
               </div>
             </div>

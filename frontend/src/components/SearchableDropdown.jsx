@@ -16,7 +16,8 @@ export const SearchableDropdown = forwardRef(({
   className = "",
   disabled = false,
   showSelected = true,
-  value = null
+  value = null,
+  openOnFocus = false
 }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -156,6 +157,10 @@ export const SearchableDropdown = forwardRef(({
     // Only update internal state if not controlled
     if (value === null) {
       setSearchTerm(term);
+    }
+    // Open dropdown when user starts typing
+    if (term && !isOpen) {
+      setIsOpen(true);
     }
   };
 
@@ -332,6 +337,19 @@ export const SearchableDropdown = forwardRef(({
   // Extract padding classes from className prop
   const hasCustomPadding = className.includes('pr-');
   
+  const handleInputClick = () => {
+    // Open dropdown when clicking on input (if there are items or a search term)
+    if (items.length > 0 || searchTerm || value) {
+      setIsOpen(true);
+    }
+  };
+
+  const handleChevronClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOpen(!isOpen);
+  };
+
   return (
     <div className={`relative ${className.replace(/pr-\d+/g, '').trim()}`} ref={containerRef}>
       <div className="relative">
@@ -352,12 +370,19 @@ export const SearchableDropdown = forwardRef(({
           value={getInputValue()}
           onChange={(e) => handleSearch(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsOpen(true)}
+          onClick={handleInputClick}
+          onFocus={() => {
+            // Only open on focus if openOnFocus prop is explicitly set to true
+            if (openOnFocus) {
+              setIsOpen(true);
+            }
+          }}
           disabled={disabled}
           className={`input pl-10 ${hasCustomPadding ? className.match(/pr-\d+/)?.[0] || 'pr-10' : 'pr-10'} w-full`}
         />
         <ChevronDown 
-          className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 transition-transform z-10 ${
+          onClick={handleChevronClick}
+          className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 transition-transform z-10 cursor-pointer ${
             isOpen ? 'rotate-180' : ''
           }`} 
         />
