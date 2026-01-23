@@ -160,7 +160,7 @@ const InventorySchema = new mongoose.Schema({
     },
     referenceModel: {
       type: String,
-      enum: ['SalesOrder', 'PurchaseOrder', 'PurchaseInvoice', 'StockAdjustment', 'Transfer', 'Return', 'Sales'],
+      enum: ['SalesOrder', 'PurchaseOrder', 'PurchaseInvoice', 'StockAdjustment', 'Transfer', 'Return', 'Sales', 'ProductTransformation'],
     },
     cost: {
       type: Number,

@@ -388,17 +388,23 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
             min="0"
             step="0.01"
             required
-            disabled={!!selectedVariantData}
           />
 
           {selectedVariantData && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Using variant default cost:</span>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-600">Variant default cost:</span>
                 <span className="text-sm font-medium text-gray-900">
                   ${selectedVariantData.transformationCost?.toFixed(2) || '0.00'}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, unitTransformationCost: selectedVariantData.transformationCost || 0 })}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                Use default cost
+              </button>
             </div>
           )}
 

@@ -98,7 +98,19 @@ router.post('/', [
   body('items.*.unitCost').isFloat({ min: 0 }).withMessage('Unit cost must be positive'),
   body('pricing.subtotal').isFloat({ min: 0 }).withMessage('Subtotal must be positive'),
   body('pricing.total').isFloat({ min: 0 }).withMessage('Total must be positive'),
-  body('invoiceNumber').optional().trim().isLength({ min: 1 }).withMessage('Invoice number must not be empty if provided'),
+  body('invoiceNumber')
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value) => {
+      // Allow empty string, null, or undefined - backend will auto-generate
+      if (!value || value === '' || value === null || value === undefined) {
+        return true;
+      }
+      // If provided, it must not be empty after trimming
+      if (typeof value === 'string' && value.trim().length === 0) {
+        throw new Error('Invoice number must not be empty if provided');
+      }
+      return true;
+    }),
   body('invoiceDate').optional().isISO8601().withMessage('Valid invoice date required (ISO 8601 format)'),
   handleValidationErrors
 ], async (req, res) => {

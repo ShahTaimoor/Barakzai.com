@@ -17,9 +17,14 @@ class CustomerAnalyticsService {
       const customerId = customer && customer._id ? customer._id : customer;
       
       // Get sales data for this customer
+      // Include orders that are not cancelled/returned and have been paid (or are confirmed/delivered)
       const sales = await SalesRepository.findAll({
         customer: customerId,
-        status: 'completed'
+        status: { $nin: ['cancelled', 'returned'] }, // Exclude cancelled and returned orders
+        $or: [
+          { 'payment.status': { $in: ['paid', 'partial'] } }, // Include paid orders
+          { status: { $in: ['confirmed', 'delivered'] } } // Include confirmed/delivered orders even if payment status is pending
+        ]
       }, {
         sort: { createdAt: -1 },
         lean: true
