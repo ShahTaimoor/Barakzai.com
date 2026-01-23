@@ -657,6 +657,7 @@ export const Sales = ({ tabId, editData }) => {
   const [isAdvancePayment, setIsAdvancePayment] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [autoGenerateInvoice, setAutoGenerateInvoice] = useState(true);
+  const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]); // Default to current date for backdating invoices
   const [notes, setNotes] = useState('');
   const [isLoadingLastPrices, setIsLoadingLastPrices] = useState(false);
   const [isRestoringPrices, setIsRestoringPrices] = useState(false);
@@ -1584,6 +1585,7 @@ export const Sales = ({ tabId, editData }) => {
       setDirectDiscount({ type: 'amount', value: 0 });
       setNotes('');
       setInvoiceNumber('');
+      setBillDate(new Date().toISOString().split('T')[0]); // Reset to current date
       setLastPurchasePrices({});
       setOriginalPrices({});
       setIsLastPricesApplied(false);
@@ -1765,6 +1767,7 @@ export const Sales = ({ tabId, editData }) => {
       isTaxExempt: isTaxExempt,
       total: total,
       invoiceNumber: invoiceNumber,
+      billDate: billDate || undefined, // Include billDate for backdating (invoice number will be based on this)
       notes: notes?.trim() || '',
       payment: {
         method: paymentMethod,
@@ -2575,6 +2578,25 @@ export const Sales = ({ tabId, editData }) => {
                   </div>
                 </div>
 
+                {/* Bill Date (for backdating) */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Bill Date <span className="text-gray-500">(Optional - for backdating)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={billDate}
+                    onChange={(e) => setBillDate(e.target.value)}
+                    className="input h-10 text-sm w-full"
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                  />
+                  {billDate && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Invoice number will be generated based on this date
+                    </p>
+                  )}
+                </div>
+
                 {/* Notes */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -2683,6 +2705,25 @@ export const Sales = ({ tabId, editData }) => {
                       </button>
                     )}
                   </div>
+                </div>
+
+                {/* Bill Date (for backdating) - Desktop */}
+                <div className="flex flex-col w-44">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Bill Date <span className="text-gray-500">(Optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={billDate}
+                    onChange={(e) => setBillDate(e.target.value)}
+                    className="input h-8 text-sm"
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                  />
+                  {billDate && (
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      Invoice number based on this date
+                    </p>
+                  )}
                 </div>
 
                 {/* Notes */}

@@ -32,7 +32,8 @@ import {
   HelpCircle,
   Wallet,
   FolderTree,
-  Download
+  Download,
+  Camera
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -61,8 +62,10 @@ const navigation = [
   // Operations
   { type: 'heading', name: 'Operations', color: 'bg-teal-500' },
   { name: 'Sale Returns', href: '/sale-returns', icon: RotateCcw },
+  { name: 'Purchase Returns', href: '/purchase-returns', icon: RotateCcw },
   { name: 'Returns', href: '/returns', icon: RotateCcw },
   { name: 'Discounts', href: '/discounts', icon: Tag },
+  { name: 'CCTV Access', href: '/cctv-access', icon: Camera },
   
   // Financial Transactions
   { type: 'heading', name: 'Financial Transactions', color: 'bg-yellow-500' },

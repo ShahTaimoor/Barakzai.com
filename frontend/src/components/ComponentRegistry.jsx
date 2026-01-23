@@ -39,7 +39,8 @@ const componentLoader = {
   '/drop-shipping': () => import('../pages/DropShipping').then(module => module.default || module.DropShipping),
   '/help': () => import('../pages/Help').then(module => module.default || module.Help),
   '/attendance': () => import('../pages/Attendance').then(module => module.default || module.Attendance),
-  '/employees': () => import('../pages/Employees').then(module => module.default || module.Employees)
+  '/employees': () => import('../pages/Employees').then(module => module.default || module.Employees),
+  '/cctv-access': () => import('../pages/CCTVAccess').then(module => module.default || module.CCTVAccess)
 };
 
 // Component registry mapping routes to component metadata
@@ -211,6 +212,11 @@ export const componentRegistry = {
   '/employees': {
     title: 'Employees',
     icon: 'Users',
+    allowMultiple: true
+  },
+  '/cctv-access': {
+    title: 'CCTV Access',
+    icon: 'Camera',
     allowMultiple: true
   }
 };

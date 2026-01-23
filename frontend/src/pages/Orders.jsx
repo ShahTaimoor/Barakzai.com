@@ -74,7 +74,7 @@ const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
               {order.customerInfo?.name || 'Walk-in Customer'}
             </p>
             <p className="text-sm text-gray-600">
-              {new Date(order.createdAt).toLocaleDateString()}
+              {order.billDate ? new Date(order.billDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}
             </p>
           </div>
           <div className="text-right">
@@ -147,6 +147,7 @@ export const Orders = () => {
   const [editFormData, setEditFormData] = useState({
     notes: '',
     items: [],
+    billDate: '',
     customer: null,
     orderType: 'retail'
   });
@@ -282,11 +283,22 @@ export const Orders = () => {
         : order.customer;
     }
     
+    // Format billDate for input (YYYY-MM-DD format)
+    const formatDateForInput = (date) => {
+      if (!date) return '';
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
     setEditFormData({
       notes: order.notes || '',
       items: formattedItems,
       customer: customerId,
-      orderType: order.orderType || 'retail'
+      orderType: order.orderType || 'retail',
+      billDate: formatDateForInput(order.billDate || order.createdAt)
     });
     
     // Reset product selection fields
@@ -333,6 +345,8 @@ export const Orders = () => {
           .totals td { padding: 5px 10px; }
           .totals .total-row { font-weight: bold; }
           .totals .total-row td { border-top: 1px solid #000; }
+          .cctv-section { background-color: #e0f2fe; border: 1px solid #93c5fd; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+          .cctv-title { font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #93c5fd; padding-bottom: 5px; }
           .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
           @media print { body { margin: 0; } .no-print { display: none; } }
         </style>
@@ -357,7 +371,7 @@ export const Orders = () => {
           <div class="invoice-info">
             <div class="section-title">Invoice Details:</div>
             <div><strong>Invoice #:</strong> ${order.orderNumber}</div>
-            <div><strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</div>
+            <div><strong>Date:</strong> ${order.billDate ? new Date(order.billDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}</div>
             <div><strong>Status:</strong> ${order.status}</div>
             <div><strong>Type:</strong> ${order.orderType}</div>
           </div>
@@ -412,6 +426,15 @@ export const Orders = () => {
             </tr>
           </table>
         </div>
+        
+        ${(order.billStartTime || order.billEndTime) ? `
+        <div class="cctv-section">
+          <div class="cctv-title">Camera Time</div>
+          ${order.billStartTime ? `<div><strong>From:</strong> ${new Date(order.billStartTime).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</div>` : ''}
+          ${order.billEndTime ? `<div><strong>To:</strong> ${new Date(order.billEndTime).toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</div>` : ''}
+          ${order.billStartTime && order.billEndTime ? `<div style="margin-top: 5px; font-size: 11px; color: #666;">Duration: ${Math.round((new Date(order.billEndTime) - new Date(order.billStartTime)) / 1000)} seconds</div>` : ''}
+        </div>
+        ` : ''}
         
         <div class="footer">
           <div>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</div>
@@ -636,7 +659,7 @@ export const Orders = () => {
                   {/* Date */}
                   <div className="col-span-1">
                     <span className="text-xs xl:text-sm text-gray-600">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {order.billDate ? new Date(order.billDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   
@@ -761,7 +784,7 @@ export const Orders = () => {
                     <div>
                       <p className="text-xs text-gray-500">Date</p>
                       <p className="text-sm font-medium text-gray-900">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {order.billDate ? new Date(order.billDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                     <div>
@@ -911,7 +934,10 @@ export const Orders = () => {
                   <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Invoice Details:</h3>
                   <div className="space-y-1">
                     <p><span className="font-medium">Invoice #:</span> {selectedOrder.orderNumber}</p>
-                    <p><span className="font-medium">Date:</span> {new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                    <p><span className="font-medium">Date:</span> {selectedOrder.billDate ? new Date(selectedOrder.billDate).toLocaleDateString() : new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
+                    {selectedOrder.billDate && new Date(selectedOrder.billDate).getTime() !== new Date(selectedOrder.createdAt).getTime() && (
+                      <p className="text-xs text-gray-500">(Original: {new Date(selectedOrder.createdAt).toLocaleDateString()})</p>
+                    )}
                     <p><span className="font-medium">Status:</span> {selectedOrder.status}</p>
                     <p><span className="font-medium">Type:</span> {selectedOrder.orderType}</p>
                   </div>
@@ -927,6 +953,57 @@ export const Orders = () => {
                   </div>
                 </div>
               </div>
+
+              {/* CCTV Camera Time Section */}
+              {(selectedOrder.billStartTime || selectedOrder.billEndTime) && (
+                <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 border-b border-blue-300 pb-2 mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Camera Time
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedOrder.billStartTime && (
+                      <p className="text-sm">
+                        <span className="font-medium text-gray-700">From:</span>{' '}
+                        <span className="text-gray-900">
+                          {new Date(selectedOrder.billStartTime).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false
+                          })}
+                        </span>
+                      </p>
+                    )}
+                    {selectedOrder.billEndTime && (
+                      <p className="text-sm">
+                        <span className="font-medium text-gray-700">To:</span>{' '}
+                        <span className="text-gray-900">
+                          {new Date(selectedOrder.billEndTime).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false
+                          })}
+                        </span>
+                      </p>
+                    )}
+                    {selectedOrder.billStartTime && selectedOrder.billEndTime && (
+                      <p className="text-xs text-gray-600 mt-2">
+                        Duration: {Math.round((new Date(selectedOrder.billEndTime) - new Date(selectedOrder.billStartTime)) / 1000)} seconds
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Items Table */}
               <div className="mb-8">
@@ -1092,6 +1169,20 @@ export const Orders = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
                     <p className="text-gray-900">{selectedOrder.orderNumber}</p>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bill Date <span className="text-xs text-gray-500">(for backdating/postdating)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={editFormData.billDate}
+                      onChange={(e) => setEditFormData({...editFormData, billDate: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Original date: {new Date(selectedOrder.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1117,7 +1208,8 @@ export const Orders = () => {
                   notes: editFormData.notes,
                   items: formattedItems,
                   orderType: editFormData.orderType,
-                  customer: customerId || undefined // Only include if not null
+                  customer: customerId || undefined, // Only include if not null
+                  billDate: editFormData.billDate || undefined // Include billDate for backdating/postdating
                 };
                 
                 handleUpdateOrder(selectedOrder._id, updateData);

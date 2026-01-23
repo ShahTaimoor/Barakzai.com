@@ -98,7 +98,8 @@ router.post('/', [
   body('items.*.unitCost').isFloat({ min: 0 }).withMessage('Unit cost must be positive'),
   body('pricing.subtotal').isFloat({ min: 0 }).withMessage('Subtotal must be positive'),
   body('pricing.total').isFloat({ min: 0 }).withMessage('Total must be positive'),
-  body('invoiceNumber').trim().isLength({ min: 1 }).withMessage('Invoice number is required'),
+  body('invoiceNumber').optional().trim().isLength({ min: 1 }).withMessage('Invoice number must not be empty if provided'),
+  body('invoiceDate').optional().isISO8601().withMessage('Valid invoice date required (ISO 8601 format)'),
   handleValidationErrors
 ], async (req, res) => {
   try {
@@ -116,7 +117,8 @@ router.post('/', [
       invoiceNumber,
       expectedDelivery,
       notes,
-      terms
+      terms,
+      invoiceDate
     } = req.body;
     
     const invoiceData = {
@@ -131,10 +133,11 @@ router.post('/', [
         paidAmount: payment?.amount || payment?.paidAmount || 0,
         isPartialPayment: payment?.isPartialPayment || false
       },
-      invoiceNumber,
+      invoiceNumber: invoiceNumber || undefined, // Only include if provided - pre-save hook will generate if missing
       expectedDelivery,
       notes,
       terms,
+      invoiceDate: invoiceDate ? new Date(invoiceDate) : null, // Allow custom invoice date (for backdating/postdating)
       createdBy: req.user._id
     };
     
@@ -299,6 +302,7 @@ router.put('/:id', [
   body('items.*.product').optional().isMongoId().withMessage('Valid Product ID is required'),
   body('items.*.quantity').optional().isFloat({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('items.*.unitCost').optional().isFloat({ min: 0 }).withMessage('Unit cost must be positive'),
+  body('invoiceDate').optional().isISO8601().withMessage('Valid invoice date required (ISO 8601 format)'),
   handleValidationErrors
 ], async (req, res) => {
   try {
@@ -332,6 +336,11 @@ router.put('/:id', [
       ...req.body,
       lastModifiedBy: req.user._id
     };
+    
+    // Update invoiceDate if provided (for backdating/postdating)
+    if (req.body.invoiceDate !== undefined) {
+      updateData.invoiceDate = req.body.invoiceDate ? new Date(req.body.invoiceDate) : null;
+    }
     
     // Update supplier info if supplier is being updated
     if (req.body.supplier !== undefined) {

@@ -438,6 +438,43 @@ const PrintModal = ({
                 </div>
               </div>
 
+              {/* CCTV Camera Time Section */}
+              {(orderData?.billStartTime || orderData?.billEndTime) && (
+                <div className="print-document__info-grid mt-4">
+                  <div className="print-document__info-block" style={{ gridColumn: '1 / -1' }}>
+                    <div className="print-document__section-label" style={{ color: '#2563eb', borderTop: '2px solid #93c5fd', paddingTop: '12px' }}>
+                      Camera Time
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                      {orderData.billStartTime && (
+                        <div className="print-document__info-line">
+                          <span className="print-document__info-label">From:</span>
+                          <span className="print-document__info-value">
+                            {formatDateTime(orderData.billStartTime)}
+                          </span>
+                        </div>
+                      )}
+                      {orderData.billEndTime && (
+                        <div className="print-document__info-line">
+                          <span className="print-document__info-label">To:</span>
+                          <span className="print-document__info-value">
+                            {formatDateTime(orderData.billEndTime)}
+                          </span>
+                        </div>
+                      )}
+                      {orderData.billStartTime && orderData.billEndTime && (
+                        <div className="print-document__info-line" style={{ fontSize: '11px', color: '#6b7280' }}>
+                          <span className="print-document__info-label">Duration:</span>
+                          <span className="print-document__info-value">
+                            {Math.round((new Date(orderData.billEndTime) - new Date(orderData.billStartTime)) / 1000)} seconds
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="print-document__section-label mt-6">Items:</div>
 
               <table className="print-document__table mt-3">

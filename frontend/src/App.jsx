@@ -33,6 +33,7 @@ const Backups = lazy(() => import('./pages/Backups').then(m => ({ default: m.Bac
 const PLStatements = lazy(() => import('./pages/PLStatements').then(m => ({ default: m.PLStatements })));
 const Returns = lazy(() => import('./pages/Returns'));
 const SaleReturns = lazy(() => import('./pages/SaleReturns'));
+const PurchaseReturns = lazy(() => import('./pages/PurchaseReturns'));
 const BalanceSheets = lazy(() => import('./pages/BalanceSheets'));
 const Discounts = lazy(() => import('./pages/Discounts'));
 const SalesPerformanceReports = lazy(() => import('./pages/SalesPerformanceReports'));
@@ -60,6 +61,7 @@ const Attendance = lazy(() => import('./pages/Attendance'));
 const Employees = lazy(() => import('./pages/Employees'));
 const ProductVariants = lazy(() => import('./pages/ProductVariants'));
 const ProductTransformations = lazy(() => import('./pages/ProductTransformations'));
+const CCTVAccess = lazy(() => import('./pages/CCTVAccess'));
 
 function App() {
   return (
@@ -102,6 +104,7 @@ function App() {
                         <Route path="/pl-statements" element={<Suspense fallback={<LoadingPage />}><PLStatements /></Suspense>} />
                         <Route path="/returns" element={<Suspense fallback={<LoadingPage />}><Returns /></Suspense>} />
                         <Route path="/sale-returns" element={<Suspense fallback={<LoadingPage />}><SaleReturns /></Suspense>} />
+                        <Route path="/purchase-returns" element={<Suspense fallback={<LoadingPage />}><PurchaseReturns /></Suspense>} />
                         <Route path="/balance-sheets" element={<Suspense fallback={<LoadingPage />}><BalanceSheets /></Suspense>} />
                         <Route path="/discounts" element={<Suspense fallback={<LoadingPage />}><Discounts /></Suspense>} />
                         <Route path="/sales-performance" element={<Suspense fallback={<LoadingPage />}><SalesPerformanceReports /></Suspense>} />
@@ -123,6 +126,7 @@ function App() {
                         <Route path="/settings2" element={<Suspense fallback={<LoadingPage />}><Settings2 /></Suspense>} />
                         <Route path="/attendance" element={<Suspense fallback={<LoadingPage />}><Attendance /></Suspense>} />
                         <Route path="/employees" element={<Suspense fallback={<LoadingPage />}><Employees /></Suspense>} />
+                        <Route path="/cctv-access" element={<Suspense fallback={<LoadingPage />}><CCTVAccess /></Suspense>} />
                         <Route path="/help" element={<Suspense fallback={<LoadingPage />}><Help /></Suspense>} />
                       </Routes>
                     </MultiTabLayout>

@@ -259,7 +259,7 @@ export const PurchaseInvoices = () => {
       <div class="section-title">Invoice Details:</div>
       <div class="section-content">
         <p><span class="font-medium">Invoice #:</span> ${safeRender(invoice.invoiceNumber)}</p>
-        <p><span class="font-medium">Date:</span> ${new Date(invoice.createdAt).toLocaleDateString()}</p>
+        <p><span class="font-medium">Date:</span> ${invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : new Date(invoice.createdAt).toLocaleDateString()}</p>
         <p><span class="font-medium">Status:</span> ${safeRender(invoice.status)}</p>
         <p><span class="font-medium">Type:</span> Purchase</p>
       </div>
@@ -479,6 +479,8 @@ export const PurchaseInvoices = () => {
         items: invoice.items || [],
         notes: invoice.notes || '',
         invoiceType: invoice.invoiceType || 'purchase',
+        invoiceDate: invoice.invoiceDate || invoice.createdAt, // Include invoiceDate for editing
+        createdAt: invoice.createdAt, // Include createdAt as fallback
         isEditMode: true
       };
       
@@ -957,7 +959,10 @@ export const PurchaseInvoices = () => {
                   <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Invoice Details:</h3>
                   <div className="space-y-1">
                     <p><span className="font-medium">Invoice #:</span> {selectedInvoice.invoiceNumber}</p>
-                    <p><span className="font-medium">Date:</span> {new Date(selectedInvoice.createdAt).toLocaleDateString()}</p>
+                    <p><span className="font-medium">Date:</span> {selectedInvoice.invoiceDate ? new Date(selectedInvoice.invoiceDate).toLocaleDateString() : new Date(selectedInvoice.createdAt).toLocaleDateString()}</p>
+                    {selectedInvoice.invoiceDate && new Date(selectedInvoice.invoiceDate).getTime() !== new Date(selectedInvoice.createdAt).getTime() && (
+                      <p className="text-xs text-gray-500">(Original: {new Date(selectedInvoice.createdAt).toLocaleDateString()})</p>
+                    )}
                     <p><span className="font-medium">Status:</span> {selectedInvoice.status}</p>
                     <p><span className="font-medium">Type:</span> Purchase</p>
                   </div>
