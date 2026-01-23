@@ -17,17 +17,17 @@ import {
   TrendingUp
 } from 'lucide-react';
 import {
-  useGetSaleReturnsQuery,
-  useGetCustomerInvoicesQuery,
-  useCreateSaleReturnMutation,
-  useGetSaleReturnStatsQuery,
-} from '../store/services/saleReturnsApi';
-import { useGetCustomersQuery } from '../store/services/customersApi';
+  useGetPurchaseReturnsQuery,
+  useGetSupplierInvoicesQuery,
+  useCreatePurchaseReturnMutation,
+  useGetPurchaseReturnStatsQuery,
+} from '../store/services/purchaseReturnsApi';
+import { useGetSuppliersQuery } from '../store/services/suppliersApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingCard, LoadingTable } from '../components/LoadingSpinner';
 import { useResponsive } from '../components/ResponsiveContainer';
 import { SearchableDropdown } from '../components/SearchableDropdown';
-import CreateSaleReturnModal from '../components/CreateSaleReturnModal';
+import CreatePurchaseReturnModal from '../components/CreatePurchaseReturnModal';
 import ReturnDetailModal from '../components/ReturnDetailModal';
 
 // Helper function to get local date in YYYY-MM-DD format
@@ -38,11 +38,11 @@ const getLocalDateString = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const SaleReturns = () => {
+const PurchaseReturns = () => {
   const today = getLocalDateString();
-  const [step, setStep] = useState('customer'); // 'customer', 'sales', 'return'
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedSale, setSelectedSale] = useState(null);
+  const [step, setStep] = useState('supplier'); // 'supplier', 'purchases', 'return'
+  const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState(null);
@@ -76,39 +76,39 @@ const SaleReturns = () => {
 
   const { isMobile } = useResponsive();
 
-  // Fetch customers for selection
-  const { data: customersData, isLoading: customersLoading } = useGetCustomersQuery(
+  // Fetch suppliers for selection
+  const { data: suppliersData, isLoading: suppliersLoading } = useGetSuppliersQuery(
     { limit: 100 },
-    { skip: step !== 'customer' }
+    { skip: step !== 'supplier' }
   );
 
-  const customers = customersData?.data?.customers || customersData?.customers || customersData?.items || [];
+  const suppliers = suppliersData?.data?.suppliers || suppliersData?.suppliers || suppliersData?.items || [];
 
-  // Fetch customer's sales invoices when customer is selected
+  // Fetch supplier's purchase invoices when supplier is selected
   const { 
     data: invoicesData, 
     isLoading: invoicesLoading,
     refetch: refetchInvoices
-  } = useGetCustomerInvoicesQuery(
-    selectedCustomer?._id,
-    { skip: !selectedCustomer?._id || step !== 'sales' }
+  } = useGetSupplierInvoicesQuery(
+    selectedSupplier?._id,
+    { skip: !selectedSupplier?._id || step !== 'purchases' }
   );
 
   const invoices = invoicesData?.data || [];
 
-  // Fetch sale returns (use active dates in filters)
+  // Fetch purchase returns (use active dates in filters)
   const { 
     data: returnsData, 
     isLoading: returnsLoading, 
     error: returnsError,
     refetch: refetchReturns
-  } = useGetSaleReturnsQuery({
+  } = useGetPurchaseReturnsQuery({
     ...filters,
     startDate: activeFromDate,
     endDate: activeToDate
   }, {
     onError: (error) => {
-      handleApiError(error, 'Fetch Sale Returns');
+      handleApiError(error, 'Fetch Purchase Returns');
     }
   });
 
@@ -119,7 +119,7 @@ const SaleReturns = () => {
   const { 
     data: statsData, 
     isLoading: statsLoading 
-  } = useGetSaleReturnStatsQuery(
+  } = useGetPurchaseReturnStatsQuery(
     activeFromDate && activeToDate
       ? {
           startDate: activeFromDate,
@@ -131,30 +131,30 @@ const SaleReturns = () => {
   const stats = statsData?.data || {};
 
   // Create return mutation
-  const [createSaleReturn, { isLoading: isCreatingReturn }] = useCreateSaleReturnMutation();
+  const [createPurchaseReturn, { isLoading: isCreatingReturn }] = useCreatePurchaseReturnMutation();
 
-  // Handle customer selection
-  const handleCustomerSelect = (customer) => {
-    setSelectedCustomer(customer);
-    setStep('sales');
-    setSelectedSale(null);
+  // Handle supplier selection
+  const handleSupplierSelect = (supplier) => {
+    setSelectedSupplier(supplier);
+    setStep('purchases');
+    setSelectedPurchase(null);
   };
 
-  // Handle sale selection
-  const handleSaleSelect = (sale) => {
-    setSelectedSale(sale);
+  // Handle purchase selection
+  const handlePurchaseSelect = (purchase) => {
+    setSelectedPurchase(purchase);
     setShowCreateModal(true);
   };
 
   // Handle return creation success
   const handleReturnCreated = () => {
     setShowCreateModal(false);
-    setSelectedSale(null);
-    setSelectedCustomer(null);
-    setStep('customer');
+    setSelectedPurchase(null);
+    setSelectedSupplier(null);
+    setStep('supplier');
     refetchReturns();
     refetchInvoices();
-    showSuccessToast('Sale return created successfully');
+    showSuccessToast('Purchase return created successfully');
   };
 
   // Handle return detail view
@@ -163,17 +163,17 @@ const SaleReturns = () => {
     setShowDetailModal(true);
   };
 
-  // Handle back to customer selection
-  const handleBackToCustomer = () => {
-    setSelectedCustomer(null);
-    setSelectedSale(null);
-    setStep('customer');
+  // Handle back to supplier selection
+  const handleBackToSupplier = () => {
+    setSelectedSupplier(null);
+    setSelectedPurchase(null);
+    setStep('supplier');
   };
 
-  // Handle back to sales list
-  const handleBackToSales = () => {
-    setSelectedSale(null);
-    setStep('sales');
+  // Handle back to purchases list
+  const handleBackToPurchases = () => {
+    setSelectedPurchase(null);
+    setStep('purchases');
   };
 
   // Format currency
@@ -235,8 +235,8 @@ const SaleReturns = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sale Returns</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage customer returns and refunds</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Purchase Returns</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage supplier returns and refunds</p>
         </div>
         
         {/* Date Filter (similar to Dashboard) */}
@@ -312,39 +312,38 @@ const SaleReturns = () => {
         </div>
       </div>
 
-      {/* Step 1: Customer Selection */}
-      {step === 'customer' && (
+      {/* Step 1: Supplier Selection */}
+      {step === 'supplier' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Step 1: Select Customer</h2>
-            <p className="text-sm text-gray-600">Choose a customer to view their sales and create a return</p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Step 1: Select Supplier</h2>
+            <p className="text-sm text-gray-600">Choose a supplier to view their purchases and create a return</p>
           </div>
 
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search Customer
+                Search Supplier
               </label>
-              {customersLoading ? (
+              {suppliersLoading ? (
                 <LoadingSpinner />
               ) : (
                 <SearchableDropdown
-                  placeholder="Search customer by name, phone, or email..."
-                  items={customers}
-                  onSelect={handleCustomerSelect}
-                  displayKey={(customer) => {
-                    const name = customer.displayName || customer.businessName || customer.name || 
-                                `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown';
+                  placeholder="Search supplier by name, phone, or email..."
+                  items={suppliers}
+                  onSelect={handleSupplierSelect}
+                  displayKey={(supplier) => {
+                    const name = supplier.companyName || supplier.businessName || supplier.name || 'Unknown';
                     return (
                       <div>
                         <div className="font-medium">{name}</div>
-                        {customer.phone && (
-                          <div className="text-xs text-gray-500">Phone: {customer.phone}</div>
+                        {supplier.phone && (
+                          <div className="text-xs text-gray-500">Phone: {supplier.phone}</div>
                         )}
                       </div>
                     );
                   }}
-                  selectedItem={selectedCustomer}
+                  selectedItem={selectedSupplier}
                   className="w-full"
                 />
               )}
@@ -353,26 +352,25 @@ const SaleReturns = () => {
         </div>
       )}
 
-      {/* Step 2: Sales List */}
-      {step === 'sales' && selectedCustomer && (
+      {/* Step 2: Purchases List */}
+      {step === 'purchases' && selectedSupplier && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <button
-                  onClick={handleBackToCustomer}
+                  onClick={handleBackToSupplier}
                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-2"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Change Customer
+                  Change Supplier
                 </button>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Step 2: Select Sale Invoice
+                  Step 2: Select Purchase Invoice
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Customer: <span className="font-medium">
-                    {selectedCustomer.displayName || selectedCustomer.businessName || selectedCustomer.name || 
-                     `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
+                  Supplier: <span className="font-medium">
+                    {selectedSupplier.companyName || selectedSupplier.businessName || selectedSupplier.name || 'N/A'}
                   </span>
                 </p>
               </div>
@@ -384,14 +382,14 @@ const SaleReturns = () => {
           ) : invoices.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No sales found for this customer</p>
+              <p className="text-gray-600">No purchase invoices found for this supplier</p>
             </div>
           ) : (
             <div className="space-y-3">
               {invoices.map((invoice) => (
                 <div
                   key={invoice._id}
-                  onClick={() => handleSaleSelect(invoice)}
+                  onClick={() => handlePurchaseSelect(invoice)}
                   className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all"
                 >
                   <div className="flex items-start justify-between">
@@ -399,10 +397,10 @@ const SaleReturns = () => {
                       <div className="flex items-center gap-3 mb-2">
                         <FileText className="h-5 w-5 text-blue-500" />
                         <span className="font-semibold text-gray-900">
-                          {invoice.orderNumber || invoice.invoiceNumber || 'N/A'}
+                          {invoice.invoiceNumber || invoice.poNumber || 'N/A'}
                         </span>
                         <span className="text-sm text-gray-500">
-                          {formatDate(invoice.createdAt || invoice.orderDate)}
+                          {formatDate(invoice.createdAt || invoice.invoiceDate)}
                         </span>
                       </div>
                       <div className="text-sm text-gray-600 ml-8">
@@ -424,10 +422,10 @@ const SaleReturns = () => {
       )}
 
       {/* Returns List */}
-      {step === 'customer' && (
+      {step === 'supplier' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Sale Returns</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Recent Purchase Returns</h2>
           </div>
 
           {returnsLoading ? (
@@ -435,7 +433,7 @@ const SaleReturns = () => {
           ) : returns.length === 0 ? (
             <div className="text-center py-12">
               <RotateCcw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No sale returns found</p>
+              <p className="text-gray-600">No purchase returns found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -446,10 +444,10 @@ const SaleReturns = () => {
                       Return Number
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Customer
+                      Supplier
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Original Sale
+                      Original Purchase
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
@@ -472,15 +470,13 @@ const SaleReturns = () => {
                         {returnItem.returnNumber}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {returnItem.customer?.displayName || returnItem.customer?.businessName || 
-                         returnItem.customer?.name || 'N/A'}
+                        {returnItem.supplier?.companyName || returnItem.supplier?.businessName || 
+                         returnItem.supplier?.name || 'N/A'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {returnItem.originalOrder?.orderNumber || 
-                         returnItem.originalOrder?.soNumber || 
-                         returnItem.originalOrder?.invoiceNumber || 
+                        {returnItem.originalOrder?.invoiceNumber || 
                          returnItem.originalOrder?.poNumber ||
-                         (returnItem.originalOrder?._id ? `Order ${returnItem.originalOrder._id.toString().slice(-6)}` : 'N/A')}
+                         (returnItem.originalOrder?._id ? `Invoice ${returnItem.originalOrder._id.toString().slice(-6)}` : 'N/A')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                         {formatCurrency(returnItem.netRefundAmount || 0)}
@@ -510,16 +506,16 @@ const SaleReturns = () => {
       )}
 
       {/* Create Return Modal */}
-      {showCreateModal && selectedSale && selectedCustomer && (
-        <CreateSaleReturnModal
+      {showCreateModal && selectedPurchase && selectedSupplier && (
+        <CreatePurchaseReturnModal
           isOpen={showCreateModal}
           onClose={() => {
             setShowCreateModal(false);
-            setSelectedSale(null);
+            setSelectedPurchase(null);
           }}
           onSuccess={handleReturnCreated}
-          sale={selectedSale}
-          customer={selectedCustomer}
+          purchaseInvoice={selectedPurchase}
+          supplier={selectedSupplier}
         />
       )}
 
@@ -539,4 +535,4 @@ const SaleReturns = () => {
   );
 };
 
-export default SaleReturns;
+export default PurchaseReturns;

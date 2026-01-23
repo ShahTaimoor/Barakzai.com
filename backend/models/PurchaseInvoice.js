@@ -27,8 +27,9 @@ const purchaseInvoiceSchema = new mongoose.Schema({
   // Invoice Information
   invoiceNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: false, // Made optional - will be auto-generated if not provided
+    unique: true,
+    sparse: true // Allow multiple null/undefined values
   },
   invoiceType: {
     type: String,
@@ -111,6 +112,13 @@ const purchaseInvoiceSchema = new mongoose.Schema({
   notes: String,
   terms: String,
   
+  // Editable Invoice Date (for backdating/postdating)
+  invoiceDate: {
+    type: Date,
+    default: null,
+    index: true
+  },
+  
   // Status and Tracking
   status: {
     type: String,
@@ -152,20 +160,40 @@ purchaseInvoiceSchema.index({ createdAt: -1 });
 // Pre-save middleware to generate invoice number
 purchaseInvoiceSchema.pre('save', async function(next) {
   if (this.isNew && !this.invoiceNumber) {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
+    // Use invoiceDate if provided (for backdating), otherwise use current date
+    const dateToUse = this.invoiceDate ? new Date(this.invoiceDate) : new Date();
+    const year = dateToUse.getFullYear();
+    const month = String(dateToUse.getMonth() + 1).padStart(2, '0');
+    const day = String(dateToUse.getDate()).padStart(2, '0');
     
-    // Get count of invoices today
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-    
-    const count = await this.constructor.countDocuments({
-      createdAt: { $gte: startOfDay, $lt: endOfDay }
-    });
-    
-    this.invoiceNumber = `PI-${year}${month}${day}-${String(count + 1).padStart(4, '0')}`;
+    // Use atomic counter for date-based invoice numbers (same approach as Sales)
+    try {
+      const Counter = mongoose.model('Counter');
+      const counterKey = `purchaseInvoiceNumber_${year}${month}${day}`;
+      
+      // Atomically increment counter using findOneAndUpdate
+      const counter = await Counter.findOneAndUpdate(
+        { _id: counterKey },
+        { $inc: { seq: 1 } },
+        { upsert: true, new: true }
+      );
+      
+      this.invoiceNumber = `PI-${year}${month}${day}-${String(counter.seq).padStart(4, '0')}`;
+    } catch (err) {
+      console.error('Error generating purchase invoice number:', err);
+      // Fallback to count-based method if Counter model fails
+      const startOfDay = new Date(dateToUse.getFullYear(), dateToUse.getMonth(), dateToUse.getDate());
+      const endOfDay = new Date(dateToUse.getFullYear(), dateToUse.getMonth(), dateToUse.getDate() + 1);
+      
+      const count = await this.constructor.countDocuments({
+        $or: [
+          { invoiceDate: { $gte: startOfDay, $lt: endOfDay } },
+          { createdAt: { $gte: startOfDay, $lt: endOfDay } }
+        ]
+      });
+      
+      this.invoiceNumber = `PI-${year}${month}${day}-${String(count + 1).padStart(4, '0')}`;
+    }
   }
   next();
 });

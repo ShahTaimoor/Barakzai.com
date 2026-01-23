@@ -92,6 +92,11 @@ export const componentRegistry = {
     icon: 'RotateCcw',
     component: () => import('../pages/SaleReturns').then(m => m.default || m.SaleReturns)
   },
+  '/purchase-returns': {
+    title: 'Purchase Returns',
+    icon: 'RotateCcw',
+    component: () => import('../pages/PurchaseReturns').then(m => m.default || m.PurchaseReturns)
+  },
   '/sales-orders': {
     title: 'Sales Orders',
     icon: 'FileText',
@@ -250,6 +255,12 @@ export const componentRegistry = {
     icon: 'Users',
     allowMultiple: true,
     component: () => import('../pages/Employees').then(m => m.default || m.Employees)
+  },
+  '/cctv-access': {
+    title: 'CCTV Access',
+    icon: 'Camera',
+    allowMultiple: true,
+    component: () => import('../pages/CCTVAccess').then(m => m.default || m.CCTVAccess)
   }
 };
 

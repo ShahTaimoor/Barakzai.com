@@ -197,6 +197,44 @@ class ProductService {
     // Transform product names to uppercase
     result.products = result.products.map(p => this.transformProductToUppercase(p));
 
+    // Merge inventory data from Inventory model (source of truth) into products
+    const Inventory = require('../models/Inventory');
+    const productIds = result.products.map(p => p._id || p.id);
+    
+    if (productIds.length > 0) {
+      const inventoryRecords = await Inventory.find({ 
+        product: { $in: productIds },
+        productModel: 'Product'
+      }).lean();
+      
+      // Create a map of inventory by product ID
+      const inventoryMap = new Map();
+      inventoryRecords.forEach(inv => {
+        inventoryMap.set(inv.product.toString(), inv);
+      });
+      
+      // Merge inventory data into products
+      result.products = result.products.map(product => {
+        const productId = (product._id || product.id).toString();
+        const inventoryRecord = inventoryMap.get(productId);
+        
+        if (inventoryRecord) {
+          // Use Inventory model as source of truth for currentStock
+          product.inventory = {
+            ...product.inventory,
+            currentStock: inventoryRecord.currentStock,
+            reorderPoint: inventoryRecord.reorderPoint || product.inventory?.reorderPoint || 0,
+            minStock: inventoryRecord.reorderPoint || product.inventory?.minStock || 0,
+            maxStock: inventoryRecord.maxStock || product.inventory?.maxStock,
+            availableStock: inventoryRecord.availableStock || inventoryRecord.currentStock,
+            reservedStock: inventoryRecord.reservedStock || 0
+          };
+        }
+        
+        return product;
+      });
+    }
+
     return result;
   }
 
@@ -217,7 +255,29 @@ class ProductService {
       throw new Error('Product not found');
     }
 
-    return this.transformProductToUppercase(product);
+    const transformedProduct = this.transformProductToUppercase(product);
+
+    // Merge inventory data from Inventory model (source of truth)
+    const Inventory = require('../models/Inventory');
+    const inventoryRecord = await Inventory.findOne({ 
+      product: id,
+      productModel: 'Product'
+    }).lean();
+    
+    if (inventoryRecord) {
+      // Use Inventory model as source of truth for currentStock
+      transformedProduct.inventory = {
+        ...transformedProduct.inventory,
+        currentStock: inventoryRecord.currentStock,
+        reorderPoint: inventoryRecord.reorderPoint || transformedProduct.inventory?.reorderPoint || 0,
+        minStock: inventoryRecord.reorderPoint || transformedProduct.inventory?.minStock || 0,
+        maxStock: inventoryRecord.maxStock || transformedProduct.inventory?.maxStock,
+        availableStock: inventoryRecord.availableStock || inventoryRecord.currentStock,
+        reservedStock: inventoryRecord.reservedStock || 0
+      };
+    }
+
+    return transformedProduct;
   }
 
   /**

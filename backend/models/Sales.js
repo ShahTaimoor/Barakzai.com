@@ -215,6 +215,25 @@ const orderSchema = new mongoose.Schema({
   deletedAt: {
     type: Date,
     default: null
+  },
+  
+  // CCTV Timestamp Fields
+  billStartTime: {
+    type: Date,
+    default: null,
+    index: true
+  },
+  billEndTime: {
+    type: Date,
+    default: null,
+    index: true
+  },
+  
+  // Editable Bill Date (for backdating/postdating)
+  billDate: {
+    type: Date,
+    default: null,
+    index: true
   }
 }, {
   timestamps: true
@@ -236,10 +255,12 @@ orderSchema.pre('save', async function(next) {
   if (this.isNew && !this.orderNumber) {
     try {
       const Counter = mongoose.model('Counter');
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
+      
+      // Use billDate if provided (for backdating), otherwise use current date
+      const dateToUse = this.billDate ? new Date(this.billDate) : new Date();
+      const year = dateToUse.getFullYear();
+      const month = String(dateToUse.getMonth() + 1).padStart(2, '0');
+      const day = String(dateToUse.getDate()).padStart(2, '0');
       
       // Use atomic counter for date-based order numbers
       // Counter key format: orderNumber_YYYYMMDD

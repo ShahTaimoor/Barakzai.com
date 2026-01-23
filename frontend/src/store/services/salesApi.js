@@ -70,6 +70,7 @@ export const salesApi = api.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'Sales', id },
         { type: 'Sales', id: 'LIST' },
+        { type: 'Sales', id: 'CCTV_LIST' }, // Invalidate CCTV orders list too
         { type: 'Products', id: 'LIST' }, // Invalidate products to refresh stock levels
         { type: 'Inventory', id: 'LIST' }, // Invalidate inventory cache
         { type: 'Customers', id: 'LIST' }, // Invalidate customers to refresh credit information
@@ -91,6 +92,20 @@ export const salesApi = api.injectEndpoints({
         method: 'get',
       }),
     }),
+    getCCTVOrders: builder.query({
+      query: (params) => ({
+        url: 'sales/cctv-orders',
+        method: 'get',
+        params,
+      }),
+      providesTags: (result) =>
+        result?.orders
+          ? [
+              ...result.orders.map(({ _id, id }) => ({ type: 'Sales', id: _id || id })),
+              { type: 'Sales', id: 'CCTV_LIST' },
+            ]
+          : [{ type: 'Sales', id: 'CCTV_LIST' }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -106,5 +121,6 @@ export const {
   useDeleteOrderMutation,
   useGetLastPricesQuery,
   useLazyGetLastPricesQuery,
+  useGetCCTVOrdersQuery,
 } = salesApi;
 

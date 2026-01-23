@@ -29,7 +29,8 @@ import {
   MapPin,
   AlertTriangle,
   Wallet,
-  ChevronRight
+  ChevronRight,
+  Camera
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTab } from '../contexts/TabContext';
@@ -61,8 +62,10 @@ const navigation = [
   // Operations Section
   { type: 'heading', name: 'Operations Section', color: 'bg-teal-500' },
   { name: 'Sale Returns', href: '/sale-returns', icon: RotateCcw, permission: 'view_returns' },
+  { name: 'Purchase Returns', href: '/purchase-returns', icon: RotateCcw, permission: 'view_returns' },
   { name: 'Returns', href: '/returns', icon: RotateCcw, permission: 'view_returns' },
   { name: 'Discounts', href: '/discounts', icon: Tag, permission: 'view_discounts' },
+  { name: 'CCTV Access', href: '/cctv-access', icon: Camera, permission: 'view_sales_invoices', allowMultiple: true },
   
   // Financial Transactions Section
   { type: 'heading', name: 'Financial Transactions', color: 'bg-yellow-500' },
@@ -155,7 +158,7 @@ export const MultiTabLayout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
-  const { openTab, tabs, switchToTab, triggerTabHighlight } = useTab();
+  const { openTab, tabs, switchToTab, triggerTabHighlight, activeTabId } = useTab();
 
   // Get alert summary for mobile bottom navbar
   const { data: summaryData } = useGetAlertSummaryQuery(undefined, {
@@ -168,12 +171,42 @@ export const MultiTabLayout = ({ children }) => {
   const displayCount = criticalCount > 0 ? criticalCount : (totalAlerts > 0 ? totalAlerts : 3);
 
   // Filter navigation based on user permissions
-  const filteredNavigation = navigation.filter(item => {
-    if (item.type === 'divider' || item.type === 'heading') return true; // Always show dividers and headings
+  const filteredNavigationItems = navigation.filter(item => {
+    if (item.type === 'divider' || item.type === 'heading') return true; // Keep all dividers and headings for now
     if (!item.permission) return true; // Always show items without permission requirement (like Dashboard)
     if (user?.role === 'admin') return true; // Admin users see everything
     return hasPermission(item.permission);
   });
+
+  // Now filter out headings that have no visible items underneath
+  const filteredNavigation = [];
+  for (let i = 0; i < filteredNavigationItems.length; i++) {
+    const item = filteredNavigationItems[i];
+    
+    if (item.type === 'heading') {
+      // Check if there are any visible items after this heading (until next heading)
+      let hasVisibleItems = false;
+      for (let j = i + 1; j < filteredNavigationItems.length; j++) {
+        const nextItem = filteredNavigationItems[j];
+        // Stop at next heading (dividers don't stop the search, they're just separators)
+        if (nextItem.type === 'heading') {
+          break;
+        }
+        // If we find a visible item (non-heading, non-divider), this heading should be shown
+        if (nextItem.type !== 'heading' && nextItem.type !== 'divider') {
+          hasVisibleItems = true;
+          break;
+        }
+      }
+      // Only add heading if it has visible items
+      if (hasVisibleItems) {
+        filteredNavigation.push(item);
+      }
+    } else {
+      // Add all non-heading items (dividers and regular items)
+      filteredNavigation.push(item);
+    }
+  }
 
   const handleLogout = () => {
     logout();
@@ -193,11 +226,22 @@ export const MultiTabLayout = ({ children }) => {
     const componentInfo = getComponentInfo(item.href);
     if (componentInfo) {
       const existingTab = tabs.find(tab => tab.path === item.href);
-      if (existingTab && reuseNavigationPaths.has(item.href)) {
+      
+      // If allowMultiple is true, always open a new tab
+      // If allowMultiple is false and tab exists, switch to existing tab (or reuse if in reuseNavigationPaths)
+      if (!componentInfo.allowMultiple && existingTab) {
+        if (reuseNavigationPaths.has(item.href)) {
+          switchToTab(existingTab.id);
+          triggerTabHighlight(existingTab.id);
+          return;
+        }
+        // For non-reuse paths, still switch to existing tab if not allowMultiple
         switchToTab(existingTab.id);
         triggerTabHighlight(existingTab.id);
         return;
       }
+      
+      // Open new tab (either because allowMultiple is true, or no existing tab)
       const tabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       openTab({
         title: componentInfo.title,
@@ -264,7 +308,26 @@ export const MultiTabLayout = ({ children }) => {
                 );
               }
               
-              const isActive = location.pathname === item.href;
+              // Normalize paths for comparison (remove trailing slashes)
+              const normalizedPathname = location.pathname.replace(/\/$/, '') || '/';
+              const normalizedHref = item.href.replace(/\/$/, '') || '/';
+              
+              // Check if item has component in registry
+              const componentInfo = getComponentInfo(item.href);
+              
+              // If item is in registry (opens as tab), check active tab
+              // If item is not in registry (like Dashboard), check location only
+              let isActive;
+              if (componentInfo) {
+                const activeTab = tabs.find(tab => tab.id === activeTabId);
+                const isActiveByTab = activeTab && activeTab.path === item.href;
+                const isActiveByLocation = normalizedPathname === normalizedHref;
+                isActive = isActiveByTab || isActiveByLocation;
+              } else {
+                // For items not in registry (Dashboard, etc.), only check location
+                isActive = normalizedPathname === normalizedHref;
+              }
+              
               return (
                 <button
                   key={item.name}
@@ -309,7 +372,26 @@ export const MultiTabLayout = ({ children }) => {
                 );
               }
               
-              const isActive = location.pathname === item.href;
+              // Normalize paths for comparison (remove trailing slashes)
+              const normalizedPathname = location.pathname.replace(/\/$/, '') || '/';
+              const normalizedHref = item.href.replace(/\/$/, '') || '/';
+              
+              // Check if item has component in registry
+              const componentInfo = getComponentInfo(item.href);
+              
+              // If item is in registry (opens as tab), check active tab
+              // If item is not in registry (like Dashboard), check location only
+              let isActive;
+              if (componentInfo) {
+                const activeTab = tabs.find(tab => tab.id === activeTabId);
+                const isActiveByTab = activeTab && activeTab.path === item.href;
+                const isActiveByLocation = normalizedPathname === normalizedHref;
+                isActive = isActiveByTab || isActiveByLocation;
+              } else {
+                // For items not in registry (Dashboard, etc.), only check location
+                isActive = normalizedPathname === normalizedHref;
+              }
+              
               return (
                 <button
                   key={item.name}
@@ -500,7 +582,6 @@ export const MultiTabLayout = ({ children }) => {
             className="flex flex-col items-center justify-center px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
             title="Cash Receipt"
           >
-            <Receipt className="h-3.5 w-3.5 mb-0.5" />
             <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Cash R.</span>
           </button>
           <button
@@ -508,7 +589,6 @@ export const MultiTabLayout = ({ children }) => {
             className="flex flex-col items-center justify-center px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
             title="Bank Receipt"
           >
-            <Receipt className="h-3.5 w-3.5 mb-0.5" />
             <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Bank R.</span>
           </button>
           
@@ -518,7 +598,6 @@ export const MultiTabLayout = ({ children }) => {
             className="flex flex-col items-center justify-center px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
             title="Cash Payment"
           >
-            <ArrowUpDown className="h-3.5 w-3.5 mb-0.5" />
             <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Cash P.</span>
           </button>
           <button
@@ -526,7 +605,6 @@ export const MultiTabLayout = ({ children }) => {
             className="flex flex-col items-center justify-center px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
             title="Bank Payment"
           >
-            <ArrowUpDown className="h-3.5 w-3.5 mb-0.5" />
             <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Bank P.</span>
           </button>
         </div>

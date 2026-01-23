@@ -165,22 +165,28 @@ const ReturnDetailModal = ({
         
         <div class="return-info" style="display: flex; gap: 20px; margin-bottom: 15px;">
           <div style="flex: 1;">
-            <h3 style="color: #333; margin-bottom: 8px; font-size: 12px; border-bottom: 1px solid #ddd; padding-bottom: 3px;">CUSTOMER DETAILS</h3>
+            <h3 style="color: #333; margin-bottom: 8px; font-size: 12px; border-bottom: 1px solid #ddd; padding-bottom: 3px;">${returnData.origin === 'purchase' ? 'SUPPLIER' : 'CUSTOMER'} DETAILS</h3>
             <div class="info-row">
-              <span class="info-label">Customer Name:</span>
-              <span class="info-value">${returnData.customer?.firstName && returnData.customer?.lastName ? 
-                `${returnData.customer.firstName} ${returnData.customer.lastName}` : 
-                returnData.customer?.name || 
-                returnData.customer?.businessName || 
-                'N/A'}</span>
+              <span class="info-label">${returnData.origin === 'purchase' ? 'Supplier' : 'Customer'} Name:</span>
+              <span class="info-value">${returnData.origin === 'purchase' 
+                ? (returnData.supplier?.companyName || returnData.supplier?.businessName || returnData.supplier?.name || 'N/A')
+                : (returnData.customer?.firstName && returnData.customer?.lastName ? 
+                    `${returnData.customer.firstName} ${returnData.customer.lastName}` : 
+                    returnData.customer?.name || 
+                    returnData.customer?.businessName || 
+                    'N/A')}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Email:</span>
-              <span class="info-value">${returnData.customer?.email || 'N/A'}</span>
+              <span class="info-value">${returnData.origin === 'purchase' 
+                ? (returnData.supplier?.email || 'N/A')
+                : (returnData.customer?.email || 'N/A')}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Phone:</span>
-              <span class="info-value">${returnData.customer?.phone || 'N/A'}</span>
+              <span class="info-value">${returnData.origin === 'purchase' 
+                ? (returnData.supplier?.phone || 'N/A')
+                : (returnData.customer?.phone || 'N/A')}</span>
             </div>
           </div>
           <div style="flex: 1;">
@@ -190,8 +196,10 @@ const ReturnDetailModal = ({
               <span class="info-value">${returnData.returnNumber}</span>
             </div>
             <div class="info-row">
-              <span class="info-label">Original Order:</span>
-              <span class="info-value">${returnData.originalOrder?.orderNumber || 'N/A'}</span>
+              <span class="info-label">Original ${returnData.origin === 'purchase' ? 'Invoice' : 'Order'}:</span>
+              <span class="info-value">${returnData.origin === 'purchase' 
+                ? (returnData.originalOrder?.invoiceNumber || returnData.originalOrder?.poNumber || 'N/A')
+                : (returnData.originalOrder?.orderNumber || returnData.originalOrder?.invoiceNumber || 'N/A')}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Status:</span>
@@ -397,30 +405,56 @@ const ReturnDetailModal = ({
         <div className="min-h-[400px]">
           {activeTab === 'details' && (
             <div className="space-y-6">
-              {/* Customer Information */}
+              {/* Customer/Supplier Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="card">
                   <div className="card-header">
-                    <h4 className="text-lg font-medium text-gray-900">Customer Information</h4>
+                    <h4 className="text-lg font-medium text-gray-900">
+                      {returnInfo.origin === 'purchase' ? 'Supplier' : 'Customer'} Information
+                    </h4>
                   </div>
                   <div className="card-content">
                     <div className="space-y-3">
-                      <div className="flex items-center">
-                        <User className="h-5 w-5 text-gray-400 mr-3" />
-                        <div>
-                          <div className="font-medium">
-                            {returnInfo.customer?.firstName} {returnInfo.customer?.lastName}
+                      {returnInfo.origin === 'purchase' ? (
+                        <>
+                          <div className="flex items-center">
+                            <User className="h-5 w-5 text-gray-400 mr-3" />
+                            <div>
+                              <div className="font-medium">
+                                {returnInfo.supplier?.companyName || returnInfo.supplier?.businessName || returnInfo.supplier?.name || 'N/A'}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {returnInfo.supplier?.email || 'N/A'}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {returnInfo.customer?.email}
+                          {returnInfo.supplier?.phone && (
+                            <div className="flex items-center">
+                              <Phone className="h-5 w-5 text-gray-400 mr-3" />
+                              <span>{returnInfo.supplier.phone}</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center">
+                            <User className="h-5 w-5 text-gray-400 mr-3" />
+                            <div>
+                              <div className="font-medium">
+                                {returnInfo.customer?.firstName} {returnInfo.customer?.lastName}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {returnInfo.customer?.email}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      {returnInfo.customer?.phone && (
-                        <div className="flex items-center">
-                          <Phone className="h-5 w-5 text-gray-400 mr-3" />
-                          <span>{returnInfo.customer.phone}</span>
-                        </div>
+                          {returnInfo.customer?.phone && (
+                            <div className="flex items-center">
+                              <Phone className="h-5 w-5 text-gray-400 mr-3" />
+                              <span>{returnInfo.customer.phone}</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -428,7 +462,9 @@ const ReturnDetailModal = ({
 
                 <div className="card">
                   <div className="card-header">
-                    <h4 className="text-lg font-medium text-gray-900">Order Information</h4>
+                    <h4 className="text-lg font-medium text-gray-900">
+                      {returnInfo.origin === 'purchase' ? 'Purchase Invoice' : 'Order'} Information
+                    </h4>
                   </div>
                   <div className="card-content">
                     <div className="space-y-3">
@@ -436,10 +472,12 @@ const ReturnDetailModal = ({
                         <FileText className="h-5 w-5 text-gray-400 mr-3" />
                         <div>
                           <div className="font-medium">
-                            {returnInfo.originalOrder?.orderNumber}
+                            {returnInfo.origin === 'purchase' 
+                              ? (returnInfo.originalOrder?.invoiceNumber || returnInfo.originalOrder?.poNumber || 'N/A')
+                              : (returnInfo.originalOrder?.orderNumber || returnInfo.originalOrder?.invoiceNumber || 'N/A')}
                           </div>
                           <div className="text-sm text-gray-500">
-                            Original order
+                            Original {returnInfo.origin === 'purchase' ? 'invoice' : 'order'}
                           </div>
                         </div>
                       </div>

@@ -83,6 +83,88 @@ router.get('/', [
   }
 });
 
+// @route   GET /api/sales/cctv-orders
+// @desc    Get orders with CCTV timestamps for camera access
+// @access  Private
+router.get('/cctv-orders', [
+  auth,
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('dateFrom').optional().isISO8601(),
+  query('dateTo').optional().isISO8601(),
+  query('orderNumber').optional().trim(),
+  query('customerId').optional().isMongoId()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Build query - only orders with CCTV timestamps
+    const query = {
+      billStartTime: { $exists: true, $ne: null },
+      billEndTime: { $exists: true, $ne: null },
+      isDeleted: { $ne: true }
+    };
+
+    // Add date filters
+    if (req.query.dateFrom || req.query.dateTo) {
+      query.createdAt = {};
+      if (req.query.dateFrom) {
+        const dateFrom = new Date(req.query.dateFrom);
+        dateFrom.setHours(0, 0, 0, 0);
+        query.createdAt.$gte = dateFrom;
+      }
+      if (req.query.dateTo) {
+        const dateTo = new Date(req.query.dateTo);
+        dateTo.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = dateTo;
+      }
+    }
+
+    // Add order number filter
+    if (req.query.orderNumber) {
+      query.orderNumber = { $regex: req.query.orderNumber, $options: 'i' };
+    }
+
+    // Add customer filter
+    if (req.query.customerId) {
+      query.customer = req.query.customerId;
+    }
+
+    // Get orders with CCTV timestamps
+    const orders = await Sales.find(query)
+      .populate('customer', 'displayName firstName lastName email phone')
+      .populate('createdBy', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Get total count
+    const total = await Sales.countDocuments(query);
+
+    res.json({
+      success: true,
+      orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get CCTV orders error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // @route   GET /api/sales/period-summary
 // @desc    Get period summary for comparisons (alternative route with hyphen)
 // @access  Private
@@ -243,8 +325,12 @@ router.post('/', [
   body('payment.isPartialPayment').optional().isBoolean().withMessage('Partial payment must be a boolean'),
   body('payment.isAdvancePayment').optional().isBoolean().withMessage('Advance payment must be a boolean'),
   body('payment.advanceAmount').optional().isFloat({ min: 0 }).withMessage('Advance amount must be a positive number'),
-  body('isTaxExempt').optional().isBoolean().withMessage('Tax exempt must be a boolean')
+  body('isTaxExempt').optional().isBoolean().withMessage('Tax exempt must be a boolean'),
+  body('billDate').optional().isISO8601().withMessage('Valid bill date required (ISO 8601 format)')
 ], async (req, res) => {
+  // Capture bill start time (when billing begins)
+  const billStartTime = new Date();
+  
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -260,7 +346,7 @@ router.post('/', [
       });
     }
     
-    const { customer, items, orderType, payment, notes, isTaxExempt } = req.body;
+    const { customer, items, orderType, payment, notes, isTaxExempt, billDate } = req.body;
     
     // Validate customer if provided
     let customerData = null;
@@ -673,7 +759,9 @@ router.post('/', [
       },
       status: 'confirmed', // Sales page orders are automatically confirmed since they directly impact stock
       notes,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      billStartTime: billStartTime, // Capture bill start time
+      billDate: billDate ? new Date(billDate) : null // Allow custom bill date (for backdating/postdating)
     };
     
     
@@ -778,9 +866,15 @@ router.post('/', [
       // Commit transaction
       await session.commitTransaction();
       
+      // Capture bill end time (when bill is finalized)
+      const billEndTime = new Date();
+      
       // Order is now saved and all related records created atomically
       // Store order ID for later retrieval
       const orderId = order._id;
+      
+      // Update order with bill end time
+      await Sales.findByIdAndUpdate(orderId, { billEndTime }, { new: true });
       
       // Reload order after transaction (since it was saved in session)
       const savedOrder = await Sales.findById(orderId);
@@ -946,7 +1040,8 @@ router.put('/:id', [
   body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.product').optional().isMongoId().withMessage('Valid product is required'),
   body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-  body('items.*.unitPrice').optional().isFloat({ min: 0 }).withMessage('Unit price must be positive')
+  body('items.*.unitPrice').optional().isFloat({ min: 0 }).withMessage('Unit price must be positive'),
+  body('billDate').optional().isISO8601().withMessage('Valid bill date required (ISO 8601 format)')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -990,6 +1085,11 @@ router.put('/:id', [
     
     if (req.body.notes !== undefined) {
       order.notes = req.body.notes;
+    }
+    
+    // Update billDate if provided (for backdating/postdating)
+    if (req.body.billDate !== undefined) {
+      order.billDate = req.body.billDate ? new Date(req.body.billDate) : null;
     }
     
     // Update items if provided and recalculate pricing

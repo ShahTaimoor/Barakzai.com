@@ -25,7 +25,8 @@ import {
   FolderTree,
   Building2,
   Receipt,
-  CreditCard
+  CreditCard,
+  Camera
 } from 'lucide-react';
 import { useResponsive } from './ResponsiveContainer';
 import { useAuth } from '../contexts/AuthContext';
@@ -85,6 +86,7 @@ const MobileNavigation = ({ user, onLogout }) => {
     { path: '/inventory', icon: Package, label: 'Inventory', badge: null, permission: 'view_inventory' },
     { path: '/stock-movements', icon: ArrowUpDown, label: 'Stock Movements', badge: null, permission: 'view_stock_movements' },
     { path: '/sale-returns', icon: RotateCcw, label: 'Sale Returns', badge: null, permission: 'view_returns' },
+    { path: '/purchase-returns', icon: RotateCcw, label: 'Purchase Returns', badge: null, permission: 'view_returns' },
     { path: '/returns', icon: RotateCcw, label: 'Returns', badge: null, permission: 'view_returns' },
     { path: '/discounts', icon: Tag, label: 'Discounts', badge: null, permission: 'view_discounts' },
     { path: '/pl-statements', icon: BarChart3, label: 'P&L Statements', badge: null, permission: 'view_pl_statements' },
@@ -101,7 +103,8 @@ const MobileNavigation = ({ user, onLogout }) => {
     { path: '/settings', icon: Settings, label: 'Settings', badge: null, permission: 'manage_users' },
     { path: '/cash-receiving', icon: Receipt, label: 'Cash Receiving', badge: null, permission: 'view_reports' },
     { path: '/cash-receipts', icon: Receipt, label: 'Cash Receipts', badge: null, permission: 'view_reports' },
-    { path: '/cash-payments', icon: CreditCard, label: 'Cash Payments', badge: null, permission: 'view_reports' }
+    { path: '/cash-payments', icon: CreditCard, label: 'Cash Payments', badge: null, permission: 'view_reports' },
+    { path: '/cctv-access', icon: Camera, label: 'CCTV Access', badge: null, permission: 'view_sales_invoices' }
   ];
 
   // Filter navigation based on user permissions
