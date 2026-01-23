@@ -40,35 +40,65 @@ class AccountingService {
    * @returns {Promise<String>} Account code
    */
   static async getAccountCode(accountName, accountType, accountCategory = null) {
-    const query = {
-      accountName: { $regex: new RegExp(accountName, 'i') },
+    // Create flexible search patterns for common account name variations
+    const namePatterns = {
+      'Cash': ['Cash', 'Cash on Hand', 'Cash Account'],
+      'Bank': ['Bank', 'Bank Accounts', 'Bank Account'],
+      'Accounts Receivable': ['Accounts Receivable', 'Account Receivable', 'AR', 'Receivables'],
+      'Inventory': ['Inventory', 'Stock', 'Merchandise'],
+      'Accounts Payable': ['Accounts Payable', 'Account Payable', 'AP', 'Payables'],
+      'Sales Revenue': ['Sales Revenue', 'Sales', 'Revenue from Sales'],
+      'Other Revenue': ['Other Revenue', 'Other Income', 'Miscellaneous Revenue'],
+      'Cost of Goods Sold': ['Cost of Goods Sold', 'COGS', 'Cost of Sales'],
+      'Other Expenses': ['Other Expenses', 'Miscellaneous Expenses', 'Other Operating Expenses']
+    };
+    
+    // Get search terms for this account name
+    const searchTerms = namePatterns[accountName] || [accountName];
+    
+    // Try each search pattern
+    for (const searchTerm of searchTerms) {
+      const query = {
+        accountName: { $regex: new RegExp(`^${searchTerm}$`, 'i') },
+        accountType: accountType,
+        isActive: true,
+        allowDirectPosting: true
+      };
+      
+      if (accountCategory) {
+        query.accountCategory = accountCategory;
+      }
+      
+      const account = await ChartOfAccountsRepository.findOne(query);
+      if (account) {
+        return account.accountCode;
+      }
+    }
+    
+    // Fallback: Try to find by account name pattern (partial match) and type
+    const fallbackAccount = await ChartOfAccountsRepository.findOne({
+      accountName: { $regex: new RegExp(accountName.split(' ')[0], 'i') }, // Match first word
       accountType: accountType,
       isActive: true,
       allowDirectPosting: true
-    };
+    });
     
-    if (accountCategory) {
-      query.accountCategory = accountCategory;
+    if (fallbackAccount) {
+      return fallbackAccount.accountCode;
     }
     
-    const account = await ChartOfAccountsRepository.findOne(query);
+    // Final fallback: Try to find by account name only (any type)
+    const anyTypeAccount = await ChartOfAccountsRepository.findOne({
+      accountName: { $regex: new RegExp(accountName.split(' ')[0], 'i') },
+      isActive: true
+    });
     
-    if (!account) {
-      // Fallback: Try to find by account name only
-      const fallbackAccount = await ChartOfAccountsRepository.findOne({
-        accountName: { $regex: new RegExp(accountName, 'i') },
-        isActive: true
-      });
-      
-      if (fallbackAccount) {
-        console.warn(`Account found but type mismatch: ${accountName}. Expected: ${accountType}, Found: ${fallbackAccount.accountType}`);
-        return fallbackAccount.accountCode;
-      }
-      
-      throw new Error(`Account not found: ${accountName} (${accountType}${accountCategory ? '/' + accountCategory : ''})`);
+    if (anyTypeAccount) {
+      console.warn(`Account found but type mismatch: ${accountName}. Expected: ${accountType}, Found: ${anyTypeAccount.accountType}`);
+      return anyTypeAccount.accountCode;
     }
     
-    return account.accountCode;
+    throw new Error(`Account not found: ${accountName} (${accountType}${accountCategory ? '/' + accountCategory : ''})`);
   }
 
   /**
@@ -104,8 +134,8 @@ class AccountingService {
         return '4001';
       });
       codes.otherRevenue = await this.getAccountCode('Other Revenue', 'revenue', 'other_revenue').catch((err) => {
-        console.warn(`Account lookup failed for Other Revenue, using fallback '4003':`, err.message);
-        return '4003';
+        console.warn(`Account lookup failed for Other Revenue, using fallback '4200':`, err.message);
+        return '4200';
       });
       codes.costOfGoodsSold = await this.getAccountCode('Cost of Goods Sold', 'expense', 'cost_of_goods_sold').catch((err) => {
         console.warn(`Account lookup failed for Cost of Goods Sold, using fallback '5001':`, err.message);
@@ -270,8 +300,9 @@ class AccountingService {
         // Customer refund - debit accounts receivable
         const arTransaction = await this.createTransaction({
           transactionId: `CP-AR-${cashPayment._id}`,
-          orderId: cashPayment.order || null,
+          orderId: cashPayment.order || undefined,
           paymentId: cashPayment._id,
+          paymentMethod: cashPayment.paymentMethod || 'cash',
           type: 'refund',
           amount: cashPayment.amount,
           currency: 'USD',
@@ -303,8 +334,9 @@ class AccountingService {
 
         const expenseTransaction = await this.createTransaction({
           transactionId: `CP-EXP-${cashPayment._id}`,
-          orderId: cashPayment.order || null,
+          orderId: cashPayment.order || undefined, // Use undefined instead of null for optional field
           paymentId: cashPayment._id,
+          paymentMethod: cashPayment.paymentMethod || 'cash', // Provide payment method
           type: 'sale',
           amount: cashPayment.amount,
           currency: 'USD',
@@ -343,8 +375,9 @@ class AccountingService {
       // Debit: Bank Account
       const bankTransaction = await this.createTransaction({
         transactionId: `BR-${bankReceipt._id}`,
-        orderId: bankReceipt.order || null,
+        orderId: bankReceipt.order || undefined,
         paymentId: bankReceipt._id,
+        paymentMethod: 'bank_transfer',
         type: 'sale',
         amount: bankReceipt.amount,
         currency: 'USD',
@@ -364,8 +397,9 @@ class AccountingService {
         // Customer payment - reduce accounts receivable
         const arTransaction = await this.createTransaction({
           transactionId: `BR-AR-${bankReceipt._id}`,
-          orderId: bankReceipt.order || null,
+          orderId: bankReceipt.order || undefined,
           paymentId: bankReceipt._id,
+          paymentMethod: 'bank_transfer',
           type: 'sale',
           amount: bankReceipt.amount,
           currency: 'USD',
@@ -383,8 +417,9 @@ class AccountingService {
         // Other income - credit revenue (use Other Revenue, not Sales Revenue)
         const revenueTransaction = await this.createTransaction({
           transactionId: `BR-REV-${bankReceipt._id}`,
-          orderId: bankReceipt.order || null,
+          orderId: bankReceipt.order || undefined,
           paymentId: bankReceipt._id,
+          paymentMethod: 'bank_transfer',
           type: 'sale',
           amount: bankReceipt.amount,
           currency: 'USD',
@@ -423,8 +458,9 @@ class AccountingService {
       // Credit: Bank Account
       const bankTransaction = await this.createTransaction({
         transactionId: `BP-${bankPayment._id}`,
-        orderId: bankPayment.order || null,
+        orderId: bankPayment.order || undefined,
         paymentId: bankPayment._id,
+        paymentMethod: 'bank_transfer',
         type: 'sale',
         amount: bankPayment.amount,
         currency: 'USD',
@@ -445,8 +481,9 @@ class AccountingService {
         // Supplier payment - reduce accounts payable
         const apTransaction = await this.createTransaction({
           transactionId: `BP-AP-${bankPayment._id}`,
-          orderId: bankPayment.order || null,
+          orderId: bankPayment.order || undefined,
           paymentId: bankPayment._id,
+          paymentMethod: 'bank_transfer',
           type: 'sale',
           amount: bankPayment.amount,
           currency: 'USD',
@@ -464,8 +501,9 @@ class AccountingService {
         // Customer refund - debit accounts receivable
         const arTransaction = await this.createTransaction({
           transactionId: `BP-AR-${bankPayment._id}`,
-          orderId: bankPayment.order || null,
+          orderId: bankPayment.order || undefined,
           paymentId: bankPayment._id,
+          paymentMethod: 'bank_transfer',
           type: 'refund',
           amount: bankPayment.amount,
           currency: 'USD',
@@ -497,8 +535,9 @@ class AccountingService {
 
         const expenseTransaction = await this.createTransaction({
           transactionId: `BP-EXP-${bankPayment._id}`,
-          orderId: bankPayment.order || null,
+          orderId: bankPayment.order || undefined, // Use undefined instead of null for optional field
           paymentId: bankPayment._id,
+          paymentMethod: 'bank_transfer', // Bank payment uses bank transfer
           type: 'sale',
           amount: bankPayment.amount,
           currency: 'USD',

@@ -146,6 +146,7 @@ app.use('/api/purchase-orders', require('./routes/purchaseOrders'));
 app.use('/api/inventory-alerts', require('./routes/inventoryAlerts'));
 app.use('/api/purchase-invoices', require('./routes/purchaseInvoices'));
 app.use('/api/purchase-returns', require('./routes/purchaseReturns'));
+app.use('/api/sale-returns', require('./routes/saleReturns'));
 app.use('/api/sales-orders', require('./routes/salesOrders'));
 app.use('/api/sales', require('./routes/sales'));
 app.use('/api/notes', require('./routes/notes'));
@@ -156,7 +157,7 @@ app.use('/api/backups', require('./routes/backups'));
 app.use('/api/pl-statements', require('./routes/plStatements')); // New P&L statements routes
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/payments', require('./routes/payments'));
-app.use('/api/returns', require('./routes/returns'));
+app.use('/api/returns', require('./routes/returns')); // Legacy route - kept for backward compatibility
 app.use('/api/recurring-expenses', require('./routes/recurringExpenses'));
 app.use('/api/balance-sheets', require('./routes/balanceSheets'));
 app.use('/api/discounts', require('./routes/discounts'));

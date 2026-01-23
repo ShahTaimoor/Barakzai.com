@@ -534,7 +534,6 @@ const BankPayments = () => {
       items: [],
       payment: {
         method: 'Bank Transfer',
-        status: 'Paid',
         amountPaid: payment.amount || 0
       },
       notes: payment.notes || payment.particular || '',

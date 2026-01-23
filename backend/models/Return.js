@@ -175,7 +175,12 @@ const returnSchema = new mongoose.Schema({
   },
   returnDate: {
     type: Date,
-    default: Date.now
+    default: function() {
+      // Set to start of today in local timezone to avoid timezone issues
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today;
+    }
   },
   approvalDate: Date,
   processingDate: Date,

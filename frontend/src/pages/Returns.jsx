@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   RefreshCw, 
   Search, 
@@ -43,6 +44,7 @@ const getLocalDateString = (date = new Date()) => {
 };
 
 const Returns = () => {
+  const navigate = useNavigate();
   const today = getLocalDateString();
   const [filters, setFilters] = useState({
     page: 1,
@@ -443,10 +445,7 @@ const Returns = () => {
             <span>Refresh</span>
           </button>
           <button
-            onClick={() => {
-              setPreselectedReturnType('sales');
-              setShowCreateModal(true);
-            }}
+            onClick={() => navigate('/sale-returns')}
             className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />

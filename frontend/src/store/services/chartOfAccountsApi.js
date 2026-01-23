@@ -6,7 +6,10 @@ export const chartOfAccountsApi = api.injectEndpoints({
       query: (params) => ({
         url: 'chart-of-accounts',
         method: 'get',
-        params,
+        params: {
+          ...params,
+          includeBalances: 'true', // Always include calculated balances
+        },
       }),
       transformResponse: (response) => {
         // Backend returns { success: true, data: accounts } where data is the array directly

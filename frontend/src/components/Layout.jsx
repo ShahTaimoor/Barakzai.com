@@ -60,6 +60,7 @@ const navigation = [
   
   // Operations
   { type: 'heading', name: 'Operations', color: 'bg-teal-500' },
+  { name: 'Sale Returns', href: '/sale-returns', icon: RotateCcw },
   { name: 'Returns', href: '/returns', icon: RotateCcw },
   { name: 'Discounts', href: '/discounts', icon: Tag },
   

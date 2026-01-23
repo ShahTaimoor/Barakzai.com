@@ -34,10 +34,48 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Get grouped account categories (specific route before /:id to avoid route conflict)
+router.get('/grouped', auth, async (req, res) => {
+  try {
+    const categories = await accountCategoryRepository.getAllCategoriesGrouped();
+    
+    res.json({
+      success: true,
+      data: categories
+    });
+  } catch (error) {
+    console.error('Error fetching grouped account categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch grouped account categories',
+      error: error.message
+    });
+  }
+});
+
 // Get single account category
 router.get('/:id', auth, async (req, res) => {
   try {
-    const category = await accountCategoryRepository.findById(req.params.id);
+    const { id } = req.params;
+    
+    // Validate that id is a valid ObjectId format
+    // Handle special keywords that might be mistaken for IDs
+    if (id === 'grouped' || id === 'all' || id === 'active') {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid category ID. Use query parameters instead. For example: /api/account-categories?grouped=true`
+      });
+    }
+    
+    // Check if id is a valid ObjectId format (24 hex characters)
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
+    
+    const category = await accountCategoryRepository.findById(id);
     
     if (!category) {
       return res.status(404).json({
@@ -108,7 +146,17 @@ router.post('/', auth, validateAccountCategory, async (req, res) => {
 // Update account category
 router.put('/:id', auth, validateAccountCategory, async (req, res) => {
   try {
-    const category = await accountCategoryRepository.findById(req.params.id);
+    const { id } = req.params;
+    
+    // Validate that id is a valid ObjectId format
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
+    
+    const category = await accountCategoryRepository.findById(id);
     
     if (!category) {
       return res.status(404).json({
@@ -130,7 +178,7 @@ router.put('/:id', auth, validateAccountCategory, async (req, res) => {
     };
     
     const updatedCategory = await accountCategoryRepository.updateById(
-      req.params.id,
+      id,
       updateData,
       { new: true, runValidators: true }
     );
@@ -161,7 +209,17 @@ router.put('/:id', auth, validateAccountCategory, async (req, res) => {
 // Delete account category
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const category = await accountCategoryRepository.findById(req.params.id);
+    const { id } = req.params;
+    
+    // Validate that id is a valid ObjectId format
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
+    
+    const category = await accountCategoryRepository.findById(id);
     
     if (!category) {
       return res.status(404).json({
@@ -189,7 +247,7 @@ router.delete('/:id', auth, async (req, res) => {
       });
     }
     
-    await accountCategoryRepository.hardDelete(req.params.id);
+    await accountCategoryRepository.hardDelete(id);
     
     res.json({
       success: true,

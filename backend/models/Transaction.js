@@ -8,11 +8,11 @@ const TransactionSchema = new mongoose.Schema({
     unique: true
   },
   
-  // Order reference
+  // Order reference (optional for expense transactions)
   orderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Sales',
-    required: true
+    required: false
   },
   
   // Payment reference
@@ -75,10 +75,10 @@ const TransactionSchema = new mongoose.Schema({
     default: 'pending'
   },
   
-  // Payment method
+  // Payment method (optional for accounting entries)
   paymentMethod: {
     type: String,
-    required: true,
+    required: false,
     enum: ['cash', 'credit_card', 'debit_card', 'digital_wallet', 'bank_transfer', 'check', 'gift_card', 'store_credit']
   },
   

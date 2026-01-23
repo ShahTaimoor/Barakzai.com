@@ -16,22 +16,49 @@ export const balanceSheetsApi = api.injectEndpoints({
         method: 'get',
         params,
       }),
-      providesTags: (result) =>
-        result?.data?.balanceSheets || result?.balanceSheets
+      transformResponse: (response) => {
+        // Backend returns { balanceSheets: [...], pagination: {...} }
+        // Normalize to { data: { balanceSheets: [...], pagination: {...} } }
+        if (response.balanceSheets || response.pagination) {
+          return {
+            data: {
+              balanceSheets: response.balanceSheets || [],
+              pagination: response.pagination || {}
+            }
+          };
+        }
+        // If already in expected format, return as is
+        return response;
+      },
+      providesTags: (result) => {
+        const balanceSheets = result?.data?.balanceSheets || result?.balanceSheets || [];
+        return balanceSheets.length > 0
           ? [
-              ...(result.data?.balanceSheets || result.balanceSheets).map(({ _id, id }) => ({
+              ...balanceSheets.map(({ _id, id }) => ({
                 type: 'Reports',
                 id: _id || id,
               })),
               { type: 'Reports', id: 'BALANCE_SHEETS' },
             ]
-          : [{ type: 'Reports', id: 'BALANCE_SHEETS' }],
+          : [{ type: 'Reports', id: 'BALANCE_SHEETS' }];
+      },
     }),
     getBalanceSheet: builder.query({
       query: (id) => ({
         url: `balance-sheets/${id}`,
         method: 'get',
       }),
+      transformResponse: (response) => {
+        // Backend returns balance sheet directly or wrapped in data
+        // Normalize to { data: balanceSheet }
+        if (response.statementNumber || response._id) {
+          return {
+            data: response
+          };
+        }
+        // If already in expected format, return as is
+        return response;
+      },
       providesTags: (_r, _e, id) => [{ type: 'Reports', id }],
     }),
     updateBalanceSheet: builder.mutation({
@@ -80,6 +107,17 @@ export const balanceSheetsApi = api.injectEndpoints({
         method: 'get',
         params,
       }),
+      transformResponse: (response) => {
+        // Backend returns stats object directly
+        // Normalize to { data: stats }
+        if (response.total !== undefined || response.byStatus || response.latestStatementDate) {
+          return {
+            data: response
+          };
+        }
+        // If already in expected format, return as is
+        return response;
+      },
       providesTags: [{ type: 'Reports', id: 'BALANCE_SHEETS_STATS' }],
     }),
     getLatestBalanceSheet: builder.query({

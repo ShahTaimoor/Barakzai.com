@@ -4,19 +4,20 @@ const { auth, requirePermission } = require('../middleware/auth');
 const { handleValidationErrors, sanitizeRequest } = require('../middleware/validation');
 const returnManagementService = require('../services/returnManagementService');
 const ReturnRepository = require('../repositories/ReturnRepository');
-const PurchaseInvoice = require('../models/PurchaseInvoice');
-const PurchaseOrder = require('../models/PurchaseOrder');
+const Sales = require('../models/Sales');
+const SalesOrder = require('../models/SalesOrder');
 
 const router = express.Router();
 
 // Helper functions to transform names to uppercase
-const transformSupplierToUppercase = (supplier) => {
-  if (!supplier) return supplier;
-  if (supplier.toObject) supplier = supplier.toObject();
-  if (supplier.name) supplier.name = supplier.name.toUpperCase();
-  if (supplier.businessName) supplier.businessName = supplier.businessName.toUpperCase();
-  if (supplier.companyName) supplier.companyName = supplier.companyName.toUpperCase();
-  return supplier;
+const transformCustomerToUppercase = (customer) => {
+  if (!customer) return customer;
+  if (customer.toObject) customer = customer.toObject();
+  if (customer.name) customer.name = customer.name.toUpperCase();
+  if (customer.businessName) customer.businessName = customer.businessName.toUpperCase();
+  if (customer.firstName) customer.firstName = customer.firstName.toUpperCase();
+  if (customer.lastName) customer.lastName = customer.lastName.toUpperCase();
+  return customer;
 };
 
 const transformProductToUppercase = (product) => {
@@ -27,14 +28,14 @@ const transformProductToUppercase = (product) => {
   return product;
 };
 
-// @route   POST /api/purchase-returns
-// @desc    Create a new purchase return request
+// @route   POST /api/sale-returns
+// @desc    Create a new sale return request
 // @access  Private (requires 'create_orders' permission)
 router.post('/', [
   auth,
   requirePermission('create_orders'),
   sanitizeRequest,
-  body('originalOrder').isMongoId().withMessage('Valid original purchase invoice/order ID is required'),
+  body('originalOrder').isMongoId().withMessage('Valid original order ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one return item is required'),
   body('items.*.product').isMongoId().withMessage('Valid product ID is required'),
   body('items.*.originalOrderItem').isMongoId().withMessage('Valid order item ID is required'),
@@ -51,10 +52,10 @@ router.post('/', [
   handleValidationErrors,
 ], async (req, res) => {
   try {
-    // Ensure origin is set to 'purchase'
+    // Ensure origin is set to 'sales'
     const returnData = {
       ...req.body,
-      origin: 'purchase',
+      origin: 'sales',
       requestedBy: req.user._id
     };
 
@@ -62,15 +63,15 @@ router.post('/', [
     
     // Populate the return with related data
     await returnRequest.populate([
-      { path: 'originalOrder', populate: { path: 'supplier' } },
-      { path: 'supplier', select: 'name businessName email phone companyName contactPerson' },
+      { path: 'originalOrder', populate: { path: 'customer' } },
+      { path: 'customer', select: 'name businessName email phone firstName lastName' },
       { path: 'items.product' },
       { path: 'requestedBy', select: 'firstName lastName email' }
     ]);
 
     // Transform names to uppercase
-    if (returnRequest.supplier) {
-      returnRequest.supplier = transformSupplierToUppercase(returnRequest.supplier);
+    if (returnRequest.customer) {
+      returnRequest.customer = transformCustomerToUppercase(returnRequest.customer);
     }
     if (returnRequest.items && Array.isArray(returnRequest.items)) {
       returnRequest.items.forEach(item => {
@@ -79,22 +80,22 @@ router.post('/', [
         }
       });
     }
-    if (returnRequest.originalOrder && returnRequest.originalOrder.supplier) {
-      returnRequest.originalOrder.supplier = transformSupplierToUppercase(returnRequest.originalOrder.supplier);
+    if (returnRequest.originalOrder && returnRequest.originalOrder.customer) {
+      returnRequest.originalOrder.customer = transformCustomerToUppercase(returnRequest.originalOrder.customer);
     }
 
     res.status(201).json({
-      message: 'Purchase return request created successfully',
+      message: 'Sale return request created successfully',
       return: returnRequest
     });
   } catch (error) {
-    console.error('Error creating purchase return:', error);
+    console.error('Error creating sale return:', error);
     res.status(400).json({ message: error.message });
   }
 });
 
-// @route   GET /api/purchase-returns
-// @desc    Get all purchase returns with filters
+// @route   GET /api/sale-returns
+// @desc    Get all sale returns with filters
 // @access  Private
 router.get('/', [
   auth,
@@ -108,7 +109,7 @@ router.get('/', [
   try {
     const queryParams = {
       ...req.query,
-      origin: 'purchase' // Filter only purchase returns
+      origin: 'sales' // Filter only sale returns
     };
 
     const result = await returnManagementService.getReturns(queryParams);
@@ -119,13 +120,13 @@ router.get('/', [
       pagination: result.pagination
     });
   } catch (error) {
-    console.error('Error fetching purchase returns:', error);
+    console.error('Error fetching sale returns:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route   GET /api/purchase-returns/:id
-// @desc    Get single purchase return by ID
+// @route   GET /api/sale-returns/:id
+// @desc    Get single sale return by ID
 // @access  Private
 router.get('/:id', [
   auth,
@@ -135,8 +136,8 @@ router.get('/:id', [
   try {
     const returnRequest = await returnManagementService.getReturnById(req.params.id);
     
-    if (returnRequest.origin !== 'purchase') {
-      return res.status(404).json({ message: 'Purchase return not found' });
+    if (returnRequest.origin !== 'sales') {
+      return res.status(404).json({ message: 'Sale return not found' });
     }
 
     res.json({
@@ -144,42 +145,42 @@ router.get('/:id', [
       data: returnRequest
     });
   } catch (error) {
-    console.error('Error fetching purchase return:', error);
+    console.error('Error fetching sale return:', error);
     res.status(404).json({ message: error.message });
   }
 });
 
-// @route   GET /api/purchase-returns/supplier/:supplierId/invoices
-// @desc    Get supplier's purchase invoices eligible for return
+// @route   GET /api/sale-returns/customer/:customerId/invoices
+// @desc    Get customer's sales invoices eligible for return
 // @access  Private
-router.get('/supplier/:supplierId/invoices', [
+router.get('/customer/:customerId/invoices', [
   auth,
-  param('supplierId').isMongoId().withMessage('Valid supplier ID is required'),
+  param('customerId').isMongoId().withMessage('Valid customer ID is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
-    const { supplierId } = req.params;
+    const { customerId } = req.params;
     const { limit = 50 } = req.query;
 
-    // Get recent purchase invoices for the supplier
-    const invoices = await PurchaseInvoice.find({ supplier: supplierId })
+    // Get recent sales invoices for the customer
+    const sales = await Sales.find({ customer: customerId })
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .populate('items.product', 'name description')
-      .select('invoiceNumber createdAt items pricing.total supplierInfo');
+      .select('orderNumber createdAt items pricing.total customerInfo');
 
     res.json({
       success: true,
-      data: invoices
+      data: sales
     });
   } catch (error) {
-    console.error('Error fetching supplier invoices:', error);
+    console.error('Error fetching customer invoices:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route   PUT /api/purchase-returns/:id/approve
-// @desc    Approve purchase return request
+// @route   PUT /api/sale-returns/:id/approve
+// @desc    Approve sale return request
 // @access  Private (requires 'approve_returns' permission)
 router.put('/:id/approve', [
   auth,
@@ -195,23 +196,23 @@ router.put('/:id/approve', [
       req.body.notes
     );
 
-    if (returnRequest.origin !== 'purchase') {
-      return res.status(400).json({ message: 'This is not a purchase return' });
+    if (returnRequest.origin !== 'sales') {
+      return res.status(400).json({ message: 'This is not a sale return' });
     }
 
     res.json({
       success: true,
-      message: 'Purchase return approved successfully',
+      message: 'Sale return approved successfully',
       data: returnRequest
     });
   } catch (error) {
-    console.error('Error approving purchase return:', error);
+    console.error('Error approving sale return:', error);
     res.status(400).json({ message: error.message });
   }
 });
 
-// @route   PUT /api/purchase-returns/:id/reject
-// @desc    Reject purchase return request
+// @route   PUT /api/sale-returns/:id/reject
+// @desc    Reject sale return request
 // @access  Private (requires 'approve_returns' permission)
 router.put('/:id/reject', [
   auth,
@@ -227,23 +228,23 @@ router.put('/:id/reject', [
       req.body.reason
     );
 
-    if (returnRequest.origin !== 'purchase') {
-      return res.status(400).json({ message: 'This is not a purchase return' });
+    if (returnRequest.origin !== 'sales') {
+      return res.status(400).json({ message: 'This is not a sale return' });
     }
 
     res.json({
       success: true,
-      message: 'Purchase return rejected successfully',
+      message: 'Sale return rejected successfully',
       data: returnRequest
     });
   } catch (error) {
-    console.error('Error rejecting purchase return:', error);
+    console.error('Error rejecting sale return:', error);
     res.status(400).json({ message: error.message });
   }
 });
 
-// @route   PUT /api/purchase-returns/:id/process
-// @desc    Process received purchase return (complete with accounting)
+// @route   PUT /api/sale-returns/:id/process
+// @desc    Process received sale return (complete with accounting)
 // @access  Private (requires 'process_returns' permission)
 router.put('/:id/process', [
   auth,
@@ -262,23 +263,23 @@ router.put('/:id/process', [
       req.body.inspection || {}
     );
 
-    if (returnRequest.origin !== 'purchase') {
-      return res.status(400).json({ message: 'This is not a purchase return' });
+    if (returnRequest.origin !== 'sales') {
+      return res.status(400).json({ message: 'This is not a sale return' });
     }
 
     res.json({
       success: true,
-      message: 'Purchase return processed successfully with accounting entries',
+      message: 'Sale return processed successfully with accounting entries',
       data: returnRequest
     });
   } catch (error) {
-    console.error('Error processing purchase return:', error);
+    console.error('Error processing sale return:', error);
     res.status(400).json({ message: error.message });
   }
 });
 
-// @route   GET /api/purchase-returns/stats/summary
-// @desc    Get purchase return statistics
+// @route   GET /api/sale-returns/stats/summary
+// @desc    Get sale return statistics
 // @access  Private
 router.get('/stats/summary', [
   auth,
@@ -293,18 +294,18 @@ router.get('/stats/summary', [
 
     const stats = await returnManagementService.getReturnStats(period);
     
-    // Filter to only purchase returns
-    const purchaseReturnStats = {
+    // Filter to only sale returns
+    const saleReturnStats = {
       ...stats,
-      origin: 'purchase'
+      origin: 'sales'
     };
 
     res.json({
       success: true,
-      data: purchaseReturnStats
+      data: saleReturnStats
     });
   } catch (error) {
-    console.error('Error fetching purchase return stats:', error);
+    console.error('Error fetching sale return stats:', error);
     res.status(500).json({ message: error.message });
   }
 });

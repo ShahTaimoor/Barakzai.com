@@ -5,7 +5,8 @@ import { showSuccessToast, showErrorToast, handleApiError } from '../utils/error
 
 const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
-    statementDate: new Date().toISOString().split('T')[0],
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
     periodType: 'monthly'
   });
   const [errors, setErrors] = useState({});
@@ -14,13 +15,28 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.statementDate) {
-      newErrors.statementDate = 'Statement date is required';
+    if (!formData.startDate) {
+      newErrors.startDate = 'Start date is required';
     } else {
-      const selectedDate = new Date(formData.statementDate);
+      const selectedDate = new Date(formData.startDate);
       const today = new Date();
       if (selectedDate > today) {
-        newErrors.statementDate = 'Statement date cannot be in the future';
+        newErrors.startDate = 'Start date cannot be in the future';
+      }
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = 'End date is required';
+    } else {
+      const selectedDate = new Date(formData.endDate);
+      const today = new Date();
+      if (selectedDate > today) {
+        newErrors.endDate = 'End date cannot be in the future';
+      }
+      
+      // Check if end date is after start date
+      if (formData.startDate && selectedDate < new Date(formData.startDate)) {
+        newErrors.endDate = 'End date must be after start date';
       }
     }
 
@@ -41,7 +57,8 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
 
     try {
       await generateBalanceSheet({
-        statementDate: formData.statementDate,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
         periodType: formData.periodType
       }).unwrap();
 
@@ -120,10 +137,10 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Statement Date */}
+          {/* Start Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Statement Date <span className="text-red-500">*</span>
+              From Date <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -131,22 +148,53 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
               <input
                 type="date"
-                value={formData.statementDate}
-                onChange={(e) => handleChange('statementDate', e.target.value)}
+                value={formData.startDate}
+                onChange={(e) => handleChange('startDate', e.target.value)}
                 className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                  errors.statementDate ? 'border-red-300' : 'border-gray-300'
+                  errors.startDate ? 'border-red-300' : 'border-gray-300'
                 }`}
                 disabled={isLoading}
               />
             </div>
-            {errors.statementDate && (
+            {errors.startDate && (
               <p className="mt-1 text-sm text-red-600 flex items-center">
                 <AlertCircle className="h-4 w-4 mr-1" />
-                {errors.statementDate}
+                {errors.startDate}
               </p>
             )}
             <p className="mt-1 text-xs text-gray-500">
-              The date for which the balance sheet will be generated
+              The start date for the balance sheet period
+            </p>
+          </div>
+
+          {/* End Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              To Date <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Calendar className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => handleChange('endDate', e.target.value)}
+                min={formData.startDate}
+                className={`block w-full pl-10 pr-3 py-2 border rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.endDate ? 'border-red-300' : 'border-gray-300'
+                }`}
+                disabled={isLoading}
+              />
+            </div>
+            {errors.endDate && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.endDate}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              The end date for the balance sheet period (statement date)
             </p>
           </div>
 

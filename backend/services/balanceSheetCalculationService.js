@@ -65,13 +65,17 @@ class BalanceSheetCalculationService {
   }
 
   // Generate balance sheet for a specific period
-  async generateBalanceSheet(statementDate, periodType = 'monthly', generatedBy) {
+  async generateBalanceSheet(statementDate, periodType = 'monthly', generatedBy, dateRange = {}) {
     try {
       // Ensure statementDate is a Date object
       const date = new Date(statementDate);
       if (isNaN(date.getTime())) {
         throw new Error('Invalid statement date provided');
       }
+
+      // Extract date range if provided
+      const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null;
+      const endDate = dateRange.endDate ? new Date(dateRange.endDate) : date;
 
       // Generate statement number
       const statementNumber = await this.generateStatementNumber(date, periodType);
@@ -86,6 +90,12 @@ class BalanceSheetCalculationService {
         throw new Error(`Balance sheet already exists for ${periodType} period ending ${date.toLocaleDateString()}`);
       }
 
+      // Build period description
+      let periodDescription = `${periodType} period ending ${date.toLocaleDateString()}`;
+      if (startDate && endDate && startDate.getTime() !== endDate.getTime()) {
+        periodDescription = `period from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`;
+      }
+
       // Calculate all balance sheet components
       const balanceSheetData = {
         statementNumber,
@@ -98,12 +108,14 @@ class BalanceSheetCalculationService {
         metadata: {
           generatedBy,
           generatedAt: new Date(),
-          version: 1
+          version: 1,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined
         },
         auditTrail: [{
           action: 'created',
           performedBy: generatedBy,
-          details: `Balance sheet generated for ${periodType} period ending ${date.toLocaleDateString()}`,
+          details: `Balance sheet generated for ${periodDescription}`,
           performedAt: new Date()
         }]
       };

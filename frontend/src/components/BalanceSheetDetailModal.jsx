@@ -16,6 +16,8 @@ import { useGetComparisonQuery } from '../store/services/balanceSheetsApi';
 import { handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
+import { useGetBalanceSheetQuery } from '../store/services/balanceSheetsApi';
+
 const BalanceSheetDetailModal = ({ 
   balanceSheet, 
   isOpen, 
@@ -30,14 +32,29 @@ const BalanceSheetDetailModal = ({
     notes: ''
   });
 
+  // Fetch full balance sheet data dynamically
+  const { 
+    data: balanceSheetData, 
+    isLoading: balanceSheetLoading,
+    error: balanceSheetError
+  } = useGetBalanceSheetQuery(
+    balanceSheet?._id,
+    {
+      skip: !isOpen || !balanceSheet?._id,
+    }
+  );
+
+  // Use fetched data if available, otherwise fallback to prop
+  const fullBalanceSheet = balanceSheetData?.data || balanceSheetData || balanceSheet;
+
   // Fetch comparison data
   const { 
     data: comparisonData, 
     isLoading: comparisonLoading 
   } = useGetComparisonQuery(
-    { id: balanceSheet?._id, type: 'previous' },
+    { id: fullBalanceSheet?._id, type: 'previous' },
     {
-      skip: !isOpen || !balanceSheet?._id,
+      skip: !isOpen || !fullBalanceSheet?._id,
     }
   );
 
@@ -103,7 +120,18 @@ const BalanceSheetDetailModal = ({
     return 'text-gray-600';
   };
 
-  if (!isOpen || !balanceSheet) return null;
+  if (!isOpen || !fullBalanceSheet) {
+    if (balanceSheetLoading) {
+      return (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+            <LoadingSpinner message="Loading balance sheet details..." />
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -123,17 +151,19 @@ const BalanceSheetDetailModal = ({
               <FileText className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{balanceSheet.statementNumber}</h3>
+              <h3 className="text-xl font-bold text-gray-900">{fullBalanceSheet.statementNumber || 'Invalid Date'}</h3>
               <p className="text-sm text-gray-500">
-                {new Date(balanceSheet.statementDate).toLocaleDateString()} • 
-                <span className="capitalize ml-1">{balanceSheet.periodType}</span>
+                {fullBalanceSheet.statementDate 
+                  ? new Date(fullBalanceSheet.statementDate).toLocaleDateString() 
+                  : 'Invalid Date'} • 
+                <span className="capitalize ml-1">{fullBalanceSheet.periodType || 'N/A'}</span>
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(balanceSheet.status)}`}>
-              {getStatusIcon(balanceSheet.status)}
-              <span className="ml-2 capitalize">{balanceSheet.status}</span>
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(fullBalanceSheet.status)}`}>
+              {getStatusIcon(fullBalanceSheet.status)}
+              <span className="ml-2 capitalize">{fullBalanceSheet.status || 'draft'}</span>
             </span>
             <button
               onClick={onClose}
@@ -181,7 +211,7 @@ const BalanceSheetDetailModal = ({
                     <div>
                       <p className="text-sm font-medium text-gray-500">Total Assets</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(balanceSheet.assets?.totalAssets)}
+                        {formatCurrency(fullBalanceSheet.assets?.totalAssets || 0)}
                       </p>
                     </div>
                   </div>
@@ -195,7 +225,7 @@ const BalanceSheetDetailModal = ({
                     <div>
                       <p className="text-sm font-medium text-gray-500">Total Liabilities</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(balanceSheet.liabilities?.totalLiabilities)}
+                        {formatCurrency(fullBalanceSheet.liabilities?.totalLiabilities || 0)}
                       </p>
                     </div>
                   </div>
@@ -209,7 +239,7 @@ const BalanceSheetDetailModal = ({
                     <div>
                       <p className="text-sm font-medium text-gray-500">Total Equity</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(balanceSheet.equity?.totalEquity)}
+                        {formatCurrency(fullBalanceSheet.equity?.totalEquity || 0)}
                       </p>
                     </div>
                   </div>
@@ -217,31 +247,40 @@ const BalanceSheetDetailModal = ({
               </div>
 
               {/* Balance Check */}
-              <div className={`p-4 rounded-lg border ${
-                balanceSheet.isBalanced 
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-red-50 border-red-200'
-              }`}>
-                <div className="flex items-center">
-                  {balanceSheet.isBalanced ? (
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-                  )}
-                  <span className={`font-medium ${
-                    balanceSheet.isBalanced ? 'text-green-800' : 'text-red-800'
+              {(() => {
+                const totalAssets = fullBalanceSheet.assets?.totalAssets || 0;
+                const totalLiabilities = fullBalanceSheet.liabilities?.totalLiabilities || 0;
+                const totalEquity = fullBalanceSheet.equity?.totalEquity || 0;
+                const isBalanced = Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01;
+                
+                return (
+                  <div className={`p-4 rounded-lg border ${
+                    isBalanced 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-red-50 border-red-200'
                   }`}>
-                    {balanceSheet.isBalanced ? 'Balance Sheet is Balanced' : 'Balance Sheet is Not Balanced'}
-                  </span>
-                </div>
-                <p className={`text-sm mt-1 ${
-                  balanceSheet.isBalanced ? 'text-green-700' : 'text-red-700'
-                }`}>
-                  Assets: {formatCurrency(balanceSheet.assets?.totalAssets)} = 
-                  Liabilities: {formatCurrency(balanceSheet.liabilities?.totalLiabilities)} + 
-                  Equity: {formatCurrency(balanceSheet.equity?.totalEquity)}
-                </p>
-              </div>
+                    <div className="flex items-center">
+                      {isBalanced ? (
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                      )}
+                      <span className={`font-medium ${
+                        isBalanced ? 'text-green-800' : 'text-red-800'
+                      }`}>
+                        {isBalanced ? 'Balance Sheet is Balanced' : 'Balance Sheet is Not Balanced'}
+                      </span>
+                    </div>
+                    <p className={`text-sm mt-1 ${
+                      isBalanced ? 'text-green-700' : 'text-red-700'
+                    }`}>
+                      Assets: {formatCurrency(totalAssets)} = 
+                      Liabilities: {formatCurrency(totalLiabilities)} + 
+                      Equity: {formatCurrency(totalEquity)}
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Comparison Data */}
               {comparisonData && (
@@ -314,23 +353,23 @@ const BalanceSheetDetailModal = ({
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Cash and Cash Equivalents</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.currentAssets?.cashAndCashEquivalents?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.currentAssets?.cashAndCashEquivalents?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Accounts Receivable</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.currentAssets?.accountsReceivable?.netReceivables)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.currentAssets?.accountsReceivable?.netReceivables || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Inventory</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.currentAssets?.inventory?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.currentAssets?.inventory?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Prepaid Expenses</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.currentAssets?.prepaidExpenses)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.currentAssets?.prepaidExpenses || 0)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Total Current Assets</span>
-                    <span className="text-sm font-bold">{formatCurrency(balanceSheet.assets?.currentAssets?.totalCurrentAssets)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(fullBalanceSheet.assets?.currentAssets?.totalCurrentAssets || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -341,27 +380,27 @@ const BalanceSheetDetailModal = ({
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Property, Plant & Equipment</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.fixedAssets?.propertyPlantEquipment?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.fixedAssets?.propertyPlantEquipment?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Less: Accumulated Depreciation</span>
-                    <span className="text-sm font-medium">({formatCurrency(balanceSheet.assets?.fixedAssets?.accumulatedDepreciation)})</span>
+                    <span className="text-sm font-medium">({formatCurrency(fullBalanceSheet.assets?.fixedAssets?.accumulatedDepreciation || 0)})</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Net Property, Plant & Equipment</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.fixedAssets?.netPropertyPlantEquipment)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.fixedAssets?.netPropertyPlantEquipment || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Intangible Assets</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.fixedAssets?.intangibleAssets?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.fixedAssets?.intangibleAssets?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Long-term Investments</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.assets?.fixedAssets?.longTermInvestments)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.assets?.fixedAssets?.longTermInvestments || 0)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Total Fixed Assets</span>
-                    <span className="text-sm font-bold">{formatCurrency(balanceSheet.assets?.fixedAssets?.totalFixedAssets)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(fullBalanceSheet.assets?.fixedAssets?.totalFixedAssets || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -369,7 +408,7 @@ const BalanceSheetDetailModal = ({
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex justify-between">
                   <span className="text-lg font-bold text-blue-900">TOTAL ASSETS</span>
-                  <span className="text-lg font-bold text-blue-900">{formatCurrency(balanceSheet.assets?.totalAssets)}</span>
+                  <span className="text-lg font-bold text-blue-900">{formatCurrency(fullBalanceSheet.assets?.totalAssets || 0)}</span>
                 </div>
               </div>
             </div>
@@ -385,23 +424,23 @@ const BalanceSheetDetailModal = ({
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Accounts Payable</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.liabilities?.currentLiabilities?.accountsPayable?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.liabilities?.currentLiabilities?.accountsPayable?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Accrued Expenses</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.liabilities?.currentLiabilities?.accruedExpenses?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.liabilities?.currentLiabilities?.accruedExpenses?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Short-term Debt</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.liabilities?.currentLiabilities?.shortTermDebt?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.liabilities?.currentLiabilities?.shortTermDebt?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Deferred Revenue</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.liabilities?.currentLiabilities?.deferredRevenue)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.liabilities?.currentLiabilities?.deferredRevenue || 0)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Total Current Liabilities</span>
-                    <span className="text-sm font-bold">{formatCurrency(balanceSheet.liabilities?.currentLiabilities?.totalCurrentLiabilities)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(fullBalanceSheet.liabilities?.currentLiabilities?.totalCurrentLiabilities || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -412,19 +451,19 @@ const BalanceSheetDetailModal = ({
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Long-term Debt</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.liabilities?.longTermLiabilities?.longTermDebt?.total)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.liabilities?.longTermLiabilities?.longTermDebt?.total || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Deferred Tax Liabilities</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.liabilities?.longTermLiabilities?.deferredTaxLiabilities)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.liabilities?.longTermLiabilities?.deferredTaxLiabilities || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Pension Liabilities</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.liabilities?.longTermLiabilities?.pensionLiabilities)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.liabilities?.longTermLiabilities?.pensionLiabilities || 0)}</span>
                   </div>
-                  <div className="flex justify_between border-t pt-2">
+                  <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Total Long-term Liabilities</span>
-                    <span className="text-sm font-bold">{formatCurrency(balanceSheet.liabilities?.longTermLiabilities?.totalLongTermLiabilities)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(fullBalanceSheet.liabilities?.longTermLiabilities?.totalLongTermLiabilities || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -432,7 +471,7 @@ const BalanceSheetDetailModal = ({
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex justify-between">
                   <span className="text-lg font-bold text-red-900">TOTAL LIABILITIES</span>
-                  <span className="text-lg font-bold text-red-900">{formatCurrency(balanceSheet.liabilities?.totalLiabilities)}</span>
+                  <span className="text-lg font-bold text-red-900">{formatCurrency(fullBalanceSheet.liabilities?.totalLiabilities || 0)}</span>
                 </div>
               </div>
             </div>
@@ -447,19 +486,19 @@ const BalanceSheetDetailModal = ({
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Common Stock</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.equity?.contributedCapital?.commonStock)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.equity?.contributedCapital?.commonStock || 0)}</span>
                   </div>
-                  <div className="flex justify_between">
+                  <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Preferred Stock</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.equity?.contributedCapital?.preferredStock)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.equity?.contributedCapital?.preferredStock || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Additional Paid-in Capital</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.equity?.contributedCapital?.additionalPaidInCapital)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.equity?.contributedCapital?.additionalPaidInCapital || 0)}</span>
                   </div>
-                  <div className="flex justify_between border-t pt-2">
+                  <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Total Contributed Capital</span>
-                    <span className="text-sm font-bold">{formatCurrency(balanceSheet.equity?.contributedCapital?.total)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(fullBalanceSheet.equity?.contributedCapital?.total || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -467,21 +506,21 @@ const BalanceSheetDetailModal = ({
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h5 className="text-md font-medium text-gray-900 mb-4">Retained Earnings</h5>
                 <div className="space-y-3">
-                  <div className="flex justify_between">
+                  <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Beginning Retained Earnings</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.equity?.retainedEarnings?.beginningRetainedEarnings)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.equity?.retainedEarnings?.beginningRetainedEarnings || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Current Period Earnings</span>
-                    <span className="text-sm font-medium">{formatCurrency(balanceSheet.equity?.retainedEarnings?.currentPeriodEarnings)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(fullBalanceSheet.equity?.retainedEarnings?.currentPeriodEarnings || 0)}</span>
                   </div>
-                  <div className="flex justify_between">
+                  <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Dividends Paid</span>
-                    <span className="text-sm font-medium">({formatCurrency(balanceSheet.equity?.retainedEarnings?.dividendsPaid)})</span>
+                    <span className="text-sm font-medium">({formatCurrency(fullBalanceSheet.equity?.retainedEarnings?.dividendsPaid || 0)})</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Ending Retained Earnings</span>
-                    <span className="text-sm font-bold">{formatCurrency(balanceSheet.equity?.retainedEarnings?.endingRetainedEarnings)}</span>
+                    <span className="text-sm font-bold">{formatCurrency(fullBalanceSheet.equity?.retainedEarnings?.endingRetainedEarnings || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -489,7 +528,7 @@ const BalanceSheetDetailModal = ({
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex justify-between">
                   <span className="text-lg font-bold text-blue-900">TOTAL EQUITY</span>
-                  <span className="text-lg font-bold text-blue-900">{formatCurrency(balanceSheet.equity?.totalEquity)}</span>
+                  <span className="text-lg font-bold text-blue-900">{formatCurrency(fullBalanceSheet.equity?.totalEquity || 0)}</span>
                 </div>
               </div>
             </div>
@@ -506,15 +545,15 @@ const BalanceSheetDetailModal = ({
                   <div className="space-y-3">
                     <div className="flex justify_between">
                       <span className="text-sm text-gray-600">Current Ratio</span>
-                      <span className="text-sm font-medium">{(balanceSheet.financialRatios?.liquidity?.currentRatio || 0).toFixed(2)}</span>
+                      <span className="text-sm font-medium">{(fullBalanceSheet.financialRatios?.liquidity?.currentRatio || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Quick Ratio</span>
-                      <span className="text-sm font-medium">{(balanceSheet.financialRatios?.liquidity?.quickRatio || 0).toFixed(2)}</span>
+                      <span className="text-sm font-medium">{(fullBalanceSheet.financialRatios?.liquidity?.quickRatio || 0).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify_between">
+                    <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Cash Ratio</span>
-                      <span className="text-sm font-medium">{(balanceSheet.financialRatios?.liquidity?.cashRatio || 0).toFixed(2)}</span>
+                      <span className="text-sm font-medium">{(fullBalanceSheet.financialRatios?.liquidity?.cashRatio || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -525,15 +564,15 @@ const BalanceSheetDetailModal = ({
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Debt-to-Equity Ratio</span>
-                      <span className="text-sm font-medium">{(balanceSheet.financialRatios?.leverage?.debtToEquityRatio || 0).toFixed(2)}</span>
+                      <span className="text-sm font-medium">{(fullBalanceSheet.financialRatios?.leverage?.debtToEquityRatio || 0).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify_between">
+                    <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Debt-to-Asset Ratio</span>
-                      <span className="text-sm font-medium">{(balanceSheet.financialRatios?.leverage?.debtToAssetRatio || 0).toFixed(2)}</span>
+                      <span className="text-sm font-medium">{(fullBalanceSheet.financialRatios?.leverage?.debtToAssetRatio || 0).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify_between">
+                    <div className="flex justify-between">
                       <span className="text-sm text-gray-600">Equity Ratio</span>
-                      <span className="text-sm font-medium">{(balanceSheet.financialRatios?.leverage?.equityRatio || 0).toFixed(2)}</span>
+                      <span className="text-sm font-medium">{(fullBalanceSheet.financialRatios?.leverage?.equityRatio || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

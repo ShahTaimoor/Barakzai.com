@@ -947,14 +947,28 @@ router.get('/customer/:customerId/transactions', [
         return sum + (payment.amount || 0);
       }, 0);
       
+      // Returns before startDate (decreases receivables - CREDIT)
+      const Return = require('../models/Return');
+      const openingReturns = await Return.find({
+        customer: customerId,
+        origin: 'sales',
+        returnDate: { $lt: start },
+        status: { $in: ['pending', 'completed', 'received', 'approved', 'refunded', 'processing'] }
+      }).lean();
+      
+      const openingReturnsTotal = openingReturns.reduce((sum, ret) => {
+        return sum + (ret.netRefundAmount || ret.totalRefundAmount || 0);
+      }, 0);
+      
       // Adjusted opening balance
-      openingBalance = openingBalance + openingSalesTotal + openingCashPaymentsTotal + openingBankPaymentsTotal - openingCashReceiptsTotal - openingBankReceiptsTotal;
+      openingBalance = openingBalance + openingSalesTotal + openingCashPaymentsTotal + openingBankPaymentsTotal - openingCashReceiptsTotal - openingBankReceiptsTotal - openingReturnsTotal;
     }
     
     // Build date filters
     const salesDateFilter = {};
     const receiptDateFilter = {};
     const paymentDateFilter = {};
+    const returnDateFilter = {};
     
     if (start || end) {
       if (start) {
@@ -964,6 +978,7 @@ router.get('/customer/:customerId/transactions', [
         salesDateFilter.createdAt = { $gte: startOfDay };
         receiptDateFilter.date = { $gte: startOfDay };
         paymentDateFilter.date = { $gte: startOfDay };
+        returnDateFilter.returnDate = { $gte: startOfDay };
       }
       if (end) {
         // Set end to end of day (add 1 day and set to start, then use $lt)
@@ -985,11 +1000,17 @@ router.get('/customer/:customerId/transactions', [
         } else {
           paymentDateFilter.date = { $lt: endOfDay };
         }
+        if (returnDateFilter.returnDate) {
+          returnDateFilter.returnDate.$lt = endOfDay;
+        } else {
+          returnDateFilter.returnDate = { $lt: endOfDay };
+        }
       }
     }
     
     // Fetch all transactions in parallel
-    const [sales, cashReceipts, bankReceipts, cashPayments, bankPayments] = await Promise.all([
+    const Return = require('../models/Return');
+    const [sales, cashReceipts, bankReceipts, cashPayments, bankPayments, returns] = await Promise.all([
       salesRepository.findAll({
         customer: customerId,
         ...salesDateFilter,
@@ -1010,7 +1031,13 @@ router.get('/customer/:customerId/transactions', [
       bankPaymentRepository.findAll({
         customer: customerId,
         ...paymentDateFilter
-      }, { lean: true, sort: { date: 1 } })
+      }, { lean: true, sort: { date: 1 } }),
+      Return.find({
+        customer: customerId,
+        origin: 'sales',
+        status: { $in: ['pending', 'completed', 'received', 'approved', 'refunded', 'processing'] },
+        ...returnDateFilter
+      }).lean().sort({ returnDate: 1 })
     ]);
     
     // Combine all transactions into a single array
@@ -1094,13 +1121,30 @@ router.get('/customer/:customerId/transactions', [
       });
     });
     
+    // Add returns (CREDITS - decreases receivables)
+    returns.forEach(returnItem => {
+      const returnAmount = returnItem.netRefundAmount || returnItem.totalRefundAmount || 0;
+      // Include returns even if amount is 0 (for pending returns that haven't calculated amounts yet)
+      // Use returnDate for the entry date
+      const entryDate = returnItem.returnDate || returnItem.createdAt || new Date();
+      allEntries.push({
+        date: entryDate,
+        datetime: new Date(entryDate).getTime(), // For precise sorting
+        voucherNo: returnItem.returnNumber || '',
+        particular: `Return: ${returnItem.returnNumber || returnItem._id}${returnItem.status === 'pending' ? ' (Pending)' : ''}`,
+        debitAmount: 0,
+        creditAmount: returnAmount,
+        source: 'Sale Return'
+      });
+    });
+    
     // Sort all entries by datetime (chronological order - step by step)
     allEntries.sort((a, b) => {
       // First sort by datetime (includes time)
       const dateDiff = (a.datetime || new Date(a.date).getTime()) - (b.datetime || new Date(b.date).getTime());
       if (dateDiff !== 0) return dateDiff;
       // If same datetime, sort by source type for consistency
-      const sourceOrder = { 'Cash Receipt': 1, 'Bank Receipt': 2, 'Cash Payment': 3, 'Bank Payment': 4, 'Sale': 5 };
+      const sourceOrder = { 'Cash Receipt': 1, 'Bank Receipt': 2, 'Sale Return': 3, 'Cash Payment': 4, 'Bank Payment': 5, 'Sale': 6 };
       return (sourceOrder[a.source] || 99) - (sourceOrder[b.source] || 99);
     });
     

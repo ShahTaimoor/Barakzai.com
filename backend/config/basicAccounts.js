@@ -212,6 +212,15 @@ const basicAccounts = [
     normalBalance: 'debit',
     level: 2,
     parentCode: '5200'
+  },
+  {
+    accountCode: '5430',
+    accountName: 'Other Expenses',
+    accountType: 'expense',
+    accountCategory: 'other_expenses',
+    normalBalance: 'debit',
+    level: 1,
+    parentCode: '5000'
   }
 ];
 

@@ -190,9 +190,10 @@ const BalanceSheets = () => {
     return <LoadingSpinner message="Loading balance sheets..." />;
   }
 
-  const balanceSheets = balanceSheetsData?.data?.balanceSheets || [];
-  const pagination = balanceSheetsData?.data?.pagination || {};
-  const stats = statsData?.data || {};
+  // Handle different response formats
+  const balanceSheets = balanceSheetsData?.data?.balanceSheets || balanceSheetsData?.balanceSheets || [];
+  const pagination = balanceSheetsData?.data?.pagination || balanceSheetsData?.pagination || {};
+  const stats = statsData?.data || statsData || {};
 
   return (
     <ResponsiveContainer className="space-y-6">
@@ -231,7 +232,7 @@ const BalanceSheets = () => {
                       Total Balance Sheets
                     </dt>
                     <dd className="text-2xl font-semibold text-gray-900">
-                      {stats.totalStatements || 0}
+                      {stats.total || 0}
                     </dd>
                   </dl>
                 </div>
@@ -244,16 +245,16 @@ const BalanceSheets = () => {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="p-3 rounded-md bg-green-50 text-green-600">
-                    <TrendingUp className="h-5 w-5" />
+                    <CheckCircle className="h-5 w-5" />
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Average Total Assets
+                      Approved
                     </dt>
                     <dd className="text-2xl font-semibold text-gray-900">
-                      {(stats.averageTotalAssets || 0).toLocaleString()}
+                      {stats.byStatus?.approved || 0}
                     </dd>
                   </dl>
                 </div>
@@ -265,17 +266,17 @@ const BalanceSheets = () => {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <div className="p-3 rounded-md bg-red-50 text-red-600">
-                    <TrendingDown className="h-5 w-5" />
+                  <div className="p-3 rounded-md bg-yellow-50 text-yellow-600">
+                    <Clock className="h-5 w-5" />
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Average Total Liabilities
+                      Draft
                     </dt>
                     <dd className="text-2xl font-semibold text-gray-900">
-                      {(stats.averageTotalLiabilities || 0).toLocaleString()}
+                      {stats.byStatus?.draft || 0}
                     </dd>
                   </dl>
                 </div>
@@ -288,16 +289,16 @@ const BalanceSheets = () => {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="p-3 rounded-md bg-purple-50 text-purple-600">
-                    <BarChart3 className="h-5 w-5" />
+                    <FileText className="h-5 w-5" />
                   </div>
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Average Total Equity
+                      Final
                     </dt>
                     <dd className="text-2xl font-semibold text-gray-900">
-                      {(stats.averageTotalEquity || 0).toLocaleString()}
+                      {stats.byStatus?.final || 0}
                     </dd>
                   </dl>
                 </div>

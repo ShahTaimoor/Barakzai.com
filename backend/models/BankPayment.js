@@ -70,13 +70,6 @@ const bankPaymentSchema = new mongoose.Schema({
     required: false
   },
   
-  // Status
-  status: {
-    type: String,
-    enum: ['pending', 'confirmed', 'cancelled'],
-    default: 'confirmed'
-  },
-  
   // Additional Information
   notes: {
     type: String,

@@ -19,24 +19,24 @@ import {
 } from 'lucide-react';
 import { useGetReturnQuery } from '../store/services/returnsApi';
 import { useGetCompanySettingsQuery } from '../store/services/settingsApi';
-import { handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 const ReturnDetailModal = ({ 
-  return: returnData, 
+  return: returnData,
+  returnData: returnDataProp, // Accept both 'return' and 'returnData' props
   isOpen, 
   onClose, 
   onStatusUpdate, 
   onAddNote, 
   onAddCommunication,
+  onUpdate, // Accept onUpdate as alias for onStatusUpdate
   isLoading 
 }) => {
+  // Use returnDataProp if provided, otherwise use returnData (from 'return' prop)
+  const actualReturnData = returnDataProp || returnData;
   const [activeTab, setActiveTab] = useState('details');
-  const [showStatusModal, setShowStatusModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showCommunicationModal, setShowCommunicationModal] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  const [statusNotes, setStatusNotes] = useState('');
   const [noteText, setNoteText] = useState('');
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [communicationData, setCommunicationData] = useState({
@@ -47,16 +47,16 @@ const ReturnDetailModal = ({
 
   // Fetch detailed return data
   const { data: detailedReturn, isLoading: detailLoading } = useGetReturnQuery(
-    returnData?._id,
+    actualReturnData?._id,
     {
-      skip: !returnData?._id || !isOpen,
+      skip: !actualReturnData?._id || !isOpen,
     }
   );
 
   // Fetch company settings
   const { data: companySettings } = useGetCompanySettingsQuery();
 
-  const returnInfo = detailedReturn?.data || detailedReturn || returnData;
+  const returnInfo = detailedReturn?.data || detailedReturn || actualReturnData;
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -115,25 +115,6 @@ const ReturnDetailModal = ({
     }
   };
 
-  const handleStatusUpdate = () => {
-    onStatusUpdate(newStatus, statusNotes);
-    setShowStatusModal(false);
-    setNewStatus('');
-    setStatusNotes('');
-  };
-
-  const handleAddNote = () => {
-    onAddNote(noteText, isInternalNote);
-    setShowNoteModal(false);
-    setNoteText('');
-    setIsInternalNote(false);
-  };
-
-  const handleAddCommunication = () => {
-    onAddCommunication(communicationData.type, communicationData.message, communicationData.recipient);
-    setShowCommunicationModal(false);
-    setCommunicationData({ type: 'email', message: '', recipient: '' });
-  };
 
   const handlePrint = () => {
     // Create a new window for printing
@@ -306,20 +287,36 @@ const ReturnDetailModal = ({
     };
   };
 
-  const getStatusActions = (currentStatus) => {
-    switch (currentStatus) {
-      case 'pending':
-        return ['approved', 'rejected'];
-      case 'approved':
-        return ['processing', 'rejected'];
-      case 'processing':
-        return ['received', 'rejected'];
-      case 'received':
-        return ['completed', 'rejected'];
-      default:
-        return [];
+
+  const handleAddNote = async () => {
+    if (!onAddNote) {
+      console.warn('No add note callback provided');
+      return;
+    }
+    try {
+      await onAddNote(noteText, isInternalNote);
+      setShowNoteModal(false);
+      setNoteText('');
+      setIsInternalNote(false);
+    } catch (error) {
+      console.error('Error adding note:', error);
     }
   };
+
+  const handleAddCommunication = async () => {
+    if (!onAddCommunication) {
+      console.warn('No add communication callback provided');
+      return;
+    }
+    try {
+      await onAddCommunication(communicationData);
+      setShowCommunicationModal(false);
+      setCommunicationData({ type: 'email', message: '', recipient: '' });
+    } catch (error) {
+      console.error('Error adding communication:', error);
+    }
+  };
+
 
   if (!isOpen || !returnInfo) return null;
 
@@ -330,7 +327,6 @@ const ReturnDetailModal = ({
     { id: 'communication', label: 'Communication', icon: Phone }
   ];
 
-  const availableStatusActions = getStatusActions(returnInfo.status);
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -361,7 +357,7 @@ const ReturnDetailModal = ({
           </div>
         </div>
 
-        {/* Status and Actions */}
+        {/* Status */}
         <div className="flex items-center justify-between mb-6 p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center space-x-4">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(returnInfo.status)}`}>
@@ -372,35 +368,6 @@ const ReturnDetailModal = ({
               {returnInfo.priority || 'normal'} priority
             </span>
           </div>
-          
-          {availableStatusActions.length > 0 && (
-            <div className="flex space-x-2">
-              {availableStatusActions.map(status => (
-                <button
-                  key={status}
-                  onClick={() => {
-                    setNewStatus(status);
-                    setShowStatusModal(true);
-                  }}
-                  disabled={isLoading}
-                  className={`btn btn-sm ${
-                    status === 'approved' || status === 'completed' 
-                      ? 'btn-primary' 
-                      : status === 'rejected' 
-                      ? 'btn-danger' 
-                      : 'btn-secondary'
-                  }`}
-                >
-                  {status === 'approved' && <CheckCircle className="h-4 w-4 mr-1" />}
-                  {status === 'rejected' && <XCircle className="h-4 w-4 mr-1" />}
-                  {status === 'processing' && <Package className="h-4 w-4 mr-1" />}
-                  {status === 'received' && <Package className="h-4 w-4 mr-1" />}
-                  {status === 'completed' && <CheckCircle className="h-4 w-4 mr-1" />}
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Tabs */}
@@ -540,22 +507,6 @@ const ReturnDetailModal = ({
                         </p>
                       </div>
                     </div>
-                    
-                    {returnInfo.approvalDate && (
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-900">Approved</p>
-                          <p className="text-sm text-gray-500">
-                            {new Date(returnInfo.approvalDate).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    )}
                     
                     {returnInfo.completionDate && (
                       <div className="flex items-center">
@@ -726,60 +677,6 @@ const ReturnDetailModal = ({
           </button>
         </div>
       </div>
-
-      {/* Status Update Modal */}
-      {showStatusModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-60">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-medium text-gray-900">
-                Update Status to {newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}
-              </h4>
-              <button
-                onClick={() => setShowStatusModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notes (Optional)
-              </label>
-              <textarea
-                value={statusNotes}
-                onChange={(e) => setStatusNotes(e.target.value)}
-                placeholder="Add any notes about this status change..."
-                className="input"
-                rows={3}
-              />
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowStatusModal(false)}
-                className="btn btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleStatusUpdate}
-                disabled={isLoading}
-                className={`btn ${
-                  newStatus === 'approved' || newStatus === 'completed' 
-                    ? 'btn-primary' 
-                    : newStatus === 'rejected' 
-                    ? 'btn-danger' 
-                    : 'btn-secondary'
-                }`}
-              >
-                {isLoading ? <LoadingSpinner size="sm" /> : 'Update Status'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Note Modal */}
       {showNoteModal && (

@@ -1,5 +1,6 @@
 const salesRepository = require('../repositories/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
+const ReturnRepository = require('../repositories/ReturnRepository');
 
 class ReportsService {
   /**
@@ -77,16 +78,76 @@ class ReportsService {
         period.totalRevenue / period.totalOrders : 0;
     });
 
+    // Get sales returns for the same period
+    const salesReturns = await ReturnRepository.findAll({
+      origin: 'sales',
+      returnDate: { 
+        $gte: dateFrom, 
+        $lte: dateTo 
+      },
+      status: { $in: ['completed', 'received', 'approved', 'refunded', 'processing'] }
+    }, { lean: true });
+
+    // Calculate total returns amount
+    const totalReturns = salesReturns.reduce((sum, ret) => {
+      return sum + (ret.netRefundAmount || ret.totalRefundAmount || 0);
+    }, 0);
+
+    // Group returns by time period
+    const returnsGroupedData = {};
+    salesReturns.forEach(returnItem => {
+      const returnDate = returnItem.returnDate || returnItem.createdAt;
+      const key = this.formatDate(returnDate, groupBy);
+      if (!returnsGroupedData[key]) {
+        returnsGroupedData[key] = {
+          date: key,
+          totalReturns: 0,
+          returnCount: 0
+        };
+      }
+      const returnAmount = returnItem.netRefundAmount || returnItem.totalRefundAmount || 0;
+      returnsGroupedData[key].totalReturns += returnAmount;
+      returnsGroupedData[key].returnCount += 1;
+    });
+
+    // Merge returns into grouped data and calculate net sales
+    Object.keys(groupedData).forEach(key => {
+      const returnsForPeriod = returnsGroupedData[key] || { totalReturns: 0, returnCount: 0 };
+      groupedData[key].totalReturns = returnsForPeriod.totalReturns;
+      groupedData[key].returnCount = returnsForPeriod.returnCount;
+      groupedData[key].netRevenue = groupedData[key].totalRevenue - returnsForPeriod.totalReturns;
+    });
+
+    // Also add periods that only have returns (no sales)
+    Object.keys(returnsGroupedData).forEach(key => {
+      if (!groupedData[key]) {
+        groupedData[key] = {
+          date: key,
+          totalRevenue: 0,
+          totalOrders: 0,
+          totalItems: 0,
+          averageOrderValue: 0,
+          totalReturns: returnsGroupedData[key].totalReturns,
+          returnCount: returnsGroupedData[key].returnCount,
+          netRevenue: -returnsGroupedData[key].totalReturns
+        };
+      }
+    });
+
     const reportData = Object.values(groupedData).sort((a, b) => a.date.localeCompare(b.date));
 
     // Calculate summary
+    const totalRevenue = orders.reduce((sum, order) => sum + order.pricing.total, 0);
     const summary = {
-      totalRevenue: orders.reduce((sum, order) => sum + order.pricing.total, 0),
+      totalRevenue,
+      totalReturns,
+      netRevenue: totalRevenue - totalReturns,
       totalOrders: orders.length,
+      totalReturnsCount: salesReturns.length,
       totalItems: orders.reduce((sum, order) =>
         sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0),
       averageOrderValue: orders.length > 0 ?
-        orders.reduce((sum, order) => sum + order.pricing.total, 0) / orders.length : 0,
+        totalRevenue / orders.length : 0,
       dateRange: {
         from: dateFrom,
         to: dateTo

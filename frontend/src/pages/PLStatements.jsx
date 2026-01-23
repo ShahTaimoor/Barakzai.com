@@ -23,11 +23,29 @@ const getLocalDateString = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-// Helper function to format date for display
+// Helper function to format date for display (avoid timezone shifts)
 const formatDate = (dateString) => {
   if (!dateString) return '';
+  
+  // If dateString is already in YYYY-MM-DD format, parse it directly
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // Use local date constructor
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  }
+  
+  // For other formats, try to parse but use local components
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
+  // Extract local date components to avoid timezone shifts
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const localDate = new Date(year, month, day);
+  return localDate.toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'short', 
     day: 'numeric' 
