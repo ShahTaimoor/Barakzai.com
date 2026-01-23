@@ -11,7 +11,7 @@ const { body, param, query } = require('express-validator');
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const { accountType, accountCategory, isActive, search, allowDirectPosting, includePartyAccounts } = req.query;
+    const { accountType, accountCategory, isActive, search, allowDirectPosting, includePartyAccounts, includeBalances } = req.query;
 
     if (includePartyAccounts === 'true') {
       await ledgerAccountService.ensureCustomerLedgerAccounts({ userId: req.user?._id });
@@ -26,10 +26,33 @@ router.get('/', auth, async (req, res) => {
       allowDirectPosting
     });
     
+    // Calculate dynamic balances from transactions if requested
+    let accountsWithBalances = accounts;
+    if (includeBalances === 'true') {
+      const asOfDate = req.query.asOfDate ? new Date(req.query.asOfDate) : new Date();
+      accountsWithBalances = await Promise.all(
+        accounts.map(async (account) => {
+          try {
+            const balance = await AccountingService.getAccountBalance(account.accountCode, asOfDate);
+            return {
+              ...account.toObject(),
+              currentBalance: balance
+            };
+          } catch (error) {
+            console.error(`Error calculating balance for account ${account.accountCode}:`, error);
+            return {
+              ...account.toObject(),
+              currentBalance: account.currentBalance || 0
+            };
+          }
+        })
+      );
+    }
+    
     res.json({
       success: true,
-      data: accounts,
-      count: accounts.length
+      data: accountsWithBalances,
+      count: accountsWithBalances.length
     });
   } catch (error) {
     console.error('Get accounts error:', error);

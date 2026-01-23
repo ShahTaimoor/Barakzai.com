@@ -32,6 +32,7 @@ const Warehouses = lazy(() => import('./pages/Warehouses'));
 const Backups = lazy(() => import('./pages/Backups').then(m => ({ default: m.Backups })));
 const PLStatements = lazy(() => import('./pages/PLStatements').then(m => ({ default: m.PLStatements })));
 const Returns = lazy(() => import('./pages/Returns'));
+const SaleReturns = lazy(() => import('./pages/SaleReturns'));
 const BalanceSheets = lazy(() => import('./pages/BalanceSheets'));
 const Discounts = lazy(() => import('./pages/Discounts'));
 const SalesPerformanceReports = lazy(() => import('./pages/SalesPerformanceReports'));
@@ -100,6 +101,7 @@ function App() {
                         <Route path="/backups" element={<Suspense fallback={<LoadingPage />}><Backups /></Suspense>} />
                         <Route path="/pl-statements" element={<Suspense fallback={<LoadingPage />}><PLStatements /></Suspense>} />
                         <Route path="/returns" element={<Suspense fallback={<LoadingPage />}><Returns /></Suspense>} />
+                        <Route path="/sale-returns" element={<Suspense fallback={<LoadingPage />}><SaleReturns /></Suspense>} />
                         <Route path="/balance-sheets" element={<Suspense fallback={<LoadingPage />}><BalanceSheets /></Suspense>} />
                         <Route path="/discounts" element={<Suspense fallback={<LoadingPage />}><Discounts /></Suspense>} />
                         <Route path="/sales-performance" element={<Suspense fallback={<LoadingPage />}><SalesPerformanceReports /></Suspense>} />

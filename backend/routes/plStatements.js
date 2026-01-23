@@ -95,9 +95,44 @@ router.get('/summary', [
   handleValidationErrors,
 ], async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    let { startDate, endDate } = req.query;
     
-    const period = { startDate, endDate };
+    // Normalize dates to avoid timezone shifts
+    // If dates are Date objects from toDate(), convert to local date strings first
+    if (startDate instanceof Date) {
+      const year = startDate.getFullYear();
+      const month = String(startDate.getMonth() + 1).padStart(2, '0');
+      const day = String(startDate.getDate()).padStart(2, '0');
+      startDate = `${year}-${month}-${day}`;
+    }
+    if (endDate instanceof Date) {
+      const year = endDate.getFullYear();
+      const month = String(endDate.getMonth() + 1).padStart(2, '0');
+      const day = String(endDate.getDate()).padStart(2, '0');
+      endDate = `${year}-${month}-${day}`;
+    }
+    
+    // Parse YYYY-MM-DD strings as local dates (not UTC)
+    let startDateObj, endDateObj;
+    if (typeof startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      const [year, month, day] = startDate.split('-').map(Number);
+      startDateObj = new Date(year, month - 1, day);
+      startDateObj.setHours(0, 0, 0, 0);
+    } else {
+      startDateObj = new Date(startDate);
+      startDateObj.setHours(0, 0, 0, 0);
+    }
+    
+    if (typeof endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      const [year, month, day] = endDate.split('-').map(Number);
+      endDateObj = new Date(year, month - 1, day);
+      endDateObj.setHours(23, 59, 59, 999); // Include entire end date
+    } else {
+      endDateObj = new Date(endDate);
+      endDateObj.setHours(23, 59, 59, 999);
+    }
+    
+    const period = { startDate: startDateObj, endDate: endDateObj };
     const summary = await plCalculationService.getPLSummary(period);
 
     res.json(summary);

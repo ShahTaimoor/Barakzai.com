@@ -39,11 +39,11 @@ class PLCalculationService {
     } = options;
 
     const startTime = Date.now();
-    
+
     try {
       // Calculate all financial data
       const financialData = await this.calculateFinancialData(period);
-      
+
       // Create P&L statement (using model for instance methods)
       const plStatement = new FinancialStatement({
         type: 'profit_loss',
@@ -68,21 +68,21 @@ class PLCalculationService {
       await this.populateCOGSData(plStatement, financialData, includeDetails);
       await this.populateExpenseData(plStatement, financialData, includeDetails);
       await this.populateOtherData(plStatement, financialData, includeDetails);
-      
+
       // Calculate all derived values
       plStatement.calculateDerivedValues();
-      
+
       // Add comparisons if requested
       if (calculateComparisons) {
         await this.addComparisons(plStatement);
       }
-      
+
       // Calculate generation time
       plStatement.metadata.generationTime = Date.now() - startTime;
-      
+
       // Save the statement
       await plStatement.save();
-      
+
       return plStatement;
     } catch (error) {
       console.error('Error generating P&L statement:', error);
@@ -99,21 +99,21 @@ class PLCalculationService {
       otherIncome: await this.calculateOtherIncome(period),
       otherExpenses: await this.calculateOtherExpenses(period),
     };
-    
+
     // Calculate earnings before tax first (needed for income tax calculation)
-    const grossProfit = data.revenue.grossSales - data.revenue.salesReturns - 
-                       data.revenue.salesDiscounts - data.cogs.totalCOGS;
-    const operatingIncome = grossProfit - 
+    const grossProfit = data.revenue.grossSales - data.revenue.salesReturns -
+      data.revenue.salesDiscounts - data.cogs.totalCOGS;
+    const operatingIncome = grossProfit -
       (Object.values(data.expenses.selling).reduce((sum, val) => sum + val, 0) +
-       Object.values(data.expenses.administrative).reduce((sum, val) => sum + val, 0));
-    const earningsBeforeTax = operatingIncome + 
+        Object.values(data.expenses.administrative).reduce((sum, val) => sum + val, 0));
+    const earningsBeforeTax = operatingIncome +
       (data.otherIncome.interestIncome + data.otherIncome.rentalIncome + data.otherIncome.other) -
-      (data.otherExpenses.interestExpense + data.otherExpenses.depreciation + 
-       data.otherExpenses.amortization + data.otherExpenses.other);
-    
+      (data.otherExpenses.interestExpense + data.otherExpenses.depreciation +
+        data.otherExpenses.amortization + data.otherExpenses.other);
+
     // Calculate taxes with earnings before tax
     data.taxes = await this.calculateTaxes(period, earningsBeforeTax);
-    
+
     return data;
   }
 
@@ -130,7 +130,7 @@ class PLCalculationService {
     // Get Sales Revenue account code dynamically
     const accountCodes = await this.getAccountCodes();
     const salesRevenueCode = accountCodes.salesRevenue;
-    
+
     // Get revenue transactions
     const revenueTransactions = await TransactionRepository.findAll({
       accountCode: salesRevenueCode,
@@ -150,7 +150,7 @@ class PLCalculationService {
     revenueTransactions.forEach(transaction => {
       if (transaction.creditAmount > 0) {
         grossSales += transaction.creditAmount;
-        
+
         // Categorize by description
         const category = this.categorizeRevenue(transaction.description);
         salesByCategory[category] = (salesByCategory[category] || 0) + transaction.creditAmount;
@@ -158,6 +158,7 @@ class PLCalculationService {
     });
 
     // Get sales returns (negative revenue transactions)
+    // First, try to get from transactions (if accounting entries were created)
     const returnTransactions = await TransactionRepository.findAll({
       accountCode: salesRevenueCode,
       createdAt: { $gte: period.startDate, $lte: period.endDate },
@@ -167,6 +168,29 @@ class PLCalculationService {
 
     returnTransactions.forEach(transaction => {
       salesReturns += transaction.debitAmount;
+    });
+
+    // Also get directly from Return model (more reliable)
+    const salesReturnsFromModel = await ReturnRepository.findAll({
+      origin: 'sales',
+      returnDate: { 
+        $gte: new Date(period.startDate), 
+        $lte: new Date(period.endDate) 
+      },
+      status: { $in: ['completed', 'received', 'approved', 'refunded'] }
+    }, { lean: true });
+
+    // Sum up return amounts (avoid double counting if already in transactions)
+    salesReturnsFromModel.forEach(returnItem => {
+      const returnAmount = returnItem.netRefundAmount || returnItem.totalRefundAmount || 0;
+      // Only add if not already counted in transactions (check by returnNumber)
+      const alreadyCounted = returnTransactions.some(t => 
+        t.reference === returnItem.returnNumber || 
+        t.description?.includes(returnItem.returnNumber)
+      );
+      if (!alreadyCounted && returnAmount > 0) {
+        salesReturns += returnAmount;
+      }
     });
 
     // Get actual sales orders for fallback calculation and discounts
@@ -185,7 +209,7 @@ class PLCalculationService {
           const orderTotal = order.pricing?.total || order.pricing?.subtotal || 0;
           if (orderTotal > 0) {
             grossSales += orderTotal;
-            
+
             // Categorize by order type
             const category = order.orderType === 'wholesale' ? 'Wholesale' : 'Retail';
             salesByCategory[category] = (salesByCategory[category] || 0) + orderTotal;
@@ -203,24 +227,24 @@ class PLCalculationService {
     // Calculate discounts from orders
     salesOrders.forEach(order => {
       const orderDiscount = order.pricing?.discountAmount || 0;
-      
+
       if (orderDiscount > 0) {
         salesDiscounts += orderDiscount;
-        
+
         // Categorize discount by type based on item discounts
         let discountType = 'other';
-        
+
         // Check if discount is from item-level (bulk, customer discount, etc.)
         const hasItemDiscounts = order.items?.some(item => (item.discountAmount || 0) > 0);
         if (hasItemDiscounts) {
           // Calculate average discount percentage
-          const totalItemDiscount = order.items.reduce((sum, item) => 
+          const totalItemDiscount = order.items.reduce((sum, item) =>
             sum + (item.discountAmount || 0), 0);
-          const totalItemSubtotal = order.items.reduce((sum, item) => 
+          const totalItemSubtotal = order.items.reduce((sum, item) =>
             sum + (item.subtotal || (item.quantity * item.unitPrice)), 0);
-          const avgDiscountPercent = totalItemSubtotal > 0 ? 
+          const avgDiscountPercent = totalItemSubtotal > 0 ?
             (totalItemDiscount / totalItemSubtotal) * 100 : 0;
-          
+
           // Categorize based on discount percentage and patterns
           if (avgDiscountPercent >= 15) {
             discountType = 'bulk'; // High discount usually means bulk
@@ -229,20 +253,20 @@ class PLCalculationService {
           } else if (avgDiscountPercent > 0) {
             discountType = 'promotional'; // Small discount usually promotional
           }
-          
+
           // Check if customer has discount (would indicate customer discount)
           if (order.customer && avgDiscountPercent > 0 && avgDiscountPercent < 15) {
             discountType = 'customer';
           }
         }
-        
+
         discountDetails.push({
           orderNumber: order.orderNumber,
           date: order.createdAt,
           amount: orderDiscount,
           type: discountType,
         });
-        
+
         // Sum by discount type
         discountsByType[discountType] = (discountsByType[discountType] || 0) + orderDiscount;
       }
@@ -260,14 +284,14 @@ class PLCalculationService {
       const discountAmount = transaction.debitAmount || 0;
       if (discountAmount > 0) {
         salesDiscounts += discountAmount;
-        
+
         const discountType = this.categorizeDiscountType(
           transaction.description || 'other',
           transaction.reference || ''
         );
-        
+
         discountsByType[discountType] = (discountsByType[discountType] || 0) + discountAmount;
-        
+
         discountDetails.push({
           orderNumber: transaction.reference || transaction.transactionId,
           date: transaction.createdAt,
@@ -301,10 +325,10 @@ class PLCalculationService {
   // Helper method to categorize discount type
   categorizeDiscountType(discountType, discountCode) {
     if (!discountType) return 'other';
-    
+
     const type = discountType.toLowerCase();
     const code = (discountCode || '').toLowerCase();
-    
+
     // Check discount type
     if (type.includes('bulk') || code.includes('bulk')) return 'bulk';
     if (type.includes('loyalty') || code.includes('loyalty') || code.includes('reward')) return 'loyalty';
@@ -313,7 +337,7 @@ class PLCalculationService {
     if (type.includes('seasonal') || code.includes('seasonal')) return 'seasonal';
     if (type.includes('clearance') || code.includes('clearance')) return 'clearance';
     if (type.includes('first') || code.includes('first') || code.includes('new')) return 'first_time';
-    
+
     return 'other';
   }
 
@@ -322,7 +346,7 @@ class PLCalculationService {
     // Get COGS account code dynamically
     const accountCodes = await this.getAccountCodes();
     const cogsCode = accountCodes.costOfGoodsSold;
-    
+
     // Get COGS transactions
     const cogsTransactions = await TransactionRepository.findAll({
       accountCode: cogsCode,
@@ -334,29 +358,35 @@ class PLCalculationService {
     const cogsDetails = [];
 
     cogsTransactions.forEach(transaction => {
-      if (transaction.debitAmount > 0) {
-        totalCOGS += transaction.debitAmount;
+      const debit = transaction.debitAmount || 0;
+      const credit = transaction.creditAmount || 0;
+
+      if (debit > 0 || credit > 0) {
+        const netAmount = debit - credit;
+        totalCOGS += netAmount;
+
         cogsDetails.push({
           description: transaction.description,
-          amount: transaction.debitAmount,
+          amount: netAmount,
           reference: transaction.reference,
-          date: transaction.createdAt
+          date: transaction.createdAt,
+          type: credit > 0 ? 'credit' : 'debit'
         });
       }
     });
 
     // Get beginning inventory (from previous period)
     const beginningInventory = await this.getInventoryValue(period.startDate);
-    
+
     // Get ending inventory (from current period end)
     const endingInventory = await this.getInventoryValue(period.endDate);
-    
+
     // Get purchases during the period
     const purchases = await this.calculatePurchases(period);
-    
+
     // Get purchase returns and discounts
     const purchaseAdjustments = await this.calculatePurchaseAdjustments(period);
-    
+
     // FALLBACK: If no COGS transactions found, calculate from Sales orders
     if (totalCOGS === 0) {
       const Sales = require('../models/Sales');
@@ -365,13 +395,13 @@ class PLCalculationService {
         status: { $in: ['completed', 'delivered', 'shipped', 'confirmed'] },
         orderType: { $ne: 'return' } // Exclude returns
       }).select('items.product items.quantity items.unitCost createdAt orderNumber');
-      
+
       for (const order of salesOrders) {
         for (const item of order.items || []) {
           const unitCost = item.unitCost || 0;
           const quantity = item.quantity || 0;
           const itemCOGS = unitCost * quantity;
-          
+
           if (itemCOGS > 0) {
             totalCOGS += itemCOGS;
             cogsDetails.push({
@@ -384,7 +414,7 @@ class PLCalculationService {
         }
       }
     }
-    
+
     return {
       beginningInventory,
       endingInventory,
@@ -431,7 +461,7 @@ class PLCalculationService {
     purchaseOrders.forEach(po => {
       const orderTotal = po.total || 0;
       totalPurchases += orderTotal;
-      
+
       if (po.shippingCost) {
         freightIn += po.shippingCost;
       }
@@ -481,13 +511,17 @@ class PLCalculationService {
     });
 
     // Get purchase returns from Return model (origin = 'purchase')
+    // Use returnDate for consistency with sales returns
     const purchaseReturnsFromReturnModel = await ReturnRepository.findAll({
       origin: 'purchase',
-      createdAt: { $gte: period.startDate, $lte: period.endDate },
-      status: { $in: ['approved', 'processing', 'received', 'completed'] }
+      returnDate: { 
+        $gte: new Date(period.startDate), 
+        $lte: new Date(period.endDate) 
+      },
+      status: { $in: ['approved', 'processing', 'received', 'completed', 'refunded'] }
     }, {
       populate: [{ path: 'supplier', select: 'companyName' }],
-      select: 'returnNumber totalRefundAmount netRefundAmount supplier createdAt'
+      select: 'returnNumber totalRefundAmount netRefundAmount supplier returnDate createdAt'
     });
 
     purchaseReturnsFromReturnModel.forEach(returnDoc => {
@@ -518,11 +552,11 @@ class PLCalculationService {
       const discountAmount = invoice.pricing?.discountAmount || 0;
       if (discountAmount > 0) {
         purchaseDiscounts += discountAmount;
-        
+
         // Calculate discount percentage to categorize
         const subtotal = invoice.pricing?.subtotal || 0;
         const discountPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0;
-        
+
         discountDetails.push({
           invoiceNumber: invoice.invoiceNumber,
           date: invoice.createdAt,
@@ -549,28 +583,49 @@ class PLCalculationService {
   async calculateExpenses(period) {
     // Get expense account codes dynamically
     const accountCodes = await this.getAccountCodes();
-    
-    // Get all expense accounts (operating expenses category)
+
+    // Get all expense accounts (include all expense categories, not just operating_expenses)
+    // This ensures all expense transactions are included in P&L, regardless of category
     const expenseAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'expense',
-      accountCategory: 'operating_expenses',
+      accountCategory: { $in: ['operating_expenses', 'other_expenses', 'cost_of_goods_sold'] },
       isActive: true,
       allowDirectPosting: true
     }, {
       select: 'accountCode accountName accountCategory'
     });
-    
+
+    // Also get any expense accounts that might not have the standard categories
+    // This catches custom expense accounts that users create
+    const allExpenseAccounts = await ChartOfAccountsRepository.findAll({
+      accountType: 'expense',
+      isActive: true,
+      allowDirectPosting: true
+    }, {
+      select: 'accountCode accountName accountCategory'
+    });
+
+    // Combine and deduplicate by accountCode
+    const accountMap = new Map();
+    allExpenseAccounts.forEach(acc => {
+      if (!accountMap.has(acc.accountCode)) {
+        accountMap.set(acc.accountCode, acc);
+      }
+    });
+    const allUniqueExpenseAccounts = Array.from(accountMap.values());
+
     // Get all expense transactions for the period
-    const expenseAccountCodes = expenseAccounts.map(acc => acc.accountCode);
-    
+    const expenseAccountCodes = allUniqueExpenseAccounts.map(acc => acc.accountCode);
+
     // If no expense accounts found, try to get by category codes
     if (expenseAccountCodes.length === 0) {
       // Try to find common expense account codes
       const commonExpenseCodes = ['5210', '5220', accountCodes.otherExpenses].filter(Boolean);
       expenseAccountCodes.push(...commonExpenseCodes);
     }
-    
+
     // Query all expense transactions
+    // Use createdAt for date filtering (Transaction model uses createdAt, not a separate date field)
     const expenseTransactions = await TransactionRepository.findAll({
       accountCode: { $in: expenseAccountCodes },
       createdAt: { $gte: period.startDate, $lte: period.endDate },
@@ -579,27 +634,34 @@ class PLCalculationService {
     }, {
       populate: [{ path: 'orderId', select: 'orderNumber' }]
     });
-    
+
+    // Debug logging to help diagnose missing expenses
+    if (expenseAccountCodes.length > 0) {
+      console.log(`[P&L] Querying expenses for ${expenseAccountCodes.length} account codes:`, expenseAccountCodes.slice(0, 10));
+      console.log(`[P&L] Date range: ${period.startDate.toISOString()} to ${period.endDate.toISOString()}`);
+      console.log(`[P&L] Found ${expenseTransactions.length} expense transactions`);
+    }
+
     // Categorize expenses
     const sellingExpenses = {};
     const administrativeExpenses = {};
-    
+
     // Store transaction details
     const sellingExpenseDetails = [];
     const administrativeExpenseDetails = [];
-    
-    // Map account codes to categories
+
+    // Map account codes to categories (use allUniqueExpenseAccounts instead of expenseAccounts)
     const accountCategoryMap = {};
-    expenseAccounts.forEach(acc => {
+    allUniqueExpenseAccounts.forEach(acc => {
       accountCategoryMap[acc.accountCode] = acc.accountName;
     });
-    
+
     // Process each expense transaction
     expenseTransactions.forEach(transaction => {
       const accountCode = transaction.accountCode;
       const amount = transaction.debitAmount || 0;
       const accountName = accountCategoryMap[accountCode] || transaction.description || 'Unknown';
-      
+
       // Create transaction detail object
       const transactionDetail = {
         transactionId: transaction.transactionId,
@@ -610,7 +672,7 @@ class PLCalculationService {
         accountName: accountName,
         reference: transaction.reference || transaction.orderId?.orderNumber || '',
       };
-      
+
       // Use enhanced categorization service
       const categorization = expenseCategorizationService.categorizeExpense({
         accountCode: accountCode,
@@ -619,15 +681,15 @@ class PLCalculationService {
         tags: transaction.metadata?.tags || [],
         metadata: transaction.metadata || {}
       });
-      
+
       const expenseType = categorization.expenseType;
       const category = categorization.category;
-      
+
       // Add confidence and factors to transaction detail for transparency
       transactionDetail.category = category;
       transactionDetail.categorizationConfidence = categorization.confidence;
       transactionDetail.categorizationReason = expenseCategorizationService.getReason(categorization.factors);
-      
+
       if (expenseType === 'selling') {
         sellingExpenses[category] = (sellingExpenses[category] || 0) + amount;
         sellingExpenseDetails.push(transactionDetail);
@@ -637,7 +699,7 @@ class PLCalculationService {
         administrativeExpenseDetails.push(transactionDetail);
       }
     });
-    
+
     // If no expenses found, return empty objects (not estimates)
     return {
       selling: sellingExpenses,
@@ -646,7 +708,7 @@ class PLCalculationService {
       administrativeDetails: administrativeExpenseDetails,
     };
   }
-  
+
   // Helper method to categorize selling expenses (uses configuration with fallback)
   categorizeSellingExpense(accountName, description) {
     // Try to get category from configuration first
@@ -654,7 +716,7 @@ class PLCalculationService {
     if (nameBased.expenseType === 'selling') {
       return nameBased.category;
     }
-    
+
     // Fallback to description-based categorization
     const name = (accountName + ' ' + (description || '')).toLowerCase();
     if (name.includes('advertising') || name.includes('ad')) return 'advertising';
@@ -666,7 +728,7 @@ class PLCalculationService {
     if (name.includes('customer') && name.includes('service')) return 'customer_service';
     return 'other_selling';
   }
-  
+
   // Helper method to categorize administrative expenses (uses configuration with fallback)
   categorizeAdministrativeExpense(accountName, description) {
     // Try to get category from configuration first
@@ -674,7 +736,7 @@ class PLCalculationService {
     if (nameBased.expenseType === 'administrative') {
       return nameBased.category;
     }
-    
+
     // Fallback to description-based categorization
     const name = (accountName + ' ' + (description || '')).toLowerCase();
     if (name.includes('office') && name.includes('suppl')) return 'office_supplies';
@@ -696,7 +758,7 @@ class PLCalculationService {
   async calculateOtherIncome(period) {
     // Get account codes dynamically
     const accountCodes = await this.getAccountCodes();
-    
+
     // Find other income accounts (revenue accounts that are not sales revenue)
     const otherIncomeAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'revenue',
@@ -706,7 +768,7 @@ class PLCalculationService {
     }, {
       select: 'accountCode accountName'
     });
-    
+
     // Also find accounts by name patterns for interest and rental
     const interestAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'revenue',
@@ -719,7 +781,7 @@ class PLCalculationService {
     }, {
       select: 'accountCode accountName'
     });
-    
+
     const rentalAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'revenue',
       isActive: true,
@@ -728,7 +790,7 @@ class PLCalculationService {
     }, {
       select: 'accountCode accountName'
     });
-    
+
     // Combine all other income account codes
     const allOtherIncomeCodes = [
       ...otherIncomeAccounts.map(acc => acc.accountCode),
@@ -736,10 +798,10 @@ class PLCalculationService {
       ...rentalAccounts.map(acc => acc.accountCode),
       accountCodes.otherRevenue // Fallback
     ].filter(Boolean);
-    
+
     // Remove duplicates
     const uniqueOtherIncomeCodes = [...new Set(allOtherIncomeCodes)];
-    
+
     // Query all other income transactions
     const otherIncomeTransactions = await TransactionRepository.findAll({
       accountCode: { $in: uniqueOtherIncomeCodes },
@@ -747,22 +809,22 @@ class PLCalculationService {
       status: 'completed',
       creditAmount: { $gt: 0 } // Income is credits
     });
-    
+
     // Categorize income
     let interestIncome = 0;
     let rentalIncome = 0;
     let otherIncome = 0;
-    
+
     // Create maps for quick lookup
     const interestAccountCodes = new Set(interestAccounts.map(acc => acc.accountCode));
     const rentalAccountCodes = new Set(rentalAccounts.map(acc => acc.accountCode));
     const otherRevenueAccountCodes = new Set(otherIncomeAccounts.map(acc => acc.accountCode));
-    
+
     otherIncomeTransactions.forEach(transaction => {
       const accountCode = transaction.accountCode;
       const amount = transaction.creditAmount || 0;
       const description = (transaction.description || '').toLowerCase();
-      
+
       // Categorize by account code or description
       if (interestAccountCodes.has(accountCode) || description.includes('interest')) {
         interestIncome += amount;
@@ -775,7 +837,7 @@ class PLCalculationService {
         }
       }
     });
-    
+
     return {
       interestIncome,
       rentalIncome,
@@ -787,7 +849,7 @@ class PLCalculationService {
   async calculateOtherExpenses(period) {
     // Get account codes dynamically
     const accountCodes = await this.getAccountCodes();
-    
+
     // Find other expense accounts (expense accounts that are not operating expenses or COGS)
     const otherExpenseAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'expense',
@@ -797,7 +859,7 @@ class PLCalculationService {
     }, {
       select: 'accountCode accountName'
     });
-    
+
     // Find accounts by name patterns for interest, depreciation, and amortization
     const interestExpenseAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'expense',
@@ -810,7 +872,7 @@ class PLCalculationService {
     }, {
       select: 'accountCode accountName'
     });
-    
+
     const depreciationAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'expense',
       isActive: true,
@@ -819,7 +881,7 @@ class PLCalculationService {
     }, {
       select: 'accountCode accountName'
     });
-    
+
     const amortizationAccounts = await ChartOfAccountsRepository.findAll({
       accountType: 'expense',
       isActive: true,
@@ -828,7 +890,7 @@ class PLCalculationService {
     }, {
       select: 'accountCode accountName'
     });
-    
+
     // Combine all other expense account codes
     const allOtherExpenseCodes = [
       ...otherExpenseAccounts.map(acc => acc.accountCode),
@@ -837,10 +899,10 @@ class PLCalculationService {
       ...amortizationAccounts.map(acc => acc.accountCode),
       accountCodes.otherExpenses // Fallback
     ].filter(Boolean);
-    
+
     // Remove duplicates
     const uniqueOtherExpenseCodes = [...new Set(allOtherExpenseCodes)];
-    
+
     // Query all other expense transactions
     const otherExpenseTransactions = await TransactionRepository.findAll({
       accountCode: { $in: uniqueOtherExpenseCodes },
@@ -848,24 +910,24 @@ class PLCalculationService {
       status: 'completed',
       debitAmount: { $gt: 0 } // Expenses are debits
     });
-    
+
     // Categorize expenses
     let interestExpense = 0;
     let depreciation = 0;
     let amortization = 0;
     let otherExpense = 0;
-    
+
     // Create maps for quick lookup
     const interestExpenseAccountCodes = new Set(interestExpenseAccounts.map(acc => acc.accountCode));
     const depreciationAccountCodes = new Set(depreciationAccounts.map(acc => acc.accountCode));
     const amortizationAccountCodes = new Set(amortizationAccounts.map(acc => acc.accountCode));
     const otherExpenseAccountCodes = new Set(otherExpenseAccounts.map(acc => acc.accountCode));
-    
+
     otherExpenseTransactions.forEach(transaction => {
       const accountCode = transaction.accountCode;
       const amount = transaction.debitAmount || 0;
       const description = (transaction.description || '').toLowerCase();
-      
+
       // Categorize by account code or description
       if (interestExpenseAccountCodes.has(accountCode) || description.includes('interest')) {
         interestExpense += amount;
@@ -875,13 +937,13 @@ class PLCalculationService {
         amortization += amount;
       } else {
         // Other expenses (exclude COGS and operating expenses if they somehow got in)
-        if (accountCode !== accountCodes.costOfGoodsSold && 
-            !accountCode.startsWith('52')) { // Operating expenses typically start with 52
+        if (accountCode !== accountCodes.costOfGoodsSold &&
+          !accountCode.startsWith('52')) { // Operating expenses typically start with 52
           otherExpense += amount;
         }
       }
     });
-    
+
     return {
       interestExpense,
       depreciation,
@@ -894,7 +956,7 @@ class PLCalculationService {
   async calculateTaxes(period, earningsBeforeTax = 0) {
     // Calculate all taxes using tax calculation service
     const taxData = await taxCalculationService.calculateAllTaxes(period, earningsBeforeTax);
-    
+
     return {
       salesTax: taxData.salesTax.salesTax,
       incomeTax: taxData.incomeTax.total,
@@ -911,7 +973,7 @@ class PLCalculationService {
     statement.revenue.grossSales.amount = data.revenue.grossSales;
     statement.revenue.salesReturns.amount = data.revenue.salesReturns;
     statement.revenue.salesDiscounts.amount = data.revenue.salesDiscounts;
-    statement.revenue.otherRevenue.amount = data.otherIncome.interestIncome + 
+    statement.revenue.otherRevenue.amount = data.otherIncome.interestIncome +
       data.otherIncome.rentalIncome + data.otherIncome.other;
 
     if (includeDetails) {
@@ -932,7 +994,7 @@ class PLCalculationService {
           description: `${type} discounts`,
         });
       });
-      
+
       // Add individual discount transaction details if available
       if (data.revenue.discountDetails && data.revenue.discountDetails.length > 0) {
         // Group discounts by type for better organization
@@ -943,7 +1005,7 @@ class PLCalculationService {
           }
           discountsByTypeMap[detail.type].push(detail);
         });
-        
+
         // Add to existing discount details or create new entries
         Object.entries(discountsByTypeMap).forEach(([type, details]) => {
           const existingDetail = statement.revenue.salesDiscounts.details.find(d => d.type === type);
@@ -979,13 +1041,13 @@ class PLCalculationService {
       statement.costOfGoodsSold.purchases.details = data.cogs.purchaseDetails;
       // Add COGS transaction details
       statement.costOfGoodsSold.cogsDetails = data.cogs.cogsDetails;
-      
+
       // Add purchase return details if available
       if (data.cogs.purchaseAdjustments?.returnDetails && data.cogs.purchaseAdjustments.returnDetails.length > 0) {
         // Store as array on the statement (will be saved if schema supports it, otherwise ignored)
         statement.costOfGoodsSold.purchaseReturnDetails = data.cogs.purchaseAdjustments.returnDetails;
       }
-      
+
       // Add purchase discount details if available
       if (data.cogs.purchaseAdjustments?.discountDetails && data.cogs.purchaseAdjustments.discountDetails.length > 0) {
         // Store as array on the statement (will be saved if schema supports it, otherwise ignored)
@@ -1004,7 +1066,7 @@ class PLCalculationService {
 
     // Selling expenses
     let sellingTotal = 0;
-    
+
     // Group transactions by category
     const sellingByCategory = {};
     if (data.expenses.sellingDetails) {
@@ -1031,7 +1093,7 @@ class PLCalculationService {
         }
       });
     }
-    
+
     // Add category totals with budget comparison
     Object.values(sellingByCategory).forEach(categoryData => {
       sellingTotal += categoryData.amount;
@@ -1040,7 +1102,7 @@ class PLCalculationService {
         amount: categoryData.amount,
         description: categoryData.description,
       };
-      
+
       // Add budget comparison if available
       if (budgetComparison.hasBudget && budgetComparison.sellingExpenses[categoryData.category]) {
         const budgetData = budgetComparison.sellingExpenses[categoryData.category];
@@ -1051,7 +1113,7 @@ class PLCalculationService {
           status: budgetData.status
         };
       }
-      
+
       // Add transaction details as subcategories if includeDetails is true
       if (includeDetails && categoryData.transactions.length > 0) {
         detailEntry.subcategories = categoryData.transactions.map(txn => ({
@@ -1061,12 +1123,12 @@ class PLCalculationService {
           transactionId: txn.transactionId,
         }));
       }
-      
+
       statement.operatingExpenses.sellingExpenses.details.push(detailEntry);
     });
-    
+
     statement.operatingExpenses.sellingExpenses.total = sellingTotal;
-    
+
     // Add budget comparison summary for selling expenses
     if (budgetComparison.hasBudget) {
       statement.operatingExpenses.sellingExpenses.budgetComparison = {
@@ -1079,7 +1141,7 @@ class PLCalculationService {
 
     // Administrative expenses
     let adminTotal = 0;
-    
+
     // Group transactions by category
     const adminByCategory = {};
     if (data.expenses.administrativeDetails) {
@@ -1106,7 +1168,7 @@ class PLCalculationService {
         }
       });
     }
-    
+
     // Add category totals with budget comparison
     Object.values(adminByCategory).forEach(categoryData => {
       adminTotal += categoryData.amount;
@@ -1115,7 +1177,7 @@ class PLCalculationService {
         amount: categoryData.amount,
         description: categoryData.description,
       };
-      
+
       // Add budget comparison if available
       if (budgetComparison.hasBudget && budgetComparison.administrativeExpenses[categoryData.category]) {
         const budgetData = budgetComparison.administrativeExpenses[categoryData.category];
@@ -1126,7 +1188,7 @@ class PLCalculationService {
           status: budgetData.status
         };
       }
-      
+
       // Add transaction details as subcategories if includeDetails is true
       if (includeDetails && categoryData.transactions.length > 0) {
         detailEntry.subcategories = categoryData.transactions.map(txn => ({
@@ -1136,12 +1198,12 @@ class PLCalculationService {
           transactionId: txn.transactionId,
         }));
       }
-      
+
       statement.operatingExpenses.administrativeExpenses.details.push(detailEntry);
     });
-    
+
     statement.operatingExpenses.administrativeExpenses.total = adminTotal;
-    
+
     // Add budget comparison summary for administrative expenses
     if (budgetComparison.hasBudget) {
       statement.operatingExpenses.administrativeExpenses.budgetComparison = {
@@ -1150,7 +1212,7 @@ class PLCalculationService {
         variance: budgetComparison.totals.variance.administrative,
         variancePercent: budgetComparison.totals.variancePercent.administrative
       };
-      
+
       // Add overall budget comparison
       statement.operatingExpenses.budgetComparison = {
         budget: budgetComparison.totals.budget.total,
@@ -1177,7 +1239,7 @@ class PLCalculationService {
     // Populate tax data
     statement.incomeTax.current = data.taxes.incomeTax;
     statement.incomeTax.deferred = data.taxes.deferred;
-    
+
     // Add sales tax and tax details if available
     if (data.taxes.salesTaxDetails) {
       statement.salesTax = {
@@ -1188,7 +1250,7 @@ class PLCalculationService {
         source: data.taxes.salesTaxDetails.source
       };
     }
-    
+
     if (data.taxes.incomeTaxDetails && includeDetails) {
       statement.incomeTax.details = {
         effectiveRate: data.taxes.incomeTaxDetails.effectiveRate,
@@ -1211,7 +1273,7 @@ class PLCalculationService {
 
       if (previousStatement) {
         const netIncomeChange = statement.netIncome.amount - previousStatement.netIncome.amount;
-        const netIncomeChangePercent = previousStatement.netIncome.amount !== 0 ? 
+        const netIncomeChangePercent = previousStatement.netIncome.amount !== 0 ?
           (netIncomeChange / previousStatement.netIncome.amount) * 100 : 0;
 
         statement.comparison.previousPeriod = {
@@ -1231,7 +1293,7 @@ class PLCalculationService {
 
       if (budgetStatement) {
         const variance = statement.netIncome.amount - budgetStatement.netIncome.amount;
-        const variancePercent = budgetStatement.netIncome.amount !== 0 ? 
+        const variancePercent = budgetStatement.netIncome.amount !== 0 ?
           (variance / budgetStatement.netIncome.amount) * 100 : 0;
 
         statement.comparison.budget = {
@@ -1247,30 +1309,78 @@ class PLCalculationService {
     }
   }
 
-  // Get P&L summary for dashboard
+  // Get P&L summary for dashboard (always calculates fresh - no caching)
   async getPLSummary(period) {
-    let statement = await FinancialStatement.findOne({
-      type: 'profit_loss',
-      'period.startDate': period.startDate,
-      'period.endDate': period.endDate,
-    });
+    // Always calculate fresh data for real-time updates
+    const financialData = await this.calculateFinancialData(period);
 
-    if (!statement) {
-      // Generate statement if it doesn't exist
-      statement = await this.generatePLStatement(period, { includeDetails: false });
-    }
+    // Calculate derived values
+    const grossSales = financialData.revenue.grossSales;
+    const salesReturns = financialData.revenue.salesReturns;
+    const salesDiscounts = financialData.revenue.salesDiscounts;
+    const totalRevenue = grossSales - salesReturns - salesDiscounts + 
+      (financialData.otherIncome.interestIncome + financialData.otherIncome.rentalIncome + financialData.otherIncome.other);
 
-    // Always return summary format, not full statement object
+    const totalCOGS = financialData.cogs.totalCOGS;
+    const grossProfit = totalRevenue - totalCOGS;
+    const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+    // Calculate operating expenses
+    const sellingExpenses = Object.values(financialData.expenses.selling).reduce((sum, val) => sum + val, 0);
+    const administrativeExpenses = Object.values(financialData.expenses.administrative).reduce((sum, val) => sum + val, 0);
+    const totalOperatingExpenses = sellingExpenses + administrativeExpenses;
+    const operatingIncome = grossProfit - totalOperatingExpenses;
+    const operatingMargin = totalRevenue > 0 ? (operatingIncome / totalRevenue) * 100 : 0;
+
+    // Calculate other income/expenses
+    const otherIncome = financialData.otherIncome.interestIncome + financialData.otherIncome.rentalIncome + financialData.otherIncome.other;
+    const otherExpenses = financialData.otherExpenses.interestExpense + financialData.otherExpenses.depreciation + 
+      financialData.otherExpenses.amortization + financialData.otherExpenses.other;
+
+    // Calculate earnings before tax
+    const earningsBeforeTax = operatingIncome + otherIncome - otherExpenses;
+
+    // Calculate net income (after taxes)
+    const totalTax = financialData.taxes.totalTax;
+    const netIncome = earningsBeforeTax - totalTax;
+    const netMargin = totalRevenue > 0 ? (netIncome / totalRevenue) * 100 : 0;
+
+    // Format period dates as ISO strings for consistent display
+    const formatPeriodDate = (date) => {
+      if (!date) return null;
+      const d = date instanceof Date ? date : new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     return {
-      totalRevenue: statement.revenue?.totalRevenue?.amount || 0,
-      grossProfit: statement.grossProfit?.amount || 0,
-      operatingIncome: statement.operatingIncome?.amount || 0,
-      netIncome: statement.netIncome?.amount || 0,
-      grossMargin: statement.grossProfit?.margin,
-      operatingMargin: statement.operatingIncome?.margin,
-      netMargin: statement.netIncome?.margin,
-      period: statement.period,
-      lastUpdated: statement.metadata?.lastUpdated || new Date(),
+      totalRevenue,
+      grossProfit,
+      operatingIncome,
+      netIncome,
+      grossMargin,
+      operatingMargin,
+      netMargin,
+      period: {
+        startDate: formatPeriodDate(period.startDate),
+        endDate: formatPeriodDate(period.endDate),
+        type: period.type || 'custom'
+      },
+      lastUpdated: new Date(), // Always show current time for real-time data
+      // Additional breakdown for transparency
+      breakdown: {
+        grossSales,
+        salesReturns,
+        salesDiscounts,
+        totalCOGS,
+        sellingExpenses,
+        administrativeExpenses,
+        otherIncome,
+        otherExpenses,
+        totalTax
+      }
     };
   }
 

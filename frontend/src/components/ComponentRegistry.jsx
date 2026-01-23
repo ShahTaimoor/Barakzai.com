@@ -15,6 +15,7 @@ const componentLoader = {
   '/inventory-alerts': () => import('../pages/InventoryAlerts').then(module => module.default || module.InventoryAlerts),
   '/anomaly-detection': () => import('../pages/AnomalyDetection').then(module => module.default || module.AnomalyDetection),
   '/returns': () => import('../pages/Returns').then(module => module.default),
+  '/sale-returns': () => import('../pages/SaleReturns').then(module => module.default),
   '/sales-orders': () => import('../pages/SalesOrders').then(module => module.SalesOrders),
   '/purchase-orders': () => import('../pages/PurchaseOrders').then(module => module.PurchaseOrders),
   '/purchase-invoices': () => import('../pages/PurchaseInvoices').then(module => module.default || module.PurchaseInvoices),
@@ -97,6 +98,10 @@ export const componentRegistry = {
   },
   '/returns': {
     title: 'Returns',
+    icon: 'RotateCcw'
+  },
+  '/sale-returns': {
+    title: 'Sale Returns',
     icon: 'RotateCcw'
   },
   '/sales-orders': {

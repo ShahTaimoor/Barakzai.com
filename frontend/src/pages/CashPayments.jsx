@@ -512,7 +512,6 @@ const CashPayments = () => {
       items: [],
       payment: {
         method: 'Cash',
-        status: 'Paid',
         amountPaid: payment.amount || 0
       },
       notes: payment.notes || payment.particular || ''

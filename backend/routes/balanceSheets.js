@@ -13,17 +13,34 @@ router.post('/generate', [
   auth,
   requirePermission('view_reports'),
   sanitizeRequest,
-  body('statementDate').isISO8601().toDate().withMessage('Valid statement date is required'),
+  body('startDate').optional().isISO8601().toDate().withMessage('Valid start date is required'),
+  body('endDate').isISO8601().toDate().withMessage('Valid end date is required'),
+  body('statementDate').optional().isISO8601().toDate().withMessage('Valid statement date is required'),
   body('periodType').optional().isIn(['monthly', 'quarterly', 'yearly']).withMessage('Valid period type is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
-    const { statementDate, periodType = 'monthly' } = req.body;
+    const { startDate, endDate, statementDate, periodType = 'monthly' } = req.body;
+
+    // Use endDate as statementDate if statementDate is not provided (backward compatibility)
+    const finalStatementDate = statementDate || endDate;
+    const finalStartDate = startDate || endDate;
+
+    // Validate date range
+    if (finalStartDate && finalStatementDate && new Date(finalStartDate) > new Date(finalStatementDate)) {
+      return res.status(400).json({ 
+        message: 'Start date must be before or equal to end date' 
+      });
+    }
 
     const balanceSheet = await balanceSheetService.generateBalanceSheet(
-      statementDate,
+      finalStatementDate,
       periodType,
-      req.user._id
+      req.user._id,
+      {
+        startDate: finalStartDate,
+        endDate: finalStatementDate
+      }
     );
 
     res.status(201).json({

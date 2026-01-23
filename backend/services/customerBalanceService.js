@@ -50,7 +50,7 @@ class CustomerBalanceService {
       // Create customer transaction record
       if (user) {
         const transactionNumber = await CustomerTransaction.generateTransactionNumber('payment', customerId);
-        
+
         const paymentTransaction = new CustomerTransaction({
           customer: customerId,
           transactionNumber,
@@ -142,7 +142,7 @@ class CustomerBalanceService {
       // Create customer transaction record
       if (user) {
         const transactionNumber = await CustomerTransaction.generateTransactionNumber('invoice', customerId);
-        
+
         // Calculate due date
         const dueDate = this.calculateDueDate(customer.paymentTerms);
         const aging = this.calculateAging(dueDate);
@@ -249,15 +249,15 @@ class CustomerBalanceService {
   static calculateAging(dueDate) {
     const today = new Date();
     const ageInDays = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
-    
+
     let agingBucket = 'current';
     let isOverdue = false;
     let daysOverdue = 0;
-    
+
     if (ageInDays > 0) {
       isOverdue = true;
       daysOverdue = ageInDays;
-      
+
       if (ageInDays <= 30) {
         agingBucket = '1-30';
       } else if (ageInDays <= 60) {
@@ -268,7 +268,7 @@ class CustomerBalanceService {
         agingBucket = '90+';
       }
     }
-    
+
     return { ageInDays, agingBucket, isOverdue, daysOverdue };
   }
 
@@ -296,7 +296,7 @@ class CustomerBalanceService {
       // Update customer balances
       const updates = {};
       let newAdvanceBalance = balanceBefore.advanceBalance;
-      
+
       if (refundAmount > 0) {
         // Reduce advance balance first
         if (customer.advanceBalance > 0) {
@@ -304,13 +304,13 @@ class CustomerBalanceService {
           newAdvanceBalance = customer.advanceBalance - advanceReduction;
           refundAmount -= advanceReduction;
         }
-        
+
         // If there's still refund left, it means we're refunding more than advance balance
         // This creates a new advance (we now owe them more)
         if (refundAmount > 0) {
           newAdvanceBalance = newAdvanceBalance + refundAmount;
         }
-        
+
         updates.advanceBalance = newAdvanceBalance;
       }
 

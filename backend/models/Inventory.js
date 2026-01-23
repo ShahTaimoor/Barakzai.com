@@ -160,7 +160,7 @@ const InventorySchema = new mongoose.Schema({
     },
     referenceModel: {
       type: String,
-      enum: ['SalesOrder', 'PurchaseOrder', 'PurchaseInvoice', 'StockAdjustment', 'Transfer'],
+      enum: ['SalesOrder', 'PurchaseOrder', 'PurchaseInvoice', 'StockAdjustment', 'Transfer', 'Return', 'Sales'],
     },
     cost: {
       type: Number,
@@ -422,6 +422,55 @@ InventorySchema.statics.releaseStock = async function(productId, quantity) {
 
     return updated;
   });
+};
+
+// Instance method to add stock movement
+InventorySchema.methods.addStockMovement = async function(movementData) {
+  const movement = {
+    type: movementData.type || 'adjustment',
+    quantity: movementData.quantity || 0,
+    cost: movementData.cost || 0,
+    reference: movementData.reference || '',
+    reason: movementData.reason || movementData.notes || '',
+    notes: movementData.notes || '',
+    date: movementData.date || new Date(),
+    performedBy: movementData.performedBy || null
+  };
+
+  // Set referenceModel and referenceId if provided
+  if (movementData.referenceModel) {
+    movement.referenceModel = movementData.referenceModel;
+  }
+  if (movementData.referenceId) {
+    movement.referenceId = movementData.referenceId;
+  }
+
+  // Add movement to array
+  this.movements.push(movement);
+  
+  // Update stock based on movement type
+  if (movement.type === 'in' || movement.type === 'return') {
+    this.currentStock += movement.quantity;
+  } else if (movement.type === 'out' || movement.type === 'damage' || movement.type === 'theft') {
+    this.currentStock -= movement.quantity;
+    if (this.currentStock < 0) {
+      throw new Error('Insufficient stock for this movement');
+    }
+  }
+
+  // Update available stock
+  this.availableStock = Math.max(0, this.currentStock - this.reservedStock);
+  this.lastUpdated = new Date();
+
+  // Update status
+  if (this.currentStock === 0) {
+    this.status = 'out_of_stock';
+  } else if (this.status === 'out_of_stock') {
+    this.status = 'active';
+  }
+
+  await this.save();
+  return this;
 };
 
 // Static method to get low stock items

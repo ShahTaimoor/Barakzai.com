@@ -4,13 +4,19 @@ const balanceSheetCalculationService = require('../services/balanceSheetCalculat
 class BalanceSheetService {
   /**
    * Generate balance sheet
-   * @param {Date} statementDate - Statement date
+   * @param {Date} statementDate - Statement date (end date)
    * @param {string} periodType - Period type
    * @param {string} userId - User ID
+   * @param {object} dateRange - Optional date range { startDate, endDate }
    * @returns {Promise<object>}
    */
-  async generateBalanceSheet(statementDate, periodType, userId) {
-    return await balanceSheetCalculationService.generateBalanceSheet(statementDate, periodType, userId);
+  async generateBalanceSheet(statementDate, periodType, userId, dateRange = {}) {
+    return await balanceSheetCalculationService.generateBalanceSheet(
+      statementDate, 
+      periodType, 
+      userId,
+      dateRange
+    );
   }
 
   /**

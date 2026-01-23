@@ -53,13 +53,6 @@ const cashPaymentSchema = new mongoose.Schema({
     ref: 'ChartOfAccounts'
   },
   
-  // Status
-  status: {
-    type: String,
-    enum: ['pending', 'confirmed', 'cancelled'],
-    default: 'confirmed'
-  },
-  
   // Additional Information
   notes: {
     type: String,
