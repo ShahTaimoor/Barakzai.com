@@ -1,6 +1,7 @@
 const Inventory = require('../models/Inventory');
 const StockAdjustment = require('../models/StockAdjustment');
 const Product = require('../models/Product');
+const ProductVariant = require('../models/ProductVariant');
 
 // Update stock levels
 const updateStock = async ({ productId, type, quantity, reason, reference, referenceId, referenceModel, cost, performedBy, notes }) => {
@@ -20,7 +21,7 @@ const updateStock = async ({ productId, type, quantity, reason, reference, refer
 
     const updatedInventory = await Inventory.updateStock(productId, movement);
     
-    // Update product's current stock field for quick access
+    // Update product's or variant's current stock field for quick access
     const productUpdate = {
       'inventory.currentStock': updatedInventory.currentStock,
       'inventory.lastUpdated': new Date(),
@@ -36,7 +37,12 @@ const updateStock = async ({ productId, type, quantity, reason, reference, refer
       }
     }
     
-    await Product.findByIdAndUpdate(productId, productUpdate);
+    // Try to update as Product first, if not found, try as ProductVariant
+    let product = await Product.findByIdAndUpdate(productId, productUpdate, { new: false });
+    if (!product) {
+      // If not a Product, try as ProductVariant
+      await ProductVariant.findByIdAndUpdate(productId, productUpdate);
+    }
     
     return updatedInventory;
   } catch (error) {

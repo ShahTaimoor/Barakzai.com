@@ -239,6 +239,11 @@ router.post('/', [
     variantDoc.inventory.currentStock = variantStockAfter;
     await variantDoc.save();
 
+    // Get user name for StockMovement
+    const userName = req.user.firstName && req.user.lastName 
+      ? `${req.user.firstName} ${req.user.lastName}`
+      : req.user.email || 'System User';
+
     // Create stock movement records
     const baseMovement = new StockMovement({
       product: baseProduct,
@@ -251,8 +256,10 @@ router.post('/', [
       newStock: baseStockAfter,
       referenceType: 'production',
       referenceId: transformation._id,
+      referenceNumber: transformation.transformationNumber,
       notes: `Transformed to ${variantDoc.displayName}`,
-      performedBy: req.user._id
+      user: req.user._id,
+      userName: userName
     });
     await baseMovement.save();
 
@@ -267,8 +274,10 @@ router.post('/', [
       newStock: variantStockAfter,
       referenceType: 'production',
       referenceId: transformation._id,
+      referenceNumber: transformation.transformationNumber,
       notes: `Transformed from ${baseProductDoc.name}`,
-      performedBy: req.user._id
+      user: req.user._id,
+      userName: userName
     });
     await variantMovement.save();
 
