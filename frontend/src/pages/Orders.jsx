@@ -1182,6 +1182,16 @@ export const Orders = () => {
                     <p className="text-xs text-gray-500 mt-1">
                       Original date: {new Date(selectedOrder.createdAt).toLocaleDateString()}
                     </p>
+                    {selectedOrder.billStartTime && editFormData.billDate && 
+                     new Date(editFormData.billDate).toDateString() !== new Date(selectedOrder.billStartTime).toDateString() && (
+                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <p className="text-xs text-yellow-800">
+                          <strong>⚠ CCTV Note:</strong> Changing the bill date will not change CCTV recording timestamps. 
+                          CCTV footage is available at the actual recording time ({new Date(selectedOrder.billStartTime).toLocaleString()}), 
+                          not the bill date.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

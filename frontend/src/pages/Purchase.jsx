@@ -1528,6 +1528,7 @@ export const Purchase = ({ tabId, editData }) => {
                     <span className="text-blue-900">Total Payables:</span>
                     <span className="text-blue-900 text-2xl sm:text-3xl">{totalPayables.toFixed(2)}</span>
                   </div>
+
                 </div>
 
               {/* Payment and Discount Section - One Row */}

@@ -10,6 +10,7 @@ import {
   Copy,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Filter,
   X
 } from 'lucide-react';
@@ -313,9 +314,20 @@ const CCTVAccess = ({ tabId }) => {
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-gray-400" />
                           <span className="font-medium text-gray-900">{order.orderNumber}</span>
+                          {/* Show warning icon if billDate differs from CCTV date */}
+                          {order.billDate && order.billStartTime && 
+                           new Date(order.billDate).toDateString() !== new Date(order.billStartTime).toDateString() && (
+                            <AlertTriangle className="h-4 w-4 text-yellow-600" title="Bill date differs from CCTV recording date" />
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          {formatDateOnly(order.createdAt)}
+                          {order.billDate ? formatDateOnly(order.billDate) : formatDateOnly(order.createdAt)}
+                          {order.billDate && order.billStartTime && 
+                           new Date(order.billDate).toDateString() !== new Date(order.billStartTime).toDateString() && (
+                            <span className="text-yellow-600 ml-1" title={`CCTV: ${formatDateOnly(order.billStartTime)}`}>
+                              (CCTV: {formatDateOnly(order.billStartTime)})
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -475,6 +487,37 @@ const CCTVAccess = ({ tabId }) => {
                     </p>
                   </div>
                 </div>
+
+                {/* Bill Date vs CCTV Timestamps Warning */}
+                {selectedOrder.billDate && selectedOrder.billStartTime && (
+                  (() => {
+                    const billDateOnly = new Date(selectedOrder.billDate).toDateString();
+                    const cctvDateOnly = new Date(selectedOrder.billStartTime).toDateString();
+                    const isMismatch = billDateOnly !== cctvDateOnly;
+                    return isMismatch ? (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h4 className="text-sm font-semibold text-yellow-900 mb-1">
+                              Date Mismatch Detected
+                            </h4>
+                            <p className="text-sm text-yellow-800 mb-2">
+                              This invoice has been backdated/postdated. The bill date is different from the actual CCTV recording time.
+                            </p>
+                            <div className="text-xs text-yellow-700 space-y-1">
+                              <div><strong>Bill Date (Accounting):</strong> {formatDateOnly(selectedOrder.billDate)}</div>
+                              <div><strong>CCTV Recording Date:</strong> {formatDateOnly(selectedOrder.billStartTime)}</div>
+                              <div className="mt-2 italic">
+                                Note: CCTV footage is available at the actual recording time, not the bill date.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()
+                )}
 
                 <div className="border-t pt-4 mt-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
