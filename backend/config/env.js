@@ -6,9 +6,10 @@
 const logger = require('../utils/logger');
 
 // Required environment variables
+// MONGODB_URI is the Master Database URI (used for authentication and shop management)
 const requiredEnvVars = [
   'JWT_SECRET',
-  'MONGODB_URI'
+  'MONGODB_URI' // Master Database URI
 ];
 
 // Optional environment variables with defaults
@@ -54,10 +55,17 @@ const validateEnv = () => {
     }
   }
 
-  // Validate MONGODB_URI format
+  // Validate MONGODB_URI format (Master Database)
   if (process.env.MONGODB_URI && !process.env.MONGODB_URI.startsWith('mongodb://') && 
       !process.env.MONGODB_URI.startsWith('mongodb+srv://')) {
-    warnings.push('MONGODB_URI should start with mongodb:// or mongodb+srv://');
+    warnings.push('MONGODB_URI (Master Database) should start with mongodb:// or mongodb+srv://');
+  }
+
+  // ENCRYPTION_KEY is optional (falls back to JWT_SECRET)
+  if (!process.env.ENCRYPTION_KEY) {
+    logger.debug('ENCRYPTION_KEY not set, will use JWT_SECRET for encryption');
+  } else {
+    logger.debug('ENCRYPTION_KEY is set, will use it for database URL encryption');
   }
 
   // Log warnings

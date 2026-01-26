@@ -23,7 +23,10 @@ export const citiesApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'Cities', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'Cities', id: 'LIST' },
+        { type: 'Cities', id: 'ACTIVE' },
+      ],
     }),
     updateCity: builder.mutation({
       query: ({ id, ...data }) => ({
@@ -34,6 +37,7 @@ export const citiesApi = api.injectEndpoints({
       invalidatesTags: (_res, _err, { id }) => [
         { type: 'Cities', id },
         { type: 'Cities', id: 'LIST' },
+        { type: 'Cities', id: 'ACTIVE' },
       ],
     }),
     deleteCity: builder.mutation({
@@ -44,6 +48,7 @@ export const citiesApi = api.injectEndpoints({
       invalidatesTags: (_res, _err, id) => [
         { type: 'Cities', id },
         { type: 'Cities', id: 'LIST' },
+        { type: 'Cities', id: 'ACTIVE' },
       ],
     }),
     getActiveCities: builder.query({

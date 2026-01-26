@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Camera } from 'lucide-react';
 import { LoadingButton } from './LoadingSpinner';
 import ValidationSummary from './ValidationSummary';
+import toast from 'react-hot-toast';
 
 export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, allProducts = [], onEditExisting, categories = [] }) => {
   const [formData, setFormData] = useState({
@@ -25,6 +26,7 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
   const [similarProducts, setSimilarProducts] = useState([]);
   const [exactMatch, setExactMatch] = useState(null);
   const [errors, setErrors] = useState({});
+  const [priceValidationShown, setPriceValidationShown] = useState(false);
 
   const handleChange = useCallback((event) => {
     const { name, value, type, checked } = event.target;
@@ -39,6 +41,11 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
           [child]: fieldValue
         }
       }));
+      
+      // Reset price validation flag when price changes
+      if (parent === 'pricing') {
+        setPriceValidationShown(false);
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -93,7 +100,21 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
     } else {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
-  }, []);
+    
+    // Validate price hierarchy when price fields are blurred (only show once)
+    if (name.startsWith('pricing.') && !priceValidationShown) {
+      const retailPrice = parseFloat(formData.pricing.retail) || 0;
+      const wholesalePrice = parseFloat(formData.pricing.wholesale) || 0;
+      
+      if (retailPrice > 0 && wholesalePrice > 0 && retailPrice < wholesalePrice) {
+        toast.error('Wholesale price cannot be greater than retail price. Please correct the wholesale price.', {
+          duration: 5000,
+          position: 'top-center'
+        });
+        setPriceValidationShown(true);
+      }
+    }
+  }, [formData.pricing, priceValidationShown]);
 
   const validateForm = useCallback(() => {
     const newErrors = {};
@@ -104,9 +125,41 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
       newErrors.name = 'Product name must be at least 2 characters';
     }
     
+    // Validate price hierarchy (only show toast if not already shown)
+    const retailPrice = parseFloat(formData.pricing.retail) || 0;
+    const wholesalePrice = parseFloat(formData.pricing.wholesale) || 0;
+    const costPrice = parseFloat(formData.pricing.cost) || 0;
+    
+    if (retailPrice > 0 && wholesalePrice > 0 && retailPrice < wholesalePrice) {
+      if (!priceValidationShown) {
+        toast.error('Wholesale price cannot be greater than retail price. Please correct the wholesale price.', {
+          duration: 5000,
+          position: 'top-center'
+        });
+        setPriceValidationShown(true);
+      }
+      return false;
+    }
+    
+    if (costPrice > 0 && wholesalePrice > 0 && costPrice > wholesalePrice) {
+      toast.error('Cost price cannot be greater than wholesale price. Please correct the cost price.', {
+        duration: 5000,
+        position: 'top-center'
+      });
+      return false;
+    }
+    
+    if (costPrice > 0 && retailPrice > 0 && costPrice > retailPrice) {
+      toast.error('Cost price cannot be greater than retail price. Please correct the cost price.', {
+        duration: 5000,
+        position: 'top-center'
+      });
+      return false;
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData.name]);
+  }, [formData.name, formData.pricing, priceValidationShown]);
 
   const resetForm = useCallback((newData = {}) => {
     let expiryDateValue = '';
@@ -137,6 +190,7 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
       }
     });
     setErrors({});
+    setPriceValidationShown(false); // Reset validation flag when form is reset
   }, []);
 
   useEffect(() => {

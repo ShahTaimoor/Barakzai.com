@@ -4,7 +4,11 @@ const purchaseInvoiceItemSchema = new mongoose.Schema({
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
-    required: true
+    required: false // Made optional for manual invoice creation
+  },
+  productName: {
+    type: String,
+    required: false // Product name for manual entries
   },
   quantity: {
     type: Number,

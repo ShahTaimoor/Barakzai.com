@@ -64,7 +64,7 @@ export const PLStatements = () => {
   const [showData, setShowData] = useState(false);
 
   // Fetch P&L summary when search is clicked
-  const { data: summaryData, isLoading, error, refetch } = useGetSummaryQuery(
+  const { data: summaryData, isLoading, isFetching, error, refetch } = useGetSummaryQuery(
     {
       startDate: searchFromDate,
       endDate: searchToDate,
@@ -74,6 +74,9 @@ export const PLStatements = () => {
       onError: (error) => handleApiError(error, 'Profit & Loss Statement'),
     }
   );
+  
+  // Use isFetching to show loading state on every refetch, not just initial load
+  const isButtonLoading = isLoading || isFetching;
 
   const handleSearch = () => {
     if (!fromDate || !toDate) {
@@ -412,7 +415,7 @@ export const PLStatements = () => {
             <div className="flex items-center space-x-3 no-print">
               <button
                 onClick={handleExportPDF}
-                disabled={!showData || !summary || isLoading}
+                disabled={!showData || !summary || isButtonLoading}
                 className="flex items-center space-x-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="h-4 w-4" />
@@ -457,10 +460,10 @@ export const PLStatements = () => {
             <div className="md:col-span-4">
               <button
                 onClick={handleSearch}
-                disabled={isLoading}
+                disabled={isButtonLoading}
                 className="w-full flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? (
+                {isButtonLoading ? (
                   <LoadingSpinner className="h-5 w-5 border-2 border-white/30 border-t-white" />
                 ) : (
                   <>
@@ -475,7 +478,7 @@ export const PLStatements = () => {
       </div>
 
       {/* States */}
-      {showData && isLoading && (
+      {showData && isButtonLoading && (
         <div className="flex flex-col justify-center items-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm">
           <LoadingSpinner />
           <p className="mt-4 text-slate-600 font-medium animate-pulse">Calculating financial data...</p>
@@ -501,7 +504,7 @@ export const PLStatements = () => {
       )}
 
       {/* Report Content */}
-      {!isLoading && !error && showData && summary && (
+      {!isButtonLoading && !error && showData && summary && (
         <div id="pl-statement-content" className="space-y-8 animate-in fade-in duration-500">
           {/* Executive Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

@@ -357,7 +357,9 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
           <div className={`text-sm ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-orange-600' : 'text-gray-600'}`}>
             Stock: {inventory.currentStock || 0}
           </div>
-          {showCostPrice && hasCostPricePermission && <div className="text-sm text-red-600 font-medium">Cost: ${Math.round(purchasePrice)}</div>}
+          {showCostPrice && hasCostPricePermission && purchasePrice > 0 && (
+            <div className="text-sm text-red-600 font-medium">Cost: ${Math.round(purchasePrice)}</div>
+          )}
           <div className="text-sm text-gray-600">Price: ${Math.round(unitPrice)}</div>
         </div>
       </div>
@@ -469,8 +471,12 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Cost
                 </label>
-                <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-2 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Last Purchase Price">
-                  {lastPurchasePrice !== null ? `${Math.round(lastPurchasePrice)}` : selectedProduct ? 'N/A' : '0'}
+                <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-2 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Cost Price">
+                  {lastPurchasePrice !== null 
+                    ? `${Math.round(lastPurchasePrice)}` 
+                    : selectedProduct?.pricing?.cost 
+                      ? `${Math.round(selectedProduct.pricing.cost)}` 
+                      : selectedProduct ? 'N/A' : '0'}
                 </span>
               </div>
             )}
@@ -561,8 +567,12 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Cost
               </label>
-              <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Last Purchase Price">
-                {lastPurchasePrice !== null ? `${Math.round(lastPurchasePrice)}` : selectedProduct ? 'N/A' : '0'}
+              <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Cost Price">
+                {lastPurchasePrice !== null 
+                  ? `${Math.round(lastPurchasePrice)}` 
+                  : selectedProduct?.pricing?.cost 
+                    ? `${Math.round(selectedProduct.pricing.cost)}` 
+                    : selectedProduct ? 'N/A' : '0'}
               </span>
             </div>
           )}
@@ -1718,17 +1728,11 @@ export const Sales = ({ tabId, editData }) => {
         const availableCredit = selectedCustomer.creditLimit - totalOutstanding;
         
         if (newBalanceAfterOrder > selectedCustomer.creditLimit) {
-          const message = `Credit limit exceeded for ${selectedCustomer.displayName || selectedCustomer.name}. ` +
-            `Current balance: $${totalOutstanding.toFixed(2)}, ` +
-            `Unpaid amount: $${unpaidAmount.toFixed(2)}, ` +
-            `Credit limit: $${selectedCustomer.creditLimit.toFixed(2)}, ` +
-            `Available credit: $${availableCredit.toFixed(2)}. ` +
-            `Please collect payment or reduce the order amount.`;
-          
-          // No need to reset state since we don't set it in handleCheckout
-          toast.error(message, {
+          // Show simple and clear message when credit limit is exceeded
+          toast.error(`Your credit limit is full. Credit limit: $${selectedCustomer.creditLimit.toFixed(2)}. Please collect payment or reduce the order amount.`, {
             duration: 8000,
-            position: 'top-center'
+            position: 'top-center',
+            icon: '⚠️'
           });
           return;
         } else if (availableCredit - unpaidAmount < (selectedCustomer.creditLimit * 0.1)) {
@@ -1930,19 +1934,20 @@ export const Sales = ({ tabId, editData }) => {
               onSearch={setCustomerSearchTerm}
               selectedItem={selectedCustomer}
               displayKey={(customer) => {
-                const receivables = (customer.pendingBalance || 0);
-                const advance = (customer.advanceBalance || 0);
-                const netBalance = receivables - advance;
-                const isPayable = netBalance < 0;
-                const isReceivable = netBalance > 0;
-                const hasBalance = receivables > 0 || advance > 0;
+                // Calculate total balance: currentBalance (which is net balance)
+                const totalBalance = customer.currentBalance !== undefined 
+                  ? customer.currentBalance 
+                  : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
+                const hasBalance = totalBalance !== 0;
+                const isPayable = totalBalance < 0;
+                const isReceivable = totalBalance > 0;
                 
                 return (
                   <div>
                     <div className="font-medium">{customer.displayName}</div>
                     {hasBalance ? (
                       <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-                        {isPayable ? 'Advance:' : 'Receivables:'} ${Math.abs(netBalance).toFixed(2)}
+                        Total Balance: {isPayable ? '-' : '+'}${Math.abs(totalBalance).toFixed(2)}
                       </div>
                     ) : null}
                   </div>
@@ -1966,20 +1971,22 @@ export const Sales = ({ tabId, editData }) => {
                     </p>
                     <div className="flex items-center space-x-4 mt-2">
                       {(() => {
-                        const receivables = (selectedCustomer.pendingBalance || 0);
-                        const advance = (selectedCustomer.advanceBalance || 0);
-                        const netBalance = receivables - advance;
-                        const isPayable = netBalance < 0;
-                        const isReceivable = netBalance > 0;
-                        const hasBalance = receivables > 0 || advance > 0;
+                        // Calculate total balance: currentBalance (which is net balance) or currentBalance + pendingBalance
+                        // Total balance = currentBalance (net of pendingBalance - advanceBalance)
+                        const totalBalance = selectedCustomer.currentBalance !== undefined 
+                          ? selectedCustomer.currentBalance 
+                          : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                        const hasBalance = totalBalance !== 0;
+                        const isPayable = totalBalance < 0;
+                        const isReceivable = totalBalance > 0;
                         
                         return hasBalance ? (
                           <div className="flex items-center space-x-1">
-                            <span className="text-xs text-gray-500">{isPayable ? 'Advance:' : 'Receivables:'}</span>
+                            <span className="text-xs text-gray-500">Total Balance:</span>
                             <span className={`text-sm font-medium ${
                               isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
                             }`}>
-                              ${Math.abs(netBalance).toFixed(2)}
+                              {isPayable ? '-' : '+'}${Math.abs(totalBalance).toFixed(2)}
                             </span>
                           </div>
                         ) : null;
@@ -2765,20 +2772,21 @@ export const Sales = ({ tabId, editData }) => {
                   </div>
                 )}
                 {selectedCustomer && (() => {
-                  const receivables = selectedCustomer.pendingBalance || 0;
-                  const advance = selectedCustomer.advanceBalance || 0;
-                  const netBalance = receivables - advance;
-                  const hasPreviousBalance = receivables > 0 || advance > 0;
+                  // Calculate total balance: currentBalance (which is net balance)
+                  const totalBalance = selectedCustomer.currentBalance !== undefined 
+                    ? selectedCustomer.currentBalance 
+                    : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                  const hasPreviousBalance = totalBalance !== 0;
                   
                   if (!hasPreviousBalance) return null;
                   
                   return (
                     <div className="flex justify-between items-center mt-2">
                       <span className="text-gray-800 font-semibold">
-                        {netBalance < 0 ? 'Previous Advance:' : 'Previous Receivables:'}
+                        Previous Total Balance:
                       </span>
-                      <span className={`text-xl font-bold ${netBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {netBalance < 0 ? '-' : '+'}{Math.abs(Math.round(netBalance))}
+                      <span className={`text-xl font-bold ${totalBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {totalBalance < 0 ? '-' : '+'}{Math.abs(Math.round(totalBalance))}
                       </span>
                     </div>
                   );
@@ -2788,23 +2796,24 @@ export const Sales = ({ tabId, editData }) => {
                   <span className="text-blue-900 text-3xl">{Math.round(total)}</span>
                 </div>
                 {selectedCustomer && (() => {
-                  const receivables = selectedCustomer.pendingBalance || 0;
-                  const advance = selectedCustomer.advanceBalance || 0;
-                  const netBalance = receivables - advance;
-                  const hasPreviousBalance = receivables > 0 || advance > 0;
+                  // Calculate total balance: currentBalance (which is net balance)
+                  const totalBalance = selectedCustomer.currentBalance !== undefined 
+                    ? selectedCustomer.currentBalance 
+                    : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                  const hasPreviousBalance = totalBalance !== 0;
                   
                   if (!hasPreviousBalance) return null;
                   
-                  const totalPayables = total + netBalance;
-                  const isPayable = totalPayables < 0;
+                  const totalBalanceAfterOrder = total + totalBalance;
+                  const isPayable = totalBalanceAfterOrder < 0;
                   
                   return (
                     <div className="flex justify-between items-center text-lg font-bold border-t-2 border-red-400 pt-3 mt-2">
                       <span className={isPayable ? 'text-red-700' : 'text-green-700'}>
-                        {isPayable ? 'Total Advance:' : 'Total Receivables:'}
+                        Total Balance After Order:
                       </span>
                       <span className={`text-2xl ${isPayable ? 'text-red-700' : 'text-green-700'}`}>
-                        {Math.abs(Math.round(totalPayables))}
+                        {isPayable ? '-' : '+'}{Math.abs(Math.round(totalBalanceAfterOrder))}
                       </span>
                     </div>
                   );

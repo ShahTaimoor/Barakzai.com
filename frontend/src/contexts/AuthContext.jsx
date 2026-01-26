@@ -15,7 +15,7 @@ export const useAuth = () => {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const { user, token, isAuthenticated, status, error } = useAppSelector((s) => s.auth);
-  const isLoginPage = location.pathname === '/login';
+  const isLoginPage = location.pathname === '/login' || location.pathname === '/developer/login';
 
   const {
     isLoading: currentUserLoading,
