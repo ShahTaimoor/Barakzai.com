@@ -4,7 +4,7 @@ module.exports = {
     '/node_modules/',
     '/tests/',
     '/migrations/',
-    '/scripts/'
+
   ],
   testMatch: [
     '**/__tests__/**/*.test.js',
@@ -15,7 +15,7 @@ module.exports = {
     '!**/node_modules/**',
     '!**/tests/**',
     '!**/migrations/**',
-    '!**/scripts/**',
+
     '!jest.config.js',
     '!server.js'
   ],
