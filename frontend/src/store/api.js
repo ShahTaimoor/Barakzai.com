@@ -39,9 +39,6 @@ export const api = createApi({
     'Users',
     'Payments',
     'Recommendations',
-    'Shops',
-    'Admins',
-    'Plans',
   ],
   endpoints: (builder) => ({
     health: builder.query({

@@ -6,14 +6,6 @@ import { sanitizeObject, sanitizeInput, escapeHtml } from './validation';
 export const sanitizeRequestData = (data) => {
   if (!data) return data;
   
-  // Don't sanitize databaseUrl field - it's a MongoDB connection string that needs to stay intact
-  if (data.databaseUrl && typeof data.databaseUrl === 'string') {
-    const databaseUrl = data.databaseUrl;
-    const sanitized = sanitizeObject(data);
-    sanitized.databaseUrl = databaseUrl; // Restore original databaseUrl without sanitization
-    return sanitized;
-  }
-  
   // Deep sanitize the entire request object
   return sanitizeObject(data);
 };

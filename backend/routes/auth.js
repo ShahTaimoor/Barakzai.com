@@ -53,9 +53,7 @@ router.post('/register', [
 });
 
 // @route   POST /api/auth/login
-// @desc    Login user (legacy - for backward compatibility)
-//          For Admin login, use /api/auth/admin/login
-//          For Developer login, use /api/developer/login
+// @desc    Login user
 // @access  Public
 router.post('/login', [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -73,7 +71,7 @@ router.post('/login', [
     const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
     const userAgent = req.get('User-Agent');
     
-    // Call service to login user (legacy single-database mode)
+    // Call service to login user
     const result = await authService.login(email, password, ipAddress, userAgent);
     
     // Set HTTP-only cookie for secure token storage
@@ -113,68 +111,6 @@ router.post('/login', [
       name: error.name,
       code: error.code
     });
-    res.status(500).json({ 
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// @route   POST /api/auth/admin/login
-// @desc    Admin login (shop-specific)
-// @access  Public
-router.post('/admin/login', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').exists().withMessage('Password is required')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    
-    const { email, password } = req.body;
-    
-    // Get IP address and user agent
-    const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-    const userAgent = req.get('User-Agent');
-    
-    // Call service to login admin
-    const result = await authService.adminLogin(email, password, ipAddress, userAgent);
-    
-    // Set HTTP-only cookie for secure token storage
-    res.cookie('token', result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 8 * 60 * 60 * 1000, // 8 hours
-      path: '/'
-    });
-    
-    res.json({
-      message: result.message,
-      token: result.token,
-      user: result.user,
-      shop: result.shop
-    });
-  } catch (error) {
-    // Handle specific error cases
-    if (error.message === 'Invalid credentials') {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-    if (error.message.includes('locked')) {
-      return res.status(423).json({ 
-        message: 'Account is temporarily locked due to too many failed login attempts' 
-      });
-    }
-    if (error.message.includes('suspended')) {
-      return res.status(403).json({ message: error.message });
-    }
-    if (error.message.includes('Failed to connect')) {
-      return res.status(503).json({ message: error.message });
-    }
-    
-    console.error('Admin login error:', error);
     res.status(500).json({ 
       message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

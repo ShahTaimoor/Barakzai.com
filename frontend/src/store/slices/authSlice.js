@@ -37,34 +37,13 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addMatcher(authApi.endpoints.login.matchFulfilled, (state, { payload }) => {
-        // Admin login response includes user and shop info
-        state.user = payload.user ? { ...payload.user, shop: payload.shop } : payload.user;
+        state.user = payload.user;
         // Token is stored in HTTP-only cookie by backend, not in localStorage
         state.token = payload.token || 'cookie'; // Placeholder to indicate auth success
         state.isAuthenticated = true;
         state.status = 'succeeded';
         state.error = null;
         // Backend should set HTTP-only cookie with token
-      })
-      .addMatcher(authApi.endpoints.developerLogin.matchFulfilled, (state, { payload }) => {
-        state.user = payload.developer ? { ...payload.developer, role: 'DEVELOPER', type: 'developer' } : payload.user;
-        // Token is stored in HTTP-only cookie by backend
-        state.token = payload.token || 'cookie';
-        state.isAuthenticated = true;
-        state.status = 'succeeded';
-        state.error = null;
-      })
-      .addMatcher(authApi.endpoints.developerLogin.matchRejected, (state, action) => {
-        state.status = 'failed';
-        state.error = action.error?.message || 'Developer login failed';
-        state.isAuthenticated = false;
-      })
-      .addMatcher(authApi.endpoints.developerCurrentUser.matchFulfilled, (state, { payload }) => {
-        state.user = payload.developer ? { ...payload.developer, role: 'DEVELOPER', type: 'developer' } : payload;
-        state.token = 'cookie';
-        state.isAuthenticated = true;
-        state.status = 'succeeded';
-        state.error = null;
       })
       .addMatcher(authApi.endpoints.login.matchRejected, (state, action) => {
         state.status = 'failed';

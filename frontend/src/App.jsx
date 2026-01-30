@@ -12,18 +12,7 @@ import { LoadingPage } from './components/LoadingSpinner';
 
 // Critical components - load immediately (small, frequently used)
 import { Login } from './pages/Login';
-import { DeveloperLogin } from './pages/DeveloperLogin';
 import { Dashboard } from './pages/Dashboard';
-import { DeveloperLayout } from './components/DeveloperLayout';
-import { DeveloperDashboard } from './pages/DeveloperDashboard';
-import { DeveloperShops } from './pages/DeveloperShops';
-import { CreateShop } from './pages/CreateShop';
-import { DeveloperAdmins } from './pages/DeveloperAdmins';
-import { CreateAdmin } from './pages/CreateAdmin';
-import { DeveloperPlans } from './pages/DeveloperPlans';
-import { DeveloperSubscriptions } from './pages/DeveloperSubscriptions';
-import { DeveloperSettings } from './pages/DeveloperSettings';
-import { EditShop } from './pages/EditShop';
 
 // Lazy load all other pages for code splitting
 const SalesOrders = lazy(() => import('./pages/SalesOrders'));
@@ -83,27 +72,6 @@ function App() {
               <OfflineIndicator />
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/developer/login" element={<DeveloperLogin />} />
-              {/* Developer Routes */}
-              <Route
-                path="/developer/*"
-                element={
-                  <DeveloperLayout>
-                    <Routes>
-                      <Route path="/dashboard" element={<DeveloperDashboard />} />
-                      <Route path="/shops" element={<DeveloperShops />} />
-                      <Route path="/shops/create" element={<CreateShop />} />
-                      <Route path="/shops/edit/:shopId" element={<EditShop />} />
-                      <Route path="/admins" element={<DeveloperAdmins />} />
-                      <Route path="/admins/create" element={<CreateAdmin />} />
-                      <Route path="/plans" element={<DeveloperPlans />} />
-                      <Route path="/subscriptions" element={<DeveloperSubscriptions />} />
-                      <Route path="/settings" element={<DeveloperSettings />} />
-                      <Route path="*" element={<Navigate to="/developer/dashboard" replace />} />
-                    </Routes>
-                  </DeveloperLayout>
-                }
-              />
               <Route
                 path="/*"
                 element={

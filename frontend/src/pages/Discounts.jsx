@@ -19,8 +19,7 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  TrendingDown,
-  X
+  TrendingDown
 } from 'lucide-react';
 import {
   useGetDiscountsQuery,
@@ -30,17 +29,16 @@ import {
   useDeleteDiscountMutation,
 } from '../store/services/discountsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
-import { LoadingSpinner } from '../components/LoadingSpinner';
+import { LoadingSpinner, LoadingCard, LoadingTable } from '../components/LoadingSpinner';
+import { useResponsive, ResponsiveContainer, ResponsiveGrid } from '../components/ResponsiveContainer';
 import CreateDiscountModal from '../components/CreateDiscountModal';
 import DiscountDetailModal from '../components/DiscountDetailModal';
 import DiscountFilters from '../components/DiscountFilters';
-import { useDeleteConfirmation } from '../hooks/useConfirmation';
-import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 
 const Discounts = () => {
   const [filters, setFilters] = useState({
     page: 1,
-    limit: 20,
+    limit: 10,
     status: '',
     type: '',
     isActive: '',
@@ -54,7 +52,7 @@ const Discounts = () => {
   const [selectedDiscount, setSelectedDiscount] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const { confirmation, confirmDelete, handleConfirm, handleCancel } = useDeleteConfirmation();
+  const { isMobile } = useResponsive();
 
   // Fetch discounts
   const { 
@@ -63,7 +61,6 @@ const Discounts = () => {
     error: discountsError,
     refetch: refetchDiscounts
   } = useGetDiscountsQuery(filters, {
-    keepPreviousData: true,
     onError: (error) => {
       handleApiError(error, 'Fetch Discounts');
     }
@@ -89,20 +86,14 @@ const Discounts = () => {
   });
 
   // Mutations
-  const [toggleDiscountStatus, { isLoading: toggling }] = useToggleDiscountStatusMutation();
-  const [deleteDiscount, { isLoading: deleting }] = useDeleteDiscountMutation();
+  const [toggleDiscountStatus] = useToggleDiscountStatusMutation();
+  const [deleteDiscount] = useDeleteDiscountMutation();
 
   React.useEffect(() => {
     if (selectedDiscountData?.data) {
       setSelectedDiscount(selectedDiscountData.data);
     }
   }, [selectedDiscountData]);
-
-  React.useEffect(() => {
-    if (discountsError) {
-      handleApiError(discountsError, 'Failed to fetch discounts');
-    }
-  }, [discountsError]);
 
   const handleFilterChange = (newFilters) => {
     setFilters(prev => ({
@@ -128,9 +119,7 @@ const Discounts = () => {
   };
 
   const handleDelete = async (discountId) => {
-    const discount = discounts.find(d => d._id === discountId);
-    const discountName = discount?.name || 'this discount';
-    confirmDelete(discountName, 'Discount', async () => {
+    if (window.confirm('Are you sure you want to delete this discount?')) {
       try {
         await deleteDiscount(discountId).unwrap();
         showSuccessToast('Discount deleted successfully');
@@ -138,7 +127,53 @@ const Discounts = () => {
       } catch (error) {
         handleApiError(error, 'Delete Discount');
       }
-    });
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'active':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'inactive':
+        return <XCircle className="h-4 w-4 text-gray-500" />;
+      case 'scheduled':
+        return <Clock className="h-4 w-4 text-blue-500" />;
+      case 'expired':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'exhausted':
+        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'inactive':
+        return 'bg-gray-100 text-gray-800';
+      case 'scheduled':
+        return 'bg-blue-100 text-blue-800';
+      case 'expired':
+        return 'bg-red-100 text-red-800';
+      case 'exhausted':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTypeIcon = (type) => {
+    return type === 'percentage' ? 
+      <Percent className="h-4 w-4 text-blue-500" /> : 
+      <TrendingUp className="h-4 w-4 text-green-500" />;
+  };
+
+  const getTypeColor = (type) => {
+    return type === 'percentage' ? 
+      'bg-blue-100 text-blue-800' : 
+      'bg-green-100 text-green-800';
   };
 
   const formatCurrency = (amount) => {
@@ -151,310 +186,356 @@ const Discounts = () => {
   };
 
   const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    return new Date(date).toLocaleDateString();
   };
 
-  const discounts = discountsData?.data?.discounts || discountsData?.discounts || [];
-  const pagination = discountsData?.data?.pagination || discountsData?.pagination || {};
+  if (discountsLoading && !discountsData) {
+    return <LoadingSpinner message="Loading discounts..." />;
+  }
+
+  const discounts = discountsData?.data?.discounts || [];
+  const pagination = discountsData?.data?.pagination || {};
   const stats = statsData?.data || {};
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-8 bg-gray-50/30 min-h-screen">
+    <ResponsiveContainer className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center">
-            <div className="bg-primary-100 p-2 rounded-lg mr-4">
-              <Tag className="h-7 w-7 text-primary-600" />
-            </div>
-            Discount Management
-          </h1>
-          <p className="text-slate-500 mt-1 font-medium">Manage percentage and fixed amount discounts</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Discount Management</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">Manage percentage and fixed amount discounts</p>
         </div>
         
-        <div className="flex items-center space-x-3">
-          <button 
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+          <button
             onClick={() => refetchDiscounts()}
-            className="flex items-center space-x-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm"
+            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
-            <RefreshCw className={`h-4 w-4 ${discountsLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className="h-4 w-4" />
             <span>Refresh</span>
           </button>
-          <button 
+          <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center space-x-2 px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-all shadow-md"
+            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Discount</span>
+            <span>Create Discount</span>
           </button>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Discounts</p>
-          <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{stats.totalDiscounts || pagination.total || 0}</h3>
-          <div className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-tight">All discount codes</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Active Now</p>
-          <h3 className="text-3xl font-black text-emerald-600 tracking-tighter">
-            {stats.activeDiscounts || discounts.filter(d => d.isActive && d.status === 'active').length}
-          </h3>
-          <div className="mt-2 text-[10px] font-bold text-emerald-500 uppercase tracking-tight">Currently active</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Usage</p>
-          <h3 className="text-3xl font-black text-blue-600 tracking-tighter">{stats.totalUsage || 0}</h3>
-          <div className="mt-2 text-[10px] font-bold text-blue-500 uppercase tracking-tight">Times redeemed</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Savings</p>
-          <h3 className="text-3xl font-black text-purple-600 tracking-tighter">{formatCurrency(stats.totalDiscountAmount || 0)}</h3>
-          <div className="mt-2 text-[10px] font-bold text-purple-500 uppercase tracking-tight">Customer savings</div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-          <div className="lg:col-span-5">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by name, code or type..."
-                value={filters.search}
-                onChange={(e) => {
-                  handleFilterChange({ search: e.target.value });
-                  setFilters(prev => ({ ...prev, page: 1 }));
-                }}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm font-medium text-slate-700"
-              />
+      {/* Statistics Cards */}
+      {!statsLoading && (
+        <ResponsiveGrid cols={{ default: 2, md: 2, lg: 4 }} gap={6}>
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-4 sm:p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="p-2 sm:p-3 rounded-md bg-blue-50 text-blue-600">
+                    <Tag className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                </div>
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
+                  <dl>
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
+                      Total Discounts
+                    </dt>
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
+                      {stats.totalDiscounts || 0}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-3">
-            <div className="relative">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <select
-                value={filters.type}
-                onChange={(e) => {
-                  handleFilterChange({ type: e.target.value });
-                  setFilters(prev => ({ ...prev, page: 1 }));
-                }}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-primary-500/20"
-              >
-                <option value="">All Types</option>
-                <option value="percentage">Percentage</option>
-                <option value="fixed_amount">Fixed Amount</option>
-              </select>
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-4 sm:p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="p-2 sm:p-3 rounded-md bg-green-50 text-green-600">
+                    <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                </div>
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
+                  <dl>
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
+                      Active Discounts
+                    </dt>
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
+                      {stats.activeDiscounts || 0}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-3">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <select
-                value={filters.status}
-                onChange={(e) => {
-                  handleFilterChange({ status: e.target.value });
-                  setFilters(prev => ({ ...prev, page: 1 }));
-                }}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:ring-2 focus:ring-primary-500/20"
-              >
-                <option value="">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="expired">Expired</option>
-                <option value="exhausted">Exhausted</option>
-              </select>
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-4 sm:p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="p-2 sm:p-3 rounded-md bg-purple-50 text-purple-600">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                </div>
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
+                  <dl>
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
+                      Total Usage
+                    </dt>
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
+                      {stats.totalUsage || 0}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-1 flex justify-end">
-            <button 
-              onClick={() => {
-                handleFilterChange({ search: '', type: '', status: '' });
-                setFilters(prev => ({ ...prev, page: 1 }));
-              }}
-              className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-              title="Clear Filters"
-            >
-              <X className="h-5 w-5" />
-            </button>
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-4 sm:p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="p-2 sm:p-3 rounded-md bg-yellow-50 text-yellow-600">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
+                </div>
+                <div className="ml-3 sm:ml-5 w-0 flex-1 min-w-0">
+                  <dl>
+                    <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">
+                      Total Discount Amount
+                    </dt>
+                    <dd className="text-lg sm:text-2xl font-semibold text-gray-900">
+                      {formatCurrency(stats.totalDiscountAmount || 0)}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </ResponsiveGrid>
+      )}
+
+      {/* Filters */}
+      <DiscountFilters
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        isLoading={discountsLoading}
+      />
 
       {/* Discounts Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="card">
+        <div className="card-header">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900">Discounts</h3>
+            <span className="text-xs sm:text-sm text-gray-600">
+              {pagination.total || 0} total discounts
+            </span>
+          </div>
+        </div>
+        
+        <div className="card-content p-0">
           {discountsLoading ? (
-            <div className="py-20 text-center"><LoadingSpinner /></div>
+            <LoadingTable rows={5} cols={8} />
           ) : discounts.length === 0 ? (
-            <div className="py-24 text-center">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Tag className="h-8 w-8 text-slate-200" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900">No records found</h3>
-              <p className="text-slate-400 text-sm max-w-xs mx-auto mt-1">Try adjusting your search or filters to find what you're looking for.</p>
+            <div className="p-8 text-center text-gray-500">
+              <Tag className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-2">No discounts found</p>
+              <p className="text-sm">Try adjusting your filters or create a new discount</p>
             </div>
           ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Discount</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Type & Value</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Usage</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Valid Period</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Applicable To</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {discounts.map((discount) => (
-                  <tr key={discount._id} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-10 w-10 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center text-primary-600 font-bold uppercase tracking-tight">
-                          <Tag className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-slate-900">{discount.name}</div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Code: {discount.code}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        {discount.type === 'percentage' ? (
-                          <Percent className="h-3.5 w-3.5 text-blue-500" />
-                        ) : (
-                          <TrendingUp className="h-3.5 w-3.5 text-green-500" />
-                        )}
-                        <span className="text-sm font-bold text-slate-700">
-                          {discount.type === 'percentage' ? `${discount.value}%` : formatCurrency(discount.value)}
-                        </span>
-                      </div>
-                      {discount.maximumDiscount && discount.type === 'percentage' && (
-                        <div className="text-xs font-medium text-slate-500 mt-1">
-                          Max: {formatCurrency(discount.maximumDiscount)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start">
-                        <span
-                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                            discount.status === 'active' && discount.isActive
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : discount.status === 'expired'
-                              ? 'bg-rose-100 text-rose-700'
-                              : discount.status === 'scheduled'
-                              ? 'bg-amber-100 text-amber-700'
-                              : discount.status === 'exhausted'
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {discount.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-bold text-slate-700">{discount.currentUsage || 0}</div>
-                      {discount.usageLimit && (
-                        <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
-                          / {discount.usageLimit} limit
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="text-sm font-bold text-slate-700">{formatDate(discount.validFrom)}</span>
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
-                        Until {formatDate(discount.validUntil)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        {discount.applicableTo === 'all' && <Users className="h-3.5 w-3.5 text-slate-400" />}
-                        {discount.applicableTo === 'products' && <Package className="h-3.5 w-3.5 text-slate-400" />}
-                        {discount.applicableTo === 'categories' && <Tag className="h-3.5 w-3.5 text-slate-400" />}
-                        {discount.applicableTo === 'customers' && <Users className="h-3.5 w-3.5 text-slate-400" />}
-                        <span className="text-sm font-bold text-slate-700 capitalize">{discount.applicableTo}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleDiscountSelect(discount._id)}
-                          className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-primary-600 hover:border-primary-200 rounded-lg shadow-sm transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(discount._id)}
-                          className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-green-600 hover:border-green-200 rounded-lg shadow-sm transition-all"
-                          title={discount.isActive ? 'Deactivate' : 'Activate'}
-                          disabled={toggling}
-                        >
-                          {discount.isActive ? 
-                            <ToggleRight className="h-4 w-4" /> : 
-                            <ToggleLeft className="h-4 w-4" />
-                          }
-                        </button>
-                        {discount.currentUsage === 0 && (
-                          <button
-                            onClick={() => handleDelete(discount._id)}
-                            className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 rounded-lg shadow-sm transition-all"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Discount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Value
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Usage
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Valid Period
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Applicable To
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {discounts.map((discount) => (
+                    <tr key={discount._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {discount.name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Code: {discount.code}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(discount.type)}`}>
+                          {getTypeIcon(discount.type)}
+                          <span className="ml-1 capitalize">{discount.type.replace('_', ' ')}</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {discount.type === 'percentage' ? 
+                          `${discount.value}%` : 
+                          formatCurrency(discount.value)
+                        }
+                        {discount.maximumDiscount && discount.type === 'percentage' && (
+                          <div className="text-xs text-gray-500">
+                            Max: {formatCurrency(discount.maximumDiscount)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(discount.status)}`}>
+                          {getStatusIcon(discount.status)}
+                          <span className="ml-1 capitalize">{discount.status}</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div>{discount.currentUsage || 0}</div>
+                        {discount.usageLimit && (
+                          <div className="text-xs text-gray-500">
+                            / {discount.usageLimit}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div>{formatDate(discount.validFrom)}</div>
+                        <div className="text-xs text-gray-500">
+                          to {formatDate(discount.validUntil)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex items-center">
+                          {discount.applicableTo === 'all' && <Users className="h-4 w-4 text-gray-400" />}
+                          {discount.applicableTo === 'products' && <Package className="h-4 w-4 text-gray-400" />}
+                          {discount.applicableTo === 'categories' && <Tag className="h-4 w-4 text-gray-400" />}
+                          {discount.applicableTo === 'customers' && <Users className="h-4 w-4 text-gray-400" />}
+                          <span className="ml-1 capitalize">
+                            {discount.applicableTo}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleDiscountSelect(discount._id)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(discount._id)}
+                            className="text-green-600 hover:text-green-900"
+                            title={discount.isActive ? 'Deactivate' : 'Activate'}
+                          >
+                            {discount.isActive ? 
+                              <ToggleRight className="h-4 w-4" /> : 
+                              <ToggleLeft className="h-4 w-4" />
+                            }
+                          </button>
+                          {discount.currentUsage === 0 && (
+                            <button
+                              onClick={() => handleDelete(discount._id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
         {/* Pagination */}
         {pagination.pages > 1 && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-              Showing {((filters.page - 1) * (pagination.limit || 20)) + 1} - {Math.min(filters.page * (pagination.limit || 20), pagination.total)} of {pagination.total} records
-            </div>
-            <div className="flex space-x-2">
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="flex-1 flex justify-between sm:hidden">
               <button
-                onClick={() => handleFilterChange({ page: Math.max(1, filters.page - 1) })}
-                disabled={filters.page === 1}
-                className="px-4 py-1.5 bg-white border border-slate-200 text-xs font-bold text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm"
+                onClick={() => handleFilterChange({ page: pagination.current - 1 })}
+                disabled={!pagination.hasPrev}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
-                onClick={() => handleFilterChange({ page: Math.min(pagination.pages, filters.page + 1) })}
-                disabled={filters.page === pagination.pages}
-                className="px-4 py-1.5 bg-white border border-slate-200 text-xs font-bold text-slate-700 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm"
+                onClick={() => handleFilterChange({ page: pagination.current + 1 })}
+                disabled={!pagination.hasNext}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing{' '}
+                  <span className="font-medium">
+                    {(pagination.current - 1) * filters.limit + 1}
+                  </span>{' '}
+                  to{' '}
+                  <span className="font-medium">
+                    {Math.min(pagination.current * filters.limit, pagination.total)}
+                  </span>{' '}
+                  of{' '}
+                  <span className="font-medium">{pagination.total}</span>{' '}
+                  results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                  <button
+                    onClick={() => handleFilterChange({ page: pagination.current - 1 })}
+                    disabled={!pagination.hasPrev}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  {[...Array(pagination.pages)].map((_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => handleFilterChange({ page: i + 1 })}
+                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                        pagination.current === i + 1
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => handleFilterChange({ page: pagination.current + 1 })}
+                    disabled={!pagination.hasNext}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
         )}
@@ -485,17 +566,7 @@ const Discounts = () => {
           isLoading={false}
         />
       )}
-
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmationDialog
-        isOpen={confirmation.isOpen}
-        onClose={handleCancel}
-        onConfirm={handleConfirm}
-        itemName={confirmation.message?.match(/"([^"]*)"/)?.[1] || ''}
-        itemType="Discount"
-        isLoading={deleting}
-      />
-    </div>
+    </ResponsiveContainer>
   );
 };
 
