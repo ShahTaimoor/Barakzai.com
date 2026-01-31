@@ -2,34 +2,38 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 const logger = require('../utils/logger');
 
-// Database connection
+// Master Database connection
+// This connects to the Master Database which stores:
+// - Developers
+// - Shops (metadata only)
+// - Admin account references
 const connectDB = async () => {
   try {
-    // Check if MONGODB_URI is provided
+    // Check if MONGODB_URI is provided (Master Database URI)
     if (!process.env.MONGODB_URI) {
-      logger.error('Error: MONGODB_URI environment variable is required.');
+      logger.error('Error: MONGODB_URI (Master Database) environment variable is required.');
       logger.error('Please set it in your .env file or as an environment variable.');
       process.exit(1);
     }
 
     const mongoUri = process.env.MONGODB_URI;
 
-    // Connection options
+    // Connection options for Master Database
     const options = {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
       connectTimeoutMS: 10000,
       maxPoolSize: 10,
-      minPoolSize: 2,
-      dbName: 'pos_system'
+      minPoolSize: 2
+      // Note: dbName is extracted from URI, or use default database
     };
 
     // Connect only if not already connected
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(mongoUri, options);
-      logger.info(`MongoDB connected successfully to database: ${mongoose.connection.db.databaseName}`);
+      logger.info(`Master Database connected successfully: ${mongoose.connection.db.databaseName}`);
     } else if (mongoose.connection.readyState === 1) {
-      logger.info('MongoDB already connected');
+      logger.info('Master Database already connected');
     }
 
     // Connection event handlers
