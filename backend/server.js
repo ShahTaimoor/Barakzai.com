@@ -11,16 +11,7 @@ const { v4: uuidv4 } = require('uuid');
 // Load environment variables
 require('dotenv').config();
 
-// Validate environment variables
-const { validateEnv } = require('./config/env');
-try {
-  validateEnv();
-} catch (error) {
-  // Exit only when running as a standalone server (avoid crashing in serverless imports)
-  if (!process.env.VERCEL) {
-    process.exit(1);
-  }
-}
+
 
 const app = express();
 
@@ -130,8 +121,7 @@ app.use('/api/images', express.static(path.join(__dirname, 'uploads/images/optim
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/auth/users', require('./routes/users'));
 
-app.use('/api/shops', require('./routes/shops'));
-app.use('/api/plans', require('./routes/plans'));
+
 app.use('/api/products', require('./routes/products'));
 app.use('/api/product-variants', require('./routes/productVariants'));
 app.use('/api/product-transformations', require('./routes/productTransformations'));

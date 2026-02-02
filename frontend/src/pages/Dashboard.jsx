@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ShoppingCart, 
-  Users, 
-  Package, 
+import {
+  ShoppingCart,
+  Users,
+  Package,
   TrendingUp,
   AlertTriangle,
   Bell,
@@ -90,7 +90,7 @@ export const Dashboard = () => {
   const [toDate, setToDate] = useState(today);
   const [activeFromDate, setActiveFromDate] = useState(today);
   const [activeToDate, setActiveToDate] = useState(today);
-  
+
   // Modal states
   const [showSalesOrdersModal, setShowSalesOrdersModal] = useState(false);
   const [showPurchaseOrdersModal, setShowPurchaseOrdersModal] = useState(false);
@@ -139,9 +139,7 @@ export const Dashboard = () => {
   });
 
   // Debug: Log the summary data to see what we're getting
-  if (todaySummary) {
-    console.log('Today Summary Data:', todaySummary);
-  }
+
   if (todaySummaryError) {
     console.error('Today Summary Error:', todaySummaryError);
   }
@@ -219,10 +217,10 @@ export const Dashboard = () => {
     { pollingInterval: 60000 }
   );
 
-  if (summaryLoading || lowStockLoading || inventoryLoading || customersLoading || 
-      salesOrdersLoading || pendingSalesOrdersLoading || purchaseOrdersLoading || pendingPurchaseOrdersLoading || 
-      salesInvoicesLoading || purchaseInvoicesLoading || cashReceiptsLoading || 
-      cashPaymentsLoading || bankReceiptsLoading || bankPaymentsLoading || recurringExpensesLoading) {
+  if (summaryLoading || lowStockLoading || inventoryLoading || customersLoading ||
+    salesOrdersLoading || pendingSalesOrdersLoading || purchaseOrdersLoading || pendingPurchaseOrdersLoading ||
+    salesInvoicesLoading || purchaseInvoicesLoading || cashReceiptsLoading ||
+    cashPaymentsLoading || bankReceiptsLoading || bankPaymentsLoading || recurringExpensesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
@@ -235,9 +233,9 @@ export const Dashboard = () => {
   const summary = todaySummary?.data?.summary || todaySummary?.summary || {};
   const lowStockCount = lowStockData?.data?.products?.length || lowStockData?.products?.length || 0;
   const inventorySummary = inventoryData?.data?.summary || inventoryData?.summary || {};
-  
+
   const activeCustomersCount = customersData?.data?.customers?.length || customersData?.customers?.length || 0;
-  
+
   // Extract counts from API responses
   const pendingSalesOrdersCount = pendingSalesOrdersData?.data?.salesOrders?.length || pendingSalesOrdersData?.salesOrders?.length || 0;
   const pendingPurchaseOrdersCount = pendingPurchaseOrdersData?.data?.purchaseOrders?.length || pendingPurchaseOrdersData?.purchaseOrders?.length || 0;
@@ -277,7 +275,7 @@ export const Dashboard = () => {
     }
     return 'General Expense';
   };
-  
+
   // Calculate totals for financial metrics
   // RTK Query wraps axios response in 'data', so structure is: { data: { salesOrders: [...], pagination: {...} } }
   // Sales Orders use `total` directly, not `pricing.total`
@@ -286,11 +284,11 @@ export const Dashboard = () => {
     const orderTotal = order.total || order.pricing?.total || 0;
     return sum + Number(orderTotal);
   }, 0);
-  
+
   const purchaseOrdersTotal = (purchaseOrdersData?.data?.purchaseOrders || purchaseOrdersData?.purchaseOrders || []).reduce((sum, order) => {
     return sum + Number(order.pricing?.total || order.total || 0);
   }, 0);
-  
+
   // Sales Invoices (from Sales/POS page) - use `pricing.total`
   // RTK Query wraps axios response in 'data', so structure is: { data: { orders: [...], pagination: {...} } }
   // Also handle direct response structure (no data wrapper)
@@ -299,53 +297,53 @@ export const Dashboard = () => {
     const orderTotal = order.pricing?.total || order.total || 0;
     return sum + Number(orderTotal);
   }, 0);
-  
+
   // Purchase Invoices (from Purchase page)
-  const purchaseInvoicesTotal = purchaseInvoicesData?.data?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) || 
-                                 purchaseInvoicesData?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) || 0;
-  
+  const purchaseInvoicesTotal = purchaseInvoicesData?.data?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) ||
+    purchaseInvoicesData?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) || 0;
+
   const cashReceiptsTotal = cashReceiptsData?.data?.cashReceipts?.reduce((sum, receipt) => sum + (receipt.amount || 0), 0) || 0;
   const cashPaymentsTotal = cashPaymentsData?.data?.cashPayments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
   const bankReceiptsTotal = bankReceiptsData?.data?.bankReceipts?.reduce((sum, receipt) => sum + (receipt.amount || 0), 0) || 0;
   const bankPaymentsTotal = bankPaymentsData?.data?.bankPayments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
-  
+
   // Calculate total sales (Sales Orders + Sales Invoices)
   const totalSales = salesOrdersTotal + salesInvoicesTotal;
-  
+
   // Calculate total purchases (Purchase Orders + Purchase Invoices) - COGS
   const totalPurchases = purchaseOrdersTotal + purchaseInvoicesTotal;
-  
+
   // Calculate total discounts from sales orders and sales invoices
   const salesOrdersDiscounts = salesOrdersData?.data?.salesOrders?.reduce((sum, order) => sum + (order.pricing?.discountAmount || 0), 0) || 0;
-  const salesInvoicesDiscounts = salesInvoicesData?.data?.orders?.reduce((sum, order) => sum + (order.discountAmount || 0), 0) || 
-                                  salesInvoicesData?.orders?.reduce((sum, order) => sum + (order.discountAmount || 0), 0) || 0;
+  const salesInvoicesDiscounts = salesInvoicesData?.data?.orders?.reduce((sum, order) => sum + (order.discountAmount || 0), 0) ||
+    salesInvoicesData?.orders?.reduce((sum, order) => sum + (order.discountAmount || 0), 0) || 0;
   const totalDiscounts = salesOrdersDiscounts + salesInvoicesDiscounts;
-  
+
   // Separate Cash/Bank Payments into Supplier Payments vs Operating Expenses
   // Operating expenses are payments that don't have a supplier or customer (general expenses)
   const cashPayments = cashPaymentsData?.data?.cashPayments || [];
   const bankPayments = bankPaymentsData?.data?.bankPayments || [];
-  
+
   const cashOperatingExpenses = cashPayments
     .filter(payment => !payment?.supplier && !payment?.customer)
     .reduce((sum, payment) => sum + (payment.amount || 0), 0);
-  
+
   const bankOperatingExpenses = bankPayments
     .filter(payment => !payment?.supplier && !payment?.customer)
     .reduce((sum, payment) => sum + (payment.amount || 0), 0);
-  
+
   const operatingExpenses = cashOperatingExpenses + bankOperatingExpenses;
-  
+
   const totalCashPayments = cashPaymentsTotal;
   const totalBankPayments = bankPaymentsTotal;
   const totalPayments = totalCashPayments + totalBankPayments; // Includes both supplier payments and expenses
-  
+
   // Cash Flow Calculations
   const totalCashReceipts = cashReceiptsTotal;
   const totalBankReceipts = bankReceiptsTotal;
   const totalReceipts = totalCashReceipts + totalBankReceipts;
   const netCashFlow = totalReceipts - totalPayments;
-  
+
   // Financial Performance Calculations
   const grossRevenue = totalSales; // Total sales before discounts
   const netRevenue = totalSales - totalDiscounts; // Sales after discounts
@@ -469,9 +467,8 @@ export const Dashboard = () => {
                 return (
                   <div
                     key={expense._id}
-                    className={`border rounded-lg p-4 shadow-sm ${
-                      isOverdue ? 'border-danger-200 bg-danger-50/60' : 'border-gray-200 bg-white'
-                    }`}
+                    className={`border rounded-lg p-4 shadow-sm ${isOverdue ? 'border-danger-200 bg-danger-50/60' : 'border-gray-200 bg-white'
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -489,11 +486,10 @@ export const Dashboard = () => {
                     </div>
                     <div className="mt-2">
                       <span
-                        className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                          isOverdue
+                        className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${isOverdue
                             ? 'bg-danger-100 text-danger-700'
                             : 'bg-primary-100 text-primary-700'
-                        }`}
+                          }`}
                       >
                         {isOverdue ? `${Math.abs(daysLeft)} day(s) overdue` : `${daysLeft} day(s) left`}
                       </span>
@@ -538,7 +534,7 @@ export const Dashboard = () => {
                   />
                 </div>
               </div>
-              <button 
+              <button
                 onClick={handleSearch}
                 className="btn btn-primary flex items-center justify-center px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base flex-shrink-0 min-w-[40px] sm:min-w-0 h-[38px] sm:h-auto"
               >
@@ -549,169 +545,169 @@ export const Dashboard = () => {
           </div>
         </div>
         <div className="card-content space-y-6">
-          
+
           {/* REVENUE, COST & DISCOUNT SECTION */}
           <div>
             <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Revenue, Cost & Discounts</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-            
-            {/* Sales */}
-            <div 
-              className="text-center p-2 sm:p-3 md:p-4 border-2 border-green-300 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 hover:border-green-400 transition-colors relative group"
-              onClick={() => setShowSalesInvoicesModal(true)}
-            >
-              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
-              </div>
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className="p-2 sm:p-2.5 md:p-3 bg-green-500 rounded-full">
-                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
-                </div>
-              </div>
-              <p className="text-xs sm:text-sm font-medium text-green-700 mb-1">Sales (Revenue)</p>
-              <p className="text-base sm:text-lg md:text-xl font-bold text-green-800 break-words">{Math.round(totalSales).toLocaleString()}</p>
-              <p className="text-[10px] sm:text-xs text-green-600 mt-1 hidden sm:block">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
-            </div>
 
-            {/* Purchase (COGS) */}
-            <div 
-              className="text-center p-2 sm:p-3 md:p-4 border-2 border-purple-300 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 hover:border-purple-400 transition-colors relative group"
-              onClick={() => setShowPurchaseInvoicesModal(true)}
-            >
-              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
-              </div>
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className="p-2 sm:p-2.5 md:p-3 bg-purple-500 rounded-full">
-                  <Truck className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              {/* Sales */}
+              <div
+                className="text-center p-2 sm:p-3 md:p-4 border-2 border-green-300 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 hover:border-green-400 transition-colors relative group"
+                onClick={() => setShowSalesInvoicesModal(true)}
+              >
+                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
                 </div>
-              </div>
-              <p className="text-xs sm:text-sm font-medium text-purple-700 mb-1">Purchase (COGS)</p>
-              <p className="text-base sm:text-lg md:text-xl font-bold text-purple-800 break-words">{Math.round(totalPurchases).toLocaleString()}</p>
-              <p className="text-[10px] sm:text-xs text-purple-600 mt-1 hidden sm:block">PO: {Math.round(purchaseOrdersTotal)} | PI: {Math.round(purchaseInvoicesTotal)}</p>
-            </div>
-
-            {/* Discount */}
-            <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-red-300 bg-red-50 rounded-lg">
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className="p-2 sm:p-2.5 md:p-3 bg-red-500 rounded-full">
-                  <Tag className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-green-500 rounded-full">
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
                 </div>
+                <p className="text-xs sm:text-sm font-medium text-green-700 mb-1">Sales (Revenue)</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-green-800 break-words">{Math.round(totalSales).toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs text-green-600 mt-1 hidden sm:block">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
               </div>
-              <p className="text-xs sm:text-sm font-medium text-red-700 mb-1">Discount Given</p>
-              <p className="text-base sm:text-lg md:text-xl font-bold text-red-800 break-words">{Math.round(totalDiscounts).toLocaleString()}</p>
-            </div>
 
-             {/* Pending Sales Orders */}
-             <div 
-               className="text-center p-2 sm:p-3 md:p-4 border-2 border-cyan-300 bg-cyan-50 rounded-lg cursor-pointer hover:bg-cyan-100 hover:border-cyan-400 transition-colors"
-               onClick={() => navigate('/sales-orders')}
-             >
-               <div className="flex justify-center mb-1 sm:mb-2">
-                 <div className="p-2 sm:p-2.5 md:p-3 bg-cyan-500 rounded-full">
-                   <FileText className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
-                 </div>
-               </div>
-               <p className="text-xs sm:text-sm font-medium text-cyan-700 mb-1">Pending Sales Orders</p>
-               <p className="text-base sm:text-lg md:text-xl font-bold text-cyan-800 break-words">{pendingSalesOrdersCount}</p>
-             </div>
- 
-             {/* Pending Purchase Orders */}
-             <div 
-               className="text-center p-2 sm:p-3 md:p-4 border-2 border-indigo-300 bg-indigo-50 rounded-lg cursor-pointer hover:bg-indigo-100 hover:border-indigo-400 transition-colors"
-               onClick={() => navigate('/purchase-orders')}
-             >
-               <div className="flex justify-center mb-1 sm:mb-2">
-                 <div className="p-2 sm:p-2.5 md:p-3 bg-indigo-500 rounded-full">
-                   <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
-                 </div>
-               </div>
-               <p className="text-xs sm:text-sm font-medium text-indigo-700 mb-1">Pending Purchase Orders</p>
-               <p className="text-base sm:text-lg md:text-xl font-bold text-indigo-800 break-words">{pendingPurchaseOrdersCount}</p>
-             </div>
+              {/* Purchase (COGS) */}
+              <div
+                className="text-center p-2 sm:p-3 md:p-4 border-2 border-purple-300 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 hover:border-purple-400 transition-colors relative group"
+                onClick={() => setShowPurchaseInvoicesModal(true)}
+              >
+                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
+                </div>
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-purple-500 rounded-full">
+                    <Truck className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-purple-700 mb-1">Purchase (COGS)</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-purple-800 break-words">{Math.round(totalPurchases).toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs text-purple-600 mt-1 hidden sm:block">PO: {Math.round(purchaseOrdersTotal)} | PI: {Math.round(purchaseInvoicesTotal)}</p>
+              </div>
+
+              {/* Discount */}
+              <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-red-300 bg-red-50 rounded-lg">
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-red-500 rounded-full">
+                    <Tag className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-red-700 mb-1">Discount Given</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-red-800 break-words">{Math.round(totalDiscounts).toLocaleString()}</p>
+              </div>
+
+              {/* Pending Sales Orders */}
+              <div
+                className="text-center p-2 sm:p-3 md:p-4 border-2 border-cyan-300 bg-cyan-50 rounded-lg cursor-pointer hover:bg-cyan-100 hover:border-cyan-400 transition-colors"
+                onClick={() => navigate('/sales-orders')}
+              >
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-cyan-500 rounded-full">
+                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-cyan-700 mb-1">Pending Sales Orders</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-cyan-800 break-words">{pendingSalesOrdersCount}</p>
+              </div>
+
+              {/* Pending Purchase Orders */}
+              <div
+                className="text-center p-2 sm:p-3 md:p-4 border-2 border-indigo-300 bg-indigo-50 rounded-lg cursor-pointer hover:bg-indigo-100 hover:border-indigo-400 transition-colors"
+                onClick={() => navigate('/purchase-orders')}
+              >
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-indigo-500 rounded-full">
+                    <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-indigo-700 mb-1">Pending Purchase Orders</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-indigo-800 break-words">{pendingPurchaseOrdersCount}</p>
+              </div>
             </div>
           </div>
-          
+
           {/* PROFITABILITY & CASH FLOW SECTION */}
           <div>
             <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Profitability & Cash Flow</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-            
-            {/* Gross Profit */}
-            <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-blue-300 bg-blue-50 rounded-lg">
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className="p-2 sm:p-2.5 md:p-3 bg-blue-500 rounded-full">
-                  <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+
+              {/* Gross Profit */}
+              <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-blue-300 bg-blue-50 rounded-lg">
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-blue-500 rounded-full">
+                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
                 </div>
+                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Gross Profit</p>
+                <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${grossProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                  {Math.round(grossProfit).toLocaleString()}
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-600 mt-1 hidden sm:block">Revenue - COGS</p>
               </div>
-              <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Gross Profit</p>
-              <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${grossProfit >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
-                {Math.round(grossProfit).toLocaleString()}
-              </p>
-              <p className="text-[10px] sm:text-xs text-gray-600 mt-1 hidden sm:block">Revenue - COGS</p>
-            </div>
-            
-            {/* Total Receipts */}
-            <div 
-              className="text-center p-2 sm:p-3 md:p-4 border-2 border-emerald-300 bg-emerald-50 rounded-lg cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-colors relative group"
-              onClick={() => setShowCashReceiptsModal(true)}
-            >
-              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600" />
-              </div>
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className="p-2 sm:p-2.5 md:p-3 bg-emerald-500 rounded-full">
-                  <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+
+              {/* Total Receipts */}
+              <div
+                className="text-center p-2 sm:p-3 md:p-4 border-2 border-emerald-300 bg-emerald-50 rounded-lg cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-colors relative group"
+                onClick={() => setShowCashReceiptsModal(true)}
+              >
+                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600" />
                 </div>
-              </div>
-              <p className="text-xs sm:text-sm font-medium text-emerald-700 mb-1">Total Receipts</p>
-              <p className="text-base sm:text-lg md:text-xl font-bold text-emerald-800 break-words">{Math.round(totalReceipts).toLocaleString()}</p>
-              <p className="text-[10px] sm:text-xs text-emerald-600 mt-1 hidden sm:block">Cash: {Math.round(totalCashReceipts)} | Bank: {Math.round(totalBankReceipts)}</p>
-            </div>
-            
-            {/* Total Payments */}
-            <div 
-              className="text-center p-2 sm:p-3 md:p-4 border-2 border-orange-300 bg-orange-50 rounded-lg cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition-colors relative group"
-              onClick={() => setShowCashPaymentsModal(true)}
-            >
-              <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600" />
-              </div>
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className="p-2 sm:p-2.5 md:p-3 bg-orange-500 rounded-full">
-                  <Banknote className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-emerald-500 rounded-full">
+                    <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
                 </div>
+                <p className="text-xs sm:text-sm font-medium text-emerald-700 mb-1">Total Receipts</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-emerald-800 break-words">{Math.round(totalReceipts).toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs text-emerald-600 mt-1 hidden sm:block">Cash: {Math.round(totalCashReceipts)} | Bank: {Math.round(totalBankReceipts)}</p>
               </div>
-              <p className="text-xs sm:text-sm font-medium text-orange-700 mb-1">Total Payments</p>
-              <p className="text-base sm:text-lg md:text-xl font-bold text-orange-800 break-words">{Math.round(totalPayments).toLocaleString()}</p>
-              <p className="text-[10px] sm:text-xs text-orange-600 mt-1 hidden sm:block">Cash: {Math.round(totalCashPayments)} | Bank: {Math.round(totalBankPayments)}</p>
-            </div>
-            
-            {/* Net Cash Flow */}
-            <div className={`text-center p-2 sm:p-3 md:p-4 border-2 rounded-lg ${netCashFlow >= 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className={`p-2 sm:p-2.5 md:p-3 rounded-full ${netCashFlow >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
-                  <Wallet className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+
+              {/* Total Payments */}
+              <div
+                className="text-center p-2 sm:p-3 md:p-4 border-2 border-orange-300 bg-orange-50 rounded-lg cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition-colors relative group"
+                onClick={() => setShowCashPaymentsModal(true)}
+              >
+                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-orange-600" />
                 </div>
-              </div>
-              <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Net Cash Flow</p>
-              <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${netCashFlow >= 0 ? 'text-green-700' : 'text-red-600'}`}>
-                {Math.round(netCashFlow).toLocaleString()}
-              </p>
-              <p className="text-[10px] sm:text-xs text-gray-600 mt-1 hidden sm:block">Receipts - Payments</p>
-            </div>
-            
-            {/* Total Orders */}
-            <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-yellow-300 bg-yellow-50 rounded-lg">
-              <div className="flex justify-center mb-1 sm:mb-2">
-                <div className="p-2 sm:p-2.5 md:p-3 bg-yellow-500 rounded-full">
-                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-orange-500 rounded-full">
+                    <Banknote className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
                 </div>
+                <p className="text-xs sm:text-sm font-medium text-orange-700 mb-1">Total Payments</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-orange-800 break-words">{Math.round(totalPayments).toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs text-orange-600 mt-1 hidden sm:block">Cash: {Math.round(totalCashPayments)} | Bank: {Math.round(totalBankPayments)}</p>
               </div>
-              <p className="text-xs sm:text-sm font-medium text-yellow-700 mb-1">Total Transactions</p>
-              <p className="text-base sm:text-lg md:text-xl font-bold text-yellow-800 break-words">{summary.totalOrders || 0}</p>
-            </div>
-            
+
+              {/* Net Cash Flow */}
+              <div className={`text-center p-2 sm:p-3 md:p-4 border-2 rounded-lg ${netCashFlow >= 0 ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className={`p-2 sm:p-2.5 md:p-3 rounded-full ${netCashFlow >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                    <Wallet className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Net Cash Flow</p>
+                <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${netCashFlow >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                  {Math.round(netCashFlow).toLocaleString()}
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-600 mt-1 hidden sm:block">Receipts - Payments</p>
+              </div>
+
+              {/* Total Orders */}
+              <div className="text-center p-2 sm:p-3 md:p-4 border-2 border-yellow-300 bg-yellow-50 rounded-lg">
+                <div className="flex justify-center mb-1 sm:mb-2">
+                  <div className="p-2 sm:p-2.5 md:p-3 bg-yellow-500 rounded-full">
+                    <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm font-medium text-yellow-700 mb-1">Total Transactions</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-yellow-800 break-words">{summary.totalOrders || 0}</p>
+              </div>
+
             </div>
           </div>
         </div>
@@ -900,7 +896,7 @@ export const Dashboard = () => {
           </div>
         </div>
       )}
-      
+
       {/* Financial Metrics Legend */}
       <div className="card bg-blue-50 border-blue-200">
         <div className="card-content">
