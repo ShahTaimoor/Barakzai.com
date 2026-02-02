@@ -1,5 +1,7 @@
 const userRepository = require('../repositories/UserRepository');
+const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const logger = require('../utils/logger');
 
 class AuthService {
   /**
@@ -126,7 +128,7 @@ class AuthService {
    */
   async updateProfile(userId, updateData) {
     const { firstName, lastName, phone, department, preferences } = updateData;
-    
+
     const updateFields = {};
     if (firstName) updateFields.firstName = firstName;
     if (lastName) updateFields.lastName = lastName;

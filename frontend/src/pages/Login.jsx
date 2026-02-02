@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
-import { Package, MessageCircle, Mail, Globe, Lock, User, ArrowRight } from 'lucide-react';
+import { Package, MessageCircle, Mail, Globe, Lock, User, ArrowRight, MapPin } from 'lucide-react';
 import { LoadingButton } from '../components/LoadingSpinner';
 
 export const Login = () => {
@@ -178,31 +178,35 @@ export const Login = () => {
                 Need Help?
               </p>
               <div className="space-y-2">
-                <a 
-                  href="mailto:support@wisorsconsulting.com" 
+                <a
+                  href="mailto:wiserconsulting.info@gmail.com"
                   className="flex items-center justify-center text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
                 >
-                  <Mail className="w-4 h-4 mr-2 text-gray-500" /> 
-                  support@wisorsconsulting.com
+                  <Mail className="w-4 h-4 mr-2 text-gray-500" />
+                  wiserconsulting.info@gmail.com
                 </a>
-                <a 
-                  href="https://wa.me/923166464649" 
+                <a
+                  href="https://wa.me/923130922988"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center text-sm text-gray-600 hover:text-[#25D366] transition-colors duration-200"
                 >
-                  <MessageCircle className="w-4 h-4 mr-2 text-[#25D366]" /> 
-                  WhatsApp: +92 316 64 64 64 9
+                  <MessageCircle className="w-4 h-4 mr-2 text-[#25D366]" />
+                  WhatsApp: +92 313 0922988
                 </a>
-                <a 
-                  href="https://wisorsconsulting.com" 
+                <a
+                  href="https://www.wiserconsulting.info"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
                 >
-                  <Globe className="w-4 h-4 mr-2 text-gray-500" /> 
-                  wisorsconsulting.com
+                  <Globe className="w-4 h-4 mr-2 text-gray-500" />
+                  www.wiserconsulting.info
                 </a>
+                <div className="flex items-center justify-center text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200">
+                  <MapPin className="w-4 h-4 mr-2 text-gray-500" />
+                  Ug 390 Deans trade center Peshawar
+                </div>
               </div>
             </div>
           </div>

@@ -18,6 +18,7 @@ import {
   useGetAllEntriesQuery,
   useExportLedgerMutation,
 } from '../store/services/accountLedgerApi';
+import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { handleApiError } from '../utils/errorHandler';
 import toast from 'react-hot-toast';
@@ -46,7 +47,7 @@ const AccountLedger = () => {
     const today = new Date();
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(today.getMonth() - 1);
-    
+
     return {
       startDate: oneMonthAgo.toISOString().split('T')[0], // Format as YYYY-MM-DD
       endDate: today.toISOString().split('T')[0] // Format as YYYY-MM-DD
@@ -54,7 +55,7 @@ const AccountLedger = () => {
   };
 
   const defaultDates = getDefaultDateRange();
-  
+
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [filters, setFilters] = useState({
     startDate: defaultDates.startDate,
@@ -69,6 +70,7 @@ const AccountLedger = () => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportLedger] = useExportLedgerMutation();
+  const { companyInfo } = useCompanyInfo();
 
   // Close export menu when clicking outside
   React.useEffect(() => {
@@ -148,7 +150,7 @@ const AccountLedger = () => {
       const params = {
         export: format,
       };
-      
+
       // Add filters that have values
       if (filters.startDate) params.startDate = filters.startDate;
       if (filters.endDate) params.endDate = filters.endDate;
@@ -229,7 +231,7 @@ const AccountLedger = () => {
                 <Download className="h-4 w-4 mr-2" />
                 {isExporting ? 'Exporting...' : 'Export'}
               </button>
-              
+
               {showExportMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
                   <div className="py-1">
@@ -320,52 +322,50 @@ const AccountLedger = () => {
                       (account.description && account.description.toLowerCase().includes(query))
                     );
                   });
-                  
+
                   if (filteredAccounts.length === 0) return null;
-                  
+
                   return (
-                  <div key={type} className="border-b last:border-b-0">
-                    <div className="px-4 py-2 bg-gray-50 border-b">
-                      <h3 className="font-medium text-sm text-gray-700 uppercase">
-                        {type}
-                      </h3>
-                    </div>
-                    <div>
-                      {filteredAccounts.map((account) => (
-                        <button
-                          key={account._id}
-                          onClick={() => handleAccountSelect(account)}
-                          className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b last:border-b-0 ${
-                            selectedAccount?._id === account._id ? 'bg-primary-50 border-l-4 border-l-primary-500' : ''
-                          }`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-gray-900 truncate">
-                                {account.accountCode}
-                              </div>
-                              <div className="text-xs text-gray-600 truncate">
-                                {account.accountName}
-                              </div>
-                              {account.transactionCount > 0 && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {account.transactionCount} transactions
+                    <div key={type} className="border-b last:border-b-0">
+                      <div className="px-4 py-2 bg-gray-50 border-b">
+                        <h3 className="font-medium text-sm text-gray-700 uppercase">
+                          {type}
+                        </h3>
+                      </div>
+                      <div>
+                        {filteredAccounts.map((account) => (
+                          <button
+                            key={account._id}
+                            onClick={() => handleAccountSelect(account)}
+                            className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b last:border-b-0 ${selectedAccount?._id === account._id ? 'bg-primary-50 border-l-4 border-l-primary-500' : ''
+                              }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {account.accountCode}
                                 </div>
-                              )}
-                            </div>
-                            <div className="text-right ml-2">
-                              <div className={`text-sm font-semibold ${
-                                account.currentBalance >= 0 ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                                {formatCurrency(Math.abs(account.currentBalance))}
+                                <div className="text-xs text-gray-600 truncate">
+                                  {account.accountName}
+                                </div>
+                                {account.transactionCount > 0 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {account.transactionCount} transactions
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right ml-2">
+                                <div className={`text-sm font-semibold ${account.currentBalance >= 0 ? 'text-green-600' : 'text-red-600'
+                                  }`}>
+                                  {formatCurrency(Math.abs(account.currentBalance))}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
                 })}
                 {accountSearchQuery.trim() && Object.values(groupedAccounts).flat().filter(account => {
                   const query = accountSearchQuery.toLowerCase();
@@ -375,10 +375,10 @@ const AccountLedger = () => {
                     (account.description && account.description.toLowerCase().includes(query))
                   );
                 }).length === 0 && (
-                  <div className="p-4 text-center text-sm text-gray-500">
-                    No accounts found matching "{accountSearchQuery}"
-                  </div>
-                )}
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      No accounts found matching "{accountSearchQuery}"
+                    </div>
+                  )}
               </div>
             </div>
           </div>
@@ -445,10 +445,16 @@ const AccountLedger = () => {
           {selectedAccount && (
             <div className="card mb-6 print-only">
               {/* Print header */}
-              <div className="print-header hidden print:block mb-4">
-                <h2 className="text-2xl font-bold text-center">Account Ledger</h2>
+              <div className="print-header hidden print:block mb-6">
+                <div className="text-center mb-6 border-b pb-4">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{companyInfo?.name || 'Company Name'}</h1>
+                  {companyInfo?.address && <p className="text-sm text-gray-600">{companyInfo.address}</p>}
+                  {companyInfo?.phone && <p className="text-sm text-gray-600">{companyInfo.phone}</p>}
+                  {companyInfo?.email && <p className="text-sm text-gray-600">{companyInfo.email}</p>}
+                </div>
+                <h2 className="text-2xl font-bold text-center text-gray-800">Account Ledger</h2>
                 <div className="text-center mt-2">
-                  <p className="font-semibold">{selectedAccount.accountCode} - {selectedAccount.accountName}</p>
+                  <p className="font-semibold text-lg">{selectedAccount.accountCode} - {selectedAccount.accountName}</p>
                   {filters.startDate && filters.endDate && (
                     <p className="text-sm text-gray-600">
                       Period: {formatDate(filters.startDate)} to {formatDate(filters.endDate)}
@@ -459,53 +465,52 @@ const AccountLedger = () => {
                   </p>
                 </div>
               </div>
-              
+
               {/* Regular account info (hidden in print) */}
               <div className="no-print">
-              <div className="card-content">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center space-x-3">
-                      <h2 className="text-xl font-bold text-gray-900">
-                        {selectedAccount.accountCode} - {selectedAccount.accountName}
-                      </h2>
-                      <AccountTypeBadge type={selectedAccount.accountType} />
-                    </div>
-                    {selectedAccount.description && (
-                      <p className="text-sm text-gray-600 mt-2">
-                        {selectedAccount.description}
-                      </p>
-                    )}
-                    <div className="mt-3 flex items-center space-x-4 text-sm">
-                      <span className="text-gray-600">
-                        Normal Balance: <span className="font-medium capitalize">{selectedAccount.normalBalance}</span>
-                      </span>
-                      <span className="text-gray-400">|</span>
-                      <span className="text-gray-600">
-                        Category: <span className="font-medium capitalize">{selectedAccount.accountCategory.replace('_', ' ')}</span>
-                      </span>
-                      {selectedAccount.openingBalance !== undefined && (
-                        <>
-                          <span className="text-gray-400">|</span>
-                          <span className="text-gray-600">
-                            Opening Balance: <span className={`font-medium ${(selectedAccount.openingBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {formatCurrency(Math.abs(selectedAccount.openingBalance || 0))}
-                            </span>
-                          </span>
-                        </>
+                <div className="card-content">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center space-x-3">
+                        <h2 className="text-xl font-bold text-gray-900">
+                          {selectedAccount.accountCode} - {selectedAccount.accountName}
+                        </h2>
+                        <AccountTypeBadge type={selectedAccount.accountType} />
+                      </div>
+                      {selectedAccount.description && (
+                        <p className="text-sm text-gray-600 mt-2">
+                          {selectedAccount.description}
+                        </p>
                       )}
+                      <div className="mt-3 flex items-center space-x-4 text-sm">
+                        <span className="text-gray-600">
+                          Normal Balance: <span className="font-medium capitalize">{selectedAccount.normalBalance}</span>
+                        </span>
+                        <span className="text-gray-400">|</span>
+                        <span className="text-gray-600">
+                          Category: <span className="font-medium capitalize">{selectedAccount.accountCategory.replace('_', ' ')}</span>
+                        </span>
+                        {selectedAccount.openingBalance !== undefined && (
+                          <>
+                            <span className="text-gray-400">|</span>
+                            <span className="text-gray-600">
+                              Opening Balance: <span className={`font-medium ${(selectedAccount.openingBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatCurrency(Math.abs(selectedAccount.openingBalance || 0))}
+                              </span>
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-600">Current Balance</div>
-                    <div className={`text-2xl font-bold ${
-                      selectedAccount.currentBalance >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {formatCurrency(Math.abs(selectedAccount.currentBalance))}
+                    <div className="text-right">
+                      <div className="text-sm text-gray-600">Current Balance</div>
+                      <div className={`text-2xl font-bold ${selectedAccount.currentBalance >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                        {formatCurrency(Math.abs(selectedAccount.currentBalance))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
               </div>
             </div>
           )}
@@ -518,9 +523,8 @@ const AccountLedger = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Opening Balance</p>
-                      <p className={`text-xl font-bold ${
-                        (summary.openingBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <p className={`text-xl font-bold ${(summary.openingBalance || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {formatCurrency(Math.abs(summary.openingBalance || 0))}
                       </p>
                     </div>
@@ -528,7 +532,7 @@ const AccountLedger = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="card">
                 <div className="card-content">
                   <div className="flex items-center justify-between">
@@ -542,7 +546,7 @@ const AccountLedger = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="card">
                 <div className="card-content">
                   <div className="flex items-center justify-between">
@@ -556,15 +560,14 @@ const AccountLedger = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="card">
                 <div className="card-content">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Closing Balance</p>
-                      <p className={`text-xl font-bold ${
-                        summary.closingBalance >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <p className={`text-xl font-bold ${summary.closingBalance >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {formatCurrency(Math.abs(summary.closingBalance))}
                       </p>
                     </div>
@@ -572,7 +575,7 @@ const AccountLedger = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="card">
                 <div className="card-content">
                   <div className="flex items-center justify-between">
@@ -672,9 +675,8 @@ const AccountLedger = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-red-600">
                             {entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : '-'}
                           </td>
-                          <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${
-                            entry.balance >= 0 ? 'text-gray-900' : 'text-red-600'
-                          }`}>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${entry.balance >= 0 ? 'text-gray-900' : 'text-red-600'
+                            }`}>
                             {formatCurrency(Math.abs(entry.balance))}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

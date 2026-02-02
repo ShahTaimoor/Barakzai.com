@@ -3,7 +3,7 @@ import axiosBaseQuery from './axiosBaseQuery';
 
 const BASE_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/`
-  : '';
+  : 'http://localhost:5000/api/';
 
 export const api = createApi({
   reducerPath: 'api',
@@ -39,6 +39,9 @@ export const api = createApi({
     'Users',
     'Payments',
     'Recommendations',
+    'Shops',
+    'Admins',
+    'Plans',
   ],
   endpoints: (builder) => ({
     health: builder.query({

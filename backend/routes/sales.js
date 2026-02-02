@@ -22,6 +22,19 @@ const { preventPOSDuplicates } = require('../middleware/duplicatePrevention');
 
 const router = express.Router();
 
+// Helper function to parse date string as local date (not UTC)
+// This ensures that "2025-01-20" is interpreted as local midnight, not UTC midnight
+const parseLocalDate = (dateString) => {
+  if (!dateString) return null;
+  // If dateString is already a Date object, return it
+  if (dateString instanceof Date) return dateString;
+  // Parse date string and create date at local midnight
+  const [year, month, day] = dateString.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  // Create date in local timezone (month is 0-indexed in Date constructor)
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+};
+
 // Helper functions to transform names to uppercase
 const transformCustomerToUppercase = (customer) => {
   if (!customer) return customer;
@@ -761,7 +774,7 @@ router.post('/', [
       notes,
       createdBy: req.user._id,
       billStartTime: billStartTime, // Capture bill start time
-      billDate: billDate ? new Date(billDate) : null // Allow custom bill date (for backdating/postdating)
+      billDate: parseLocalDate(billDate) // Allow custom bill date (for backdating/postdating) - parse as local date
     };
     
     
@@ -1089,7 +1102,7 @@ router.put('/:id', [
     
     // Update billDate if provided (for backdating/postdating)
     if (req.body.billDate !== undefined) {
-      order.billDate = req.body.billDate ? new Date(req.body.billDate) : null;
+      order.billDate = parseLocalDate(req.body.billDate);
     }
     
     // Update items if provided and recalculate pricing

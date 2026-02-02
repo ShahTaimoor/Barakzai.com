@@ -22,30 +22,30 @@ router.post('/register', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     // Check if user has permission to create users
     if (!req.user.hasPermission('manage_users')) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    
+
     const userData = req.body;
-    
+
     // Call service to register user
     const result = await authService.register(userData, req.user);
-    
+
     res.status(201).json(result);
   } catch (error) {
     // Handle duplicate email error
     if (error.message === 'User already exists' || error.code === 11000) {
       return res.status(400).json({ message: 'User already exists' });
     }
-    
+
     console.error('❌ Registration error:', {
       message: error.message,
       stack: error.stack,
       name: error.name
     });
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -53,7 +53,9 @@ router.post('/register', [
 });
 
 // @route   POST /api/auth/login
-// @desc    Login user
+// @desc    Login user (legacy - for backward compatibility)
+//          For Admin login, use /api/auth/admin/login
+
 // @access  Public
 router.post('/login', [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
@@ -64,16 +66,16 @@ router.post('/login', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const { email, password } = req.body;
-    
+
     // Get IP address and user agent
     const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
     const userAgent = req.get('User-Agent');
-    
-    // Call service to login user
+
+    // Call service to login user (legacy single-database mode)
     const result = await authService.login(email, password, ipAddress, userAgent);
-    
+
     // Set HTTP-only cookie for secure token storage
     res.cookie('token', result.token, {
       httpOnly: true,
@@ -82,7 +84,7 @@ router.post('/login', [
       maxAge: 8 * 60 * 60 * 1000, // 8 hours in milliseconds
       path: '/'
     });
-    
+
     // Also return token in response for backward compatibility (can be removed later)
     res.json({
       message: result.message,
@@ -95,28 +97,30 @@ router.post('/login', [
       return res.status(400).json({ message: 'Invalid credentials' });
     }
     if (error.message.includes('locked')) {
-      return res.status(423).json({ 
-        message: 'Account is temporarily locked due to too many failed login attempts' 
+      return res.status(423).json({
+        message: 'Account is temporarily locked due to too many failed login attempts'
       });
     }
     if (error.message.includes('JWT_SECRET')) {
-      return res.status(500).json({ 
-        message: 'Server configuration error: JWT_SECRET is missing' 
+      return res.status(500).json({
+        message: 'Server configuration error: JWT_SECRET is missing'
       });
     }
-    
+
     console.error('❌ Login error:', {
       message: error.message,
       stack: error.stack,
       name: error.name,
       code: error.code
     });
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
+
+
 
 // @route   GET /api/auth/me
 // @desc    Get current user
@@ -149,12 +153,12 @@ router.put('/profile', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const updateData = req.body;
-    
+
     // Call service to update profile
     const result = await authService.updateProfile(req.user._id, updateData);
-    
+
     res.json(result);
   } catch (error) {
     if (error.message === 'User not found') {
@@ -178,12 +182,12 @@ router.post('/change-password', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const { currentPassword, newPassword } = req.body;
-    
+
     // Call service to change password
     const result = await authService.changePassword(req.user._id, currentPassword, newPassword);
-    
+
     res.json(result);
   } catch (error) {
     if (error.message === 'User not found') {
@@ -209,7 +213,7 @@ router.post('/logout', auth, async (req, res) => {
       sameSite: 'strict',
       path: '/'
     });
-    
+
     res.json({ message: 'Logout successful' });
   } catch (error) {
     console.error('Logout error:', error);

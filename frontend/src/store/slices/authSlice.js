@@ -37,7 +37,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addMatcher(authApi.endpoints.login.matchFulfilled, (state, { payload }) => {
-        state.user = payload.user;
+        state.user = payload.user || payload;
         // Token is stored in HTTP-only cookie by backend, not in localStorage
         state.token = payload.token || 'cookie'; // Placeholder to indicate auth success
         state.isAuthenticated = true;

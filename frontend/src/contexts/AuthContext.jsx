@@ -77,8 +77,8 @@ export const useAuth = () => {
   // - Don't show loading on login page (query is skipped there)
   // - Only show loading during initial auth check or login process
   // - Once we have an error (401), stop showing loading
-  const loading = isLoginPage 
-    ? loginLoading 
+  const loading = isLoginPage
+    ? loginLoading
     : (status === 'loading' || (currentUserLoading && !currentUserError)) || loginLoading;
 
   return {

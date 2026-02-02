@@ -25,7 +25,7 @@ const settingsSchema = new mongoose.Schema({
     trim: true,
     lowercase: true
   },
-  
+
   // Additional Company Details
   website: {
     type: String,
@@ -39,7 +39,13 @@ const settingsSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  
+
+  // Branding
+  logo: {
+    type: String, // Base64 string or URL
+    trim: true
+  },
+
   // System Settings
   currency: {
     type: String,
@@ -55,7 +61,7 @@ const settingsSchema = new mongoose.Schema({
     enum: ['12h', '24h'],
     default: '12h'
   },
-  
+
   // Business Settings
   fiscalYearStart: {
     type: Number,
@@ -69,7 +75,7 @@ const settingsSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
-  
+
   // Singleton pattern - only one settings document should exist
   _id: {
     type: String,
@@ -81,7 +87,7 @@ const settingsSchema = new mongoose.Schema({
 });
 
 // Ensure only one settings document exists
-settingsSchema.statics.getSettings = async function() {
+settingsSchema.statics.getSettings = async function () {
   let settings = await this.findById('company_settings');
   if (!settings) {
     try {
@@ -98,7 +104,7 @@ settingsSchema.statics.getSettings = async function() {
   return settings;
 };
 
-settingsSchema.statics.updateSettings = async function(updates) {
+settingsSchema.statics.updateSettings = async function (updates) {
   const settings = await this.getSettings();
   Object.assign(settings, updates);
   await settings.save();

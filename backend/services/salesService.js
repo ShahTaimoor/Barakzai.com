@@ -107,19 +107,76 @@ class SalesService {
       filter.orderType = queryParams.orderType;
     }
 
-    // Date range filter
+    // Date range filter - use billDate if available, otherwise fall back to createdAt
     if (queryParams.dateFrom || queryParams.dateTo) {
-      filter.createdAt = {};
+      const dateConditions = [];
+      
       if (queryParams.dateFrom) {
         const dateFrom = new Date(queryParams.dateFrom);
         dateFrom.setHours(0, 0, 0, 0);
-        filter.createdAt.$gte = dateFrom;
-      }
-      if (queryParams.dateTo) {
+        
+        if (queryParams.dateTo) {
+          const dateTo = new Date(queryParams.dateTo);
+          dateTo.setDate(dateTo.getDate() + 1);
+          dateTo.setHours(0, 0, 0, 0);
+          
+          // Match orders where billDate is in range, or if billDate doesn't exist, use createdAt
+          dateConditions.push({
+            $or: [
+              {
+                billDate: { $exists: true, $ne: null, $gte: dateFrom, $lt: dateTo }
+              },
+              {
+                $and: [
+                  { $or: [{ billDate: { $exists: false } }, { billDate: null }] },
+                  { createdAt: { $gte: dateFrom, $lt: dateTo } }
+                ]
+              }
+            ]
+          });
+        } else {
+          // Only dateFrom provided
+          dateConditions.push({
+            $or: [
+              {
+                billDate: { $exists: true, $ne: null, $gte: dateFrom }
+              },
+              {
+                $and: [
+                  { $or: [{ billDate: { $exists: false } }, { billDate: null }] },
+                  { createdAt: { $gte: dateFrom } }
+                ]
+              }
+            ]
+          });
+        }
+      } else if (queryParams.dateTo) {
+        // Only dateTo provided
         const dateTo = new Date(queryParams.dateTo);
         dateTo.setDate(dateTo.getDate() + 1);
         dateTo.setHours(0, 0, 0, 0);
-        filter.createdAt.$lt = dateTo;
+        
+        dateConditions.push({
+          $or: [
+            {
+              billDate: { $exists: true, $ne: null, $lt: dateTo }
+            },
+            {
+              $and: [
+                { $or: [{ billDate: { $exists: false } }, { billDate: null }] },
+                { createdAt: { $lt: dateTo } }
+              ]
+            }
+          ]
+        });
+      }
+      
+      if (dateConditions.length > 0) {
+        if (filter.$and) {
+          filter.$and.push(...dateConditions);
+        } else {
+          filter.$and = dateConditions;
+        }
       }
     }
 

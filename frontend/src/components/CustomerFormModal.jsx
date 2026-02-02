@@ -178,7 +178,9 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
     isActive: 'true',
   });
 
-  const { data: citiesResponse, isLoading: citiesLoading } = useGetActiveCitiesQuery();
+  const { data: citiesResponse, isLoading: citiesLoading, refetch: refetchCities } = useGetActiveCitiesQuery(undefined, {
+    refetchOnMountOrArgChange: true, // Refetch when modal opens
+  });
   // Extract cities array from response (handle both direct array and object with data property)
   const citiesData = Array.isArray(citiesResponse) 
     ? citiesResponse 
@@ -190,6 +192,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
       toast.error('City name is required');
       return;
     }
+    const newCityName = cityFormData.name.trim();
     createCity(cityFormData)
       .unwrap()
       .then(() => {
@@ -202,9 +205,13 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
           description: '',
           isActive: true
         });
-        if (addresses.length > 0) {
-          handleAddressChange(0, 'city', cityFormData.name);
-        }
+        // Manually refetch cities to ensure the new city appears immediately
+        refetchCities().then(() => {
+          // After refetch, set the city value if addresses exist
+          if (addresses.length > 0) {
+            handleAddressChange(0, 'city', newCityName);
+          }
+        });
       })
       .catch((error) => {
         toast.error(error?.data?.message || 'Failed to create city');
