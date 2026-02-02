@@ -11,16 +11,7 @@ const { v4: uuidv4 } = require('uuid');
 // Load environment variables
 require('dotenv').config();
 
-// Validate environment variables
-const { validateEnv } = require('./config/env');
-try {
-  validateEnv();
-} catch (error) {
-  // Exit only when running as a standalone server (avoid crashing in serverless imports)
-  if (!process.env.VERCEL) {
-    process.exit(1);
-  }
-}
+
 
 const app = express();
 
@@ -44,12 +35,12 @@ app.use(requestLogger);
 // Global rate limiting - protect all API endpoints
 const { createRateLimiter } = require('./middleware/rateLimit');
 // General API rate limiter: 100 requests per minute per IP
-app.use('/api', createRateLimiter({ 
+app.use('/api', createRateLimiter({
   windowMs: 60000, // 1 minute
   max: 100 // 100 requests per minute
 }));
 // Stricter rate limiter for auth endpoints: 5 requests per minute per IP
-app.use('/api/auth', createRateLimiter({ 
+app.use('/api/auth', createRateLimiter({
   windowMs: 60000, // 1 minute
   max: 5 // 5 requests per minute (prevents brute force)
 }));
@@ -58,11 +49,11 @@ app.use('/api/auth', createRateLimiter({
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : [
-      'https://sa.wiserconsulting.info',
-      'http://localhost:3000', // Allow local development
-      'http://localhost:5173', // Allow Vite dev server
-      process.env.FRONTEND_URL // Allow from environment variable if set
-    ].filter(Boolean); // Remove undefined values
+    'https://sa.wiserconsulting.info',
+    'http://localhost:3000', // Allow local development
+    'http://localhost:5173', // Allow Vite dev server
+    process.env.FRONTEND_URL // Allow from environment variable if set
+  ].filter(Boolean); // Remove undefined values
 
 app.use(cors({
   origin: allowedOrigins,
@@ -91,10 +82,10 @@ app.use((req, res, next) => {
   if (req.path === '/health' || req.path === '/api/health') {
     return next();
   }
-  
+
   // Check if MongoDB is connected
   if (mongoose.connection.readyState !== 1 && mongoose.connection.readyState !== 2) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       message: 'Database connection not available. Please wait for the server to connect.',
       error: 'Database connection pending',
       readyState: mongoose.connection.readyState
@@ -129,9 +120,8 @@ app.use('/api/images', express.static(path.join(__dirname, 'uploads/images/optim
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/auth/users', require('./routes/users'));
-app.use('/api/developer', require('./routes/developer'));
-app.use('/api/shops', require('./routes/shops'));
-app.use('/api/plans', require('./routes/plans'));
+
+
 app.use('/api/products', require('./routes/products'));
 app.use('/api/product-variants', require('./routes/productVariants'));
 app.use('/api/product-transformations', require('./routes/productTransformations'));
@@ -205,7 +195,7 @@ app.get('/api/health', (req, res) => {
     3: 'disconnecting'
   }[dbStatus] || 'unknown';
 
-  res.json({ 
+  res.json({
     status: dbStatus === 1 ? 'OK' : 'DEGRADED',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
@@ -244,7 +234,7 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   const server = app.listen(PORT, () => {
     logger.info(`POS Server running on port ${PORT}`);
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    
+
     // Initialize scheduled jobs
     try {
       // Data integrity validation (daily at 2 AM)
@@ -263,22 +253,22 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
           logger.error('Error in scheduled data integrity validation:', error);
         }
       });
-      
+
       // Financial validation (hourly)
       const financialValidationService = require('./services/financialValidationService');
       financialValidationService.scheduleValidation();
       logger.info('Financial validation scheduler started');
-      
+
       // Backup verification (daily at 3 AM)
       const backupVerificationService = require('./services/backupVerificationService');
       backupVerificationService.scheduleVerification();
       logger.info('Backup verification scheduler started');
-      
+
       // Performance monitoring
       const perfMonitoringService = require('./services/performanceMonitoringService');
       perfMonitoringService.scheduleMonitoring();
       logger.info('Performance monitoring scheduler started');
-      
+
       // Reconciliation jobs (if exists)
       try {
         const reconciliationJobs = require('./jobs/reconciliationJobs');
@@ -289,7 +279,7 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
       } catch (error) {
         logger.warn('Reconciliation jobs not available:', error.message);
       }
-      
+
       // Maintenance jobs (if exists)
       try {
         const maintenanceJobs = require('./jobs/maintenanceJobs');
@@ -316,7 +306,7 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
       logger.error(`  2. Or use a different port:`);
       logger.error(`     PORT=5001 npm start`);
       logger.info(`Finding process on port ${PORT}...`);
-      
+
       // Try to find and suggest killing the process
       const { exec } = require('child_process');
       exec(`netstat -ano | findstr :${PORT}`, (err, stdout) => {
@@ -332,7 +322,7 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
           }
         }
       });
-      
+
       process.exit(1);
     } else {
       logger.error('Server error:', error);
@@ -347,7 +337,7 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   // Start reconciliation jobs
   const { startReconciliationJobs } = require('./jobs/reconciliationJobs');
   startReconciliationJobs();
-  
+
   // Initialize production critical features scheduled jobs
   try {
     // Data integrity validation (daily at 2 AM)
@@ -366,17 +356,17 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
         logger.error('Error in scheduled data integrity validation:', error);
       }
     });
-    
+
     // Financial validation (hourly)
     const financialValidationService = require('./services/financialValidationService');
     financialValidationService.scheduleValidation();
     logger.info('Financial validation scheduler started');
-    
+
     // Backup verification (daily at 3 AM)
     const backupVerificationService = require('./services/backupVerificationService');
     backupVerificationService.scheduleVerification();
     logger.info('Backup verification scheduler started');
-    
+
     // Performance monitoring
     const performanceMonitoringService = require('./services/performanceMonitoringService');
     performanceMonitoringService.scheduleMonitoring();

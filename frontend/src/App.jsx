@@ -12,18 +12,7 @@ import { LoadingPage } from './components/LoadingSpinner';
 
 // Critical components - load immediately (small, frequently used)
 import { Login } from './pages/Login';
-import { DeveloperLogin } from './pages/DeveloperLogin';
 import { Dashboard } from './pages/Dashboard';
-import { DeveloperLayout } from './components/DeveloperLayout';
-import { DeveloperDashboard } from './pages/DeveloperDashboard';
-import { DeveloperShops } from './pages/DeveloperShops';
-import { CreateShop } from './pages/CreateShop';
-import { DeveloperAdmins } from './pages/DeveloperAdmins';
-import { CreateAdmin } from './pages/CreateAdmin';
-import { DeveloperPlans } from './pages/DeveloperPlans';
-import { DeveloperSubscriptions } from './pages/DeveloperSubscriptions';
-import { DeveloperSettings } from './pages/DeveloperSettings';
-import { EditShop } from './pages/EditShop';
 
 // Lazy load all other pages for code splitting
 const SalesOrders = lazy(() => import('./pages/SalesOrders'));
@@ -78,95 +67,74 @@ function App() {
   return (
     <ErrorBoundary>
       <ErrorProvider>
-            <TabProvider>
-              <NetworkStatus />
-              <OfflineIndicator />
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/developer/login" element={<DeveloperLogin />} />
-              {/* Developer Routes */}
-              <Route
-                path="/developer/*"
-                element={
-                  <DeveloperLayout>
+        <TabProvider>
+          <NetworkStatus />
+          <OfflineIndicator />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <MultiTabLayout>
                     <Routes>
-                      <Route path="/dashboard" element={<DeveloperDashboard />} />
-                      <Route path="/shops" element={<DeveloperShops />} />
-                      <Route path="/shops/create" element={<CreateShop />} />
-                      <Route path="/shops/edit/:shopId" element={<EditShop />} />
-                      <Route path="/admins" element={<DeveloperAdmins />} />
-                      <Route path="/admins/create" element={<CreateAdmin />} />
-                      <Route path="/plans" element={<DeveloperPlans />} />
-                      <Route path="/subscriptions" element={<DeveloperSubscriptions />} />
-                      <Route path="/settings" element={<DeveloperSettings />} />
-                      <Route path="*" element={<Navigate to="/developer/dashboard" replace />} />
+                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/sales-orders" element={<Suspense fallback={<LoadingPage />}><SalesOrders /></Suspense>} />
+                      <Route path="/sales" element={<Suspense fallback={<LoadingPage />}><Sales /></Suspense>} />
+                      <Route path="/purchase-orders" element={<Suspense fallback={<LoadingPage />}><PurchaseOrders /></Suspense>} />
+                      <Route path="/purchase-invoices" element={<Suspense fallback={<LoadingPage />}><PurchaseInvoices /></Suspense>} />
+                      <Route path="/purchase" element={<Suspense fallback={<LoadingPage />}><Purchase /></Suspense>} />
+                      <Route path="/products" element={<Suspense fallback={<LoadingPage />}><Products /></Suspense>} />
+                      <Route path="/product-variants" element={<Suspense fallback={<LoadingPage />}><ProductVariants /></Suspense>} />
+                      <Route path="/product-transformations" element={<Suspense fallback={<LoadingPage />}><ProductTransformations /></Suspense>} />
+                      <Route path="/categories" element={<Suspense fallback={<LoadingPage />}><Categories /></Suspense>} />
+                      <Route path="/customers" element={<Suspense fallback={<LoadingPage />}><Customers /></Suspense>} />
+                      <Route path="/suppliers" element={<Suspense fallback={<LoadingPage />}><Suppliers /></Suspense>} />
+                      <Route path="/investors" element={<Suspense fallback={<LoadingPage />}><Investors /></Suspense>} />
+                      <Route path="/drop-shipping" element={<Suspense fallback={<LoadingPage />}><DropShipping /></Suspense>} />
+                      <Route path="/sales-invoices" element={<Suspense fallback={<LoadingPage />}><SalesInvoices /></Suspense>} />
+                      <Route path="/inventory" element={<Suspense fallback={<LoadingPage />}><Inventory /></Suspense>} />
+                      <Route path="/inventory-alerts" element={<Suspense fallback={<LoadingPage />}><InventoryAlerts /></Suspense>} />
+                      <Route path="/customer-analytics" element={<Suspense fallback={<LoadingPage />}><CustomerAnalytics /></Suspense>} />
+                      <Route path="/anomaly-detection" element={<Suspense fallback={<LoadingPage />}><AnomalyDetection /></Suspense>} />
+                      <Route path="/warehouses" element={<Suspense fallback={<LoadingPage />}><Warehouses /></Suspense>} />
+                      <Route path="/stock-movements" element={<Suspense fallback={<LoadingPage />}><StockMovements /></Suspense>} />
+                      <Route path="/backups" element={<Suspense fallback={<LoadingPage />}><Backups /></Suspense>} />
+                      <Route path="/pl-statements" element={<Suspense fallback={<LoadingPage />}><PLStatements /></Suspense>} />
+                      <Route path="/returns" element={<Suspense fallback={<LoadingPage />}><Returns /></Suspense>} />
+                      <Route path="/sale-returns" element={<Suspense fallback={<LoadingPage />}><SaleReturns /></Suspense>} />
+                      <Route path="/purchase-returns" element={<Suspense fallback={<LoadingPage />}><PurchaseReturns /></Suspense>} />
+                      <Route path="/balance-sheets" element={<Suspense fallback={<LoadingPage />}><BalanceSheets /></Suspense>} />
+                      <Route path="/discounts" element={<Suspense fallback={<LoadingPage />}><Discounts /></Suspense>} />
+                      <Route path="/sales-performance" element={<Suspense fallback={<LoadingPage />}><SalesPerformanceReports /></Suspense>} />
+                      <Route path="/inventory-reports" element={<Suspense fallback={<LoadingPage />}><InventoryReports /></Suspense>} />
+                      <Route path="/cash-receipts" element={<Suspense fallback={<LoadingPage />}><CashReceipts /></Suspense>} />
+                      <Route path="/cash-receiving" element={<Suspense fallback={<LoadingPage />}><CashReceiving /></Suspense>} />
+                      <Route path="/cash-payments" element={<Suspense fallback={<LoadingPage />}><CashPayments /></Suspense>} />
+                      <Route path="/cities" element={<Suspense fallback={<LoadingPage />}><Cities /></Suspense>} />
+                      <Route path="/expenses" element={<Suspense fallback={<LoadingPage />}><Expenses /></Suspense>} />
+                      <Route path="/bank-receipts" element={<Suspense fallback={<LoadingPage />}><BankReceipts /></Suspense>} />
+                      <Route path="/bank-payments" element={<Suspense fallback={<LoadingPage />}><BankPayments /></Suspense>} />
+                      <Route path="/journal-vouchers" element={<Suspense fallback={<LoadingPage />}><JournalVouchers /></Suspense>} />
+                      <Route path="/chart-of-accounts" element={<Suspense fallback={<LoadingPage />}><ChartOfAccounts /></Suspense>} />
+                      <Route path="/account-ledger" element={<Suspense fallback={<LoadingPage />}><AccountLedgerSummary /></Suspense>} />
+                      <Route path="/reports" element={<Suspense fallback={<LoadingPage />}><Reports /></Suspense>} />
+                      <Route path="/backdate-report" element={<Suspense fallback={<LoadingPage />}><BackdateReport /></Suspense>} />
+                      <Route path="/settings" element={<Suspense fallback={<LoadingPage />}><Settings2 /></Suspense>} />
+                      <Route path="/migration" element={<Suspense fallback={<LoadingPage />}><Migration /></Suspense>} />
+                      <Route path="/settings2" element={<Suspense fallback={<LoadingPage />}><Settings2 /></Suspense>} />
+                      <Route path="/attendance" element={<Suspense fallback={<LoadingPage />}><Attendance /></Suspense>} />
+                      <Route path="/employees" element={<Suspense fallback={<LoadingPage />}><Employees /></Suspense>} />
+                      <Route path="/cctv-access" element={<Suspense fallback={<LoadingPage />}><CCTVAccess /></Suspense>} />
+                      <Route path="/help" element={<Suspense fallback={<LoadingPage />}><Help /></Suspense>} />
                     </Routes>
-                  </DeveloperLayout>
-                }
-              />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <MultiTabLayout>
-                      <Routes>
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/sales-orders" element={<Suspense fallback={<LoadingPage />}><SalesOrders /></Suspense>} />
-                        <Route path="/sales" element={<Suspense fallback={<LoadingPage />}><Sales /></Suspense>} />
-                        <Route path="/purchase-orders" element={<Suspense fallback={<LoadingPage />}><PurchaseOrders /></Suspense>} />
-                        <Route path="/purchase-invoices" element={<Suspense fallback={<LoadingPage />}><PurchaseInvoices /></Suspense>} />
-                        <Route path="/purchase" element={<Suspense fallback={<LoadingPage />}><Purchase /></Suspense>} />
-                        <Route path="/products" element={<Suspense fallback={<LoadingPage />}><Products /></Suspense>} />
-                        <Route path="/product-variants" element={<Suspense fallback={<LoadingPage />}><ProductVariants /></Suspense>} />
-                        <Route path="/product-transformations" element={<Suspense fallback={<LoadingPage />}><ProductTransformations /></Suspense>} />
-                        <Route path="/categories" element={<Suspense fallback={<LoadingPage />}><Categories /></Suspense>} />
-                        <Route path="/customers" element={<Suspense fallback={<LoadingPage />}><Customers /></Suspense>} />
-                        <Route path="/suppliers" element={<Suspense fallback={<LoadingPage />}><Suppliers /></Suspense>} />
-                        <Route path="/investors" element={<Suspense fallback={<LoadingPage />}><Investors /></Suspense>} />
-                        <Route path="/drop-shipping" element={<Suspense fallback={<LoadingPage />}><DropShipping /></Suspense>} />
-                        <Route path="/sales-invoices" element={<Suspense fallback={<LoadingPage />}><SalesInvoices /></Suspense>} />
-                        <Route path="/inventory" element={<Suspense fallback={<LoadingPage />}><Inventory /></Suspense>} />
-                        <Route path="/inventory-alerts" element={<Suspense fallback={<LoadingPage />}><InventoryAlerts /></Suspense>} />
-                        <Route path="/customer-analytics" element={<Suspense fallback={<LoadingPage />}><CustomerAnalytics /></Suspense>} />
-                        <Route path="/anomaly-detection" element={<Suspense fallback={<LoadingPage />}><AnomalyDetection /></Suspense>} />
-                        <Route path="/warehouses" element={<Suspense fallback={<LoadingPage />}><Warehouses /></Suspense>} />
-                        <Route path="/stock-movements" element={<Suspense fallback={<LoadingPage />}><StockMovements /></Suspense>} />
-                        <Route path="/backups" element={<Suspense fallback={<LoadingPage />}><Backups /></Suspense>} />
-                        <Route path="/pl-statements" element={<Suspense fallback={<LoadingPage />}><PLStatements /></Suspense>} />
-                        <Route path="/returns" element={<Suspense fallback={<LoadingPage />}><Returns /></Suspense>} />
-                        <Route path="/sale-returns" element={<Suspense fallback={<LoadingPage />}><SaleReturns /></Suspense>} />
-                        <Route path="/purchase-returns" element={<Suspense fallback={<LoadingPage />}><PurchaseReturns /></Suspense>} />
-                        <Route path="/balance-sheets" element={<Suspense fallback={<LoadingPage />}><BalanceSheets /></Suspense>} />
-                        <Route path="/discounts" element={<Suspense fallback={<LoadingPage />}><Discounts /></Suspense>} />
-                        <Route path="/sales-performance" element={<Suspense fallback={<LoadingPage />}><SalesPerformanceReports /></Suspense>} />
-                        <Route path="/inventory-reports" element={<Suspense fallback={<LoadingPage />}><InventoryReports /></Suspense>} />
-                        <Route path="/cash-receipts" element={<Suspense fallback={<LoadingPage />}><CashReceipts /></Suspense>} />
-                        <Route path="/cash-receiving" element={<Suspense fallback={<LoadingPage />}><CashReceiving /></Suspense>} />
-                        <Route path="/cash-payments" element={<Suspense fallback={<LoadingPage />}><CashPayments /></Suspense>} />
-                        <Route path="/cities" element={<Suspense fallback={<LoadingPage />}><Cities /></Suspense>} />
-                        <Route path="/expenses" element={<Suspense fallback={<LoadingPage />}><Expenses /></Suspense>} />
-                        <Route path="/bank-receipts" element={<Suspense fallback={<LoadingPage />}><BankReceipts /></Suspense>} />
-                        <Route path="/bank-payments" element={<Suspense fallback={<LoadingPage />}><BankPayments /></Suspense>} />
-                        <Route path="/journal-vouchers" element={<Suspense fallback={<LoadingPage />}><JournalVouchers /></Suspense>} />
-                        <Route path="/chart-of-accounts" element={<Suspense fallback={<LoadingPage />}><ChartOfAccounts /></Suspense>} />
-                        <Route path="/account-ledger" element={<Suspense fallback={<LoadingPage />}><AccountLedgerSummary /></Suspense>} />
-                        <Route path="/reports" element={<Suspense fallback={<LoadingPage />}><Reports /></Suspense>} />
-                        <Route path="/backdate-report" element={<Suspense fallback={<LoadingPage />}><BackdateReport /></Suspense>} />
-                        <Route path="/settings" element={<Suspense fallback={<LoadingPage />}><Settings2 /></Suspense>} />
-                        <Route path="/migration" element={<Suspense fallback={<LoadingPage />}><Migration /></Suspense>} />
-                        <Route path="/settings2" element={<Suspense fallback={<LoadingPage />}><Settings2 /></Suspense>} />
-                        <Route path="/attendance" element={<Suspense fallback={<LoadingPage />}><Attendance /></Suspense>} />
-                        <Route path="/employees" element={<Suspense fallback={<LoadingPage />}><Employees /></Suspense>} />
-                        <Route path="/cctv-access" element={<Suspense fallback={<LoadingPage />}><CCTVAccess /></Suspense>} />
-                        <Route path="/help" element={<Suspense fallback={<LoadingPage />}><Help /></Suspense>} />
-                      </Routes>
-                    </MultiTabLayout>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </TabProvider>
+                  </MultiTabLayout>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </TabProvider>
       </ErrorProvider>
     </ErrorBoundary>
   );

@@ -11,7 +11,7 @@ const router = express.Router();
 router.get('/', auth, requirePermission('manage_users'), async (req, res) => {
   try {
     const users = await userService.getUsers();
-    
+
     res.json({
       success: true,
       data: { users }
@@ -28,7 +28,7 @@ router.get('/', auth, requirePermission('manage_users'), async (req, res) => {
 router.get('/:id', auth, requirePermission('manage_users'), async (req, res) => {
   try {
     const user = await userService.getUserById(req.params.id);
-    
+
     res.json({
       success: true,
       data: { user }
@@ -59,7 +59,7 @@ router.put('/:id', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const updateData = {};
     const { firstName, lastName, email, role, status, permissions } = req.body;
     if (firstName) updateData.firstName = firstName;
@@ -68,9 +68,9 @@ router.put('/:id', [
     if (role) updateData.role = role;
     if (status) updateData.status = status;
     if (permissions) updateData.permissions = permissions;
-    
+
     const updatedUser = await userService.updateUser(req.params.id, updateData, req.user);
-    
+
     res.json({
       success: true,
       message: 'User updated successfully',
@@ -84,7 +84,7 @@ router.put('/:id', [
       return res.status(400).json({ message: 'Email already exists' });
     }
     console.error('Update user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error: ' + error.message });
   }
 });
 
@@ -95,7 +95,7 @@ router.patch('/:id/reset-password', auth, requirePermission('manage_users'), asy
   try {
     const { newPassword } = req.body;
     const result = await userService.resetPassword(req.params.id, newPassword);
-    
+
     res.json({
       success: true,
       message: result.message
@@ -118,7 +118,7 @@ router.patch('/:id/reset-password', auth, requirePermission('manage_users'), asy
 router.get('/:id/activity', auth, requirePermission('manage_users'), async (req, res) => {
   try {
     const activity = await userService.getUserActivity(req.params.id);
-    
+
     res.json({
       success: true,
       data: activity
@@ -139,7 +139,7 @@ router.patch('/update-role-permissions', auth, requirePermission('manage_users')
   try {
     const { role, permissions } = req.body;
     const result = await userService.updateRolePermissions(role, permissions);
-    
+
     res.json({
       success: true,
       message: result.message,
@@ -160,7 +160,7 @@ router.patch('/update-role-permissions', auth, requirePermission('manage_users')
 router.delete('/:id', auth, requirePermission('manage_users'), async (req, res) => {
   try {
     const result = await userService.deleteUser(req.params.id, req.user.userId || req.user._id);
-    
+
     res.json({
       success: true,
       message: result.message
@@ -183,7 +183,7 @@ router.delete('/:id', auth, requirePermission('manage_users'), async (req, res) 
 router.patch('/:id/toggle-status', auth, requirePermission('manage_users'), async (req, res) => {
   try {
     const result = await userService.toggleUserStatus(req.params.id, req.user.userId || req.user._id);
-    
+
     res.json({
       success: true,
       message: result.message,

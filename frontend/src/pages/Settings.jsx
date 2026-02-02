@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Building, 
-  Phone, 
-  MapPin, 
-  Mail, 
-  Save, 
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Building,
+  Phone,
+  MapPin,
+  Mail,
+  Save,
   User,
   Users,
   Plus,
@@ -41,6 +41,7 @@ import {
 } from '../store/services/usersApi';
 import { useChangePasswordMutation } from '../store/services/authApi';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
+import PrintDocument from '../components/PrintDocument';
 import { handleApiError } from '../utils/errorHandler';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -90,21 +91,49 @@ export const Settings2 = () => {
   // Print Preview Settings State
   const [printSettings, setPrintSettings] = useState({
     showLogo: true,
+    showCompanyDetails: true,
     showDiscount: true,
     showTax: true,
     showDate: true,
+    showFooter: true,
+    showCameraTime: false,
+    showDescription: true,
     headerText: '',
     footerText: '',
     invoiceLayout: 'standard'
   });
+
+  const sampleOrderData = useMemo(() => ({
+    invoiceNumber: 'INV-PREVIEW',
+    createdAt: new Date(),
+    customer: {
+      name: 'Walk-in Customer',
+      phone: '555-0123'
+    },
+    items: [
+      { name: 'Sample Item 1', quantity: 2, unitPrice: 50.00, total: 100.00 },
+      { name: 'Sample Item 2', quantity: 1, unitPrice: 25.00, total: 25.00 }
+    ],
+    subtotal: 125.00,
+    tax: 12.50,
+    discount: 5.00,
+    total: 132.50,
+    payment: {
+      method: 'Cash',
+      status: 'Paid',
+      amountPaid: 132.50
+    },
+    billStartTime: new Date(Date.now() - 300000), // 5 min ago
+    billEndTime: new Date()
+  }), []);
 
   // Permission categories (matching backend User model enum)
   const permissionCategories = {
     products: {
       name: 'Product Management',
       permissions: [
-        { 
-          key: 'view_products', 
+        {
+          key: 'view_products',
           name: 'View Products',
           subcategories: [
             { key: 'view_product_list', name: 'Product List' },
@@ -121,8 +150,8 @@ export const Settings2 = () => {
     customers: {
       name: 'Customer Management',
       permissions: [
-        { 
-          key: 'view_customers', 
+        {
+          key: 'view_customers',
           name: 'View Customers',
           subcategories: [
             { key: 'view_customer_list', name: 'Customer List' },
@@ -139,8 +168,8 @@ export const Settings2 = () => {
     suppliers: {
       name: 'Supplier Management',
       permissions: [
-        { 
-          key: 'view_suppliers', 
+        {
+          key: 'view_suppliers',
           name: 'View Suppliers',
           subcategories: [
             { key: 'view_supplier_list', name: 'Supplier List' },
@@ -157,8 +186,8 @@ export const Settings2 = () => {
     orders: {
       name: 'Order Management',
       permissions: [
-        { 
-          key: 'view_orders', 
+        {
+          key: 'view_orders',
           name: 'View Orders',
           subcategories: [
             { key: 'view_sales_orders', name: 'Sales Orders' },
@@ -172,9 +201,9 @@ export const Settings2 = () => {
         { key: 'cancel_orders', name: 'Cancel Orders' },
         { key: 'view_cost_prices', name: 'View Cost Prices' },
         // Purchase Operations - Granular
-        { 
-          key: 'create_purchase_orders', 
-          name: 'Create Purchase Orders' 
+        {
+          key: 'create_purchase_orders',
+          name: 'Create Purchase Orders'
         },
         { key: 'edit_purchase_orders', name: 'Edit Purchase Orders' },
         { key: 'delete_purchase_orders', name: 'Delete Purchase Orders' },
@@ -200,8 +229,8 @@ export const Settings2 = () => {
     inventory: {
       name: 'Inventory Management',
       permissions: [
-        { 
-          key: 'view_inventory', 
+        {
+          key: 'view_inventory',
           name: 'View Inventory',
           subcategories: [
             { key: 'view_inventory_levels', name: 'Inventory Levels' },
@@ -210,8 +239,8 @@ export const Settings2 = () => {
             { key: 'view_low_stock_alerts', name: 'Low Stock Alerts' }
           ]
         },
-        { 
-          key: 'update_inventory', 
+        {
+          key: 'update_inventory',
           name: 'Update Inventory',
           subcategories: [
             { key: 'update_stock_quantities', name: 'Stock Quantities' },
@@ -229,8 +258,8 @@ export const Settings2 = () => {
     returns: {
       name: 'Returns Management',
       permissions: [
-        { 
-          key: 'view_returns', 
+        {
+          key: 'view_returns',
           name: 'View Returns',
           subcategories: [
             { key: 'view_return_requests', name: 'Return Requests' },
@@ -247,8 +276,8 @@ export const Settings2 = () => {
     discounts: {
       name: 'Discount Management',
       permissions: [
-        { 
-          key: 'view_discounts', 
+        {
+          key: 'view_discounts',
           name: 'View Discounts',
           subcategories: [
             { key: 'view_discount_list', name: 'Discount List' },
@@ -256,8 +285,8 @@ export const Settings2 = () => {
             { key: 'view_discount_history', name: 'Discount History' }
           ]
         },
-        { 
-          key: 'manage_discounts', 
+        {
+          key: 'manage_discounts',
           name: 'Manage Discounts',
           subcategories: [
             { key: 'create_discounts', name: 'Create Discounts' },
@@ -270,8 +299,8 @@ export const Settings2 = () => {
     reports: {
       name: 'Reports & Analytics',
       permissions: [
-        { 
-          key: 'view_reports', 
+        {
+          key: 'view_reports',
           name: 'View Reports',
           subcategories: [
             { key: 'view_pl_statements', name: 'P&L Statements' },
@@ -296,8 +325,8 @@ export const Settings2 = () => {
     admin: {
       name: 'System Administration',
       permissions: [
-        { 
-          key: 'manage_users', 
+        {
+          key: 'manage_users',
           name: 'Manage Users',
           subcategories: [
             { key: 'create_users', name: 'Create Users' },
@@ -306,8 +335,8 @@ export const Settings2 = () => {
             { key: 'assign_roles', name: 'Assign Roles' }
           ]
         },
-        { 
-          key: 'manage_settings', 
+        {
+          key: 'manage_settings',
           name: 'Manage Settings',
           subcategories: [
             { key: 'company_settings', name: 'Company Settings' },
@@ -316,16 +345,16 @@ export const Settings2 = () => {
             { key: 'security_settings', name: 'Security Settings' }
           ]
         },
-        { 
-          key: 'view_backups', 
+        {
+          key: 'view_backups',
           name: 'View Backups',
           subcategories: [
             { key: 'view_backup_list', name: 'Backup List' },
             { key: 'view_backup_logs', name: 'Backup Logs' }
           ]
         },
-        { 
-          key: 'manage_backups', 
+        {
+          key: 'manage_backups',
           name: 'Manage Backups',
           subcategories: [
             { key: 'create_backups', name: 'Create Backups' },
@@ -636,6 +665,23 @@ export const Settings2 = () => {
         taxRegistrationNumber: settings.taxId || '' // Map taxId back to taxRegistrationNumber
       };
       setCompanyData(mappedData);
+
+      if (settings.printSettings) {
+        setPrintSettings(prev => ({
+          ...prev,
+          showLogo: settings.printSettings.showLogo ?? true,
+          showCompanyDetails: settings.printSettings.showCompanyDetails ?? true,
+          showTax: settings.printSettings.showTax ?? true,
+          showDiscount: settings.printSettings.showDiscount ?? true,
+          showDate: settings.printSettings.showDate ?? true,
+          showFooter: settings.printSettings.showFooter ?? true,
+          showCameraTime: settings.printSettings.showCameraTime ?? false,
+          showDescription: settings.printSettings.showDescription ?? true,
+          headerText: settings.printSettings.headerText || '',
+          footerText: settings.printSettings.footerText || '',
+          invoiceLayout: settings.printSettings.invoiceLayout || 'standard'
+        }));
+      }
     }
   }, [settings]);
 
@@ -660,15 +706,15 @@ export const Settings2 = () => {
   React.useEffect(() => {
     if (usersResponse) {
       let usersArray = null;
-      
+
       // Primary path: data.data.users (backend structure)
       if (usersResponse?.data?.users && Array.isArray(usersResponse.data.users)) {
         usersArray = usersResponse.data.users;
-      } 
+      }
       // Fallback: data.users
       else if (usersResponse?.users && Array.isArray(usersResponse.users)) {
         usersArray = usersResponse.users;
-      } 
+      }
       // Fallback: direct array
       else if (Array.isArray(usersResponse)) {
         usersArray = usersResponse.filter(item => item._id && item.email);
@@ -695,7 +741,7 @@ export const Settings2 = () => {
         };
         usersArray = findUsers(usersResponse);
       }
-      
+
       if (usersArray && Array.isArray(usersArray)) {
         setUsers(usersArray);
       } else {
@@ -716,10 +762,33 @@ export const Settings2 = () => {
           logo: settings.data.data.logo || null,
           taxRegistrationNumber: settings.data.data.taxId || ''
         };
-        
+
         // Only update if data has changed
         if (JSON.stringify(prev) !== JSON.stringify(newData)) {
           return newData;
+        }
+        return prev;
+      });
+
+      setPrintSettings(prev => {
+        const ps = settings.data.data.printSettings || {};
+        const newPs = {
+          showLogo: ps.showLogo ?? true,
+          showCompanyDetails: ps.showCompanyDetails ?? true,
+          showTax: ps.showTax ?? true,
+          showDiscount: ps.showDiscount ?? true,
+          showDate: ps.showDate ?? true,
+          showFooter: ps.showFooter ?? true,
+          showCameraTime: ps.showCameraTime ?? false,
+          showDescription: ps.showDescription ?? true,
+          headerText: ps.headerText || prev.headerText || '',
+          footerText: ps.footerText || prev.footerText || '',
+          invoiceLayout: ps.invoiceLayout || prev.invoiceLayout || 'standard'
+        };
+
+        // Only update if changed prevents verify infinite loop
+        if (JSON.stringify(prev) !== JSON.stringify(newPs)) {
+          return newPs;
         }
         return prev;
       });
@@ -747,7 +816,7 @@ export const Settings2 = () => {
     try {
       const response = await updateCompanySettings(data).unwrap();
       toast.success('Company information updated successfully!');
-      
+
       // Update local state with saved data
       if (response?.data) {
         const updatedData = {
@@ -760,7 +829,7 @@ export const Settings2 = () => {
         };
         setCompanyData(updatedData);
       }
-      
+
       // Refetch settings to ensure everything is in sync
       refetchSettings();
     } catch (error) {
@@ -825,6 +894,19 @@ export const Settings2 = () => {
     }
   };
 
+  const handleResetPassword = async (id, newPassword) => {
+    try {
+      await resetPassword({ id, newPassword }).unwrap();
+      toast.success('Password reset successfully!');
+      setShowPasswordModal(false);
+      setPasswordResetUser(null);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      handleApiError(error, 'Password Reset');
+    }
+  };
+
   // Handlers
   const handleCompanyChange = (e) => {
     const { name, value } = e.target;
@@ -836,7 +918,7 @@ export const Settings2 = () => {
 
   const handleCompanySubmit = (e) => {
     e.preventDefault();
-    
+
     // Map frontend field names to backend field names
     const dataToSend = {
       companyName: companyData.companyName,
@@ -846,20 +928,37 @@ export const Settings2 = () => {
       taxId: companyData.taxRegistrationNumber, // Map taxRegistrationNumber to taxId
       logo: companyData.logo
     };
-    
+
     handleSaveCompanySettings(dataToSend);
   };
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // In a real app, you'd upload the file to a server
-      // For now, we'll just store the file name
-    setCompanyData(prev => ({
-      ...prev,
-        logo: file.name
-    }));
-      toast.success('Logo uploaded successfully!');
+      // Validate file size (2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('File size must be less than 2MB');
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCompanyData(prev => ({
+          ...prev,
+          logo: reader.result
+        }));
+        toast.success('Logo uploaded successfully!');
+      };
+      reader.onerror = () => {
+        toast.error('Failed to read file');
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -873,55 +972,55 @@ export const Settings2 = () => {
     // Auto-apply default permissions when role changes
     if (name === 'role' && defaultRolePermissions[value]) {
       setNewUserData(prev => ({
-      ...prev,
+        ...prev,
         permissions: defaultRolePermissions[value]
-    }));
+      }));
     }
   };
 
   const handleCreateUser = (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!newUserData.firstName.trim()) {
       toast.error('First name is required');
       return;
     }
-    
+
     if (!newUserData.lastName.trim()) {
       toast.error('Last name is required');
       return;
     }
-    
+
     if (!newUserData.email.trim()) {
       toast.error('Email is required');
       return;
     }
-    
+
     if (!newUserData.password.trim()) {
       toast.error('Password is required');
       return;
     }
-    
+
     if (newUserData.password.length < 6) {
       toast.error('Password must be at least 6 characters long');
       return;
     }
-    
+
     // Convert permissions object to array format expected by backend
     const permissionsArray = Object.keys(newUserData.permissions).filter(key => newUserData.permissions[key]);
-    
+
     const userDataToSend = {
       ...newUserData,
       permissions: permissionsArray
     };
-    
+
     createUserAsync(userDataToSend);
   };
 
   const handleEditUser = (user) => {
     setEditingUser(user);
-    
+
     // Convert permissions array to object format for the form
     const permissionsObject = {};
     if (user.permissions && Array.isArray(user.permissions)) {
@@ -929,7 +1028,7 @@ export const Settings2 = () => {
         permissionsObject[permission] = true;
       });
     }
-    
+
     setNewUserData({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
@@ -944,25 +1043,25 @@ export const Settings2 = () => {
   const handleUpdateUserSubmit = (e) => {
     e.preventDefault();
     if (editingUser) {
-    // Validation
-    if (!newUserData.firstName.trim()) {
-      toast.error('First name is required');
-      return;
-    }
-    
-    if (!newUserData.lastName.trim()) {
-      toast.error('Last name is required');
-      return;
-    }
-    
-    if (!newUserData.email.trim()) {
-      toast.error('Email is required');
-      return;
-    }
-    
+      // Validation
+      if (!newUserData.firstName.trim()) {
+        toast.error('First name is required');
+        return;
+      }
+
+      if (!newUserData.lastName.trim()) {
+        toast.error('Last name is required');
+        return;
+      }
+
+      if (!newUserData.email.trim()) {
+        toast.error('Email is required');
+        return;
+      }
+
       // Convert permissions object to array format expected by backend
       const permissionsArray = Object.keys(newUserData.permissions).filter(key => newUserData.permissions[key]);
-      
+
       // If editing own account, prevent changing role and status
       const userDataToSend = {
         firstName: newUserData.firstName,
@@ -970,13 +1069,13 @@ export const Settings2 = () => {
         email: newUserData.email,
         permissions: permissionsArray
       };
-      
+
       // Only include role and status if NOT editing own account
       if (editingUser._id !== user?._id) {
         userDataToSend.role = newUserData.role;
         userDataToSend.status = newUserData.status;
       }
-      
+
       handleUpdateUser(editingUser._id, userDataToSend);
     }
   };
@@ -995,7 +1094,7 @@ export const Settings2 = () => {
         [permissionKey]: isChecked
       }
     }));
-    
+
     // Track role permission changes for bulk updates
     if (newUserData.role) {
       setRolePermissionsChanged(prev => ({
@@ -1034,48 +1133,57 @@ export const Settings2 = () => {
       toast.error('New password is required');
       return;
     }
-    
+
     if (newPassword.length < 6) {
       toast.error('Password must be at least 6 characters long');
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    
+
     const targetUser = passwordResetUser || editingUser;
     if (!targetUser?._id) {
       toast.error('User not selected');
       return;
     }
-    
+
     handleResetPassword(targetUser._id, newPassword);
   };
 
-  const handleChangeMyPassword = () => {
+  const handleChangeMyPassword = async () => {
     if (!currentPassword.trim()) {
       toast.error('Current password is required');
       return;
     }
-    
+
     if (!newPassword.trim()) {
       toast.error('New password is required');
       return;
     }
-    
+
     if (newPassword.length < 6) {
       toast.error('Password must be at least 6 characters long');
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    
-    handleChangeMyPassword(currentPassword, newPassword);
+
+    try {
+      await changeMyPassword({ currentPassword, newPassword }).unwrap();
+      toast.success('Password changed successfully');
+      setShowMyPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      handleApiError(error, 'Password Change');
+    }
   };
 
   const openPasswordModal = (userToReset = null) => {
@@ -1108,12 +1216,12 @@ export const Settings2 = () => {
     const confirmed = window.confirm(
       `Are you sure you want to update permissions for ALL users with "${role}" role? This will override their current permissions.`
     );
-    
+
     if (confirmed) {
       // Get the current permissions for this role
       const currentPermissions = newUserData.permissions;
       const permissionKeys = Object.keys(currentPermissions);
-      
+
       handleUpdateRolePermissions(role, permissionKeys.filter(key => currentPermissions[key]));
     }
   };
@@ -1157,11 +1265,10 @@ export const Settings2 = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-2 md:px-1 border-b-2 font-medium text-sm flex items-center space-x-2 whitespace-nowrap flex-shrink-0 ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-2 md:px-1 border-b-2 font-medium text-sm flex items-center space-x-2 whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
                 <span className="hidden sm:inline">{tab.name}</span>
@@ -1176,154 +1283,164 @@ export const Settings2 = () => {
       <div className="mt-6 w-full overflow-x-hidden">
         {/* Company Information Tab */}
         {activeTab === 'company' && (
-      <div className="card">
-        <div className="card-header">
-          <div className="flex items-center space-x-2">
-            <Building className="h-5 w-5 text-gray-600" />
-            <h2 className="text-lg font-semibold">Company Information</h2>
-          </div>
-          <p className="text-sm text-gray-600 mt-1">
+          <div className="card">
+            <div className="card-header">
+              <div className="flex items-center space-x-2">
+                <Building className="h-5 w-5 text-gray-600" />
+                <h2 className="text-lg font-semibold">Company Information</h2>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
                 Manage your company details and branding information
-          </p>
-        </div>
+              </p>
+            </div>
 
-        <div className="card-content">
-          <form onSubmit={handleCompanySubmit} className="space-y-6">
+            <div className="card-content">
+              <form onSubmit={handleCompanySubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Company Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center space-x-2">
-                  <Building className="h-4 w-4" />
-                  <span>Company Name *</span>
-                </div>
-              </label>
-              <input
-                type="text"
-                name="companyName"
-                value={companyData.companyName}
-                onChange={handleCompanyChange}
-                className="input"
-                placeholder="Enter company name"
-                required
-              />
-            </div>
+                  {/* Company Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Building className="h-4 w-4" />
+                        <span>Company Name *</span>
+                      </div>
+                    </label>
+                    <input
+                      type="text"
+                      name="companyName"
+                      value={companyData.companyName}
+                      onChange={handleCompanyChange}
+                      className="input"
+                      placeholder="Enter company name"
+                      required
+                    />
+                  </div>
 
-            {/* Contact Number */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center space-x-2">
-                  <Phone className="h-4 w-4" />
-                  <span>Contact Number *</span>
-                </div>
-              </label>
-              <input
-                type="text"
-                name="contactNumber"
-                value={companyData.contactNumber}
-                onChange={handleCompanyChange}
-                className="input"
-                placeholder="Enter contact number"
-                required
-              />
-            </div>
+                  {/* Contact Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Phone className="h-4 w-4" />
+                        <span>Contact Number *</span>
+                      </div>
+                    </label>
+                    <input
+                      type="text"
+                      name="contactNumber"
+                      value={companyData.contactNumber}
+                      onChange={handleCompanyChange}
+                      className="input"
+                      placeholder="Enter contact number"
+                      required
+                    />
+                  </div>
 
                   {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center space-x-2">
-                  <Mail className="h-4 w-4" />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Mail className="h-4 w-4" />
                         <span>Email *</span>
-                </div>
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={companyData.email}
-                onChange={handleCompanyChange}
-                className="input"
-                placeholder="Enter email address"
+                      </div>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={companyData.email}
+                      onChange={handleCompanyChange}
+                      className="input"
+                      placeholder="Enter email address"
                       required
-              />
-            </div>
+                    />
+                  </div>
 
                   {/* Tax Registration Number */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center space-x-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="flex items-center space-x-2">
                         <FileText className="h-4 w-4" />
                         <span>Tax Registration Number</span>
-                </div>
-              </label>
+                      </div>
+                    </label>
                     <input
                       type="text"
                       name="taxRegistrationNumber"
                       value={companyData.taxRegistrationNumber}
                       onChange={handleCompanyChange}
-                className="input"
+                      className="input"
                       placeholder="Enter tax registration number"
                     />
                   </div>
-            </div>
+                </div>
 
                 {/* Address */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center space-x-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="flex items-center space-x-2">
                       <MapPin className="h-4 w-4" />
                       <span>Address *</span>
-                </div>
-              </label>
+                    </div>
+                  </label>
                   <textarea
                     name="address"
                     value={companyData.address}
                     onChange={handleCompanyChange}
-                className="input"
+                    className="input"
                     placeholder="Enter complete address"
                     rows="3"
                     required
                   />
-            </div>
+                </div>
 
                 {/* Logo Upload */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center space-x-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="flex items-center space-x-2">
                       <Upload className="h-4 w-4" />
                       <span>Company Logo</span>
-                </div>
-              </label>
+                    </div>
+                  </label>
                   <div className="flex items-center space-x-4">
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleLogoUpload}
-                className="input"
+                      className="input"
                     />
                     {companyData.logo && (
-                      <span className="text-sm text-green-600 flex items-center">
-                        <Check className="h-4 w-4 mr-1" />
-                        {companyData.logo}
-                      </span>
+                      <div className="mt-2">
+                        <img
+                          src={companyData.logo}
+                          alt="Logo Preview"
+                          className="h-16 w-auto object-contain border border-gray-200 rounded p-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCompanyData(prev => ({ ...prev, logo: null }))}
+                          className="text-xs text-red-600 hover:text-red-800 mt-1"
+                        >
+                          Remove Logo
+                        </button>
+                      </div>
                     )}
                   </div>
-              <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     Upload your company logo (PNG, JPG, GIF - Max 2MB)
-              </p>
-            </div>
+                  </p>
+                </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end pt-4 border-t">
-              <LoadingButton
-                type="submit"
+                {/* Save Button */}
+                <div className="flex justify-end pt-4 border-t">
+                  <LoadingButton
+                    type="submit"
                     isLoading={savingCompanySettings}
-                className="btn btn-primary px-4 py-2"
-              >
-                <Save className="h-4 w-4 mr-2" />
+                    className="btn btn-primary px-4 py-2"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
                     Save Company Information
-              </LoadingButton>
-            </div>
-          </form>
+                  </LoadingButton>
+                </div>
+              </form>
 
               {/* Current Saved Company Information - Editable Section */}
               <div className="mt-6 pt-6 border-t border-gray-200">
@@ -1347,12 +1464,12 @@ export const Settings2 = () => {
                   <form onSubmit={handleCompanySubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Company Name */}
-                <div>
+                      <div>
                         <label className="block text-sm font-medium text-blue-800 mb-2">
                           <div className="flex items-center space-x-2">
                             <Building className="h-4 w-4" />
                             <span>Company Name *</span>
-                  </div>
+                          </div>
                         </label>
                         <input
                           type="text"
@@ -1363,15 +1480,15 @@ export const Settings2 = () => {
                           placeholder="Enter company name"
                           required
                         />
-                </div>
+                      </div>
 
                       {/* Contact Number */}
-                <div>
+                      <div>
                         <label className="block text-sm font-medium text-blue-800 mb-2">
                           <div className="flex items-center space-x-2">
                             <Phone className="h-4 w-4" />
                             <span>Contact Number *</span>
-                  </div>
+                          </div>
                         </label>
                         <input
                           type="text"
@@ -1382,15 +1499,15 @@ export const Settings2 = () => {
                           placeholder="Enter contact number"
                           required
                         />
-                </div>
+                      </div>
 
                       {/* Email */}
-                <div>
+                      <div>
                         <label className="block text-sm font-medium text-blue-800 mb-2">
                           <div className="flex items-center space-x-2">
                             <Mail className="h-4 w-4" />
                             <span>Email *</span>
-                  </div>
+                          </div>
                         </label>
                         <input
                           type="email"
@@ -1401,17 +1518,17 @@ export const Settings2 = () => {
                           placeholder="Enter email address"
                           required
                         />
-            </div>
+                      </div>
 
                       {/* Tax Registration Number */}
-            <div>
+                      <div>
                         <label className="block text-sm font-medium text-blue-800 mb-2">
-                    <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2">
                             <FileText className="h-4 w-4" />
                             <span>Tax Registration Number</span>
-                    </div>
-                  </label>
-                    <input
+                          </div>
+                        </label>
+                        <input
                           type="text"
                           name="taxRegistrationNumber"
                           value={companyData.taxRegistrationNumber}
@@ -1419,17 +1536,17 @@ export const Settings2 = () => {
                           className="input bg-white border-blue-300 focus:border-blue-500"
                           placeholder="Enter tax registration number"
                         />
-                  </div>
-                </div>
+                      </div>
+                    </div>
 
                     {/* Address */}
-                <div>
+                    <div>
                       <label className="block text-sm font-medium text-blue-800 mb-2">
-                    <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2">
                           <MapPin className="h-4 w-4" />
                           <span>Address *</span>
-                    </div>
-                  </label>
+                        </div>
+                      </label>
                       <textarea
                         name="address"
                         value={companyData.address}
@@ -1437,53 +1554,56 @@ export const Settings2 = () => {
                         className="input bg-white border-blue-300 focus:border-blue-500"
                         placeholder="Enter complete address"
                         rows="3"
-                      required
-                    />
-                </div>
+                        required
+                      />
+                    </div>
 
                     {/* Logo Upload */}
-                <div>
+                    <div>
                       <label className="block text-sm font-medium text-blue-800 mb-2">
-                    <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2">
                           <Upload className="h-4 w-4" />
                           <span>Company Logo</span>
-                    </div>
-                  </label>
+                        </div>
+                      </label>
                       <div className="flex items-center space-x-4">
-                    <input
+                        <input
                           type="file"
                           accept="image/*"
                           onChange={handleLogoUpload}
                           className="input bg-white border-blue-300 focus:border-blue-500"
                         />
                         {companyData.logo && (
-                          <span className="text-sm text-green-600 flex items-center">
-                            <Check className="h-4 w-4 mr-1" />
-                            {companyData.logo}
-                          </span>
+                          <div className="mt-2">
+                            <img
+                              src={companyData.logo}
+                              alt="Logo Preview"
+                              className="h-16 w-auto object-contain border border-gray-200 rounded p-1"
+                            />
+                          </div>
                         )}
-                  </div>
+                      </div>
                       <p className="text-xs text-gray-500 mt-1">
                         Upload your company logo (PNG, JPG, GIF - Max 2MB)
                       </p>
-                </div>
+                    </div>
 
                     {/* Update Button */}
                     <div className="flex justify-end pt-6 mt-6 border-t border-blue-200">
-                  <LoadingButton
-                    type="submit"
+                      <LoadingButton
+                        type="submit"
                         isLoading={savingCompanySettings}
                         className="btn btn-primary bg-blue-600 hover:bg-blue-700 px-6 py-2.5"
-                  >
+                      >
                         <Save className="h-4 w-4 mr-2" />
                         Update Company Information
-                  </LoadingButton>
+                      </LoadingButton>
+                    </div>
+                  </form>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
         )}
 
 
@@ -1524,14 +1644,14 @@ export const Settings2 = () => {
                 <p className="text-sm text-gray-600 mt-1">
                   Manage existing users and their permissions. Admin users have full system access.
                 </p>
-                
+
               </div>
 
               <div className="card-content">
-                  {usersLoading ? (
-                    <div className="flex justify-center py-8">
-                      <LoadingSpinner />
-                    </div>
+                {usersLoading ? (
+                  <div className="flex justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
                 ) : usersError ? (
                   <div className="text-center py-8">
                     <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
@@ -1540,11 +1660,11 @@ export const Settings2 = () => {
                       </div>
                       <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to Load Users</h3>
                       <p className="text-sm text-red-600 mb-4">
-                        {usersError.response?.status === 403 
+                        {usersError.response?.status === 403
                           ? 'You need "manage_users" permission to view users. Please contact an administrator.'
                           : usersError.response?.status === 401
-                          ? 'Authentication required. Please refresh the page and log in again.'
-                          : usersError.message || 'An error occurred while loading users.'}
+                            ? 'Authentication required. Please refresh the page and log in again.'
+                            : usersError.message || 'An error occurred while loading users.'}
                       </p>
                       <button
                         onClick={() => refetchUsers()}
@@ -1558,62 +1678,60 @@ export const Settings2 = () => {
                 ) : users.length > 0 ? (
                   <div className="space-y-3">
                     {users.map((systemUser) => (
-                        <div
-                          key={systemUser._id}
+                      <div
+                        key={systemUser._id}
                         className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 gap-4 w-full overflow-hidden"
                       >
                         <div className="flex items-center space-x-4 flex-1 min-w-0">
                           <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                             <User className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {systemUser.firstName} {systemUser.lastName}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                {systemUser.email}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-2 mt-1">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  systemUser.role === 'admin' ? 'bg-red-100 text-red-800' :
-                                  systemUser.role === 'manager' ? 'bg-blue-100 text-blue-800' :
-                                  systemUser.role === 'cashier' ? 'bg-green-100 text-green-800' :
-                                systemUser.role === 'inventory' ? 'bg-purple-100 text-purple-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                  {systemUser.role.charAt(0).toUpperCase() + systemUser.role.slice(1)}
-                                </span>
-                                
-                                {/* Activity Status */}
-                                {systemUser.lastLogin && (
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                    systemUser.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                  }`}>
-                                    <div className={`w-2 h-2 rounded-full mr-1 ${systemUser.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                                    {systemUser.isActive ? 'Active' : 'Inactive'}
-                                  </span>
-                                )}
-                                
-                                {/* Login Count */}
-                                {systemUser.loginCount > 0 && (
-                                  <span className="text-xs text-gray-500">
-                                    {systemUser.loginCount} logins
-                                  </span>
-                                )}
-                              </div>
-                            </div>
                           </div>
-                          
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-3 flex-shrink-0">
-                            <div className="flex items-center space-x-2 sm:space-x-3">
-                              <div className={`h-2 w-2 rounded-full ${systemUser.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                              <span className="text-xs text-gray-500">
-                                {systemUser.status === 'active' ? 'Active' : 'Inactive'}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {systemUser.firstName} {systemUser.lastName}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {systemUser.email}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${systemUser.role === 'admin' ? 'bg-red-100 text-red-800' :
+                                systemUser.role === 'manager' ? 'bg-blue-100 text-blue-800' :
+                                  systemUser.role === 'cashier' ? 'bg-green-100 text-green-800' :
+                                    systemUser.role === 'inventory' ? 'bg-purple-100 text-purple-800' :
+                                      'bg-gray-100 text-gray-800'
+                                }`}>
+                                {systemUser.role.charAt(0).toUpperCase() + systemUser.role.slice(1)}
                               </span>
-                              {systemUser._id === user?._id && (
-                                <span className="text-xs text-blue-600 font-medium">(You)</span>
+
+                              {/* Activity Status */}
+                              {systemUser.lastLogin && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${systemUser.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                  <div className={`w-2 h-2 rounded-full mr-1 ${systemUser.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                                  {systemUser.isActive ? 'Active' : 'Inactive'}
+                                </span>
+                              )}
+
+                              {/* Login Count */}
+                              {systemUser.loginCount > 0 && (
+                                <span className="text-xs text-gray-500">
+                                  {systemUser.loginCount} logins
+                                </span>
                               )}
                             </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:space-x-3 flex-shrink-0">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
+                            <div className={`h-2 w-2 rounded-full ${systemUser.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className="text-xs text-gray-500">
+                              {systemUser.status === 'active' ? 'Active' : 'Inactive'}
+                            </span>
+                            {systemUser._id === user?._id && (
+                              <span className="text-xs text-blue-600 font-medium">(You)</span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap sm:flex-nowrap gap-2">
                             <button
                               onClick={() => openActivityModal(systemUser)}
@@ -1645,150 +1763,150 @@ export const Settings2 = () => {
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
-                          </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-700 font-medium mb-2">No users found</p>
-                      <p className="text-sm text-gray-500 mb-4">
-                        The system has no users registered yet. Use the form below to create your first user.
-                      </p>
-                      <button
-                        onClick={() => {
-                          const form = document.getElementById('add-edit-user-form');
-                          if (form) {
-                            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            // Focus on first input field
-                            setTimeout(() => {
-                              const firstInput = form.querySelector('input[type="text"]');
-                              if (firstInput) {
-                                firstInput.focus();
-                              }
-                            }, 300);
-                          }
-                        }}
-                        className="btn btn-primary btn-sm"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create First User
-                      </button>
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-700 font-medium mb-2">No users found</p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      The system has no users registered yet. Use the form below to create your first user.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const form = document.getElementById('add-edit-user-form');
+                        if (form) {
+                          form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          // Focus on first input field
+                          setTimeout(() => {
+                            const firstInput = form.querySelector('input[type="text"]');
+                            if (firstInput) {
+                              firstInput.focus();
+                            }
+                          }, 300);
+                        }
+                      }}
+                      className="btn btn-primary btn-sm"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create First User
+                    </button>
+                  </div>
+                )}
               </div>
+            </div>
 
             {/* Add/Edit User Form */}
-        <div className="card">
-          <div className="card-header">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-gray-600" />
+            <div className="card">
+              <div className="card-header">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Users className="h-5 w-5 text-gray-600" />
                     <h2 className="text-lg font-semibold">
                       {editingUser ? 'Edit User' : 'Add New User'}
                     </h2>
-              </div>
+                  </div>
                   {editingUser && (
-                <button
+                    <button
                       onClick={resetNewUserForm}
                       className="btn btn-secondary btn-sm"
                     >
                       <X className="h-4 w-4 mr-2" />
                       Cancel Edit
-                </button>
+                    </button>
                   )}
-            </div>
-            <p className="text-sm text-gray-600 mt-1">
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
                   {editingUser ? 'Update user information and permissions' : 'Create a new system user with specific roles and permissions'}
-            </p>
-          </div>
+                </p>
+              </div>
 
-          <div className="card-content">
+              <div className="card-content">
                 <form id="add-edit-user-form" key={editingUser?._id || 'new-user'} onSubmit={editingUser ? handleUpdateUserSubmit : handleCreateUser} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* First Name */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            First Name *
-                          </label>
-                          <input
-                            type="text"
-                            name="firstName"
-                            value={newUserData.firstName}
-                            onChange={handleNewUserChange}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        First Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={newUserData.firstName}
+                        onChange={handleNewUserChange}
                         className="input"
-                            placeholder="Enter first name"
-                            autoComplete="off"
-                            required
-                          />
-                        </div>
+                        placeholder="Enter first name"
+                        autoComplete="off"
+                        required
+                      />
+                    </div>
 
                     {/* Last Name */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Last Name *
-                          </label>
-                          <input
-                            type="text"
-                            name="lastName"
-                            value={newUserData.lastName}
-                            onChange={handleNewUserChange}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Last Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={newUserData.lastName}
+                        onChange={handleNewUserChange}
                         className="input"
-                            placeholder="Enter last name"
-                            autoComplete="off"
-                            required
-                          />
-                        </div>
+                        placeholder="Enter last name"
+                        autoComplete="off"
+                        required
+                      />
+                    </div>
 
                     {/* Email */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Email Address *
-                          </label>
-                          <input
-                            type="email"
-                            name="email"
-                            value={newUserData.email}
-                            onChange={handleNewUserChange}
-                            className="input"
-                            placeholder="Enter email address"
-                            autoComplete="off"
-                            required
-                          />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={newUserData.email}
+                        onChange={handleNewUserChange}
+                        className="input"
+                        placeholder="Enter email address"
+                        autoComplete="off"
+                        required
+                      />
+                    </div>
 
                     {/* Password (only for new users) */}
                     {!editingUser && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Password *
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showNewUserPassword ? 'text' : 'password'}
-                              name="password"
-                              value={newUserData.password}
-                              onChange={handleNewUserChange}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Password *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showNewUserPassword ? 'text' : 'password'}
+                            name="password"
+                            value={newUserData.password}
+                            onChange={handleNewUserChange}
                             className="input pr-10"
-                              placeholder="Enter password"
-                              autoComplete="new-password"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowNewUserPassword(!showNewUserPassword)}
-                              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                            >
-                              {showNewUserPassword ? (
-                                <EyeOff className="h-4 w-4 text-gray-400" />
-                              ) : (
-                                <Eye className="h-4 w-4 text-gray-400" />
-                              )}
-                            </button>
-                          </div>
+                            placeholder="Enter password"
+                            autoComplete="new-password"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                          >
+                            {showNewUserPassword ? (
+                              <EyeOff className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-gray-400" />
+                            )}
+                          </button>
                         </div>
+                      </div>
                     )}
 
                     {/* Change Password button (only for editing users) */}
@@ -1799,7 +1917,7 @@ export const Settings2 = () => {
                         </label>
                         <button
                           type="button"
-                          onClick={openPasswordModal}
+                          onClick={() => openPasswordModal()}
                           className="btn btn-secondary w-full"
                         >
                           <Lock className="h-4 w-4 mr-2" />
@@ -1812,29 +1930,29 @@ export const Settings2 = () => {
                     )}
 
                     {/* Role */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Role * {editingUser && editingUser._id === user?._id && <span className="text-xs text-gray-500">(Cannot change your own role)</span>}
-                          </label>
-                          <select
-                            name="role"
-                            value={newUserData.role}
-                            onChange={handleNewUserChange}
-                            className="input"
-                            required
-                            disabled={editingUser && editingUser._id === user?._id}
-                          >
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Role * {editingUser && editingUser._id === user?._id && <span className="text-xs text-gray-500">(Cannot change your own role)</span>}
+                      </label>
+                      <select
+                        name="role"
+                        value={newUserData.role}
+                        onChange={handleNewUserChange}
+                        className="input"
+                        required
+                        disabled={editingUser && editingUser._id === user?._id}
+                      >
                         <option value="cashier">Cashier - Basic sales operations</option>
                         <option value="manager">Manager - Full operational access</option>
                         <option value="admin">Admin - Full system access including user management</option>
                         <option value="viewer">Viewer - Read-only access</option>
-                          </select>
+                      </select>
                       <p className="text-xs text-gray-500 mt-1">
-                        {editingUser && editingUser._id === user?._id 
+                        {editingUser && editingUser._id === user?._id
                           ? 'You cannot change your own role. Contact another administrator if needed.'
                           : 'Admin users have full system access and can manage other users'}
                       </p>
-                      
+
                       {/* Update Role Permissions Button */}
                       {rolePermissionsChanged[newUserData.role] && (
                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -1866,60 +1984,60 @@ export const Settings2 = () => {
                           </div>
                         </div>
                       )}
-                        </div>
+                    </div>
 
                     {/* Status */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Status {editingUser && editingUser._id === user?._id && <span className="text-xs text-gray-500">(Cannot change your own status)</span>}
-                          </label>
-                          <div className="flex space-x-4">
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="status"
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Status {editingUser && editingUser._id === user?._id && <span className="text-xs text-gray-500">(Cannot change your own status)</span>}
+                      </label>
+                      <div className="flex space-x-4">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="status"
                             value="active"
-                                checked={newUserData.status === 'active'}
+                            checked={newUserData.status === 'active'}
                             onChange={handleNewUserChange}
-                                className="mr-2"
-                                disabled={editingUser && editingUser._id === user?._id}
-                              />
-                              <span className="text-sm text-gray-700">Active</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="status"
+                            className="mr-2"
+                            disabled={editingUser && editingUser._id === user?._id}
+                          />
+                          <span className="text-sm text-gray-700">Active</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="status"
                             value="inactive"
-                                checked={newUserData.status === 'inactive'}
+                            checked={newUserData.status === 'inactive'}
                             onChange={handleNewUserChange}
-                                className="mr-2"
-                                disabled={editingUser && editingUser._id === user?._id}
-                              />
+                            className="mr-2"
+                            disabled={editingUser && editingUser._id === user?._id}
+                          />
                           <span className="text-sm text-gray-700">Inactive</span>
-                            </label>
-                          </div>
-                          {editingUser && editingUser._id === user?._id && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              You cannot change your own status. Contact another administrator if needed.
-                            </p>
-                          )}
-                          
-                          {/* Create User Button - Only shown when adding new user */}
-                          {!editingUser && (
-                            <div className="mt-6">
-                              <LoadingButton
-                                type="submit"
-                                isLoading={isCreatingUser}
-                                className="btn btn-primary w-full px-6 py-2.5"
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Create User
-                              </LoadingButton>
-                            </div>
-                          )}
-                        </div>
+                        </label>
                       </div>
+                      {editingUser && editingUser._id === user?._id && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          You cannot change your own status. Contact another administrator if needed.
+                        </p>
+                      )}
+
+                      {/* Create User Button - Only shown when adding new user */}
+                      {!editingUser && (
+                        <div className="mt-6">
+                          <LoadingButton
+                            type="submit"
+                            isLoading={isCreatingUser}
+                            className="btn btn-primary w-full px-6 py-2.5"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create User
+                          </LoadingButton>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                   {/* Permissions */}
                   <div>
@@ -1988,19 +2106,19 @@ export const Settings2 = () => {
                   {/* Save Button - Only shown when editing user */}
                   {editingUser && (
                     <div className="flex justify-end pt-4 border-t">
-                        <LoadingButton
-                          type="submit"
-                      isLoading={isUpdatingUser}
-                          className="btn btn-primary"
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Update User
-                        </LoadingButton>
-                      </div>
+                      <LoadingButton
+                        type="submit"
+                        isLoading={isUpdatingUser}
+                        className="btn btn-primary"
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Update User
+                      </LoadingButton>
+                    </div>
                   )}
-                    </form>
+                </form>
               </div>
-                </div>
+            </div>
           </div>
         )}
 
@@ -2015,8 +2133,8 @@ export const Settings2 = () => {
               <p className="text-sm text-gray-600 mt-1">
                 Customize how your invoices and receipts appear when printed
               </p>
-                      </div>
-                      
+            </div>
+
             <div className="card-content">
               <div className="space-y-6">
                 {/* Layout Options */}
@@ -2037,10 +2155,10 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Standard</div>
                         <div className="text-xs text-gray-500">Basic layout with company info</div>
-                            </div>
+                      </div>
                     </label>
                     <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                                  <input
+                      <input
                         type="radio"
                         name="invoiceLayout"
                         value="compact"
@@ -2051,8 +2169,8 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Compact</div>
                         <div className="text-xs text-gray-500">Condensed layout for small receipts</div>
-                                  </div>
-                                </label>
+                      </div>
+                    </label>
                     <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
                       <input
                         type="radio"
@@ -2065,11 +2183,11 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Detailed</div>
                         <div className="text-xs text-gray-500">Full layout with all information</div>
-                            </div>
-                    </label>
-                          </div>
                       </div>
-                      
+                    </label>
+                  </div>
+                </div>
+
                 {/* Header and Footer Customization */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -2087,7 +2205,7 @@ export const Settings2 = () => {
                     <p className="text-xs text-gray-500 mt-1">
                       This text will appear at the top of printed documents
                     </p>
-                      </div>
+                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2104,8 +2222,8 @@ export const Settings2 = () => {
                     <p className="text-xs text-gray-500 mt-1">
                       This text will appear at the bottom of printed documents
                     </p>
-                    </div>
-                    </div>
+                  </div>
+                </div>
 
                 {/* Display Options */}
                 <div>
@@ -2124,7 +2242,21 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Show Logo</div>
                         <div className="text-xs text-gray-500">Display company logo on printed documents</div>
-                </div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        name="showCompanyDetails"
+                        checked={printSettings.showCompanyDetails}
+                        onChange={handlePrintSettingsChange}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Show Company Details</div>
+                        <div className="text-xs text-gray-500">Display address and phone number</div>
+                      </div>
                     </label>
 
                     <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
@@ -2138,7 +2270,7 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Show Discount</div>
                         <div className="text-xs text-gray-500">Display discount information on receipts</div>
-              </div>
+                      </div>
                     </label>
 
                     <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
@@ -2152,7 +2284,7 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Show Tax</div>
                         <div className="text-xs text-gray-500">Display tax calculations on receipts</div>
-            </div>
+                      </div>
                     </label>
 
                     <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
@@ -2166,9 +2298,54 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Show Date</div>
                         <div className="text-xs text-gray-500">Display transaction date on receipts</div>
-          </div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        name="showFooter"
+                        checked={printSettings.showFooter}
+                        onChange={handlePrintSettingsChange}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Show Footer</div>
+                        <div className="text-xs text-gray-500">Display footer text and generation info</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        name="showCameraTime"
+                        checked={printSettings.showCameraTime}
+                        onChange={handlePrintSettingsChange}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Show Camera Time</div>
+                        <div className="text-xs text-gray-500">Display camera interval information</div>
+                      </div>
                     </label>
                   </div>
+                </div>
+
+                {/* Show Description Checkbox */}
+                <div className="mt-4">
+                  <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      name="showDescription"
+                      checked={printSettings.showDescription}
+                      onChange={handlePrintSettingsChange}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">Show Description</div>
+                      <div className="text-xs text-gray-500">Display item descriptions in table</div>
+                    </div>
+                  </label>
                 </div>
 
                 {/* Print Preview */}
@@ -2182,123 +2359,40 @@ export const Settings2 = () => {
                       <span className="text-orange-600 font-medium"> Please save your company information first to see the preview.</span>
                     )}
                   </p>
-                  <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8">
-                    <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-sm">
-                      {/* Header */}
-                      {printSettings.headerText && (
-                        <div className="text-center text-sm text-gray-600 mb-4 border-b pb-2">
-                          {printSettings.headerText}
-        </div>
-      )}
-
-                      {/* Company Info */}
-                      <div className="text-center mb-4">
-                        {printSettings.showLogo && (
-                          <div className="h-12 w-12 bg-gray-200 rounded mx-auto mb-2 flex items-center justify-center">
-                            <Building className="h-6 w-6 text-gray-400" />
-                          </div>
-                        )}
-                        <div className="text-lg font-bold text-gray-900">
-                          {companyData.companyName || 'Your Company Name'}
-                        </div>
-                        {!companyData.companyName && (
-                          <div className="text-xs text-orange-600 mt-1">
-                            (Company name not set)
-                          </div>
-                        )}
-                        {companyData.address && (
-                          <div className="text-sm text-gray-700">
-                            {companyData.address}
-                          </div>
-                        )}
-                        {companyData.contactNumber && (
-                          <div className="text-sm text-gray-700">
-                            Phone: {companyData.contactNumber}
-                          </div>
-                        )}
-                        {companyData.email && (
-                          <div className="text-sm text-gray-700">
-                            Email: {companyData.email}
-                          </div>
-                        )}
-                        {companyData.taxRegistrationNumber && (
-                          <div className="text-sm text-gray-700">
-                            Tax ID: {companyData.taxRegistrationNumber}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Sample Receipt Content */}
-                      <div className="border-t pt-4">
-                        <div className="text-center text-sm font-medium text-gray-900 mb-2">
-                          SAMPLE RECEIPT
-                        </div>
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span>Item 1</span>
-                            <span>10.00</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Item 2</span>
-                            <span>15.00</span>
-                          </div>
-                          {printSettings.showDiscount && (
-                            <div className="flex justify-between text-red-600">
-                              <span>Discount</span>
-                              <span>-2.50</span>
-                </div>
-              )}
-                          {printSettings.showTax && (
-                            <div className="flex justify-between">
-                              <span>Tax</span>
-                              <span>2.25</span>
-            </div>
-                          )}
-                          <div className="border-t pt-1 flex justify-between font-bold">
-                            <span>Total</span>
-                            <span>24.75</span>
-          </div>
-        </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="border-t pt-3 mt-4">
-                        {printSettings.footerText && (
-                          <div className="text-center text-xs text-gray-600 mb-2">
-                            {printSettings.footerText}
-                          </div>
-                        )}
-                        
-                        {/* Additional Company Info in Footer */}
-                        <div className="text-center text-xs text-gray-500 space-y-1">
-                          {companyData.email && (
-                            <div>Email: {companyData.email}</div>
-                          )}
-                          {companyData.taxRegistrationNumber && (
-                            <div>Tax ID: {companyData.taxRegistrationNumber}</div>
-                          )}
-                        </div>
-                        
-                        {printSettings.showDate && (
-                          <div className="text-center text-xs text-gray-500 mt-2">
-                            Date: {new Date().toLocaleDateString()}
-                          </div>
-                        )}
-                      </div>
+                  <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 overflow-hidden flex justify-center items-start min-h-[600px]">
+                    <div style={{ transform: 'scale(0.55)', transformOrigin: 'top center', marginBottom: '-500px' }}>
+                      <PrintDocument
+                        companySettings={companyData}
+                        orderData={sampleOrderData}
+                        printSettings={printSettings}
+                        documentTitle="Receipt Preview"
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Save Button */}
                 <div className="flex justify-end pt-4 border-t">
-                  <button
+                  <LoadingButton
                     type="button"
-                    onClick={() => toast.success('Print settings saved!')}
+                    isLoading={savingCompanySettings}
+                    onClick={() => {
+                      const dataToSend = {
+                        companyName: companyData.companyName,
+                        contactNumber: companyData.contactNumber,
+                        address: companyData.address,
+                        email: companyData.email,
+                        taxId: companyData.taxRegistrationNumber,
+                        logo: companyData.logo,
+                        printSettings: printSettings
+                      };
+                      handleSaveCompanySettings(dataToSend);
+                    }}
                     className="btn btn-primary"
                   >
                     <Save className="h-4 w-4 mr-2" />
                     Save Print Settings
-                  </button>
+                  </LoadingButton>
                 </div>
               </div>
             </div>
@@ -2326,7 +2420,7 @@ export const Settings2 = () => {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              
+
               {activityLoading ? (
                 <div className="flex justify-center py-8">
                   <LoadingSpinner />
@@ -2341,7 +2435,7 @@ export const Settings2 = () => {
                         <div>
                           <p className="text-sm font-medium text-blue-800">Last Login</p>
                           <p className="text-lg font-semibold text-blue-900">
-                            {selectedUserActivity.activity.lastLogin 
+                            {selectedUserActivity.activity.lastLogin
                               ? new Date(selectedUserActivity.activity.lastLogin).toLocaleString()
                               : 'Never'
                             }
@@ -2349,7 +2443,7 @@ export const Settings2 = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-green-50 p-4 rounded-lg">
                       <div className="flex items-center">
                         <TrendingUp className="h-8 w-8 text-green-600 mr-3" />
@@ -2361,12 +2455,11 @@ export const Settings2 = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-purple-50 p-4 rounded-lg">
                       <div className="flex items-center">
-                        <div className={`h-8 w-8 rounded-full mr-3 flex items-center justify-center ${
-                          selectedUserActivity.activity.isOnline ? 'bg-green-500' : 'bg-gray-400'
-                        }`}>
+                        <div className={`h-8 w-8 rounded-full mr-3 flex items-center justify-center ${selectedUserActivity.activity.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                          }`}>
                           <div className="h-3 w-3 bg-white rounded-full"></div>
                         </div>
                         <div>
@@ -2378,7 +2471,7 @@ export const Settings2 = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Login History */}
                   <div className="bg-white border border-gray-200 rounded-lg">
                     <div className="p-4 border-b border-gray-200">
@@ -2411,7 +2504,7 @@ export const Settings2 = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Permission History */}
                   <div className="bg-white border border-gray-200 rounded-lg">
                     <div className="p-4 border-b border-gray-200">
@@ -2426,12 +2519,11 @@ export const Settings2 = () => {
                           {selectedUserActivity.activity.permissionHistory.map((change, index) => (
                             <div key={index} className="p-3 bg-gray-50 rounded-lg">
                               <div className="flex items-center justify-between mb-2">
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  change.changeType === 'created' ? 'bg-green-100 text-green-800' :
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${change.changeType === 'created' ? 'bg-green-100 text-green-800' :
                                   change.changeType === 'role_changed' ? 'bg-blue-100 text-blue-800' :
-                                  change.changeType === 'permissions_modified' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}>
+                                    change.changeType === 'permissions_modified' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-gray-100 text-gray-800'
+                                  }`}>
                                   {change.changeType.replace('_', ' ').toUpperCase()}
                                 </span>
                                 <span className="text-xs text-gray-500">
@@ -2439,8 +2531,8 @@ export const Settings2 = () => {
                                 </span>
                               </div>
                               <p className="text-sm text-gray-700 mb-1">
-                                Changed by: {change.changedBy ? 
-                                  `${change.changedBy.firstName} ${change.changedBy.lastName}` : 
+                                Changed by: {change.changedBy ?
+                                  `${change.changedBy.firstName} ${change.changedBy.lastName}` :
                                   'System'
                                 }
                               </p>
@@ -2486,7 +2578,7 @@ export const Settings2 = () => {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2513,7 +2605,7 @@ export const Settings2 = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Confirm Password *
@@ -2540,7 +2632,7 @@ export const Settings2 = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => {
@@ -2581,7 +2673,7 @@ export const Settings2 = () => {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2608,7 +2700,7 @@ export const Settings2 = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     New Password *
@@ -2634,7 +2726,7 @@ export const Settings2 = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Confirm New Password *
@@ -2660,14 +2752,14 @@ export const Settings2 = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                   <p className="text-xs text-blue-800">
                     <strong>Note:</strong> You must enter your current password to change it to a new one.
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setShowMyPasswordModal(false)}

@@ -61,8 +61,8 @@ class UserService {
     };
 
     // Update user
-    const updatedUser = await userRepository.update(id, updateData);
-    
+    const updatedUser = await userRepository.updateById(id, updateData);
+
     // Track permission changes if role or permissions changed
     if (updateData.role && updateData.role !== oldData.role) {
       await userRepository.trackPermissionChange(
@@ -122,7 +122,7 @@ class UserService {
     const user = await userRepository.findById(id, [
       { path: 'permissionHistory.changedBy', select: 'firstName lastName email' }
     ]);
-    
+
     if (!user) {
       throw new Error('User not found');
     }
@@ -204,7 +204,7 @@ class UserService {
 
     // Toggle status
     const newStatus = user.status === 'active' ? 'inactive' : 'active';
-    await userRepository.update(id, { status: newStatus });
+    await userRepository.updateById(id, { status: newStatus });
 
     const updatedUser = await userRepository.findById(id);
     return {
