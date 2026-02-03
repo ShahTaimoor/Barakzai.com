@@ -21,12 +21,12 @@ export const purchaseReturnsApi = api.injectEndpoints({
       providesTags: (result) =>
         result?.data
           ? [
-              ...result.data.map(({ _id, id }) => ({
-                type: 'PurchaseReturns',
-                id: _id || id,
-              })),
-              { type: 'PurchaseReturns', id: 'LIST' },
-            ]
+            ...result.data.map(({ _id, id }) => ({
+              type: 'PurchaseReturns',
+              id: _id || id,
+            })),
+            { type: 'PurchaseReturns', id: 'LIST' },
+          ]
           : [{ type: 'PurchaseReturns', id: 'LIST' }],
     }),
 
@@ -51,6 +51,9 @@ export const purchaseReturnsApi = api.injectEndpoints({
         { type: 'Returns', id: 'LIST' },
         { type: 'PurchaseInvoices', id: 'LIST' },
         { type: 'Inventory', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'ChartOfAccounts', id: 'LIST' },
       ],
     }),
 
@@ -104,6 +107,9 @@ export const purchaseReturnsApi = api.injectEndpoints({
         { type: 'PurchaseInvoices', id: 'LIST' },
         { type: 'Inventory', id: 'LIST' },
         { type: 'Suppliers', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'ChartOfAccounts', id: 'LIST' },
       ],
     }),
 

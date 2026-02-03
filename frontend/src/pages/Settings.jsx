@@ -23,7 +23,8 @@ import {
   Check,
   BarChart3,
   Clock,
-  TrendingUp
+  TrendingUp,
+  LayoutDashboard
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -39,6 +40,7 @@ import {
   useResetPasswordMutation,
   useUpdateRolePermissionsMutation,
 } from '../store/services/usersApi';
+import { navigation } from '../components/MultiTabLayout';
 import { useChangePasswordMutation } from '../store/services/authApi';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import PrintDocument from '../components/PrintDocument';
@@ -1239,6 +1241,12 @@ export const Settings2 = () => {
     setShowActivityModal(true);
   };
 
+  // Sidebar Configuration State
+  const [sidebarConfig, setSidebarConfig] = useState(() => {
+    const saved = localStorage.getItem('sidebarConfig');
+    return saved ? JSON.parse(saved) : {};
+  });
+
   // Load company settings on component mount
   useEffect(() => {
     refetchSettings();
@@ -1247,7 +1255,8 @@ export const Settings2 = () => {
   const tabs = [
     { id: 'company', name: 'Company Information', shortName: 'Company', icon: Building },
     { id: 'users', name: 'Users Control', shortName: 'Users', icon: Users },
-    { id: 'print', name: 'Print Preview Settings', shortName: 'Print', icon: Printer }
+    { id: 'print', name: 'Print Preview Settings', shortName: 'Print', icon: Printer },
+    { id: 'sidebar', name: 'Sidebar Configuration', shortName: 'Sidebar', icon: LayoutDashboard }
   ];
 
   return (
@@ -2410,6 +2419,79 @@ export const Settings2 = () => {
                     <Save className="h-4 w-4 mr-2" />
                     Save Print Settings
                   </LoadingButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sidebar Configuration Tab */}
+        {activeTab === 'sidebar' && (
+          <div className="card">
+            <div className="card-header">
+              <div className="flex items-center space-x-2">
+                <LayoutDashboard className="h-5 w-5 text-gray-600" />
+                <h2 className="text-lg font-semibold">Sidebar Configuration</h2>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Choose which items you want to see in the left sidebar
+              </p>
+            </div>
+            <div className="card-content">
+              <div className="space-y-8">
+                {/* Organize by Headings */}
+                {navigation.reduce((acc, current) => {
+                  if (current.type === 'heading') {
+                    acc.push({ heading: current, items: [] });
+                  } else if (current.name) {
+                    if (acc.length === 0) {
+                      acc.push({ heading: { name: 'General' }, items: [current] });
+                    } else {
+                      acc[acc.length - 1].items.push(current);
+                    }
+                  }
+                  return acc;
+                }, []).map((section, sIdx) => (
+                  <div key={sIdx} className="space-y-4">
+                    <h3 className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded inline-block ${section.heading.color || 'bg-gray-100 text-gray-600'}`}>
+                      {section.heading.name}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {section.items.map(item => (
+                        <div key={item.name} className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg border border-gray-100 transition-colors">
+                          <input
+                            type="checkbox"
+                            id={`sidebar-${item.name}`}
+                            checked={sidebarConfig[item.name] !== false}
+                            onChange={(e) => {
+                              const newConfig = { ...sidebarConfig, [item.name]: e.target.checked };
+                              setSidebarConfig(newConfig);
+                              localStorage.setItem('sidebarConfig', JSON.stringify(newConfig));
+                              toast.success(`${item.name} ${e.target.checked ? 'shown' : 'hidden'} in sidebar`);
+                              window.dispatchEvent(new Event('sidebarConfigChanged'));
+                            }}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                          />
+                          <label htmlFor={`sidebar-${item.name}`} className="text-sm font-medium text-gray-700 cursor-pointer flex-1 flex items-center">
+                            {item.icon && <item.icon className="h-4 w-4 mr-2 text-gray-400" />}
+                            {item.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-900">Pro Tip</h4>
+                    <p className="text-xs text-blue-800 mt-1">
+                      Unchecking an item only hides it from the sidebar menu. You can still access these pages directly via links or URL if you have the required permissions.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
