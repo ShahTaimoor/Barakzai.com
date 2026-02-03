@@ -92,7 +92,16 @@ export const cashReceiptsApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'CashReceipts', id: 'LIST' }, { type: 'Customers', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'CashReceipts', id: 'LIST' },
+        { type: 'Customers', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'Accounting', id: 'ALL_ENTRIES' },
+        { type: 'ChartOfAccounts', id: 'LIST' },
+        { type: 'ChartOfAccounts', id: 'STATS' },
+        { type: 'ChartOfAccounts', id: 'HIERARCHY' },
+      ],
     }),
     exportExcel: builder.mutation({
       query: (filters) => ({
