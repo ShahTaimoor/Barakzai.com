@@ -15,6 +15,7 @@ const PrintDocument = ({
         showDiscount = true,
         showFooter = true,
         showDate = true,
+        showEmail = true,
         showCameraTime = false,
         showDescription = true,
         headerText = '',
@@ -174,7 +175,7 @@ const PrintDocument = ({
     const billToLines = [
         partyInfo.name,
         partyInfo.extra || null,
-        partyInfo.email !== 'N/A' ? partyInfo.email : null,
+        partyInfo.email !== 'N/A' && showEmail ? partyInfo.email : null,
         partyInfo.phone !== 'N/A' ? partyInfo.phone : null,
         orderData?.customerInfo?.address || null
     ].filter(Boolean);

@@ -552,8 +552,7 @@ router.post('/', [
       // For account payments or partial payments, check credit limit
       if (paymentMethod === 'account' || unpaidAmount > 0) {
         const currentBalance = customerData.currentBalance || 0;
-        const pendingBalance = customerData.pendingBalance || 0;
-        const totalOutstanding = currentBalance + pendingBalance;
+        const totalOutstanding = currentBalance;
         const newBalanceAfterOrder = totalOutstanding + unpaidAmount;
 
         if (newBalanceAfterOrder > customerData.creditLimit) {
@@ -1228,10 +1227,7 @@ router.put('/:id', [
           }
 
           // Calculate effective outstanding balance (after removing old order's contribution)
-          const effectiveOutstanding = wasConfirmed
-            ? (currentBalance - oldUnpaidAmount + pendingBalance)
-            : (currentBalance + pendingBalance - oldUnpaidAmount);
-
+          const effectiveOutstanding = currentBalance - oldUnpaidAmount;
           const newBalanceAfterUpdate = effectiveOutstanding + unpaidAmount;
 
           if (newBalanceAfterUpdate > finalCustomer.creditLimit) {
@@ -1240,14 +1236,13 @@ router.put('/:id', [
               error: 'CREDIT_LIMIT_EXCEEDED',
               details: {
                 currentBalance: currentBalance,
-                pendingBalance: pendingBalance,
-                totalOutstanding: currentBalance + pendingBalance,
+                totalOutstanding: currentBalance,
                 oldOrderUnpaid: oldUnpaidAmount,
                 newOrderTotal: newTotal,
                 unpaidAmount: unpaidAmount,
                 creditLimit: finalCustomer.creditLimit,
                 newBalance: newBalanceAfterUpdate,
-                availableCredit: finalCustomer.creditLimit - (currentBalance + pendingBalance)
+                availableCredit: finalCustomer.creditLimit - currentBalance
               }
             });
           }

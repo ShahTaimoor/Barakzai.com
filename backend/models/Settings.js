@@ -84,6 +84,7 @@ const settingsSchema = new mongoose.Schema({
     showDiscount: { type: Boolean, default: true },
     showDate: { type: Boolean, default: true }, // Keeping existing one
     showFooter: { type: Boolean, default: true }, // Added matching PrintModal
+    showEmail: { type: Boolean, default: true }, // Added for email visibility
     showCameraTime: { type: Boolean, default: false }, // Added matching PrintModal
     showDescription: { type: Boolean, default: true }, // Added for item description visibility
     headerText: { type: String, trim: true, default: '' },

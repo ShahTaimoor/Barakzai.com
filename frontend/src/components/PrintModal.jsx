@@ -24,6 +24,7 @@ const PrintModal = ({
   const [showDate, setShowDate] = React.useState(true);
   const [showCameraTime, setShowCameraTime] = React.useState(false);
   const [showDescription, setShowDescription] = React.useState(true);
+  const [showEmail, setShowEmail] = React.useState(true);
 
   // Sync with Company Settings
   useEffect(() => {
@@ -37,6 +38,7 @@ const PrintModal = ({
       setShowDate(ps.showDate ?? true);
       setShowCameraTime(ps.showCameraTime ?? false);
       setShowDescription(ps.showDescription ?? true);
+      setShowEmail(ps.showEmail ?? true);
     }
   }, [companySettings]);
 
@@ -432,6 +434,7 @@ const PrintModal = ({
                   showDate,
                   showCameraTime,
                   showDescription,
+                  showEmail,
                   headerText: companySettings?.printSettings?.headerText,
                   footerText: companySettings?.printSettings?.footerText
                 }}
@@ -516,6 +519,15 @@ const PrintModal = ({
                         className="rounded text-blue-600 focus:ring-blue-500"
                       />
                       Show Description
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+                      <input
+                        type="checkbox"
+                        checked={showEmail}
+                        onChange={(e) => setShowEmail(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      Show Email
                     </label>
                     {hasCameraTime && (
                       <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
