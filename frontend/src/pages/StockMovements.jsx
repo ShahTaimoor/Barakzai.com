@@ -880,7 +880,7 @@ export const StockMovements = () => {
                   </div>
                 )}
 
-                cv||                {selectedMovement.notes && (
+                ||                {selectedMovement.notes && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Notes</label>
                     <p className="text-sm text-gray-900">{selectedMovement.notes}</p>
