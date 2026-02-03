@@ -225,6 +225,39 @@ export const MultiTabLayout = ({ children }) => {
     }, []);
   }, [sidebarConfig, user, hasPermission]);
 
+  // Redirect if current page is hidden
+  useEffect(() => {
+    // Only run if we have a user and navigation items loaded
+    if (!user || filteredNavigation.length === 0) return;
+
+    const currentPath = location.pathname;
+
+    // Don't redirect if we are on settings, login, or any other critical page
+    if (currentPath === '/settings' || currentPath === '/settings2' || currentPath === '/login' || currentPath === '/profile') {
+      return;
+    }
+
+    // Check if the current path is hidden in sidebarConfig
+    const currentNavItem = navigation.find(item => item.href === currentPath);
+
+    // If the item exists in navigation but is NOT in filteredNavigation, it means it's hidden or restricted
+    if (currentNavItem && currentNavItem.name) {
+      const isVisible = sidebarConfig[currentNavItem.name] !== false;
+      const isPermitted = !currentNavItem.permission || user?.role === 'admin' || hasPermission(currentNavItem.permission);
+
+      if (!isVisible || !isPermitted) {
+        // Find the first visible and permitted page (non-heading, non-divider)
+        const firstVisiblePage = filteredNavigation.find(item => item.href && item.name && item.type !== 'heading' && item.type !== 'divider');
+
+        if (firstVisiblePage && firstVisiblePage.href !== currentPath) {
+          navigate(firstVisiblePage.href);
+          toast.error(`"${currentNavItem.name}" is hidden. Redirecting to ${firstVisiblePage.name}.`, { id: 'nav-redirect' });
+        }
+      }
+    }
+  }, [location.pathname, sidebarConfig, filteredNavigation, user, hasPermission, navigate]);
+
+
   const handleLogout = () => {
     logout();
     toast.success('Logged out successfully');
@@ -353,8 +386,8 @@ export const MultiTabLayout = ({ children }) => {
                     setSidebarOpen(false);
                   }}
                   className={`group flex items-center w-full px-2 py-2 text-sm font-medium rounded-md ${isActive
-                      ? 'bg-primary-100 text-primary-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-primary-100 text-primary-900'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
                   <item.icon className="mr-3 h-5 w-5" />
@@ -413,8 +446,8 @@ export const MultiTabLayout = ({ children }) => {
                   key={item.name}
                   onClick={() => handleNavigationClick(item)}
                   className={`group flex items-center w-full px-2 py-2 text-sm font-medium rounded-md ${isActive
-                      ? 'bg-primary-100 text-primary-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-primary-100 text-primary-900'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                 >
                   <item.icon className="mr-3 h-5 w-5" />

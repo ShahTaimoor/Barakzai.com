@@ -214,6 +214,26 @@ export const Layout = ({ children }) => {
     }, []);
   }, [sidebarConfig]);
 
+  // Redirect if current page is hidden
+  useEffect(() => {
+    if (!user || filteredNavigation.length === 0) return;
+    const currentPath = location.pathname;
+    if (currentPath === '/settings' || currentPath === '/settings2' || currentPath === '/login') {
+      return;
+    }
+
+    const currentNavItem = navigation.find(item => item.href === currentPath);
+    if (currentNavItem && currentNavItem.name) {
+      if (sidebarConfig[currentNavItem.name] === false) {
+        const firstVisiblePage = filteredNavigation.find(item => item.href && item.name && item.type !== 'heading');
+        if (firstVisiblePage && firstVisiblePage.href !== currentPath) {
+          navigate(firstVisiblePage.href);
+        }
+      }
+    }
+  }, [location.pathname, sidebarConfig, filteredNavigation, user, navigate]);
+
+
   // Fetch categories using Redux
   const { data: categoriesData, isLoading: categoriesLoading, refetch: refetchCategories } = useGetCategoriesQuery(
     {},
