@@ -98,6 +98,7 @@ export const Settings2 = () => {
     showFooter: true,
     showCameraTime: false,
     showDescription: true,
+    showEmail: true,
     headerText: '',
     footerText: '',
     invoiceLayout: 'standard'
@@ -675,6 +676,7 @@ export const Settings2 = () => {
           showDiscount: settings.printSettings.showDiscount ?? true,
           showDate: settings.printSettings.showDate ?? true,
           showFooter: settings.printSettings.showFooter ?? true,
+          showEmail: settings.printSettings.showEmail ?? true,
           showCameraTime: settings.printSettings.showCameraTime ?? false,
           showDescription: settings.printSettings.showDescription ?? true,
           headerText: settings.printSettings.headerText || '',
@@ -779,6 +781,7 @@ export const Settings2 = () => {
           showDiscount: ps.showDiscount ?? true,
           showDate: ps.showDate ?? true,
           showFooter: ps.showFooter ?? true,
+          showEmail: ps.showEmail ?? true,
           showCameraTime: ps.showCameraTime ?? false,
           showDescription: ps.showDescription ?? true,
           headerText: ps.headerText || prev.headerText || '',
@@ -2326,6 +2329,20 @@ export const Settings2 = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">Show Camera Time</div>
                         <div className="text-xs text-gray-500">Display camera interval information</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        name="showEmail"
+                        checked={printSettings.showEmail}
+                        onChange={handlePrintSettingsChange}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Show Email</div>
+                        <div className="text-xs text-gray-500">Display customer email address on receipts</div>
                       </div>
                     </label>
                   </div>

@@ -1731,7 +1731,7 @@ export const Sales = ({ tabId, editData }) => {
       if (currentPaymentMethod === 'account' || unpaidAmount > 0) {
         const currentBalance = selectedCustomer.currentBalance || 0;
         const pendingBalance = selectedCustomer.pendingBalance || 0;
-        const totalOutstanding = currentBalance + pendingBalance;
+        const totalOutstanding = currentBalance;
         const newBalanceAfterOrder = totalOutstanding + unpaidAmount;
         const availableCredit = selectedCustomer.creditLimit - totalOutstanding;
 
@@ -1979,8 +1979,7 @@ export const Sales = ({ tabId, editData }) => {
                     </p>
                     <div className="flex items-center space-x-4 mt-2">
                       {(() => {
-                        // Calculate total balance: currentBalance (which is net balance) or currentBalance + pendingBalance
-                        // Total balance = currentBalance (net of pendingBalance - advanceBalance)
+                        // Calculate total balance: currentBalance (which is the net total balance)
                         const totalBalance = selectedCustomer.currentBalance !== undefined
                           ? selectedCustomer.currentBalance
                           : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
@@ -2001,31 +2000,31 @@ export const Sales = ({ tabId, editData }) => {
                       <div className="flex items-center space-x-1">
                         <span className="text-xs text-gray-500">Credit Limit:</span>
                         <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                            ((selectedCustomer.currentBalance || 0) + (selectedCustomer.pendingBalance || 0)) >= selectedCustomer.creditLimit * 0.9
-                              ? 'text-red-600'
-                              : ((selectedCustomer.currentBalance || 0) + (selectedCustomer.pendingBalance || 0)) >= selectedCustomer.creditLimit * 0.7
-                                ? 'text-yellow-600'
-                                : 'text-blue-600'
-                          ) : 'text-gray-600'
+                          (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9
+                            ? 'text-red-600'
+                            : (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.7
+                              ? 'text-yellow-600'
+                              : 'text-blue-600'
+                        ) : 'text-gray-600'
                           }`}>
                           ${(selectedCustomer.creditLimit || 0).toFixed(2)}
                         </span>
                         {selectedCustomer.creditLimit > 0 &&
-                          ((selectedCustomer.currentBalance || 0) + (selectedCustomer.pendingBalance || 0)) >= selectedCustomer.creditLimit * 0.9 && (
+                          (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9 && (
                             <span className="text-xs text-red-600 font-bold ml-1">⚠️</span>
                           )}
                       </div>
                       <div className="flex items-center space-x-1">
                         <span className="text-xs text-gray-500">Available Credit:</span>
                         <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                            (selectedCustomer.creditLimit - ((selectedCustomer.currentBalance || 0) + (selectedCustomer.pendingBalance || 0))) <= selectedCustomer.creditLimit * 0.1
-                              ? 'text-red-600'
-                              : (selectedCustomer.creditLimit - ((selectedCustomer.currentBalance || 0) + (selectedCustomer.pendingBalance || 0))) <= selectedCustomer.creditLimit * 0.3
-                                ? 'text-yellow-600'
-                                : 'text-green-600'
-                          ) : 'text-gray-600'
+                          (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.1
+                            ? 'text-red-600'
+                            : (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.3
+                              ? 'text-yellow-600'
+                              : 'text-green-600'
+                        ) : 'text-gray-600'
                           }`}>
-                          ${(selectedCustomer.creditLimit - ((selectedCustomer.currentBalance || 0) + (selectedCustomer.pendingBalance || 0))).toFixed(2)}
+                          ${(selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -2239,10 +2238,10 @@ export const Sales = ({ tabId, editData }) => {
                                 )}
                               {isLastPricesApplied && priceStatus[item.product._id] && (
                                 <span className={`text-xs px-1.5 py-0.5 rounded ${priceStatus[item.product._id] === 'updated'
-                                    ? 'bg-green-100 text-green-700'
-                                    : priceStatus[item.product._id] === 'unchanged'
-                                      ? 'bg-blue-100 text-blue-700'
-                                      : 'bg-yellow-100 text-yellow-700'
+                                  ? 'bg-green-100 text-green-700'
+                                  : priceStatus[item.product._id] === 'unchanged'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-yellow-100 text-yellow-700'
                                   }`}>
                                   {priceStatus[item.product._id] === 'updated'
                                     ? 'Updated'
@@ -2266,10 +2265,10 @@ export const Sales = ({ tabId, editData }) => {
                           <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Stock</label>
                             <span className={`text-sm font-semibold px-2 py-1 rounded border block text-center ${(item.product.inventory?.currentStock || 0) === 0
-                                ? 'text-red-700 bg-red-50 border-red-200'
-                                : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
-                                  ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
-                                  : 'text-gray-700 bg-gray-100 border-gray-200'
+                              ? 'text-red-700 bg-red-50 border-red-200'
+                              : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
+                                ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+                                : 'text-gray-700 bg-gray-100 border-gray-200'
                               }`}>
                               {item.product.inventory?.currentStock || 0}
                             </span>
@@ -2299,9 +2298,9 @@ export const Sales = ({ tabId, editData }) => {
                               value={Math.round(item.unitPrice)}
                               onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
                               className={`input text-center h-8 w-full ${(lastPurchasePrices[item.product._id] !== undefined &&
-                                  item.unitPrice < lastPurchasePrices[item.product._id])
-                                  ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
-                                  : ''
+                                item.unitPrice < lastPurchasePrices[item.product._id])
+                                ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
+                                : ''
                                 }`}
                               min="0"
                             />
@@ -2346,10 +2345,10 @@ export const Sales = ({ tabId, editData }) => {
                                   )}
                                 {isLastPricesApplied && priceStatus[item.product._id] && (
                                   <span className={`text-xs ml-2 px-1.5 py-0.5 rounded ${priceStatus[item.product._id] === 'updated'
-                                      ? 'bg-green-100 text-green-700'
-                                      : priceStatus[item.product._id] === 'unchanged'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'bg-yellow-100 text-yellow-700'
+                                    ? 'bg-green-100 text-green-700'
+                                    : priceStatus[item.product._id] === 'unchanged'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-yellow-100 text-yellow-700'
                                     }`}>
                                     {priceStatus[item.product._id] === 'updated'
                                       ? 'Updated'
@@ -2370,10 +2369,10 @@ export const Sales = ({ tabId, editData }) => {
                           {/* Stock - 1 column */}
                           <div className="col-span-1">
                             <span className={`text-sm font-semibold px-2 py-1 rounded border block text-center h-8 flex items-center justify-center ${(item.product.inventory?.currentStock || 0) === 0
-                                ? 'text-red-700 bg-red-50 border-red-200'
-                                : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
-                                  ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
-                                  : 'text-gray-700 bg-gray-100 border-gray-200'
+                              ? 'text-red-700 bg-red-50 border-red-200'
+                              : (item.product.inventory?.currentStock || 0) <= (item.product.inventory?.reorderPoint || 0)
+                                ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+                                : 'text-gray-700 bg-gray-100 border-gray-200'
                               }`}>
                               {item.product.inventory?.currentStock || 0}
                             </span>
