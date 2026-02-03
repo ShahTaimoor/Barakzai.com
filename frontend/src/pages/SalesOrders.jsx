@@ -526,10 +526,16 @@ const SalesOrders = () => {
     }));
     setCustomerSearchTerm(customerObj?.displayName || customerObj?.businessName || customerObj?.name || '');
 
-    // Reset price states when customer changes
-    setOriginalPrices({});
-    setIsLastPricesApplied(false);
-    setPriceStatus({});
+    // Auto-set price type based on customer business type
+    if (customerObj?.businessType) {
+      if (customerObj.businessType === 'retail' || customerObj.businessType === 'individual') {
+        setPriceType('retail');
+      } else if (customerObj.businessType === 'wholesale') {
+        setPriceType('wholesale');
+      } else if (customerObj.businessType === 'distributor') {
+        setPriceType('distributor');
+      }
+    }
 
     // Tab title will be updated by useEffect when selectedCustomer changes
   };
@@ -555,7 +561,9 @@ const SalesOrders = () => {
     // Handle both regular products and variants
     const pricing = product.pricing || {};
 
-    if (priceType === 'wholesale') {
+    if (priceType === 'distributor') {
+      return pricing.distributor || pricing.wholesale || pricing.retail || 0;
+    } else if (priceType === 'wholesale') {
       return pricing.wholesale || pricing.retail || 0;
     } else if (priceType === 'retail') {
       return pricing.retail || 0;
@@ -1889,6 +1897,7 @@ const SalesOrders = () => {
                 >
                   <option value="wholesale">Wholesale</option>
                   <option value="retail">Retail</option>
+                  <option value="distributor">Distributor</option>
                   <option value="custom">Custom</option>
                 </select>
               </div>
@@ -1944,12 +1953,12 @@ const SalesOrders = () => {
                     <div className="flex items-center space-x-1">
                       <span className="text-xs text-gray-500">Credit Limit:</span>
                       <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                          (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9
-                            ? 'text-red-600'
-                            : (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.7
-                              ? 'text-yellow-600'
-                              : 'text-blue-600'
-                        ) : 'text-gray-600'
+                        (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9
+                          ? 'text-red-600'
+                          : (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.7
+                            ? 'text-yellow-600'
+                            : 'text-blue-600'
+                      ) : 'text-gray-600'
                         }`}>
                         ${(selectedCustomer.creditLimit || 0).toFixed(2)}
                       </span>
@@ -1961,12 +1970,12 @@ const SalesOrders = () => {
                     <div className="flex items-center space-x-1">
                       <span className="text-xs text-gray-500">Available Credit:</span>
                       <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                          (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.1
-                            ? 'text-red-600'
-                            : (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.3
-                              ? 'text-yellow-600'
-                              : 'text-green-600'
-                        ) : 'text-gray-600'
+                        (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.1
+                          ? 'text-red-600'
+                          : (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.3
+                            ? 'text-yellow-600'
+                            : 'text-green-600'
+                      ) : 'text-gray-600'
                         }`}>
                         ${(selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)).toFixed(2)}
                       </span>
@@ -2242,10 +2251,10 @@ const SalesOrders = () => {
                               )}
                             {isLastPricesApplied && priceStatus[item.product?.toString()] && (
                               <span className={`text-xs ml-2 px-1.5 py-0.5 rounded ${priceStatus[item.product?.toString()] === 'updated'
-                                  ? 'bg-green-100 text-green-700'
-                                  : priceStatus[item.product?.toString()] === 'unchanged'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-yellow-100 text-yellow-700'
+                                ? 'bg-green-100 text-green-700'
+                                : priceStatus[item.product?.toString()] === 'unchanged'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-yellow-100 text-yellow-700'
                                 }`}>
                                 {priceStatus[item.product?.toString()] === 'updated'
                                   ? 'Updated'
@@ -2337,9 +2346,9 @@ const SalesOrders = () => {
                             }));
                           }}
                           className={`input text-center h-8 ${lastPurchasePrices[item.product?.toString()] !== undefined &&
-                              item.unitPrice < lastPurchasePrices[item.product?.toString()]
-                              ? 'border-red-500 bg-red-50'
-                              : ''
+                            item.unitPrice < lastPurchasePrices[item.product?.toString()]
+                            ? 'border-red-500 bg-red-50'
+                            : ''
                             }`}
                           title={
                             lastPurchasePrices[item.product?.toString()] !== undefined &&
@@ -2458,9 +2467,9 @@ const SalesOrders = () => {
                               }));
                             }}
                             className={`input text-center h-8 text-sm w-full ${lastPurchasePrices[item.product?.toString()] !== undefined &&
-                                item.unitPrice < lastPurchasePrices[item.product?.toString()]
-                                ? 'border-red-500 bg-red-50'
-                                : ''
+                              item.unitPrice < lastPurchasePrices[item.product?.toString()]
+                              ? 'border-red-500 bg-red-50'
+                              : ''
                               }`}
                             min="0"
                           />
@@ -2957,8 +2966,8 @@ const SalesOrders = () => {
                                   }, 100);
                                 }}
                                 className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${modalSelectedSuggestionIndex === index
-                                    ? 'bg-blue-100 border-blue-200'
-                                    : 'hover:bg-gray-100'
+                                  ? 'bg-blue-100 border-blue-200'
+                                  : 'hover:bg-gray-100'
                                   }`}
                               >
                                 <div className="flex flex-col">
@@ -3441,11 +3450,11 @@ const SalesOrders = () => {
                     <p><span className="font-medium">Order Type:</span> {selectedOrder.orderType || 'Standard'}</p>
                     <p><span className="font-medium">Status:</span>
                       <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${selectedOrder.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                          selectedOrder.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                            selectedOrder.status === 'partially_invoiced' ? 'bg-yellow-100 text-yellow-800' :
-                              selectedOrder.status === 'fully_invoiced' ? 'bg-green-100 text-green-800' :
-                                selectedOrder.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
+                        selectedOrder.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                          selectedOrder.status === 'partially_invoiced' ? 'bg-yellow-100 text-yellow-800' :
+                            selectedOrder.status === 'fully_invoiced' ? 'bg-green-100 text-green-800' :
+                              selectedOrder.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
                         }`}>
                         {selectedOrder.status === 'draft' ? 'Pending' : selectedOrder.status.replace('_', ' ')}
                       </span>

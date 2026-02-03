@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Package, 
-  TrendingUp, 
-  TrendingDown, 
-  Plus, 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
+import {
+  Package,
+  TrendingUp,
+  TrendingDown,
+  Plus,
+  Search,
+  Filter,
+  Download,
+  Eye,
   RotateCcw,
   Calendar,
   MapPin,
@@ -63,11 +63,11 @@ export const StockMovements = () => {
   });
 
   // Fetch stock movements
-  const { 
-    data: movementsData, 
-    isLoading, 
-    isFetching, 
-    refetch 
+  const {
+    data: movementsData,
+    isLoading,
+    isFetching,
+    refetch
   } = useGetStockMovementsQuery(
     {
       ...filters,
@@ -125,12 +125,12 @@ export const StockMovements = () => {
       // Use products from the query cache or return cached options
       const products = productsData?.data?.products || productsData?.products || productsData?.data?.data || [];
       const filtered = inputValue
-        ? products.filter(p => 
-            p.name?.toLowerCase().includes(inputValue.toLowerCase()) ||
-            p.sku?.toLowerCase().includes(inputValue.toLowerCase())
-          )
+        ? products.filter(p =>
+          p.name?.toLowerCase().includes(inputValue.toLowerCase()) ||
+          p.sku?.toLowerCase().includes(inputValue.toLowerCase())
+        )
         : products;
-      
+
       if (Array.isArray(filtered) && filtered.length > 0) {
         setProductMap(prev => {
           const next = new Map(prev);
@@ -558,7 +558,7 @@ export const StockMovements = () => {
                 {movements.map((movement) => {
                   const MovementIcon = getMovementIcon(movement.movementType);
                   const movementColor = getMovementColor(movement.movementType);
-                  
+
                   return (
                     <tr key={movement._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -827,60 +827,60 @@ export const StockMovements = () => {
                   <XCircle className="h-5 w-5" />
                 </button>
               </div>
-              
+
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Product</label>
                   <p className="text-sm text-gray-900">{selectedMovement.productName}</p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500">Movement Type</label>
                   <p className="text-sm text-gray-900">
                     {movementTypes[selectedMovement.movementType]?.label || selectedMovement.movementType}
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500">Quantity</label>
                   <p className="text-sm text-gray-900">{selectedMovement.quantity}</p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500">Total Value</label>
                   <p className="text-sm text-gray-900">{formatCurrency(selectedMovement.totalValue)}</p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500">Stock Change</label>
                   <p className="text-sm text-gray-900">
                     {selectedMovement.previousStock} → {selectedMovement.newStock}
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500">Reference</label>
                   <p className="text-sm text-gray-900">{selectedMovement.referenceNumber}</p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500">User</label>
                   <p className="text-sm text-gray-900">{selectedMovement.userName}</p>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500">Date</label>
                   <p className="text-sm text-gray-900">{formatDate(selectedMovement.createdAt)}</p>
                 </div>
-                
+
                 {selectedMovement.reason && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Reason</label>
                     <p className="text-sm text-gray-900">{selectedMovement.reason}</p>
                   </div>
                 )}
-                
-                {selectedMovement.notes && (
+
+                cv||                {selectedMovement.notes && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Notes</label>
                     <p className="text-sm text-gray-900">{selectedMovement.notes}</p>

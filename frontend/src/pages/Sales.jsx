@@ -157,7 +157,9 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
     // Handle both regular products and variants
     const pricing = product.pricing || {};
 
-    if (priceType === 'wholesale') {
+    if (priceType === 'distributor') {
+      return pricing.distributor || pricing.wholesale || pricing.retail || 0;
+    } else if (priceType === 'wholesale') {
       return pricing.wholesale || pricing.retail || 0;
     } else if (priceType === 'retail') {
       return pricing.retail || 0;
@@ -931,6 +933,17 @@ export const Sales = ({ tabId, editData }) => {
     setOriginalPrices({});
     setIsLastPricesApplied(false);
     setPriceStatus({});
+
+    // Auto-set price type based on customer business type
+    if (customer?.businessType) {
+      if (customer.businessType === 'retail' || customer.businessType === 'individual') {
+        setPriceType('retail');
+      } else if (customer.businessType === 'wholesale') {
+        setPriceType('wholesale');
+      } else if (customer.businessType === 'distributor') {
+        setPriceType('distributor');
+      }
+    }
 
     // Auto-generate invoice number if enabled
     if (autoGenerateInvoice && customer) {
@@ -1930,6 +1943,7 @@ export const Sales = ({ tabId, editData }) => {
                   >
                     <option value="wholesale">Wholesale</option>
                     <option value="retail">Retail</option>
+                    <option value="distributor">Distributor</option>
                     <option value="custom">Custom</option>
                   </select>
                 </div>
