@@ -21,12 +21,12 @@ export const saleReturnsApi = api.injectEndpoints({
       providesTags: (result) =>
         result?.data
           ? [
-              ...result.data.map(({ _id, id }) => ({
-                type: 'SaleReturns',
-                id: _id || id,
-              })),
-              { type: 'SaleReturns', id: 'LIST' },
-            ]
+            ...result.data.map(({ _id, id }) => ({
+              type: 'SaleReturns',
+              id: _id || id,
+            })),
+            { type: 'SaleReturns', id: 'LIST' },
+          ]
           : [{ type: 'SaleReturns', id: 'LIST' }],
     }),
 
@@ -51,6 +51,9 @@ export const saleReturnsApi = api.injectEndpoints({
         { type: 'Returns', id: 'LIST' },
         { type: 'Sales', id: 'LIST' },
         { type: 'Inventory', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'ChartOfAccounts', id: 'LIST' },
       ],
     }),
 
@@ -104,6 +107,9 @@ export const saleReturnsApi = api.injectEndpoints({
         { type: 'Sales', id: 'LIST' },
         { type: 'Inventory', id: 'LIST' },
         { type: 'Customers', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'ChartOfAccounts', id: 'LIST' },
       ],
     }),
 
