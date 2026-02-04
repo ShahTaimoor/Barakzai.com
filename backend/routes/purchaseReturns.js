@@ -178,6 +178,126 @@ router.get('/supplier/:supplierId/invoices', [
   }
 });
 
+// @route   GET /api/purchase-returns/supplier/:supplierId/products
+// @desc    Search products purchased from supplier by name/SKU/barcode
+// @access  Private
+router.get('/supplier/:supplierId/products', [
+  auth,
+  param('supplierId').isMongoId().withMessage('Valid supplier ID is required'),
+  query('search').optional().trim(),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const { supplierId } = req.params;
+    const { search } = req.query;
+    const Return = require('../models/Return');
+    const Product = require('../models/Product');
+
+    // Get all purchase invoices for this supplier
+    const invoices = await PurchaseInvoice.find({ supplier: supplierId })
+      .populate('items.product', 'name sku barcode')
+      .select('invoiceNumber createdAt items')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Collect all product items from invoices
+    const productMap = new Map();
+
+    for (const invoice of invoices) {
+      if (!invoice.items || invoice.items.length === 0) continue;
+
+      for (const item of invoice.items) {
+        if (!item.product) continue;
+
+        const productId = item.product._id.toString();
+        const productName = item.product.name || '';
+        const productSku = item.product.sku || '';
+        const productBarcode = item.product.barcode || '';
+
+        // Filter by search term if provided
+        if (search) {
+          const searchLower = search.toLowerCase();
+          const matchesName = productName.toLowerCase().includes(searchLower);
+          const matchesSku = productSku.toLowerCase().includes(searchLower);
+          const matchesBarcode = productBarcode.toLowerCase().includes(searchLower);
+          
+          if (!matchesName && !matchesSku && !matchesBarcode) {
+            continue;
+          }
+        }
+
+        // Get existing returns for this invoice item
+        const existingReturns = await Return.find({
+          origin: 'purchase',
+          'items.originalOrderItem': item._id,
+          status: { $nin: ['cancelled', 'rejected'] }
+        }).lean();
+
+        // Calculate returned quantity
+        let returnedQuantity = 0;
+        for (const returnDoc of existingReturns) {
+          for (const returnItem of returnDoc.items || []) {
+            if (returnItem.originalOrderItem && returnItem.originalOrderItem.toString() === item._id.toString()) {
+              returnedQuantity += returnItem.quantity || 0;
+            }
+          }
+        }
+
+        const remainingQuantity = (item.quantity || 0) - returnedQuantity;
+
+        if (remainingQuantity <= 0) continue;
+
+        // Group by product, keeping track of all purchases
+        if (!productMap.has(productId)) {
+          productMap.set(productId, {
+            product: item.product,
+            purchases: []
+          });
+        }
+
+        const productData = productMap.get(productId);
+        productData.purchases.push({
+          invoiceId: invoice._id,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceItemId: item._id,
+          quantityPurchased: item.quantity || 0,
+          price: item.unitCost || item.price || 0,
+          date: invoice.createdAt,
+          returnedQuantity,
+          remainingQuantity
+        });
+      }
+    }
+
+    // Convert map to array and format response
+    const products = Array.from(productMap.values()).map(productData => {
+      // Calculate totals across all purchases
+      const totalPurchased = productData.purchases.reduce((sum, p) => sum + p.quantityPurchased, 0);
+      const totalReturned = productData.purchases.reduce((sum, p) => sum + p.returnedQuantity, 0);
+      const totalRemaining = productData.purchases.reduce((sum, p) => sum + p.remainingQuantity, 0);
+      const latestPurchase = productData.purchases.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+      return {
+        product: productData.product,
+        totalQuantityPurchased: totalPurchased,
+        totalReturnedQuantity: totalReturned,
+        remainingReturnableQuantity: totalRemaining,
+        previousPrice: latestPurchase.price,
+        latestPurchaseDate: latestPurchase.date,
+        purchases: productData.purchases
+      };
+    });
+
+    res.json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    console.error('Error searching supplier products:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route   PUT /api/purchase-returns/:id/approve
 // @desc    Approve purchase return request
 // @access  Private (requires 'approve_returns' permission)

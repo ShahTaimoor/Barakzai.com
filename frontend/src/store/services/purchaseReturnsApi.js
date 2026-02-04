@@ -68,6 +68,18 @@ export const purchaseReturnsApi = api.injectEndpoints({
       ],
     }),
 
+    // Search products purchased from supplier
+    searchSupplierProducts: builder.query({
+      query: ({ supplierId, search }) => ({
+        url: `purchase-returns/supplier/${supplierId}/products`,
+        method: 'get',
+        params: search ? { search } : {},
+      }),
+      providesTags: (_r, _e, { supplierId }) => [
+        { type: 'PurchaseReturns', id: `SUPPLIER_PRODUCTS_${supplierId}` },
+      ],
+    }),
+
     // Approve purchase return
     approvePurchaseReturn: builder.mutation({
       query: ({ returnId, notes }) => ({
@@ -131,6 +143,8 @@ export const {
   useGetPurchaseReturnQuery,
   useCreatePurchaseReturnMutation,
   useGetSupplierInvoicesQuery,
+  useSearchSupplierProductsQuery,
+  useLazySearchSupplierProductsQuery,
   useApprovePurchaseReturnMutation,
   useRejectPurchaseReturnMutation,
   useProcessPurchaseReturnMutation,

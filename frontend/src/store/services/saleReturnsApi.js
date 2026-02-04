@@ -68,6 +68,18 @@ export const saleReturnsApi = api.injectEndpoints({
       ],
     }),
 
+    // Search products sold to customer
+    searchCustomerProducts: builder.query({
+      query: ({ customerId, search }) => ({
+        url: `sale-returns/customer/${customerId}/products`,
+        method: 'get',
+        params: search ? { search } : {},
+      }),
+      providesTags: (_r, _e, { customerId }) => [
+        { type: 'SaleReturns', id: `CUSTOMER_PRODUCTS_${customerId}` },
+      ],
+    }),
+
     // Approve sale return
     approveSaleReturn: builder.mutation({
       query: ({ returnId, notes }) => ({
@@ -131,6 +143,8 @@ export const {
   useGetSaleReturnQuery,
   useCreateSaleReturnMutation,
   useGetCustomerInvoicesQuery,
+  useSearchCustomerProductsQuery,
+  useLazySearchCustomerProductsQuery,
   useApproveSaleReturnMutation,
   useRejectSaleReturnMutation,
   useProcessSaleReturnMutation,

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   RotateCcw, 
   Search, 
@@ -21,6 +22,7 @@ import {
   useGetCustomerInvoicesQuery,
   useCreateSaleReturnMutation,
   useGetSaleReturnStatsQuery,
+  useLazySearchCustomerProductsQuery,
 } from '../store/services/saleReturnsApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
@@ -29,6 +31,7 @@ import { useResponsive } from '../components/ResponsiveContainer';
 import { SearchableDropdown } from '../components/SearchableDropdown';
 import CreateSaleReturnModal from '../components/CreateSaleReturnModal';
 import ReturnDetailModal from '../components/ReturnDetailModal';
+import ProductSelectionModal from '../components/ProductSelectionModal';
 
 // Helper function to get local date in YYYY-MM-DD format
 const getLocalDateString = (date = new Date()) => {
@@ -40,12 +43,20 @@ const getLocalDateString = (date = new Date()) => {
 
 const SaleReturns = () => {
   const today = getLocalDateString();
-  const [step, setStep] = useState('customer'); // 'customer', 'sales', 'return'
+  const [step, setStep] = useState('customer'); // 'customer', 'product-search'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [selectedSale, setSelectedSale] = useState(null);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [showProductModal, setShowProductModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState(null);
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [suggestionsPosition, setSuggestionsPosition] = useState({ top: 0, left: 0, width: 0 });
+  const searchInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
   
   // Date filter states (similar to Dashboard)
   const [fromDate, setFromDate] = useState(today);
@@ -84,17 +95,107 @@ const SaleReturns = () => {
 
   const customers = customersData?.data?.customers || customersData?.customers || customersData?.items || [];
 
-  // Fetch customer's sales invoices when customer is selected
-  const { 
-    data: invoicesData, 
-    isLoading: invoicesLoading,
-    refetch: refetchInvoices
-  } = useGetCustomerInvoicesQuery(
-    selectedCustomer?._id,
-    { skip: !selectedCustomer?._id || step !== 'sales' }
-  );
+  // Search products for customer
+  const [searchCustomerProducts, { 
+    data: productsData, 
+    isLoading: productsLoading 
+  }] = useLazySearchCustomerProductsQuery();
 
-  const invoices = invoicesData?.data || [];
+  const products = productsData?.data || [];
+
+  // Debounced search for suggestions
+  useEffect(() => {
+    // Don't show suggestions if modal is open
+    if (showProductModal) {
+      setShowSuggestions(false);
+      setIsSearching(false);
+      return;
+    }
+
+    if (!selectedCustomer?._id || !productSearchTerm.trim() || productSearchTerm.length < 1) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setShowSuggestions(true);
+
+    const timeoutId = setTimeout(() => {
+      searchCustomerProducts({ 
+        customerId: selectedCustomer._id, 
+        search: productSearchTerm.trim() 
+      }).then((result) => {
+        if (result.data?.data) {
+          const suggestions = result.data.data.slice(0, 5).map(productData => ({
+            id: productData.product._id,
+            name: productData.product.name || 'Unknown Product',
+            sku: productData.product.sku || '',
+            barcode: productData.product.barcode || '',
+            remainingQuantity: productData.remainingReturnableQuantity
+          }));
+          setSearchSuggestions(suggestions);
+        } else {
+          setSearchSuggestions([]);
+        }
+      }).catch(() => {
+        setSearchSuggestions([]);
+      }).finally(() => {
+        setIsSearching(false);
+      });
+    }, 300); // 300ms debounce
+
+    return () => {
+      clearTimeout(timeoutId);
+      setIsSearching(false);
+    };
+  }, [productSearchTerm, selectedCustomer?._id, searchCustomerProducts, showProductModal]);
+
+  // Calculate suggestions position
+  useEffect(() => {
+    if (showSuggestions && searchInputRef.current) {
+      const updatePosition = () => {
+        if (searchInputRef.current) {
+          const rect = searchInputRef.current.getBoundingClientRect();
+          setSuggestionsPosition({
+            top: rect.bottom + window.scrollY + 4, // 4px margin
+            left: rect.left + window.scrollX,
+            width: rect.width
+          });
+        }
+      };
+
+      updatePosition();
+      
+      // Update position on scroll or resize
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [showSuggestions]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    if (!showSuggestions) return;
+
+    const handleClickOutside = (event) => {
+      const target = event.target;
+      const isClickInSuggestions = suggestionsRef.current?.contains(target);
+      const isClickInInput = searchInputRef.current?.contains(target);
+      
+      if (!isClickInSuggestions && !isClickInInput) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showSuggestions]);
 
   // Fetch sale returns (use active dates in filters)
   const { 
@@ -136,24 +237,87 @@ const SaleReturns = () => {
   // Handle customer selection
   const handleCustomerSelect = (customer) => {
     setSelectedCustomer(customer);
-    setStep('sales');
-    setSelectedSale(null);
+    setStep('product-search');
+    setProductSearchTerm('');
   };
 
-  // Handle sale selection
-  const handleSaleSelect = (sale) => {
-    setSelectedSale(sale);
-    setShowCreateModal(true);
+  // Handle product search
+  const handleProductSearch = (searchTerm = null) => {
+    const term = searchTerm || productSearchTerm;
+    if (!selectedCustomer?._id) {
+      showErrorToast('Please select a customer first');
+      return;
+    }
+    if (!term.trim()) {
+      showErrorToast('Please enter a search term');
+      return;
+    }
+    setShowSuggestions(false); // Hide suggestions before opening modal
+    searchCustomerProducts({ 
+      customerId: selectedCustomer._id, 
+      search: term.trim() 
+    });
+    setShowProductModal(true);
   };
 
-  // Handle return creation success
+  // Handle suggestion selection
+  const handleSuggestionSelect = (suggestion) => {
+    setProductSearchTerm(suggestion.name);
+    setShowSuggestions(false);
+    handleProductSearch(suggestion.name);
+  };
+
+  // Handle product selection confirmation
+  const handleProductSelectionConfirm = async (returnItems) => {
+    if (returnItems.length === 0) {
+      showErrorToast('Please select at least one product');
+      return;
+    }
+
+    // Group items by originalOrder
+    const itemsByOrder = {};
+    returnItems.forEach(item => {
+      const orderId = item.originalOrder.toString();
+      if (!itemsByOrder[orderId]) {
+        itemsByOrder[orderId] = [];
+      }
+      itemsByOrder[orderId].push(item);
+    });
+
+    // For now, create return for the first order (we can enhance this later)
+    const firstOrderId = Object.keys(itemsByOrder)[0];
+    const itemsForReturn = itemsByOrder[firstOrderId];
+
+    try {
+      const returnData = {
+        originalOrder: firstOrderId,
+        returnType: 'return',
+        priority: 'normal',
+        refundMethod: 'original_payment',
+        items: itemsForReturn,
+        generalNotes: '',
+        origin: 'sales'
+      };
+
+      await createSaleReturn(returnData).unwrap();
+      showSuccessToast('Sale return created successfully');
+      setShowProductModal(false);
+      setProductSearchTerm('');
+      setSelectedCustomer(null);
+      setStep('customer');
+      refetchReturns();
+    } catch (error) {
+      handleApiError(error, 'Create Sale Return');
+    }
+  };
+
+  // Handle return creation success (for old modal)
   const handleReturnCreated = () => {
     setShowCreateModal(false);
     setSelectedSale(null);
     setSelectedCustomer(null);
     setStep('customer');
     refetchReturns();
-    refetchInvoices();
     showSuccessToast('Sale return created successfully');
   };
 
@@ -166,14 +330,8 @@ const SaleReturns = () => {
   // Handle back to customer selection
   const handleBackToCustomer = () => {
     setSelectedCustomer(null);
-    setSelectedSale(null);
+    setProductSearchTerm('');
     setStep('customer');
-  };
-
-  // Handle back to sales list
-  const handleBackToSales = () => {
-    setSelectedSale(null);
-    setStep('sales');
   };
 
   // Format currency
@@ -353,8 +511,8 @@ const SaleReturns = () => {
         </div>
       )}
 
-      {/* Step 2: Sales List */}
-      {step === 'sales' && selectedCustomer && (
+      {/* Step 2: Product Search */}
+      {step === 'product-search' && selectedCustomer && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -367,7 +525,7 @@ const SaleReturns = () => {
                   Change Customer
                 </button>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Step 2: Select Sale Invoice
+                  Step 2: Search Products
                 </h2>
                 <p className="text-sm text-gray-600">
                   Customer: <span className="font-medium">
@@ -375,50 +533,96 @@ const SaleReturns = () => {
                      `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
                   </span>
                 </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Search by Product Name, SKU, or Barcode
+                </p>
               </div>
             </div>
           </div>
 
-          {invoicesLoading ? (
-            <LoadingTable />
-          ) : invoices.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No sales found for this customer</p>
+          <div className="space-y-4">
+            <div className="flex gap-3 relative">
+              <div className="flex-1 relative">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={productSearchTerm}
+                  onChange={(e) => {
+                    setProductSearchTerm(e.target.value);
+                    if (e.target.value.trim().length >= 1) {
+                      setShowSuggestions(true);
+                    } else {
+                      setShowSuggestions(false);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (searchSuggestions.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleProductSearch();
+                    }
+                  }}
+                  placeholder="Enter product name, SKU, or barcode..."
+                  className="input w-full"
+                />
+              </div>
+              <button
+                onClick={() => handleProductSearch()}
+                disabled={!productSearchTerm.trim()}
+                className="btn btn-primary"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {invoices.map((invoice) => (
-                <div
-                  key={invoice._id}
-                  onClick={() => handleSaleSelect(invoice)}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <FileText className="h-5 w-5 text-blue-500" />
-                        <span className="font-semibold text-gray-900">
-                          {invoice.orderNumber || invoice.invoiceNumber || 'N/A'}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {formatDate(invoice.createdAt || invoice.orderDate)}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600 ml-8">
-                        <div className="flex items-center gap-4">
-                          <span>Items: {invoice.items?.length || 0}</span>
-                          <span>Total: {formatCurrency(invoice.pricing?.total || invoice.total || 0)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button className="btn btn-primary btn-sm">
-                      Create Return
-                    </button>
-                  </div>
+          </div>
+
+          {/* Suggestions Dropdown - Using Portal */}
+          {showSuggestions && createPortal(
+            <div
+              ref={suggestionsRef}
+              className="fixed z-[9999] bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm border border-gray-200"
+              style={{
+                top: `${suggestionsPosition.top}px`,
+                left: `${suggestionsPosition.left}px`,
+                width: `${suggestionsPosition.width}px`
+              }}
+            >
+              {isSearching ? (
+                <div className="px-4 py-8 text-center">
+                  <LoadingSpinner size="sm" />
+                  <p className="text-sm text-gray-500 mt-2">Searching...</p>
                 </div>
-              ))}
-            </div>
+              ) : searchSuggestions.length > 0 ? (
+                <>
+                  <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase border-b border-gray-200">
+                    Suggestions ({searchSuggestions.length})
+                  </div>
+                  {searchSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      onClick={() => handleSuggestionSelect(suggestion)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="font-medium">{suggestion.name}</div>
+                      <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                        {suggestion.sku && <span>SKU: {suggestion.sku}</span>}
+                        {suggestion.barcode && <span>Barcode: {suggestion.barcode}</span>}
+                        <span className="text-green-600">Available: {suggestion.remainingQuantity}</span>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                  No products found
+                </div>
+              )}
+            </div>,
+            document.body
           )}
         </div>
       )}
@@ -509,7 +713,22 @@ const SaleReturns = () => {
         </div>
       )}
 
-      {/* Create Return Modal */}
+      {/* Product Selection Modal */}
+      {showProductModal && selectedCustomer && (
+        <ProductSelectionModal
+          isOpen={showProductModal}
+          onClose={() => {
+            setShowProductModal(false);
+            setProductSearchTerm('');
+          }}
+          products={products}
+          isLoading={productsLoading}
+          type="sale"
+          onConfirm={handleProductSelectionConfirm}
+        />
+      )}
+
+      {/* Create Return Modal (legacy - kept for backward compatibility) */}
       {showCreateModal && selectedSale && selectedCustomer && (
         <CreateSaleReturnModal
           isOpen={showCreateModal}
