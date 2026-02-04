@@ -32,17 +32,11 @@ import { SearchableDropdown } from '../components/SearchableDropdown';
 import CreateSaleReturnModal from '../components/CreateSaleReturnModal';
 import ReturnDetailModal from '../components/ReturnDetailModal';
 import ProductSelectionModal from '../components/ProductSelectionModal';
-
-// Helper function to get local date in YYYY-MM-DD format
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import DateFilter from '../components/DateFilter';
+import { getCurrentDatePakistan } from '../utils/dateUtils';
 
 const SaleReturns = () => {
-  const today = getLocalDateString();
+  const today = getCurrentDatePakistan();
   const [step, setStep] = useState('customer'); // 'customer', 'product-search'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -58,11 +52,9 @@ const SaleReturns = () => {
   const searchInputRef = useRef(null);
   const suggestionsRef = useRef(null);
   
-  // Date filter states (similar to Dashboard)
-  const [fromDate, setFromDate] = useState(today);
-  const [toDate, setToDate] = useState(today);
-  const [activeFromDate, setActiveFromDate] = useState(today);
-  const [activeToDate, setActiveToDate] = useState(today);
+  // Date filter states using Pakistan timezone
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   
   const [filters, setFilters] = useState({
     page: 1,
@@ -73,14 +65,14 @@ const SaleReturns = () => {
     endDate: today
   });
 
-  // Handle date search (similar to Dashboard)
-  const handleDateSearch = () => {
-    setActiveFromDate(fromDate);
-    setActiveToDate(toDate);
+  // Handle date change from DateFilter component
+  const handleDateChange = (newStartDate, newEndDate) => {
+    setStartDate(newStartDate || '');
+    setEndDate(newEndDate || '');
     setFilters(prev => ({
       ...prev,
-      startDate: fromDate,
-      endDate: toDate,
+      startDate: newStartDate || '',
+      endDate: newEndDate || '',
       page: 1 // Reset to first page when date changes
     }));
   };
@@ -197,7 +189,7 @@ const SaleReturns = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSuggestions]);
 
-  // Fetch sale returns (use active dates in filters)
+  // Fetch sale returns (use dates from filters)
   const { 
     data: returnsData, 
     isLoading: returnsLoading, 
@@ -205,8 +197,8 @@ const SaleReturns = () => {
     refetch: refetchReturns
   } = useGetSaleReturnsQuery({
     ...filters,
-    startDate: activeFromDate,
-    endDate: activeToDate
+    dateFrom: filters.startDate || undefined,
+    dateTo: filters.endDate || undefined
   }, {
     onError: (error) => {
       handleApiError(error, 'Fetch Sale Returns');
@@ -216,15 +208,15 @@ const SaleReturns = () => {
   const returns = returnsData?.data || [];
   const pagination = returnsData?.pagination || {};
 
-  // Fetch return statistics (use active dates)
+  // Fetch return statistics (use dates from filters)
   const { 
     data: statsData, 
     isLoading: statsLoading 
   } = useGetSaleReturnStatsQuery(
-    activeFromDate && activeToDate
+    filters.startDate && filters.endDate
       ? {
-          startDate: activeFromDate,
-          endDate: activeToDate
+          startDate: filters.startDate,
+          endDate: filters.endDate
         }
       : {}
   );
@@ -397,36 +389,16 @@ const SaleReturns = () => {
           <p className="text-sm sm:text-base text-gray-600">Manage customer returns and refunds</p>
         </div>
         
-        {/* Date Filter (similar to Dashboard) */}
-        <div className="flex flex-row items-center space-x-1.5 sm:space-x-4 w-full sm:w-auto">
-          <div className="flex flex-row items-center space-x-1.5 sm:space-x-3 flex-1 sm:flex-initial min-w-0">
-            <Calendar className="h-4 w-4 text-gray-500 hidden sm:block flex-shrink-0" />
-            <div className="flex flex-row items-center space-x-1 flex-1 sm:flex-initial min-w-0">
-              <label className="text-xs sm:text-sm font-medium text-gray-600 whitespace-nowrap hidden sm:inline flex-shrink-0">From:</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="input text-xs sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2 h-[38px] sm:h-auto"
-              />
-            </div>
-            <div className="flex flex-row items-center space-x-1 flex-1 sm:flex-initial min-w-0">
-              <label className="text-xs sm:text-sm font-medium text-gray-600 whitespace-nowrap hidden sm:inline flex-shrink-0">To:</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="input text-xs sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2 h-[38px] sm:h-auto"
-              />
-            </div>
-          </div>
-          <button 
-            onClick={handleDateSearch}
-            className="btn btn-primary flex items-center justify-center px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base flex-shrink-0 min-w-[40px] sm:min-w-0 h-[38px] sm:h-auto"
-          >
-            <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline ml-1 sm:ml-2">Search</span>
-          </button>
+        {/* Date Filter using DateFilter component */}
+        <div className="w-full sm:w-auto">
+          <DateFilter
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+            compact={true}
+            showPresets={true}
+            className="w-full"
+          />
         </div>
       </div>
 

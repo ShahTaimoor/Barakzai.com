@@ -60,14 +60,8 @@ import { useAuth } from '../contexts/AuthContext';
 import PrintModal from '../components/PrintModal';
 import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import NotesPanel from '../components/NotesPanel';
-
-// Helper function to get local date in YYYY-MM-DD format (avoids timezone issues with toISOString)
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+import DateFilter from '../components/DateFilter';
+import { getCurrentDatePakistan, getDateDaysAgo } from '../utils/dateUtils';
 
 // Helper function to safely render values
 const safeRender = (value) => {
@@ -86,11 +80,9 @@ const SalesOrders = () => {
   const resolvedCompanyAddress = companySettings.address || companySettings.billingAddress || '';
   const resolvedCompanyPhone = companySettings.contactNumber || '';
 
-  // Calculate default date range (14 days ago to today)
-  const today = getLocalDateString();
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-  const fromDateDefault = getLocalDateString(fourteenDaysAgo);
+  // Calculate default date range (14 days ago to today) using Pakistan timezone
+  const today = getCurrentDatePakistan();
+  const fromDateDefault = getDateDaysAgo(14);
 
   // State for filters and pagination
   const [filters, setFilters] = useState({
@@ -1205,8 +1197,8 @@ const SalesOrders = () => {
     try {
       // Build filters based on current filters
       const exportFilters = {
-        fromDate: filters.fromDate,
-        toDate: filters.toDate,
+        dateFrom: filters.fromDate,
+        dateTo: filters.toDate,
         status: filters.status,
         customer: filters.customer,
         orderNumber: filters.orderNumber,
@@ -3172,24 +3164,17 @@ const SalesOrders = () => {
             {/* Date Range */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                From Date
+                Date Range
               </label>
-              <input
-                type="date"
-                value={filters.fromDate}
-                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                className="input h-[42px]"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={filters.toDate}
-                onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                className="input h-[42px]"
+              <DateFilter
+                startDate={filters.fromDate}
+                endDate={filters.toDate}
+                onDateChange={(start, end) => {
+                  handleFilterChange('fromDate', start);
+                  handleFilterChange('toDate', end);
+                }}
+                compact={true}
+                showPresets={true}
               />
             </div>
 

@@ -46,6 +46,8 @@ import PeriodComparisonSection from '../components/PeriodComparisonSection';
 import PeriodComparisonCard from '../components/PeriodComparisonCard';
 import ComparisonChart from '../components/ComparisonChart';
 import { usePeriodComparison } from '../hooks/usePeriodComparison';
+import DateFilter from '../components/DateFilter';
+import { getCurrentDatePakistan } from '../utils/dateUtils';
 
 const StatCard = ({ title, value, icon: Icon, color, change, changeType }) => (
   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 h-full">
@@ -75,21 +77,11 @@ const StatCard = ({ title, value, icon: Icon, color, change, changeType }) => (
   </div>
 );
 
-// Helper function to get local date in YYYY-MM-DD format (avoids timezone issues with toISOString)
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const today = getLocalDateString();
-  const [fromDate, setFromDate] = useState(today);
-  const [toDate, setToDate] = useState(today);
-  const [activeFromDate, setActiveFromDate] = useState(today);
-  const [activeToDate, setActiveToDate] = useState(today);
+  const today = getCurrentDatePakistan();
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
 
   // Modal states
   const [showSalesOrdersModal, setShowSalesOrdersModal] = useState(false);
@@ -104,10 +96,10 @@ export const Dashboard = () => {
   // Lazy query for period summary
   const [getPeriodSummary] = useLazyGetPeriodSummaryQuery();
 
-  // Handle search button click
-  const handleSearch = () => {
-    setActiveFromDate(fromDate);
-    setActiveToDate(toDate);
+  // Handle date change from DateFilter component
+  const handleDateChange = (newStartDate, newEndDate) => {
+    setStartDate(newStartDate || '');
+    setEndDate(newEndDate || '');
   };
 
   // Wrapper function for period summary that matches the expected API format
@@ -160,8 +152,8 @@ export const Dashboard = () => {
   // All Sales Orders data (for total value calculation)
   // Use 'all' parameter to get all orders without pagination
   const { data: salesOrdersData, isLoading: salesOrdersLoading } = useGetSalesOrdersQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate, all: true },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate, all: true },
+    { skip: !startDate || !endDate }
   );
 
   // Pending Purchase Orders data (draft status only)
@@ -171,45 +163,45 @@ export const Dashboard = () => {
 
   // All Purchase Orders data (for total value calculation)
   const { data: purchaseOrdersData, isLoading: purchaseOrdersLoading } = useGetPurchaseOrdersQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate },
+    { skip: !startDate || !endDate }
   );
 
   // Sales Invoices (from Sales page) - actual completed sales
   // Use 'all' parameter to get all orders without pagination
   const { data: salesInvoicesData, isLoading: salesInvoicesLoading } = useGetOrdersQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate, all: true },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate, all: true },
+    { skip: !startDate || !endDate }
   );
 
   // Purchase Invoices (from Purchase page) - actual purchases
   const { data: purchaseInvoicesData, isLoading: purchaseInvoicesLoading } = useGetPurchaseInvoicesQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate },
+    { skip: !startDate || !endDate }
   );
 
   // Cash Receipts data
   const { data: cashReceiptsData, isLoading: cashReceiptsLoading } = useGetCashReceiptsQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate },
+    { skip: !startDate || !endDate }
   );
 
   // Cash Payments data
   const { data: cashPaymentsData, isLoading: cashPaymentsLoading } = useGetCashPaymentsQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate },
+    { skip: !startDate || !endDate }
   );
 
   // Bank Receipts data
   const { data: bankReceiptsData, isLoading: bankReceiptsLoading } = useGetBankReceiptsQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate },
+    { skip: !startDate || !endDate }
   );
 
   // Bank Payments data
   const { data: bankPaymentsData, isLoading: bankPaymentsLoading } = useGetBankPaymentsQuery(
-    { dateFrom: activeFromDate, dateTo: activeToDate },
-    { skip: !activeFromDate || !activeToDate }
+    { dateFrom: startDate, dateTo: endDate },
+    { skip: !startDate || !endDate }
   );
 
   const { data: recurringExpensesData, isLoading: recurringExpensesLoading } = useGetUpcomingExpensesQuery(
@@ -513,34 +505,16 @@ export const Dashboard = () => {
           <div className="flex flex-col items-center space-y-2 sm:space-y-4">
             <h2 className="text-sm sm:text-lg font-medium text-gray-900">Financial Overview</h2>
             <div className="flex flex-row items-center space-x-1.5 sm:space-x-4 w-full sm:w-auto">
-              <div className="flex flex-row items-center space-x-1.5 sm:space-x-3 flex-1 sm:flex-initial min-w-0">
-                <Calendar className="h-4 w-4 text-gray-500 hidden sm:block flex-shrink-0" />
-                <div className="flex flex-row items-center space-x-1 flex-1 sm:flex-initial min-w-0">
-                  <label className="text-xs sm:text-sm font-medium text-gray-600 whitespace-nowrap hidden sm:inline flex-shrink-0">From:</label>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="input text-xs sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2 h-[38px] sm:h-auto"
-                  />
-                </div>
-                <div className="flex flex-row items-center space-x-1 flex-1 sm:flex-initial min-w-0">
-                  <label className="text-xs sm:text-sm font-medium text-gray-600 whitespace-nowrap hidden sm:inline flex-shrink-0">To:</label>
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="input text-xs sm:text-sm flex-1 min-w-0 sm:w-36 md:w-40 py-1.5 sm:py-2 h-[38px] sm:h-auto"
-                  />
-                </div>
+              <div className="w-full sm:w-auto">
+                <DateFilter
+                  startDate={startDate}
+                  endDate={endDate}
+                  onDateChange={handleDateChange}
+                  compact={true}
+                  showPresets={true}
+                  className="w-full"
+                />
               </div>
-              <button
-                onClick={handleSearch}
-                className="btn btn-primary flex items-center justify-center px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-base flex-shrink-0 min-w-[40px] sm:min-w-0 h-[38px] sm:h-auto"
-              >
-                <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline ml-1 sm:ml-2">Search</span>
-              </button>
             </div>
           </div>
         </div>
@@ -924,11 +898,11 @@ export const Dashboard = () => {
         columns={salesOrdersColumns}
         data={salesOrdersModalData}
         isLoading={salesOrdersLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
 
@@ -939,11 +913,11 @@ export const Dashboard = () => {
         columns={purchaseOrdersColumns}
         data={purchaseOrdersModalData}
         isLoading={purchaseOrdersLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
 
@@ -954,11 +928,11 @@ export const Dashboard = () => {
         columns={salesInvoicesColumns}
         data={salesInvoicesModalData}
         isLoading={salesInvoicesLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
 
@@ -969,11 +943,11 @@ export const Dashboard = () => {
         columns={purchaseInvoicesColumns}
         data={purchaseInvoicesDataArray}
         isLoading={purchaseInvoicesLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
 
@@ -984,11 +958,11 @@ export const Dashboard = () => {
         columns={cashReceiptsColumns}
         data={cashReceiptsDataArray}
         isLoading={cashReceiptsLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
 
@@ -999,11 +973,11 @@ export const Dashboard = () => {
         columns={cashPaymentsColumns}
         data={cashPaymentsDataArray}
         isLoading={cashPaymentsLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
 
@@ -1014,11 +988,11 @@ export const Dashboard = () => {
         columns={bankReceiptsColumns}
         data={bankReceiptsDataArray}
         isLoading={bankReceiptsLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
 
@@ -1029,11 +1003,11 @@ export const Dashboard = () => {
         columns={bankPaymentsColumns}
         data={bankPaymentsDataArray}
         isLoading={bankPaymentsLoading}
-        dateFrom={activeFromDate}
-        dateTo={activeToDate}
+        dateFrom={startDate}
+        dateTo={endDate}
         onDateChange={(from, to) => {
-          setActiveFromDate(from);
-          setActiveToDate(to);
+          setStartDate(from);
+          setEndDate(to);
         }}
       />
     </div>

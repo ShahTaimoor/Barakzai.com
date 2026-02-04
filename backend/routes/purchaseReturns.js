@@ -2,6 +2,7 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const { auth, requirePermission } = require('../middleware/auth');
 const { handleValidationErrors, sanitizeRequest } = require('../middleware/validation');
+const { validateDateParams, processDateFilter } = require('../middleware/dateFilter');
 const returnManagementService = require('../services/returnManagementService');
 const ReturnRepository = require('../repositories/ReturnRepository');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
@@ -103,13 +104,20 @@ router.get('/', [
   query('status').optional().isIn(['pending', 'approved', 'rejected', 'processing', 'received', 'completed', 'cancelled']),
   query('returnType').optional().isIn(['return', 'exchange', 'warranty', 'recall']),
   query('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
+  ...validateDateParams,
   handleValidationErrors,
+  processDateFilter('returnDate'),
 ], async (req, res) => {
   try {
     const queryParams = {
       ...req.query,
       origin: 'purchase' // Filter only purchase returns
     };
+    
+    // Merge date filter from middleware if present (for Pakistan timezone)
+    if (req.dateFilter && Object.keys(req.dateFilter).length > 0) {
+      queryParams.dateFilter = req.dateFilter;
+    }
 
     const result = await returnManagementService.getReturns(queryParams);
 
@@ -402,14 +410,14 @@ router.put('/:id/process', [
 // @access  Private
 router.get('/stats/summary', [
   auth,
-  query('startDate').optional().isISO8601(),
-  query('endDate').optional().isISO8601(),
+  ...validateDateParams,
   handleValidationErrors,
+  processDateFilter('createdAt'),
 ], async (req, res) => {
   try {
     const period = {};
-    if (req.query.startDate) period.startDate = new Date(req.query.startDate);
-    if (req.query.endDate) period.endDate = new Date(req.query.endDate);
+    if (req.dateRange.startDate) period.startDate = req.dateRange.startDate;
+    if (req.dateRange.endDate) period.endDate = req.dateRange.endDate;
 
     const stats = await returnManagementService.getReturnStats(period);
     

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult, query } = require('express-validator');
 const { auth, requirePermission } = require('../middleware/auth');
+const { handleValidationErrors } = require('../middleware/validation');
+const { validateDateParams, processDateFilter } = require('../middleware/dateFilter');
 const bankReceiptService = require('../services/bankReceiptService');
 const BankReceipt = require('../models/BankReceipt'); // Still needed for create/update operations
 const Bank = require('../models/Bank');
@@ -42,38 +44,17 @@ router.get('/', [
     const {
       page = 1,
       limit = 50,
-      fromDate: fromDateParam,
-      toDate: toDateParam,
-      dateFrom,
-      dateTo,
       voucherCode,
       amount,
       particular
     } = req.query;
-    
-    // Support both fromDate/toDate and dateFrom/dateTo (from Dashboard)
-    const fromDate = fromDateParam || dateFrom;
-    const toDate = toDateParam || dateTo;
 
     // Build filter object
     const filter = {};
 
-    // Date range filter
-    if (fromDate || toDate) {
-      filter.date = {};
-      if (fromDate) {
-        // Set to start of day (00:00:00) in local timezone
-        const startOfDay = new Date(fromDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        filter.date.$gte = startOfDay;
-      }
-      if (toDate) {
-        // Set to end of day (23:59:59.999) - add 1 day and use $lt to include entire toDate
-        const endOfDay = new Date(toDate);
-        endOfDay.setDate(endOfDay.getDate() + 1);
-        endOfDay.setHours(0, 0, 0, 0);
-        filter.date.$lt = endOfDay;
-      }
+    // Date range filter - use dateFilter from middleware (Pakistan timezone)
+    if (req.dateFilter && Object.keys(req.dateFilter).length > 0) {
+      Object.assign(filter, req.dateFilter);
     }
 
     // Voucher code filter
