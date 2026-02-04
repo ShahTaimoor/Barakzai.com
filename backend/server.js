@@ -169,6 +169,7 @@ app.use('/api/account-ledger', require('./routes/accountLedger'));
 app.use('/api/images', require('./routes/images'));
 app.use('/api/backdate-report', require('./routes/backdateReport'));
 app.use('/api/stock-movements', require('./routes/stockMovements'));
+app.use('/api/stock-ledger', require('./routes/stockLedger'));
 app.use('/api/warehouses', require('./routes/warehouses'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/attendance', require('./routes/attendance'));

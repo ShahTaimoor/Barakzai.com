@@ -94,6 +94,7 @@ export const navigation = [
   { name: 'Inventory Alerts', href: '/inventory-alerts', icon: AlertTriangle, permission: 'view_inventory' },
   { name: 'Warehouses', href: '/warehouses', icon: Warehouse, permission: 'view_inventory' },
   { name: 'Stock Movements', href: '/stock-movements', icon: ArrowUpDown, permission: 'view_stock_movements' },
+  { name: 'Stock Ledger', href: '/stock-ledger', icon: FileText, permission: 'view_reports' },
 
   // Accounting Section
   { type: 'heading', name: 'Accounting Section', color: 'bg-pink-500' },
