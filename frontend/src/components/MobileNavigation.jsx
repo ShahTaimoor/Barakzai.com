@@ -86,6 +86,7 @@ const MobileNavigation = ({ user, onLogout }) => {
     { path: '/drop-shipping', icon: ArrowRight, label: 'Drop Shipping', badge: null, permission: 'create_drop_shipping' },
     { path: '/inventory', icon: Package, label: 'Inventory', badge: null, permission: 'view_inventory' },
     { path: '/stock-movements', icon: ArrowUpDown, label: 'Stock Movements', badge: null, permission: 'view_stock_movements' },
+    { path: '/stock-ledger', icon: FileText, label: 'Stock Ledger', badge: null, permission: 'view_reports' },
     { path: '/sale-returns', icon: RotateCcw, label: 'Sale Returns', badge: null, permission: 'view_returns' },
     { path: '/purchase-returns', icon: RotateCcw, label: 'Purchase Returns', badge: null, permission: 'view_returns' },
     { path: '/returns', icon: RotateCcw, label: 'Returns', badge: null, permission: 'view_returns' },

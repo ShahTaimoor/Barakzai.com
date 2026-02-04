@@ -90,6 +90,7 @@ export const navigation = [
   { name: 'Inventory', href: '/inventory', icon: Warehouse },
   { name: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { name: 'Stock Movements', href: '/stock-movements', icon: ArrowUpDown },
+  { name: 'Stock Ledger', href: '/stock-ledger', icon: FileText },
 
   // Accounting
   { type: 'heading', name: 'Accounting', color: 'bg-pink-500' },

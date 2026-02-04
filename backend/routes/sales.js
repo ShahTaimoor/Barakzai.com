@@ -18,6 +18,7 @@ const productRepository = require('../repositories/ProductRepository');
 const productVariantRepository = require('../repositories/ProductVariantRepository');
 const customerRepository = require('../repositories/CustomerRepository');
 const { auth, requirePermission } = require('../middleware/auth');
+const { handleValidationErrors } = require('../middleware/validation');
 const { preventPOSDuplicates } = require('../middleware/duplicatePrevention');
 
 const router = express.Router();
@@ -61,6 +62,8 @@ const transformProductToUppercase = (product) => {
   return product;
 };
 
+const { validateDateParams, processDateFilter } = require('../middleware/dateFilter');
+
 // @route   GET /api/orders
 // @desc    Get all orders with filtering and pagination
 // @access  Private
@@ -74,8 +77,9 @@ router.get('/', [
   query('status').optional({ checkFalsy: true }).isIn(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned']),
   query('paymentStatus').optional({ checkFalsy: true }).isIn(['pending', 'paid', 'partial', 'refunded']),
   query('orderType').optional({ checkFalsy: true }).isIn(['retail', 'wholesale', 'return', 'exchange']),
-  query('dateFrom').optional().isISO8601(),
-  query('dateTo').optional().isISO8601()
+  ...validateDateParams,
+  handleValidationErrors,
+  processDateFilter(['billDate', 'createdAt']), // Support both billDate and createdAt
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -83,8 +87,14 @@ router.get('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Merge date filter from middleware if present (for Pakistan timezone)
+    const queryParams = { ...req.query };
+    if (req.dateFilter && Object.keys(req.dateFilter).length > 0) {
+      queryParams.dateFilter = req.dateFilter;
+    }
+
     // Call service to get sales orders
-    const result = await salesService.getSalesOrders(req.query);
+    const result = await salesService.getSalesOrders(queryParams);
 
     res.json({
       orders: result.orders,

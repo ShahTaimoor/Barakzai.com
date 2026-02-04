@@ -31,13 +31,12 @@ import { useGetProductsQuery } from '../store/services/productsApi';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import { handleApiError } from '../utils/errorHandler';
 import toast from 'react-hot-toast';
+import DateFilter from '../components/DateFilter';
+import { getCurrentDatePakistan, getDateDaysAgo } from '../utils/dateUtils';
 
 export const StockMovements = () => {
-  const today = new Date();
-  const defaultDateTo = today.toISOString().split('T')[0];
-  const defaultFromDate = new Date(today);
-  defaultFromDate.setMonth(defaultFromDate.getMonth() - 1);
-  const defaultDateFrom = defaultFromDate.toISOString().split('T')[0];
+  const defaultDateTo = getCurrentDatePakistan();
+  const defaultDateFrom = getDateDaysAgo(30);
 
   // State
   const [filters, setFilters] = useState({
@@ -443,23 +442,16 @@ export const StockMovements = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => handleFilterChange('dateFrom', e.target.value, { silent: true })}
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => handleFilterChange('dateTo', e.target.value, { silent: true })}
-                className="input"
+            <div className="col-span-2">
+              <DateFilter
+                startDate={filters.dateFrom}
+                endDate={filters.dateTo}
+                onDateChange={(start, end) => {
+                  handleFilterChange('dateFrom', start || '', { silent: true });
+                  handleFilterChange('dateTo', end || '', { silent: true });
+                }}
+                compact={true}
+                showPresets={true}
               />
             </div>
 
