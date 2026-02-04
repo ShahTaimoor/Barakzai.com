@@ -18,10 +18,6 @@ router.get('/', [
   requirePermission('view_reports'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-  query('fromDate').optional().isISO8601().withMessage('From date must be a valid date'),
-  query('toDate').optional().isISO8601().withMessage('To date must be a valid date'),
-  query('dateFrom').optional().isISO8601().withMessage('DateFrom must be a valid date'),
-  query('dateTo').optional().isISO8601().withMessage('DateTo must be a valid date'),
   query('voucherCode').optional().isString().trim().withMessage('Voucher code must be a string'),
   query('amount')
     .optional()
@@ -33,7 +29,10 @@ router.get('/', [
       return !isNaN(numValue) && numValue >= 0;
     })
     .withMessage('Amount must be a positive number'),
-  query('particular').optional().isString().trim().withMessage('Particular must be a string')
+  query('particular').optional().isString().trim().withMessage('Particular must be a string'),
+  ...validateDateParams,
+  handleValidationErrors,
+  processDateFilter('date'),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -56,6 +55,12 @@ router.get('/', [
     if (req.dateFilter && Object.keys(req.dateFilter).length > 0) {
       Object.assign(filter, req.dateFilter);
     }
+
+    // Get date range for service call (for backward compatibility)
+    const fromDate = req.dateRange?.startDate || null;
+    const toDate = req.dateRange?.endDate || null;
+    const dateFrom = req.dateRange?.startDate || null;
+    const dateTo = req.dateRange?.endDate || null;
 
     // Voucher code filter
     if (voucherCode) {

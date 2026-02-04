@@ -59,6 +59,8 @@ router.get('/', [
     // Get date range for service call (for backward compatibility)
     const fromDate = req.dateRange?.startDate || null;
     const toDate = req.dateRange?.endDate || null;
+    const dateFrom = req.dateRange?.startDate || null;
+    const dateTo = req.dateRange?.endDate || null;
 
     // Voucher code filter
     if (voucherCode) {
