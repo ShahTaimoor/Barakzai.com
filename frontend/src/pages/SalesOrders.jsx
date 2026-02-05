@@ -484,7 +484,7 @@ const SalesOrders = () => {
     // Tab title will be updated by useEffect when selectedCustomer changes
   };
 
-  const customerDisplayKey = (customer) => {
+  const customerDisplayKey = useCallback((customer) => {
     const receivables = (customer.pendingBalance || 0);
     const advance = (customer.advanceBalance || 0);
     const netBalance = receivables - advance;
@@ -503,7 +503,7 @@ const SalesOrders = () => {
         )}
       </div>
     );
-  };
+  }, []);
 
   const handleCustomerSelect = (customer) => {
     // SearchableDropdown passes the full customer object, not just the ID
@@ -657,7 +657,7 @@ const SalesOrders = () => {
     }
   };
 
-  const productDisplayKey = (product) => {
+  const productDisplayKey = useCallback((product) => {
     const inventory = product.inventory || {};
     const isLowStock = inventory.currentStock <= (inventory.reorderPoint || inventory.minStock || 0);
     const isOutOfStock = inventory.currentStock === 0;
@@ -699,7 +699,7 @@ const SalesOrders = () => {
         </div>
       </div>
     );
-  };
+  }, [priceType]);
 
   const handleAddItem = async () => {
     if (!selectedProduct) return;
@@ -1898,7 +1898,7 @@ const SalesOrders = () => {
           <SearchableDropdown
             ref={customerSearchRef}
             placeholder="Search customers by name, email, or business..."
-            items={customers || []}
+            items={customers}
             onSelect={handleCustomerSelect}
             onSearch={handleCustomerSearch}
             displayKey={customerDisplayKey}
