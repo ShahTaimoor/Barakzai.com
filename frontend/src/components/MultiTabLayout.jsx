@@ -629,6 +629,15 @@ export const MultiTabLayout = ({ children }) => {
 
             {/* Action Buttons Container - Center/Mid-Left with Horizontal Scroll - Hidden on Mobile */}
             <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
+              {/* Cash Receiving Button - Left side, desktop only */}
+              <button
+                onClick={() => navigate('/cash-receiving')}
+                className="btn btn-primary items-center justify-center gap-1.5 px-2.5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+              >
+                <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span>Cash Receiving</span>
+              </button>
+              
               {/* Green Buttons - Receipt related */}
               {sidebarConfig['Cash Receipts'] !== false && (
                 <button
@@ -685,34 +694,6 @@ export const MultiTabLayout = ({ children }) => {
                 </button>
               )}
 
-              {/* Hide Data and Cash Receiving Buttons - Desktop only, next to Record Expense */}
-              <div className="hidden lg:flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={toggleDashboardVisibility}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs sm:text-sm font-medium transition-colors flex-shrink-0 whitespace-nowrap"
-                  title={dashboardHidden ? 'Show dashboard data' : 'Hide dashboard data'}
-                >
-                  {dashboardHidden ? (
-                    <>
-                      <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span>Unhide data</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span>Hide data</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => navigate('/cash-receiving')}
-                  className="btn btn-primary items-center justify-center gap-1.5 px-2.5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
-                >
-                  <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span>Cash Receiving</span>
-                </button>
-              </div>
             </div>
 
 

@@ -466,8 +466,8 @@ export const Dashboard = () => {
           <p className="text-sm sm:text-base text-gray-600">Welcome back! Here's what's happening today.</p>
         </div>
         
-        {/* Date Filter using DateFilter component - Desktop only */}
-        <div className="hidden lg:block w-full sm:w-auto">
+        {/* Date Filter and Hide Data Button - Desktop only */}
+        <div className="hidden lg:flex items-center gap-3 w-full sm:w-auto">
           <DateFilter
             startDate={startDate}
             endDate={endDate}
@@ -476,6 +476,24 @@ export const Dashboard = () => {
             showPresets={true}
             className="w-full"
           />
+          <button
+            type="button"
+            onClick={toggleDashboardVisibility}
+            className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs sm:text-sm font-medium transition-colors flex-shrink-0 whitespace-nowrap"
+            title={dashboardHidden ? 'Show dashboard data' : 'Hide dashboard data'}
+          >
+            {dashboardHidden ? (
+              <>
+                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span>Unhide data</span>
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span>Hide data</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
