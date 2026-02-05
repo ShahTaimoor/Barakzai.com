@@ -64,7 +64,6 @@ export const navigation = [
   { type: 'heading', name: 'Operations Section', color: 'bg-teal-500' },
   { name: 'Sale Returns', href: '/sale-returns', icon: RotateCcw, permission: 'view_returns' },
   { name: 'Purchase Returns', href: '/purchase-returns', icon: RotateCcw, permission: 'view_returns' },
-  { name: 'Returns', href: '/returns', icon: RotateCcw, permission: 'view_returns' },
   { name: 'Discounts', href: '/discounts', icon: Tag, permission: 'view_discounts' },
   { name: 'CCTV Access', href: '/cctv-access', icon: Camera, permission: 'view_sales_invoices', allowMultiple: true },
 
