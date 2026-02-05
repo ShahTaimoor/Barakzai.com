@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShoppingCart,
@@ -103,6 +103,17 @@ export const Dashboard = () => {
       localStorage.setItem(DASHBOARD_HIDDEN_KEY, String(next));
     } catch (_) {}
   };
+
+  // Listen for dashboard visibility changes from MultiTabLayout
+  useEffect(() => {
+    const handleVisibilityChange = (event) => {
+      setDashboardHidden(event.detail.hidden);
+    };
+    window.addEventListener('dashboardVisibilityChanged', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('dashboardVisibilityChanged', handleVisibilityChange);
+    };
+  }, []);
 
   // Modal states
   const [showSalesOrdersModal, setShowSalesOrdersModal] = useState(false);
@@ -454,34 +465,17 @@ export const Dashboard = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm sm:text-base text-gray-600">Welcome back! Here's what's happening today.</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={toggleDashboardVisibility}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors"
-            title={dashboardHidden ? 'Show dashboard data' : 'Hide dashboard data'}
-          >
-            {dashboardHidden ? (
-              <>
-                <Eye className="h-4 w-4" />
-                <span>Unhide data</span>
-              </>
-            ) : (
-              <>
-                <EyeOff className="h-4 w-4" />
-                <span>Hide data</span>
-              </>
-            )}
-          </button>
-          <div className="hidden md:flex items-center gap-2">
-            <button
-              onClick={() => navigate('/cash-receiving')}
-              className="btn btn-primary items-center justify-center space-x-2 px-4 py-2.5 sm:px-6 sm:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex"
-            >
-              <Receipt className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="text-sm sm:text-base font-medium">Cash Receiving</span>
-            </button>
-          </div>
+        
+        {/* Date Filter using DateFilter component - Desktop only */}
+        <div className="hidden lg:block w-full sm:w-auto">
+          <DateFilter
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+            compact={true}
+            showPresets={true}
+            className="w-full"
+          />
         </div>
       </div>
 
@@ -582,7 +576,8 @@ export const Dashboard = () => {
         <div className="card-header">
           <div className="flex flex-col items-center space-y-2 sm:space-y-4">
             <h2 className="text-sm sm:text-lg font-medium text-gray-900">Financial Overview</h2>
-            <div className="flex flex-row items-center space-x-1.5 sm:space-x-4 w-full sm:w-auto">
+            {/* Date Filter - Mobile only */}
+            <div className="flex flex-row items-center space-x-1.5 sm:space-x-4 w-full sm:w-auto lg:hidden">
               <div className="w-full sm:w-auto">
                 <DateFilter
                   startDate={startDate}
