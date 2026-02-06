@@ -147,7 +147,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
     {
       threshold: 0.4,
       minScore: 0.3,
-      limit: 15 // Increased limit to show more results including variants
+      limit: null // Show unlimited products
     }
   );
 
@@ -1977,6 +1977,7 @@ export const Sales = ({ tabId, editData }) => {
               onSelect={handleCustomerSelect}
               onSearch={setCustomerSearchTerm}
               selectedItem={selectedCustomer}
+              rightContentKey="city"
               displayKey={(customer) => {
                 // Calculate total balance: currentBalance (which is net balance)
                 const totalBalance = customer.currentBalance !== undefined

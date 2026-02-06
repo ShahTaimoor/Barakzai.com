@@ -454,15 +454,15 @@ export const PurchaseOrders = ({ tabId }) => {
     {
       threshold: 0.4,
       minScore: 0.3,
-      limit: 50 // Limit results for dropdown
+      limit: null // Show unlimited products
     }
   );
   
-  // Show limited results when search is empty, all filtered results when searching
+  // Show all results when searching
   const productsData = React.useMemo(() => {
     if (!productSearchTerm || productSearchTerm.trim().length === 0) {
-      // Show first 30 items when no search term
-      return allItems.slice(0, 30);
+      // Show all items when no search term
+      return allItems;
     }
     return fuzzySearchResults;
   }, [productSearchTerm, allItems, fuzzySearchResults]);
@@ -475,15 +475,15 @@ export const PurchaseOrders = ({ tabId }) => {
     {
       threshold: 0.4,
       minScore: 0.3,
-      limit: 50
+      limit: null // Show unlimited products
     }
   );
   
-  // Show limited results when search is empty, all filtered results when searching
+  // Show all results when searching
   const modalProductsData = React.useMemo(() => {
     if (!modalProductSearchTerm || modalProductSearchTerm.trim().length === 0) {
-      // Show first 30 items when no search term
-      return allItems.slice(0, 30);
+      // Show all items when no search term
+      return allItems;
     }
     return modalFuzzySearchResults;
   }, [modalProductSearchTerm, allItems, modalFuzzySearchResults]);
@@ -2322,9 +2322,8 @@ export const PurchaseOrders = ({ tabId }) => {
                         />
                         {/* Product Suggestions */}
                         {modalProductsData && modalProductsData.length > 0 && (
-                          <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
+                          <div className="mt-2 max-h-96 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                             {modalProductsData
-                              .slice(0, 5)
                               .map((product, index) => (
                               <div
                                 key={product._id}

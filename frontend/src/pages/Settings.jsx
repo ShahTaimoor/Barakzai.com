@@ -12,7 +12,6 @@ import {
   Edit,
   Shield,
   UserCheck,
-  Upload,
   FileText,
   Printer,
   Eye,
@@ -59,7 +58,6 @@ export const Settings2 = () => {
     address: '',
     contactNumber: '',
     email: '',
-    logo: null,
     taxRegistrationNumber: ''
   });
   const [savingCompanySettings, setSavingCompanySettings] = useState(false);
@@ -664,7 +662,6 @@ export const Settings2 = () => {
         address: settings.address || '',
         contactNumber: settings.contactNumber || '',
         email: settings.email || '',
-        logo: settings.logo || null,
         taxRegistrationNumber: settings.taxId || '' // Map taxId back to taxRegistrationNumber
       };
       setCompanyData(mappedData);
@@ -763,7 +760,6 @@ export const Settings2 = () => {
           address: settings.data.data.address || '',
           contactNumber: settings.data.data.contactNumber || '',
           email: settings.data.data.email || '',
-          logo: settings.data.data.logo || null,
           taxRegistrationNumber: settings.data.data.taxId || ''
         };
 
@@ -808,7 +804,6 @@ export const Settings2 = () => {
         address: settings.data.data.address || '',
         contactNumber: settings.data.data.contactNumber || '',
         email: settings.data.data.email || '',
-        logo: settings.data.data.logo || null,
         taxRegistrationNumber: settings.data.data.taxId || ''
       };
       setCompanyData(newData);
@@ -829,7 +824,6 @@ export const Settings2 = () => {
           address: response.data.address || '',
           contactNumber: response.data.contactNumber || '',
           email: response.data.email || '',
-          logo: response.data.logo || null,
           taxRegistrationNumber: response.data.taxId || '' // Map taxId back to taxRegistrationNumber
         };
         setCompanyData(updatedData);
@@ -930,41 +924,10 @@ export const Settings2 = () => {
       contactNumber: companyData.contactNumber,
       address: companyData.address,
       email: companyData.email,
-      taxId: companyData.taxRegistrationNumber, // Map taxRegistrationNumber to taxId
-      logo: companyData.logo
+      taxId: companyData.taxRegistrationNumber // Map taxRegistrationNumber to taxId
     };
 
     handleSaveCompanySettings(dataToSend);
-  };
-
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file size (2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('File size must be less than 2MB');
-        return;
-      }
-
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please upload an image file');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCompanyData(prev => ({
-          ...prev,
-          logo: reader.result
-        }));
-        toast.success('Logo uploaded successfully!');
-      };
-      reader.onerror = () => {
-        toast.error('Failed to read file');
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleNewUserChange = (e) => {
@@ -1404,43 +1367,6 @@ export const Settings2 = () => {
                   />
                 </div>
 
-                {/* Logo Upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <div className="flex items-center space-x-2">
-                      <Upload className="h-4 w-4" />
-                      <span>Company Logo</span>
-                    </div>
-                  </label>
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="input"
-                    />
-                    {companyData.logo && (
-                      <div className="mt-2">
-                        <img
-                          src={companyData.logo}
-                          alt="Logo Preview"
-                          className="h-16 w-auto object-contain border border-gray-200 rounded p-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setCompanyData(prev => ({ ...prev, logo: null }))}
-                          className="text-xs text-red-600 hover:text-red-800 mt-1"
-                        >
-                          Remove Logo
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Upload your company logo (PNG, JPG, GIF - Max 2MB)
-                  </p>
-                </div>
-
                 {/* Save Button */}
                 <div className="flex justify-end pt-4 border-t">
                   <LoadingButton
@@ -1568,36 +1494,6 @@ export const Settings2 = () => {
                         rows="3"
                         required
                       />
-                    </div>
-
-                    {/* Logo Upload */}
-                    <div>
-                      <label className="block text-sm font-medium text-blue-800 mb-2">
-                        <div className="flex items-center space-x-2">
-                          <Upload className="h-4 w-4" />
-                          <span>Company Logo</span>
-                        </div>
-                      </label>
-                      <div className="flex items-center space-x-4">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleLogoUpload}
-                          className="input bg-white border-blue-300 focus:border-blue-500"
-                        />
-                        {companyData.logo && (
-                          <div className="mt-2">
-                            <img
-                              src={companyData.logo}
-                              alt="Logo Preview"
-                              className="h-16 w-auto object-contain border border-gray-200 rounded p-1"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Upload your company logo (PNG, JPG, GIF - Max 2MB)
-                      </p>
                     </div>
 
                     {/* Update Button */}
@@ -2409,7 +2305,6 @@ export const Settings2 = () => {
                         address: companyData.address,
                         email: companyData.email,
                         taxId: companyData.taxRegistrationNumber,
-                        logo: companyData.logo,
                         printSettings: printSettings
                       };
                       handleSaveCompanySettings(dataToSend);
