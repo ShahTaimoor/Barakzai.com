@@ -296,10 +296,7 @@ const SalesOrders = () => {
 
   // Update tab title when selectedCustomer changes (after render)
   useEffect(() => {
-    if (!updateTabTitle || !activeTabId || !tabs) return;
-
-    const activeTab = tabs.find(tab => tab.id === activeTabId);
-    if (!activeTab) return;
+    if (!updateTabTitle || !activeTabId) return;
 
     let newTitle;
     if (selectedCustomer) {
@@ -311,11 +308,11 @@ const SalesOrders = () => {
       return; // Don't update title when in edit modal
     }
 
-    // Only update if the title actually changed
-    if (activeTab.title !== newTitle) {
-      updateTabTitle(activeTab.id, newTitle);
+    // Only update if we have a valid tab ID
+    if (activeTabId) {
+      updateTabTitle(activeTabId, newTitle);
     }
-  }, [selectedCustomer, updateTabTitle, activeTabId, tabs, showEditModal]);
+  }, [selectedCustomer, updateTabTitle, activeTabId, showEditModal]);
 
   // Fetch sales orders
   const {
