@@ -178,35 +178,35 @@ export const Login = () => {
               <p className="text-center text-sm font-medium text-gray-600 mb-4">
                 Need Help?
               </p>
-              <div className="space-y-2">
+              <div className="flex flex-col items-start gap-2">
                 <a
                   href="mailto:wiserconsulting.info@gmail.com"
-                  className="flex items-center justify-center text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
                 >
-                  <Mail className="w-4 h-4 mr-2 text-gray-500" />
-                  wiserconsulting.info@gmail.com
+                  <Mail className="w-4 h-4 shrink-0 text-gray-500" />
+                  <span>wiserconsulting.info@gmail.com</span>
                 </a>
                 <a
                   href="https://wa.me/923130922988"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center text-sm text-gray-600 hover:text-[#25D366] transition-colors duration-200"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#25D366] transition-colors duration-200"
                 >
-                  <MessageCircle className="w-4 h-4 mr-2 text-[#25D366]" />
-                  WhatsApp: +92 313 0922988
+                  <MessageCircle className="w-4 h-4 shrink-0 text-[#25D366]" />
+                  <span>WhatsApp: +92 313 0922988</span>
                 </a>
                 <a
                   href="https://www.wiserconsulting.info"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200"
                 >
-                  <Globe className="w-4 h-4 mr-2 text-gray-500" />
-                  www.wiserconsulting.info
+                  <Globe className="w-4 h-4 shrink-0 text-gray-500" />
+                  <span>www.wiserconsulting.info</span>
                 </a>
-                <div className="flex items-center justify-center text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200">
-                  <MapPin className="w-4 h-4 mr-2 text-gray-500" />
-                  UG 390, Deans Trade Center, Cantt Peshawar
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="w-4 h-4 shrink-0 text-gray-500" />
+                  <span>UG 390, Deans Trade Center, Cantt Peshawar</span>
                 </div>
               </div>
             </div>
