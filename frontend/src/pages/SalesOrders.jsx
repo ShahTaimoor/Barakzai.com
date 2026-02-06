@@ -495,7 +495,6 @@ const SalesOrders = () => {
     return (
       <div>
         <div className="font-medium">{customer.displayName || customer.businessName || customer.name || 'Unknown'}</div>
-        {customer.email && <div className="text-sm text-gray-600">{customer.email}</div>}
         {hasBalance && (
           <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
             {isPayable ? 'Payables:' : 'Receivables:'} ${Math.abs(netBalance).toFixed(2)}
@@ -1920,9 +1919,6 @@ const SalesOrders = () => {
                   <p className="text-sm text-gray-600 capitalize">
                     {selectedCustomer.businessType || 'Business'} • {selectedCustomer.phone || 'No phone'}
                   </p>
-                  {selectedCustomer.email && (
-                    <p className="text-sm text-gray-600">{selectedCustomer.email}</p>
-                  )}
                   <div className="flex items-center space-x-4 mt-2">
                     {(() => {
                       const receivables = (selectedCustomer.pendingBalance || 0);
