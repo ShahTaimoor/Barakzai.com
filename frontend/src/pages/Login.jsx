@@ -24,11 +24,11 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen min-h-screen flex overflow-hidden">
       {/* Left Side - Image Background */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden min-h-0">
         <img
-          src="/images/Black and White Modern Business Meeting Zoom Virtual Background.png"
+          src="/images/Purple and Blue Modern Company Meeting Zoom Virtual Background.webp"
           alt="Login Background"
           className="w-full h-full object-cover"
         />
@@ -69,8 +69,9 @@ export const Login = () => {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+        <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+          <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="mx-auto h-14 w-14 flex items-center justify-center rounded-2xl bg-gray-800 shadow-lg mb-4">
@@ -215,6 +216,7 @@ export const Login = () => {
           <p className="mt-6 text-center text-xs text-gray-500">
             © 2024 POS System. All rights reserved.
           </p>
+          </div>
         </div>
       </div>
     </div>
