@@ -167,11 +167,9 @@ export const productsApi = api.injectEndpoints({
         responseType: 'blob',
       }),
     }),
-    // Download CSV template for product import
     downloadTemplate: builder.query({
       query: () => ({
-        // Backend route: GET /api/products/template/csv
-        url: 'products/template/csv',
+        url: 'products/template',
         method: 'get',
         responseType: 'blob',
       }),
