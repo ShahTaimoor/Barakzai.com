@@ -465,7 +465,29 @@ export const Dashboard = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm sm:text-base text-gray-600">Welcome back! Here's what's happening today.</p>
         </div>
-        
+
+        {/* Hide Data Button - Mobile only (no date filter here to save space) */}
+        <div className="flex items-center justify-end gap-2 w-full sm:w-auto lg:hidden">
+          <button
+            type="button"
+            onClick={toggleDashboardVisibility}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-medium transition-colors"
+            title={dashboardHidden ? 'Show dashboard data' : 'Hide dashboard data'}
+          >
+            {dashboardHidden ? (
+              <>
+                <Eye className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>Show data</span>
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>Hide data</span>
+              </>
+            )}
+          </button>
+        </div>
+
         {/* Date Filter and Hide Data Button - Desktop only */}
         <div className="hidden lg:flex items-center gap-3 w-full sm:w-auto">
           <DateFilter
