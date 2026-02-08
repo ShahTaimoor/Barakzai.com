@@ -32,7 +32,7 @@ import {
 } from '../store/services/bankReceiptsApi';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
 import DateFilter from '../components/DateFilter';
-import { getCurrentDatePakistan } from '../utils/dateUtils';
+import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
 
 const BankReceipts = () => {
   const today = getCurrentDatePakistan();
@@ -983,20 +983,24 @@ const BankReceipts = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleEdit(receipt)}
-                              className="text-indigo-600 hover:text-indigo-900"
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(receipt)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {formatDateForInput(receipt.date) === today && (
+                              <>
+                                <button
+                                  onClick={() => handleEdit(receipt)}
+                                  className="text-indigo-600 hover:text-indigo-900"
+                                  title="Edit"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(receipt)}
+                                  className="text-red-600 hover:text-red-900"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

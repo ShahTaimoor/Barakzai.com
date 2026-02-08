@@ -38,7 +38,7 @@ import { useGetCustomersQuery } from '../store/services/customersApi';
 import { useGetAccountsQuery } from '../store/services/chartOfAccountsApi';
 import { useGetBanksQuery } from '../store/services/banksApi';
 import DateFilter from '../components/DateFilter';
-import { getCurrentDatePakistan } from '../utils/dateUtils';
+import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
 
 const BankPayments = () => {
   const today = getCurrentDatePakistan();
@@ -1405,20 +1405,24 @@ const BankPayments = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleEdit(payment)}
-                              className="text-indigo-600 hover:text-indigo-900"
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(payment)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {formatDateForInput(payment.date) === today && (
+                              <>
+                                <button
+                                  onClick={() => handleEdit(payment)}
+                                  className="text-indigo-600 hover:text-indigo-900"
+                                  title="Edit"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(payment)}
+                                  className="text-red-600 hover:text-red-900"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
