@@ -364,7 +364,7 @@ export const PurchaseOrders = ({ tabId }) => {
 
   // Fetch suppliers for dropdown
   const { data: suppliersData, isLoading: suppliersLoading, refetch: refetchSuppliers } = useGetSuppliersQuery(
-    { search: '', limit: 100 },
+    { search: '', limit: 999999 },
     {
       skip: false,
       staleTime: 0, // Always consider data stale to get fresh balance information
