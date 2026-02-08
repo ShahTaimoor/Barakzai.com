@@ -781,7 +781,7 @@ const AccountLedgerSummary = () => {
                               {formatCurrency(entry.balance || 0)}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {entry.referenceId && entry.source ? (
+                              {entry.referenceId && entry.source && entry.source === 'Sale' ? (
                                 <button
                                   type="button"
                                   onClick={() => handlePrintEntry(entry)}
@@ -914,7 +914,7 @@ const AccountLedgerSummary = () => {
                               {formatCurrency(entry.balance || 0)}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {entry.referenceId && entry.source ? (
+                              {entry.referenceId && entry.source && entry.source === 'Purchase' ? (
                                 <button
                                   type="button"
                                   onClick={() => handlePrintEntry(entry)}
