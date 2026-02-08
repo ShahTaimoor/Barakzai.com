@@ -365,6 +365,9 @@ const AccountLedgerSummary = () => {
                 margin: 0;
                 padding: 0;
               }
+              .no-print {
+                display: none !important;
+              }
             }
             body {
               font-family: 'Inter', Arial, sans-serif;
@@ -730,7 +733,7 @@ const AccountLedgerSummary = () => {
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
                           Balance
                         </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-20">
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-20 no-print">
                           Print
                         </th>
                       </tr>
@@ -747,7 +750,7 @@ const AccountLedgerSummary = () => {
                           }`}>
                           {formatCurrency(detailedTransactionsData?.data?.openingBalance || 0)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-center"></td>
+                        <td className="px-4 py-3 text-sm text-center no-print"></td>
                       </tr>
 
                       {/* Transaction Rows */}
@@ -780,7 +783,7 @@ const AccountLedgerSummary = () => {
                               }`}>
                               {formatCurrency(entry.balance || 0)}
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-3 text-center no-print">
                               {entry.referenceId && entry.source && entry.source === 'Sale' ? (
                                 <button
                                   type="button"
@@ -817,7 +820,7 @@ const AccountLedgerSummary = () => {
                             }`}>
                             {formatCurrency(detailedTransactionsData?.data?.closingBalance || 0)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-center"></td>
+                          <td className="px-4 py-3 text-sm text-center no-print"></td>
                         </tr>
                       )}
                     </tbody>
@@ -867,7 +870,7 @@ const AccountLedgerSummary = () => {
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Debits</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Credits</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Balance</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-20">Print</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-20 no-print">Print</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -880,7 +883,7 @@ const AccountLedgerSummary = () => {
                           }`}>
                           {formatCurrency(detailedSupplierTransactionsData?.data?.openingBalance || 0)}
                         </td>
-                        <td className="px-4 py-3 text-center"></td>
+                        <td className="px-4 py-3 text-center no-print"></td>
                       </tr>
 
                       {/* Transaction Entries */}
@@ -913,7 +916,7 @@ const AccountLedgerSummary = () => {
                               }`}>
                               {formatCurrency(entry.balance || 0)}
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-3 text-center no-print">
                               {entry.referenceId && entry.source && entry.source === 'Purchase' ? (
                                 <button
                                   type="button"
@@ -950,7 +953,7 @@ const AccountLedgerSummary = () => {
                             }`}>
                             {formatCurrency(detailedSupplierTransactionsData?.data?.closingBalance || 0)}
                           </td>
-                          <td className="px-4 py-3 text-center"></td>
+                          <td className="px-4 py-3 text-center no-print"></td>
                         </tr>
                       )}
                     </tbody>
