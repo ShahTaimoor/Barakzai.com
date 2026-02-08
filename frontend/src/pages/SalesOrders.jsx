@@ -1510,7 +1510,9 @@ const SalesOrders = () => {
                 : item.rate !== undefined
                   ? item.rate
                   : 0
-            ) || 0
+            ) || 0,
+          total: Number(item.totalPrice ?? item.total ?? 0) || 0,
+          totalPrice: Number(item.totalPrice ?? item.total ?? 0) || 0
         };
       });
 
