@@ -1084,7 +1084,7 @@ export const Sales = ({ tabId, editData }) => {
         const loss = costPrice - newPrice;
         const lossPercent = ((loss / costPrice) * 100).toFixed(1);
         toast.error(
-          `Warning: Sale price ($${newPrice}) is below cost price ($${Math.round(costPrice)}). Loss: $${Math.round(loss)} (${lossPercent}%)`,
+          `Warning: Sale price (${newPrice}) is below cost price (${Math.round(costPrice)}). Loss: ${Math.round(loss)} (${lossPercent}%)`,
           {
             duration: 5000,
             position: 'top-center',
@@ -1772,7 +1772,7 @@ export const Sales = ({ tabId, editData }) => {
 
         if (newBalanceAfterOrder > selectedCustomer.creditLimit) {
           // Show simple and clear message when credit limit is exceeded
-          toast.error(`Your credit limit is full. Credit limit: $${selectedCustomer.creditLimit.toFixed(2)}. Please collect payment or reduce the order amount.`, {
+          toast.error(`Your credit limit is full. Credit limit: ${selectedCustomer.creditLimit.toFixed(2)}. Please collect payment or reduce the order amount.`, {
             duration: 8000,
             position: 'top-center',
             icon: '⚠️'
@@ -1781,8 +1781,8 @@ export const Sales = ({ tabId, editData }) => {
         } else if (availableCredit - unpaidAmount < (selectedCustomer.creditLimit * 0.1)) {
           // Warning when credit limit is almost reached (within 10%)
           const warningMessage = `Warning: ${selectedCustomer.displayName || selectedCustomer.name} is near credit limit. ` +
-            `Available credit: $${availableCredit.toFixed(2)}, ` +
-            `After this order: $${(availableCredit - unpaidAmount).toFixed(2)} remaining.`;
+            `Available credit: ${availableCredit.toFixed(2)}, ` +
+            `After this order: ${(availableCredit - unpaidAmount).toFixed(2)} remaining.`;
 
           toast.warning(warningMessage, {
             duration: 6000,
@@ -2117,8 +2117,8 @@ export const Sales = ({ tabId, editData }) => {
                             }`}
                         >
                           {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
                           }).format(totalProfit || 0)}
                         </span>
                       )}
@@ -2347,7 +2347,7 @@ export const Sales = ({ tabId, editData }) => {
                               <label className="block text-xs font-medium text-gray-500 mb-1">Cost</label>
                               <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center">
                                 {lastPurchasePrices[item.product._id] !== undefined
-                                  ? `$${Math.round(lastPurchasePrices[item.product._id])}`
+                                  ? `${Math.round(lastPurchasePrices[item.product._id])}`
                                   : 'N/A'}
                               </span>
                             </div>
@@ -2376,7 +2376,7 @@ export const Sales = ({ tabId, editData }) => {
                                 {/* Warning if sale price is below cost price (always show, regardless of showCostPrice) */}
                                 {lastPurchasePrices[item.product._id] !== undefined &&
                                   item.unitPrice < lastPurchasePrices[item.product._id] && (
-                                    <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold" title={`Sale price below cost! Loss: $${Math.round(lastPurchasePrices[item.product._id] - item.unitPrice)} per unit`}>
+                                    <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold" title={`Sale price below cost! Loss: ${Math.round(lastPurchasePrices[item.product._id] - item.unitPrice)} per unit`}>
                                       ⚠️ Loss
                                     </span>
                                   )}
@@ -2433,7 +2433,7 @@ export const Sales = ({ tabId, editData }) => {
                             <div className="col-span-1">
                               <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-8 flex items-center justify-center" title="Last Purchase Price">
                                 {lastPurchasePrices[item.product._id] !== undefined
-                                  ? `$${Math.round(lastPurchasePrices[item.product._id])}`
+                                  ? `${Math.round(lastPurchasePrices[item.product._id])}`
                                   : 'N/A'}
                               </span>
                             </div>
