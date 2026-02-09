@@ -339,8 +339,8 @@ const AccountLedgerSummary = () => {
           <title>Account Ledger Summary - ${customerName}</title>
           <style>
             @page {
-              size: A4 landscape;
-              margin: 8mm;
+              size: portrait;
+              margin: 10mm;
             }
             @media print {
               body { 
@@ -972,11 +972,11 @@ const AccountLedgerSummary = () => {
           <thead>
             <tr>
               <th style={{ width: '4%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>S.NO</th>
-              <th style={{ width: '6%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>DATE</th>
+              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>DATE</th>
               <th style={{ width: '60%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
-              <th style={{ width: '5%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>DEBITS</th>
-              <th style={{ width: '5%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>CREDITS</th>
-              <th style={{ width: '5%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>BALANCE</th>
+              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>DEBITS</th>
+              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>CREDITS</th>
+              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>BALANCE</th>
             </tr>
           </thead>
           <tbody>
