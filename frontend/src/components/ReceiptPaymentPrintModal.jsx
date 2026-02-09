@@ -88,11 +88,59 @@ const ReceiptPaymentPrintModal = ({
       <html>
         <head>
           <title>${resolvedDocumentTitle}</title>
-          <link rel="stylesheet" href="/index.css" />
           <style>
-            body { margin: 0; padding: 16px; background: #fff; }
-            .print-document__toolbar { display: none !important; }
-            .no-print { display: none !important; }
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 10mm;
+              }
+              body {
+                font-family: 'Inter', Arial, sans-serif;
+                font-size: 11px;
+                color: #000;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+              }
+              .print-document {
+                width: 100% !important;
+                max-width: 100% !important;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .print-document__toolbar, .no-print, button, .btn {
+                display: none !important;
+              }
+              .print-document__table th, 
+              .print-document__table td {
+                padding: 3px 4px !important;
+                font-size: 11px !important;
+                border: 1px solid #000 !important;
+              }
+            }
+            .print-document { width: 100%; font-family: 'Inter', sans-serif; }
+            .print-document__table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .print-document__table th, .print-document__table td { 
+              border: 1px solid #e5e7eb; padding: 4px 6px; font-size: 11px; 
+            }
+            .print-document__company { 
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            }
+            .print-document__company-details {
+              text-align: right;
+              flex: 1;
+            }
+            .print-document__company-name { font-size: 24px; font-weight: 700; }
+            .print-document__summary { margin-top: 20px; display: flex; justify-content: flex-end; }
+            .print-document__summary-table { width: 200px; }
+            .print-document__summary-row { display: flex; justify-content: space-between; font-size: 12px; }
+            .print-document__info-line { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+            .print-document__info-label { font-weight: 600; color: #374151; }
           </style>
         </head>
         <body>${printContent.innerHTML}</body>

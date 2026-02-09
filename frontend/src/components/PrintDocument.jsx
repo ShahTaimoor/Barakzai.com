@@ -243,14 +243,14 @@ const PrintDocument = ({
     const generatedAt = new Date();
 
     const billToLines = [
-        showPrintContactName ? partyInfo.name : null,
-        showPrintBusinessName && partyInfo.extra ? partyInfo.extra : null,
-        showEmail && partyInfo.email !== 'N/A' ? partyInfo.email : null,
-        partyInfo.phone !== 'N/A' ? partyInfo.phone : null,
-        showPrintAddress && (partyInfo.street || partyInfo.address) ? (partyInfo.street || partyInfo.address) : null,
-        showPrintCity && partyInfo.city ? partyInfo.city : null,
-        showPrintState && partyInfo.state ? partyInfo.state : null,
-        showPrintPostalCode && partyInfo.postalCode ? partyInfo.postalCode : null
+        showPrintContactName ? { label: 'Name:', value: partyInfo.name } : null,
+        showPrintBusinessName && partyInfo.extra ? { label: 'Business:', value: partyInfo.extra } : null,
+        showEmail && partyInfo.email !== 'N/A' ? { label: 'Email:', value: partyInfo.email } : null,
+        partyInfo.phone !== 'N/A' ? { label: 'Phone:', value: partyInfo.phone } : null,
+        showPrintAddress && (partyInfo.street || partyInfo.address) ? { label: 'Address:', value: (partyInfo.street || partyInfo.address) } : null,
+        showPrintCity && partyInfo.city ? { label: 'City:', value: partyInfo.city } : null,
+        showPrintState && partyInfo.state ? { label: 'State:', value: partyInfo.state } : null,
+        showPrintPostalCode && partyInfo.postalCode ? { label: 'Postal:', value: partyInfo.postalCode } : null
     ].filter(Boolean);
 
     const invoiceDetailLines = [
@@ -300,21 +300,21 @@ const PrintDocument = ({
                     </div>
                 )}
 
-                <div className="print-document__company-name">{resolvedCompanyName}</div>
-                {showCompanyDetails && (
-                    <div className="print-document__company-subtitle">{resolvedCompanySubtitle}</div>
-                )}
+                <div className="print-document__company-details">
+                    <div className="print-document__company-name">{resolvedCompanyName}</div>
+                    {showCompanyDetails && (
+                        <div className="print-document__company-subtitle">{resolvedCompanySubtitle}</div>
+                    )}
+                </div>
             </div>
 
             <div className="print-document__info-grid">
                 <div className="print-document__info-block">
                     <div className="print-document__section-label">{partyHeaderLabel}:</div>
                     {billToLines.map((line, idx) => (
-                        <div
-                            key={`bill-${idx}`}
-                            className="print-document__info-line print-document__info-line--stack"
-                        >
-                            {line}
+                        <div key={`bill-${idx}`} className="print-document__info-line">
+                            <span className="print-document__info-label">{line.label}</span>
+                            <span className="print-document__info-value">{line.value}</span>
                         </div>
                     ))}
                 </div>
