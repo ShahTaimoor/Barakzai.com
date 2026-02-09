@@ -4,6 +4,7 @@ const { auth, requirePermission } = require('../middleware/auth');
 const { handleValidationErrors, sanitizeRequest } = require('../middleware/validation');
 const { validateDateParams, processDateFilter } = require('../middleware/dateFilter');
 const balanceSheetService = require('../services/balanceSheetService');
+const balanceSheetCalculationService = require('../services/balanceSheetCalculationService');
 
 const router = express.Router();
 
@@ -29,8 +30,8 @@ router.post('/generate', [
 
     // Validate date range
     if (finalStartDate && finalStatementDate && new Date(finalStartDate) > new Date(finalStatementDate)) {
-      return res.status(400).json({ 
-        message: 'Start date must be before or equal to end date' 
+      return res.status(400).json({
+        message: 'Start date must be before or equal to end date'
       });
     }
 
@@ -87,7 +88,7 @@ router.get('/', [
       periodType,
       search
     };
-    
+
     if (req.dateRange) {
       queryParams.startDate = req.dateRange.startDate || undefined;
       queryParams.endDate = req.dateRange.endDate || undefined;
@@ -117,7 +118,7 @@ router.get('/:balanceSheetId', [
 ], async (req, res) => {
   try {
     const { balanceSheetId } = req.params;
-    
+
     const balanceSheet = await balanceSheetService.getBalanceSheetById(balanceSheetId);
 
     res.json(balanceSheet);
@@ -145,7 +146,7 @@ router.put('/:balanceSheetId/status', [
   try {
     const { balanceSheetId } = req.params;
     const { status, notes } = req.body;
-    
+
     const balanceSheet = await balanceSheetService.updateStatus(balanceSheetId, status, req.user._id, notes);
 
     res.json({
@@ -178,7 +179,7 @@ router.put('/:balanceSheetId', [
 ], async (req, res) => {
   try {
     const { balanceSheetId } = req.params;
-    
+
     const balanceSheet = await balanceSheetService.updateBalanceSheet(balanceSheetId, req.body, req.user._id);
 
     res.json({
@@ -209,7 +210,7 @@ router.delete('/:balanceSheetId', [
 ], async (req, res) => {
   try {
     const { balanceSheetId } = req.params;
-    
+
     const result = await balanceSheetService.deleteBalanceSheet(balanceSheetId);
 
     res.json({ message: result.message });
@@ -246,8 +247,8 @@ router.get('/:balanceSheetId/comparison', [
     );
 
     if (!comparisonData) {
-      return res.status(404).json({ 
-        message: 'No comparison data available for this balance sheet' 
+      return res.status(404).json({
+        message: 'No comparison data available for this balance sheet'
       });
     }
 
@@ -271,7 +272,7 @@ router.get('/stats', [
 ], async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     const period = startDate && endDate ? { startDate, endDate } : {};
     const stats = await balanceSheetCalculationService.getStats(period);
 
@@ -294,7 +295,7 @@ router.get('/latest', [
 ], async (req, res) => {
   try {
     const { periodType = 'monthly' } = req.query;
-    
+
     const balanceSheet = await balanceSheetService.getLatestByPeriodType(periodType);
 
     if (!balanceSheet) {
@@ -324,9 +325,9 @@ router.post('/:balanceSheetId/audit', [
   try {
     const { balanceSheetId } = req.params;
     const { action, details, changes } = req.body;
-    
+
     const balanceSheet = await balanceSheetService.getBalanceSheetById(balanceSheetId);
-    
+
     // Use the model's addAuditEntry method (it saves internally)
     await balanceSheet.addAuditEntry(action, req.user._id, details, changes);
 
@@ -356,12 +357,12 @@ router.post('/:balanceSheetId/export', [
   try {
     const { balanceSheetId } = req.params;
     const { format = 'pdf', purpose, recipient } = req.body;
-    
+
     const balanceSheet = await balanceSheetService.getBalanceSheetById(balanceSheetId);
     if (!balanceSheet) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Balance sheet not found' 
+        message: 'Balance sheet not found'
       });
     }
 

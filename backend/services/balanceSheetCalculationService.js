@@ -79,7 +79,7 @@ class BalanceSheetCalculationService {
 
       // Generate statement number
       const statementNumber = await this.generateStatementNumber(date, periodType);
-      
+
       // Check if balance sheet already exists for this period
       const existingBalanceSheet = await BalanceSheetRepository.findOne({
         statementDate: { $gte: new Date(date.getFullYear(), date.getMonth(), 1) },
@@ -87,7 +87,14 @@ class BalanceSheetCalculationService {
       });
 
       if (existingBalanceSheet) {
-        throw new Error(`Balance sheet already exists for ${periodType} period ending ${date.toLocaleDateString()}`);
+        if (existingBalanceSheet.status === 'draft') {
+          // If it's a draft, we can overwrite/regenerate it by deleting the old one first
+          console.warn(`Regenerating balance sheet for ${periodType} period ending ${date.toLocaleDateString()}. Previous draft ${existingBalanceSheet.statementNumber} will be deleted.`);
+          await BalanceSheetRepository.delete(existingBalanceSheet._id);
+        } else {
+          // If it's published/approved, we shouldn't overwrite it
+          throw new Error(`Balance sheet already exists for ${periodType} period ending ${date.toLocaleDateString()} and is in '${existingBalanceSheet.status}' status.`);
+        }
       }
 
       // Build period description
@@ -122,14 +129,14 @@ class BalanceSheetCalculationService {
 
       // Create the balance sheet
       const balanceSheet = new BalanceSheet(balanceSheetData);
-      
+
       // Validate balance sheet equation: Assets = Liabilities + Equity
       const totalAssets = balanceSheetData.assets.totalAssets;
       const totalLiabilities = balanceSheetData.liabilities.totalLiabilities;
       const totalEquity = balanceSheetData.equity.totalEquity;
       const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
       const difference = Math.abs(totalAssets - totalLiabilitiesAndEquity);
-      
+
       if (difference > 0.01) {
         console.error(`⚠️ Balance sheet equation imbalance detected for ${statementNumber}:`);
         console.error(`   Assets: ${totalAssets.toFixed(2)}`);
@@ -141,7 +148,7 @@ class BalanceSheetCalculationService {
         balanceSheetData.metadata.hasImbalance = true;
         balanceSheetData.metadata.imbalanceDifference = difference;
       }
-      
+
       try {
         await balanceSheet.save();
         if (difference > 0.01) {
@@ -165,7 +172,7 @@ class BalanceSheetCalculationService {
   async generateStatementNumber(statementDate, periodType) {
     const year = statementDate.getFullYear();
     const month = String(statementDate.getMonth() + 1).padStart(2, '0');
-    
+
     let prefix;
     switch (periodType) {
       case 'monthly':
@@ -193,7 +200,7 @@ class BalanceSheetCalculationService {
     // Extract sequence numbers and find the maximum
     let maxSequence = 0;
     const sequenceRegex = new RegExp(`^${prefix}-(\\d+)$`);
-    
+
     existingSheets.forEach(sheet => {
       const match = sheet.statementNumber.match(sequenceRegex);
       if (match) {
@@ -242,24 +249,24 @@ class BalanceSheetCalculationService {
       if (cashAndCashEquivalents.hasError) errors.push(`Cash: ${cashAndCashEquivalents.error}`);
       if (accountsReceivable.hasError) errors.push(`AR: ${accountsReceivable.error}`);
       if (inventory.hasError) errors.push(`Inventory: ${inventory.error}`);
-      
+
       if (errors.length > 0) {
         console.warn('Errors detected in asset calculations:', errors);
         // Continue but flag the issue
       }
 
       // Calculate totals manually to avoid pre-save middleware issues
-      const totalCurrentAssets = 
+      const totalCurrentAssets =
         cashAndCashEquivalents.total +
         accountsReceivable.netReceivables +
         inventory.total +
         prepaidExpenses +
         0; // otherCurrentAssets
 
-      const netPropertyPlantEquipment = 
+      const netPropertyPlantEquipment =
         propertyPlantEquipment.total - accumulatedDepreciation;
 
-      const totalFixedAssets = 
+      const totalFixedAssets =
         netPropertyPlantEquipment +
         intangibleAssets.total +
         longTermInvestments +
@@ -316,7 +323,7 @@ class BalanceSheetCalculationService {
     try {
       // Get account codes dynamically
       const accountCodes = await this.getAccountCodes();
-      
+
       // Calculate cash account balance (dynamic lookup)
       const cashAccountCode = accountCodes.cash || '1001';
       const cashBalance = await this.calculateAccountBalance(cashAccountCode, statementDate);
@@ -364,10 +371,10 @@ class BalanceSheetCalculationService {
     } catch (error) {
       console.error('Error calculating cash and cash equivalents:', error);
       // Return zeros but flag the error for upstream handling
-      return { 
-        cashOnHand: 0, 
-        bankAccounts: 0, 
-        pettyCash: 0, 
+      return {
+        cashOnHand: 0,
+        bankAccounts: 0,
+        pettyCash: 0,
         total: 0,
         hasError: true,
         error: error.message
@@ -380,7 +387,7 @@ class BalanceSheetCalculationService {
     try {
       // Get account codes dynamically
       const accountCodes = await this.getAccountCodes();
-      
+
       // Calculate accounts receivable balance (dynamic lookup)
       const arAccountCode = accountCodes.accountsReceivable || '1201';
       const arBalance = await this.calculateAccountBalance(arAccountCode, statementDate);
@@ -414,7 +421,7 @@ class BalanceSheetCalculationService {
     try {
       // Get account codes dynamically
       const accountCodes = await this.getAccountCodes();
-      
+
       // Calculate inventory balance (dynamic lookup)
       const inventoryAccountCode = accountCodes.inventory || '1301';
       const inventoryBalance = await this.calculateAccountBalance(inventoryAccountCode, statementDate);
@@ -700,7 +707,7 @@ class BalanceSheetCalculationService {
         accountCategory: 'other_assets',
         isActive: true,
         allowDirectPosting: true,
-        accountName: { 
+        accountName: {
           $not: { $regex: /goodwill|patent|trademark|intangible|investment|securities/i }
         }
       });
@@ -731,14 +738,14 @@ class BalanceSheetCalculationService {
       const otherLongTermLiabilities = await this.calculateOtherLongTermLiabilities(statementDate);
 
       // Calculate totals manually
-      const totalCurrentLiabilities = 
+      const totalCurrentLiabilities =
         accountsPayable.total +
         accruedExpenses.total +
         shortTermDebt.total +
         deferredRevenue +
         0; // otherCurrentLiabilities
 
-      const totalLongTermLiabilities = 
+      const totalLongTermLiabilities =
         longTermDebt.total +
         deferredTaxLiabilities +
         pensionLiabilities +
@@ -789,7 +796,7 @@ class BalanceSheetCalculationService {
     try {
       // Get account codes dynamically
       const accountCodes = await this.getAccountCodes();
-      
+
       // Calculate accounts payable balance (dynamic lookup)
       const apAccountCode = accountCodes.accountsPayable || '2001';
       const apBalance = await this.calculateAccountBalance(apAccountCode, statementDate);
@@ -858,8 +865,8 @@ class BalanceSheetCalculationService {
         taxesPayable += Math.max(0, salesTaxBalance);
       }
 
-      const total = salariesPayable + utilitiesPayable + rentPayable + 
-                   taxesPayable + interestPayable + otherAccruedExpenses;
+      const total = salariesPayable + utilitiesPayable + rentPayable +
+        taxesPayable + interestPayable + otherAccruedExpenses;
 
       return {
         salariesPayable: Math.max(0, salariesPayable),
@@ -1077,7 +1084,7 @@ class BalanceSheetCalculationService {
         accountCategory: 'long_term_liabilities',
         isActive: true,
         allowDirectPosting: true,
-        accountName: { 
+        accountName: {
           $not: { $regex: /mortgage|loan|bond|deferred.*tax|pension|retirement/i }
         }
       });
@@ -1174,17 +1181,17 @@ class BalanceSheetCalculationService {
       if (!normalizedAccountCode) {
         return 0;
       }
-      
+
       // Ensure statementDate is a Date object
       const date = statementDate instanceof Date ? statementDate : new Date(statementDate);
       if (isNaN(date.getTime())) {
         console.error(`Invalid statement date: ${statementDate}`);
         return 0;
       }
-      
-      const account = await ChartOfAccountsRepository.findOne({ 
-        accountCode: normalizedAccountCode, 
-        isActive: true 
+
+      const account = await ChartOfAccountsRepository.findOne({
+        accountCode: normalizedAccountCode,
+        isActive: true
       });
       if (!account) {
         return 0;
@@ -1233,7 +1240,7 @@ class BalanceSheetCalculationService {
     try {
       // Ensure statementDate is a Date object
       const date = statementDate instanceof Date ? statementDate : new Date(statementDate);
-      
+
       // Get all owner equity accounts from Chart of Accounts
       // Exclude system accounts (parent accounts) as they don't have direct balances
       const ownerEquityAccounts = await ChartOfAccountsRepository.findAll({
@@ -1241,7 +1248,7 @@ class BalanceSheetCalculationService {
         accountCategory: 'owner_equity',
         isActive: true,
         isSystemAccount: { $ne: true } // Exclude parent/system accounts
-      }).lean(); // Use lean() for better performance
+      }, { lean: true }); // Use lean() via options for better performance
 
       let commonStock = 0;
       let preferredStock = 0;
@@ -1253,7 +1260,7 @@ class BalanceSheetCalculationService {
           continue; // Skip invalid accounts
         }
         const balance = await this.calculateAccountBalance(account.accountCode, date);
-        
+
         // Map accounts to balance sheet categories based on account name/code
         // Common stock typically uses codes like 3101, 3102, etc.
         // Preferred stock uses codes like 3103, 3104, etc.
@@ -1261,18 +1268,18 @@ class BalanceSheetCalculationService {
         const accountCodeNum = parseInt(account.accountCode) || 0;
         const accountNameLower = (account.accountName || '').toLowerCase();
 
-        if (accountNameLower.includes('common stock') || 
-            accountNameLower.includes('common') ||
-            (accountCodeNum >= 3101 && accountCodeNum < 3103)) {
+        if (accountNameLower.includes('common stock') ||
+          accountNameLower.includes('common') ||
+          (accountCodeNum >= 3101 && accountCodeNum < 3103)) {
           commonStock += balance;
-        } else if (accountNameLower.includes('preferred stock') || 
-                   accountNameLower.includes('preferred') ||
-                   (accountCodeNum >= 3103 && accountCodeNum < 3105)) {
+        } else if (accountNameLower.includes('preferred stock') ||
+          accountNameLower.includes('preferred') ||
+          (accountCodeNum >= 3103 && accountCodeNum < 3105)) {
           preferredStock += balance;
-        } else if (accountNameLower.includes('paid-in') || 
-                   accountNameLower.includes('additional') ||
-                   accountNameLower.includes('capital') ||
-                   (accountCodeNum >= 3105 && accountCodeNum < 3200)) {
+        } else if (accountNameLower.includes('paid-in') ||
+          accountNameLower.includes('additional') ||
+          accountNameLower.includes('capital') ||
+          (accountCodeNum >= 3105 && accountCodeNum < 3200)) {
           additionalPaidInCapital += balance;
         } else {
           // Default: treat as common stock if it's owner equity
@@ -1345,7 +1352,7 @@ class BalanceSheetCalculationService {
     try {
       // Ensure statementDate is a Date object
       const date = statementDate instanceof Date ? statementDate : new Date(statementDate);
-      
+
       // Get equity accounts that are not owner_equity or retained_earnings
       // Exclude system accounts (parent accounts) as they don't have direct balances
       const otherEquityAccounts = await ChartOfAccountsRepository.findAll({
@@ -1353,7 +1360,7 @@ class BalanceSheetCalculationService {
         accountCategory: { $nin: ['owner_equity', 'retained_earnings'] },
         isActive: true,
         isSystemAccount: { $ne: true } // Exclude parent/system accounts
-      }).lean(); // Use lean() for better performance
+      }, { lean: true }); // Use lean() via options for better performance
 
       let treasuryStock = 0;
       let accumulatedOtherComprehensiveIncome = 0;
@@ -1364,15 +1371,15 @@ class BalanceSheetCalculationService {
           continue; // Skip invalid accounts
         }
         const balance = await this.calculateAccountBalance(account.accountCode, date);
-        
+
         // Map accounts to balance sheet categories based on account name
         const accountNameLower = (account.accountName || '').toLowerCase();
 
-        if (accountNameLower.includes('treasury') || 
-            accountNameLower.includes('treasury stock')) {
+        if (accountNameLower.includes('treasury') ||
+          accountNameLower.includes('treasury stock')) {
           treasuryStock += balance;
-        } else if (accountNameLower.includes('comprehensive') || 
-                   accountNameLower.includes('other comprehensive')) {
+        } else if (accountNameLower.includes('comprehensive') ||
+          accountNameLower.includes('other comprehensive')) {
           accumulatedOtherComprehensiveIncome += balance;
         } else {
           // Default: treat as other comprehensive income
@@ -1400,7 +1407,7 @@ class BalanceSheetCalculationService {
   // Get previous period date
   getPreviousPeriod(statementDate, periodType) {
     const date = new Date(statementDate);
-    
+
     switch (periodType) {
       case 'monthly':
         date.setMonth(date.getMonth() - 1);
@@ -1412,7 +1419,7 @@ class BalanceSheetCalculationService {
         date.setFullYear(date.getFullYear() - 1);
         break;
     }
-    
+
     return date;
   }
 
@@ -1421,7 +1428,7 @@ class BalanceSheetCalculationService {
     try {
       // Integrate with P&L service for accurate net income
       const startDate = this.getPreviousPeriod(statementDate, periodType);
-      
+
       // Try to find existing P&L statement for this period
       const plStatement = await FinancialStatement.findOne({
         type: 'profit_loss',
@@ -1458,7 +1465,7 @@ class BalanceSheetCalculationService {
       }
 
       // Fetch all products in one batch query
-      const products = productIds.size > 0 
+      const products = productIds.size > 0
         ? await Product.find({ _id: { $in: Array.from(productIds) } })
         : [];
       const productMap = new Map(products.map(p => [p._id.toString(), p]));
@@ -1470,7 +1477,7 @@ class BalanceSheetCalculationService {
           console.warn(`Order ${order._id || order.orderNumber} missing pricing.total`);
         }
         totalRevenue += orderTotal || 0;
-        
+
         // Calculate cost of goods sold using pre-fetched products
         if (order.items && Array.isArray(order.items)) {
           for (const item of order.items) {
@@ -1496,7 +1503,7 @@ class BalanceSheetCalculationService {
       try {
         // Get account codes dynamically
         const accountCodes = await AccountingService.getDefaultAccountCodes();
-        
+
         // Get all expense accounts (operating expenses category)
         const expenseAccounts = await ChartOfAccountsRepository.findAll({
           accountType: 'expense',
@@ -1506,12 +1513,12 @@ class BalanceSheetCalculationService {
         }, {
           select: 'accountCode accountName'
         });
-        
+
         // Get expense account codes
-        const expenseAccountCodes = expenseAccounts.length > 0 
+        const expenseAccountCodes = expenseAccounts.length > 0
           ? expenseAccounts.map(acc => acc.accountCode)
           : [accountCodes.otherExpenses].filter(Boolean);
-        
+
         // Query actual expense transactions for the period
         if (expenseAccountCodes.length > 0) {
           const expenseTransactions = await TransactionRepository.findAll({
@@ -1520,7 +1527,7 @@ class BalanceSheetCalculationService {
             status: 'completed',
             debitAmount: { $gt: 0 } // Expenses are debits
           });
-          
+
           // Sum all operating expenses
           operatingExpenses = expenseTransactions.reduce((sum, txn) => {
             return sum + (txn.debitAmount || 0);
@@ -1587,7 +1594,7 @@ class BalanceSheetCalculationService {
       }
 
       let comparisonBalanceSheet;
-      
+
       switch (comparisonType) {
         case 'previous':
           comparisonBalanceSheet = await BalanceSheetRepository.findOne({
@@ -1627,14 +1634,14 @@ class BalanceSheetCalculationService {
   // Calculate changes between balance sheets
   calculateChanges(current, comparison) {
     const changes = {};
-    
+
     // Calculate asset changes
     changes.assets = {
       totalAssets: {
         current: current.assets.totalAssets,
         previous: comparison.assets.totalAssets,
         change: current.assets.totalAssets - comparison.assets.totalAssets,
-        percentageChange: comparison.assets.totalAssets > 0 ? 
+        percentageChange: comparison.assets.totalAssets > 0 ?
           ((current.assets.totalAssets - comparison.assets.totalAssets) / comparison.assets.totalAssets) * 100 : 0
       }
     };
@@ -1645,7 +1652,7 @@ class BalanceSheetCalculationService {
         current: current.liabilities.totalLiabilities,
         previous: comparison.liabilities.totalLiabilities,
         change: current.liabilities.totalLiabilities - comparison.liabilities.totalLiabilities,
-        percentageChange: comparison.liabilities.totalLiabilities > 0 ? 
+        percentageChange: comparison.liabilities.totalLiabilities > 0 ?
           ((current.liabilities.totalLiabilities - comparison.liabilities.totalLiabilities) / comparison.liabilities.totalLiabilities) * 100 : 0
       }
     };
@@ -1656,7 +1663,7 @@ class BalanceSheetCalculationService {
         current: current.equity.totalEquity,
         previous: comparison.equity.totalEquity,
         change: current.equity.totalEquity - comparison.equity.totalEquity,
-        percentageChange: comparison.equity.totalEquity > 0 ? 
+        percentageChange: comparison.equity.totalEquity > 0 ?
           ((current.equity.totalEquity - comparison.equity.totalEquity) / comparison.equity.totalEquity) * 100 : 0
       }
     };
