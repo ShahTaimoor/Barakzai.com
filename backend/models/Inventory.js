@@ -179,7 +179,7 @@ const InventorySchema = new mongoose.Schema({
       trim: true,
     },
   }],
-  
+
   // Soft Delete Fields
   isDeleted: {
     type: Boolean,
@@ -190,7 +190,7 @@ const InventorySchema = new mongoose.Schema({
     type: Date,
     default: null
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
@@ -214,29 +214,29 @@ InventorySchema.index({ lastUpdated: -1 }); // For recently updated inventory
 InventorySchema.index({ 'location.warehouse': 1, status: 1 }); // For warehouse-specific queries
 
 // Virtual for available stock calculation
-InventorySchema.virtual('calculatedAvailableStock').get(function() {
+InventorySchema.virtual('calculatedAvailableStock').get(function () {
   return Math.max(0, this.currentStock - this.reservedStock);
 });
 
 // Pre-save middleware to update available stock
-InventorySchema.pre('save', function(next) {
+InventorySchema.pre('save', function (next) {
   this.availableStock = this.calculatedAvailableStock;
-  
+
   // Update status based on stock levels
   if (this.currentStock === 0) {
     this.status = 'out_of_stock';
   } else if (this.currentStock <= this.reorderPoint && this.status !== 'inactive') {
     this.status = 'active'; // Keep as active but low stock
   }
-  
+
   this.lastUpdated = new Date();
   next();
 });
 
 // Static method to update stock using atomic operations
-InventorySchema.statics.updateStock = async function(productId, movement) {
+InventorySchema.statics.updateStock = async function (productId, movement) {
   const { retryMongoOperation } = require('../utils/retry');
-  
+
   return retryMongoOperation(async () => {
     // Determine quantity change based on movement type
     let quantityChange = 0;
@@ -308,28 +308,27 @@ InventorySchema.statics.updateStock = async function(productId, movement) {
     }
 
     const updated = await this.findOneAndUpdate(filter, updateOps, options);
-    
+
     // Update available stock
     updated.availableStock = Math.max(0, updated.currentStock - updated.reservedStock);
-    
+
     // Update status based on stock
     if (updated.currentStock === 0) {
       updated.status = 'out_of_stock';
     } else if (updated.status === 'out_of_stock') {
       updated.status = 'active';
     }
-    
+
     // Update cost if provided in movement (for stock in/return)
     if (movement.cost !== undefined && movement.cost !== null && (movement.type === 'in' || movement.type === 'return')) {
-      const CostingService = require('../services/costingService');
-      const costingService = new CostingService();
-      
+      const costingService = require('../services/costingService');
+
       // Update average cost (this will update inventory.cost.average and save)
       const newAverageCost = await costingService.updateAverageCost(productId, movement.quantity, movement.cost);
-      
+
       // Reload inventory to get updated cost and set lastPurchase
       const inventoryWithCost = await this.findOne({ product: productId });
-      
+
       if (inventoryWithCost) {
         // Update last purchase cost
         if (!inventoryWithCost.cost) {
@@ -337,7 +336,7 @@ InventorySchema.statics.updateStock = async function(productId, movement) {
         }
         inventoryWithCost.cost.lastPurchase = movement.cost;
         await inventoryWithCost.save();
-        
+
         // Sync cost to Product model
         const Product = require('../models/Product');
         const product = await Product.findById(productId);
@@ -351,24 +350,24 @@ InventorySchema.statics.updateStock = async function(productId, movement) {
         }
       }
     }
-    
+
     await updated.save();
-    
+
     return updated;
   });
 };
 
 // Static method to reserve stock using atomic operations
-InventorySchema.statics.reserveStock = async function(productId, quantity) {
+InventorySchema.statics.reserveStock = async function (productId, quantity) {
   const { retryMongoOperation } = require('../utils/retry');
-  
+
   return retryMongoOperation(async () => {
     // First check if sufficient stock is available
     const inventory = await this.findOne({ product: productId });
     if (!inventory) {
       throw new Error('Inventory record not found for product');
     }
-    
+
     const availableStock = inventory.currentStock - inventory.reservedStock;
     if (availableStock < quantity) {
       throw new Error(`Insufficient available stock. Available: ${availableStock}, Requested: ${quantity}`);
@@ -393,9 +392,9 @@ InventorySchema.statics.reserveStock = async function(productId, quantity) {
 };
 
 // Static method to release reserved stock using atomic operations
-InventorySchema.statics.releaseStock = async function(productId, quantity) {
+InventorySchema.statics.releaseStock = async function (productId, quantity) {
   const { retryMongoOperation } = require('../utils/retry');
-  
+
   return retryMongoOperation(async () => {
     // Atomically decrement reserved stock (ensure it doesn't go below 0)
     const updated = await this.findOneAndUpdate(
@@ -425,7 +424,7 @@ InventorySchema.statics.releaseStock = async function(productId, quantity) {
 };
 
 // Instance method to add stock movement
-InventorySchema.methods.addStockMovement = async function(movementData) {
+InventorySchema.methods.addStockMovement = async function (movementData) {
   const movement = {
     type: movementData.type || 'adjustment',
     quantity: movementData.quantity || 0,
@@ -447,7 +446,7 @@ InventorySchema.methods.addStockMovement = async function(movementData) {
 
   // Add movement to array
   this.movements.push(movement);
-  
+
   // Update stock based on movement type
   if (movement.type === 'in' || movement.type === 'return') {
     this.currentStock += movement.quantity;
@@ -474,7 +473,7 @@ InventorySchema.methods.addStockMovement = async function(movementData) {
 };
 
 // Static method to get low stock items
-InventorySchema.statics.getLowStockItems = async function() {
+InventorySchema.statics.getLowStockItems = async function () {
   // Use aggregation pipeline for field comparison
   // Handle polymorphic references: product can reference either 'products' or 'productvariants' collections
   return await this.aggregate([

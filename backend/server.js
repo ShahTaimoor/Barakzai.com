@@ -188,6 +188,8 @@ app.use('/api/audit-reporting', require('./routes/auditReporting')); // Audit re
 app.use('/api/data-integrity', require('./routes/dataIntegrity')); // Data integrity routes
 app.use('/api/financial-validation', require('./routes/financialValidation')); // Financial validation routes
 app.use('/api/audit-forensics', require('./routes/auditForensics')); // Audit forensics routes
+app.use('/api/ledger-automation', require('./routes/ledgerAutomation')); // Ledger automation routes
+app.use('/api/balance-verification', require('./routes/balanceVerification')); // Balance verification routes
 
 // Health check endpoint (API version)
 app.get('/api/health', (req, res) => {
@@ -341,6 +343,16 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   // Start reconciliation jobs
   const { startReconciliationJobs } = require('./jobs/reconciliationJobs');
   startReconciliationJobs();
+
+  // Start ledger automation jobs (runs every 3 minutes)
+  const { initializeLedgerAutomation } = require('./jobs/ledgerAutomationJobs');
+  initializeLedgerAutomation();
+  logger.info('Ledger automation scheduler started (runs every 3 minutes)');
+
+  // Start balance rebuild jobs (runs every 1 minute)
+  const { initializeBalanceRebuild } = require('./jobs/balanceRebuildJobs');
+  initializeBalanceRebuild();
+  logger.info('Balance rebuild scheduler started (runs every 1 minute)');
 
   // Initialize production critical features scheduled jobs
   try {

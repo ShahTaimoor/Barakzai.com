@@ -25,7 +25,7 @@ const bankPaymentSchema = new mongoose.Schema({
     maxlength: 500,
     default: 'Bank Payment'
   },
-  
+
   // Bank Information
   bank: {
     type: mongoose.Schema.Types.ObjectId,
@@ -52,7 +52,7 @@ const bankPaymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ChartOfAccounts'
   },
-  
+
   // Reference Information
   order: {
     type: mongoose.Schema.Types.ObjectId,
@@ -69,14 +69,32 @@ const bankPaymentSchema = new mongoose.Schema({
     ref: 'Customer',
     required: false
   },
-  
+
   // Additional Information
   notes: {
     type: String,
     trim: true,
     maxlength: 1000
   },
-  
+
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  },
+
   // Audit Fields
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -93,7 +111,7 @@ const bankPaymentSchema = new mongoose.Schema({
 
 // Generate voucher code and transaction reference before saving
 const { generateDateBasedVoucherCode } = require('../utils/voucherCodeGenerator');
-bankPaymentSchema.pre('save', async function(next) {
+bankPaymentSchema.pre('save', async function (next) {
   if (this.isNew && !this.voucherCode) {
     try {
       this.voucherCode = await generateDateBasedVoucherCode({
@@ -104,19 +122,19 @@ bankPaymentSchema.pre('save', async function(next) {
       return next(error);
     }
   }
-  
+
   // Auto-generate transaction reference if not provided
   if (this.isNew && !this.transactionReference) {
     this.transactionReference = `${this.voucherCode || 'BP'}-${Date.now().toString().slice(-6)}`;
   }
-  
+
   // Populate legacy fields from bank reference for backward compatibility
   if (this.bank) {
     // Check if bank is populated (has accountNumber property)
     // When populated, this.bank will be an object with accountNumber/bankName
     // When not populated, this.bank will be an ObjectId, and accessing .accountNumber returns undefined
     const isPopulated = this.bank.accountNumber !== undefined && this.bank.bankName !== undefined;
-    
+
     if (isPopulated) {
       // Bank is already populated (from populate())
       this.bankAccount = this.bank.accountNumber;
@@ -137,7 +155,7 @@ bankPaymentSchema.pre('save', async function(next) {
       }
     }
   }
-  
+
   next();
 });
 

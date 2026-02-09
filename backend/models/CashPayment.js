@@ -24,7 +24,7 @@ const cashPaymentSchema = new mongoose.Schema({
     maxlength: 500,
     default: 'Cash Payment'
   },
-  
+
   // Reference Information
   order: {
     type: mongoose.Schema.Types.ObjectId,
@@ -41,7 +41,7 @@ const cashPaymentSchema = new mongoose.Schema({
     ref: 'Customer',
     required: false
   },
-  
+
   // Payment Method
   paymentMethod: {
     type: String,
@@ -52,14 +52,32 @@ const cashPaymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ChartOfAccounts'
   },
-  
+
   // Additional Information
   notes: {
     type: String,
     trim: true,
     maxlength: 1000
   },
-  
+
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  },
+
   // Audit Fields
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -76,7 +94,7 @@ const cashPaymentSchema = new mongoose.Schema({
 
 // Generate voucher code before saving
 const { generateDateBasedVoucherCode } = require('../utils/voucherCodeGenerator');
-cashPaymentSchema.pre('save', async function(next) {
+cashPaymentSchema.pre('save', async function (next) {
   if (this.isNew && !this.voucherCode) {
     try {
       this.voucherCode = await generateDateBasedVoucherCode({

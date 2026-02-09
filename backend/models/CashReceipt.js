@@ -25,7 +25,7 @@ const cashReceiptSchema = new mongoose.Schema({
     maxlength: 500,
     default: 'Cash Receipt'
   },
-  
+
   // Reference Information
   order: {
     type: mongoose.Schema.Types.ObjectId,
@@ -42,28 +42,46 @@ const cashReceiptSchema = new mongoose.Schema({
     ref: 'Supplier',
     required: false
   },
-  
+
   // Payment Method
   paymentMethod: {
     type: String,
     enum: ['cash', 'check', 'bank_transfer', 'other'],
     default: 'cash'
   },
-  
+
   // Status
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'cancelled'],
     default: 'confirmed'
   },
-  
+
   // Additional Information
   notes: {
     type: String,
     trim: true,
     maxlength: 1000
   },
-  
+
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  },
+
   // Audit Fields
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -79,7 +97,7 @@ const cashReceiptSchema = new mongoose.Schema({
 });
 
 // Pre-save middleware to generate voucher code
-cashReceiptSchema.pre('save', async function(next) {
+cashReceiptSchema.pre('save', async function (next) {
   // Only generate voucher code for new documents to maintain immutability
   if (this.isNew && !this.voucherCode) {
     try {

@@ -7,34 +7,34 @@ const TransactionSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  
+
   // Order reference (optional for expense transactions)
   orderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Sales',
     required: false
   },
-  
+
   // Payment reference
   paymentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment',
     required: true
   },
-  
+
   // Transaction type
   type: {
     type: String,
     required: true,
-    enum: ['sale', 'refund', 'void', 'adjustment', 'tip', 'discount']
+    enum: ['sale', 'purchase', 'refund', 'purchase_return', 'void', 'adjustment', 'tip', 'discount']
   },
-  
+
   // Transaction amount
   amount: {
     type: Number,
     required: true
   },
-  
+
   // Accounting entries (for double-entry bookkeeping)
   accountCode: {
     type: String,
@@ -59,14 +59,14 @@ const TransactionSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  
+
   // Currency
   currency: {
     type: String,
     default: 'USD',
     uppercase: true
   },
-  
+
   // Transaction status
   status: {
     type: String,
@@ -74,14 +74,14 @@ const TransactionSchema = new mongoose.Schema({
     enum: ['pending', 'processing', 'completed', 'failed', 'cancelled', 'declined'],
     default: 'pending'
   },
-  
+
   // Payment method (optional for accounting entries)
   paymentMethod: {
     type: String,
     required: false,
-    enum: ['cash', 'credit_card', 'debit_card', 'digital_wallet', 'bank_transfer', 'check', 'gift_card', 'store_credit']
+    enum: ['cash', 'credit_card', 'debit_card', 'digital_wallet', 'bank_transfer', 'check', 'gift_card', 'store_credit', 'account']
   },
-  
+
   // Gateway information
   gateway: {
     name: {
@@ -95,7 +95,7 @@ const TransactionSchema = new mongoose.Schema({
       default: 0
     }
   },
-  
+
   // Card details (for card transactions)
   cardDetails: {
     last4: String,
@@ -105,14 +105,14 @@ const TransactionSchema = new mongoose.Schema({
     holderName: String,
     token: String // Encrypted token
   },
-  
+
   // Digital wallet details
   walletDetails: {
     provider: String,
     walletId: String,
     deviceInfo: mongoose.Schema.Types.Mixed
   },
-  
+
   // Processing details
   processing: {
     initiatedAt: Date,
@@ -129,7 +129,7 @@ const TransactionSchema = new mongoose.Schema({
     errorCode: String,
     errorMessage: String
   },
-  
+
   // Customer information
   customer: {
     id: {
@@ -145,20 +145,20 @@ const TransactionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Supplier'
   },
-  
+
   // User who created the transaction
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  
+
   // Terminal information
   terminal: {
     id: String,
     location: String,
     version: String
   },
-  
+
   // Security and fraud prevention
   security: {
     ipAddress: String,
@@ -174,7 +174,7 @@ const TransactionSchema = new mongoose.Schema({
       keyId: String
     }
   },
-  
+
   // Additional data
   metadata: {
     receiptNumber: String,
@@ -182,18 +182,18 @@ const TransactionSchema = new mongoose.Schema({
     notes: String,
     tags: [String]
   },
-  
+
   // Timestamps
   createdAt: {
     type: Date,
     default: Date.now
   },
-  
+
   updatedAt: {
     type: Date,
     default: Date.now
   },
-  
+
   // Soft Delete Fields
   isDeleted: {
     type: Boolean,
@@ -223,37 +223,37 @@ TransactionSchema.index({ supplier: 1, createdAt: -1 });
 TransactionSchema.index({ description: 'text', reference: 'text' });
 
 // Pre-save middleware
-TransactionSchema.pre('save', function(next) {
+TransactionSchema.pre('save', function (next) {
   // Update processing time if completed
   if (this.status === 'completed' && this.processing.processedAt && this.processing.initiatedAt) {
     this.processing.processingTime = this.processing.processedAt.getTime() - this.processing.initiatedAt.getTime();
   }
-  
+
   // Update updatedAt
   this.updatedAt = new Date();
-  
+
   next();
 });
 
 // Static methods
-TransactionSchema.statics.findByOrderId = function(orderId) {
+TransactionSchema.statics.findByOrderId = function (orderId) {
   return this.find({ orderId }).sort({ createdAt: -1 });
 };
 
-TransactionSchema.statics.findByPaymentId = function(paymentId) {
+TransactionSchema.statics.findByPaymentId = function (paymentId) {
   return this.find({ paymentId }).sort({ createdAt: -1 });
 };
 
-TransactionSchema.statics.findByStatus = function(status) {
+TransactionSchema.statics.findByStatus = function (status) {
   return this.find({ status }).sort({ createdAt: -1 });
 };
 
-TransactionSchema.statics.getTransactionStats = function(startDate, endDate) {
+TransactionSchema.statics.getTransactionStats = function (startDate, endDate) {
   const match = {};
   if (startDate && endDate) {
     match.createdAt = { $gte: startDate, $lte: endDate };
   }
-  
+
   return this.aggregate([
     { $match: match },
     {
@@ -273,32 +273,32 @@ TransactionSchema.statics.getTransactionStats = function(startDate, endDate) {
 };
 
 // Instance methods
-TransactionSchema.methods.isSuccessful = function() {
+TransactionSchema.methods.isSuccessful = function () {
   return this.status === 'completed';
 };
 
-TransactionSchema.methods.isPending = function() {
+TransactionSchema.methods.isPending = function () {
   return this.status === 'pending' || this.status === 'processing';
 };
 
-TransactionSchema.methods.canVoid = function() {
+TransactionSchema.methods.canVoid = function () {
   return this.status === 'completed' && this.type === 'sale';
 };
 
-TransactionSchema.methods.canRefund = function() {
+TransactionSchema.methods.canRefund = function () {
   return this.status === 'completed' && (this.type === 'sale' || this.type === 'tip');
 };
 
-TransactionSchema.methods.void = function(processedBy, reason) {
+TransactionSchema.methods.void = function (processedBy, reason) {
   if (!this.canVoid()) {
     throw new Error('Transaction cannot be voided');
   }
-  
+
   this.status = 'cancelled';
   this.metadata.notes = reason || 'Transaction voided';
   this.processing.processedBy = processedBy;
   this.processing.processedAt = new Date();
-  
+
   return this.save();
 };
 

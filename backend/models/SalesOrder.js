@@ -46,10 +46,10 @@ const salesOrderSchema = new mongoose.Schema({
     ref: 'Customer',
     required: true
   },
-  
+
   // Order Details
   items: [salesOrderItemSchema],
-  
+
   // Financial Information
   subtotal: {
     type: Number,
@@ -70,14 +70,14 @@ const salesOrderSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  
+
   // Status and Workflow
   status: {
     type: String,
     enum: ['draft', 'confirmed', 'partially_invoiced', 'fully_invoiced', 'cancelled', 'closed'],
     default: 'draft'
   },
-  
+
   // Dates
   orderDate: {
     type: Date,
@@ -92,7 +92,7 @@ const salesOrderSchema = new mongoose.Schema({
   lastInvoicedDate: {
     type: Date
   },
-  
+
   // Additional Information
   notes: {
     type: String,
@@ -103,7 +103,7 @@ const salesOrderSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  
+
   // Conversion Tracking
   conversions: [{
     invoiceId: {
@@ -127,7 +127,33 @@ const salesOrderSchema = new mongoose.Schema({
       unitPrice: Number
     }]
   }],
-  
+
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  },
+  invoiceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Sales'
+  },
+  autoConverted: {
+    type: Boolean,
+    default: false
+  },
+
   // Audit
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -155,40 +181,40 @@ salesOrderSchema.index({ status: 1, createdAt: -1 }); // For status-based querie
 salesOrderSchema.index({ total: -1 }); // For sorting by total
 
 // Virtual for progress percentage
-salesOrderSchema.virtual('progressPercentage').get(function() {
+salesOrderSchema.virtual('progressPercentage').get(function () {
   if (this.items.length === 0) return 0;
-  
+
   const totalOrdered = this.items.reduce((sum, item) => sum + item.quantity, 0);
   const totalInvoiced = this.items.reduce((sum, item) => sum + item.invoicedQuantity, 0);
-  
+
   return Math.round((totalInvoiced / totalOrdered) * 100);
 });
 
 // Virtual for remaining items count
-salesOrderSchema.virtual('remainingItemsCount').get(function() {
+salesOrderSchema.virtual('remainingItemsCount').get(function () {
   return this.items.filter(item => item.remainingQuantity > 0).length;
 });
 
 // Virtual for total remaining value
-salesOrderSchema.virtual('remainingValue').get(function() {
-  return this.items.reduce((sum, item) => 
+salesOrderSchema.virtual('remainingValue').get(function () {
+  return this.items.reduce((sum, item) =>
     sum + (item.remainingQuantity * item.unitPrice), 0);
 });
 
 // Method to check if SO is fully invoiced
-salesOrderSchema.methods.isFullyInvoiced = function() {
+salesOrderSchema.methods.isFullyInvoiced = function () {
   return this.items.every(item => item.remainingQuantity === 0);
 };
 
 // Method to check if SO is partially invoiced
-salesOrderSchema.methods.isPartiallyInvoiced = function() {
+salesOrderSchema.methods.isPartiallyInvoiced = function () {
   const hasInvoiced = this.items.some(item => item.invoicedQuantity > 0);
   const hasRemaining = this.items.some(item => item.remainingQuantity > 0);
   return hasInvoiced && hasRemaining;
 };
 
 // Method to update item quantities after invoicing
-salesOrderSchema.methods.updateInvoicedQuantities = function(invoicedItems) {
+salesOrderSchema.methods.updateInvoicedQuantities = function (invoicedItems) {
   invoicedItems.forEach(invoicedItem => {
     const soItem = this.items.id(invoicedItem.productId);
     if (soItem) {
@@ -197,41 +223,41 @@ salesOrderSchema.methods.updateInvoicedQuantities = function(invoicedItems) {
       soItem.remainingQuantity = soItem.quantity - soItem.invoicedQuantity;
     }
   });
-  
+
   // Update status based on invoiced quantities
   if (this.isFullyInvoiced()) {
     this.status = 'fully_invoiced';
   } else if (this.isPartiallyInvoiced()) {
     this.status = 'partially_invoiced';
   }
-  
+
   this.lastInvoicedDate = new Date();
   return this.save();
 };
 
 // Pre-save middleware to calculate totals
-salesOrderSchema.pre('save', function(next) {
+salesOrderSchema.pre('save', function (next) {
   // Calculate item totals
   this.items.forEach(item => {
     item.totalPrice = item.quantity * item.unitPrice;
     item.remainingQuantity = item.quantity - item.invoicedQuantity;
   });
-  
+
   // Calculate order totals
   this.subtotal = this.items.reduce((sum, item) => sum + item.totalPrice, 0);
   this.total = this.subtotal + this.tax;
-  
+
   next();
 });
 
 // Static method to generate SO number
-salesOrderSchema.statics.generateSONumber = function() {
+salesOrderSchema.statics.generateSONumber = function () {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const time = String(now.getTime()).slice(-4);
-  
+
   return `SO-${year}${month}${day}-${time}`;
 };
 

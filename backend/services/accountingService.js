@@ -16,19 +16,19 @@ class AccountingService {
     if (!accountCode || typeof accountCode !== 'string') {
       throw new Error('Account code is required and must be a string');
     }
-    const account = await ChartOfAccountsRepository.findOne({ 
+    const account = await ChartOfAccountsRepository.findOne({
       accountCode: accountCode.toUpperCase(),
-      isActive: true 
+      isActive: true
     });
-    
+
     if (!account) {
       throw new Error(`Account code ${accountCode} not found or inactive in Chart of Accounts`);
     }
-    
+
     if (!account.allowDirectPosting) {
       throw new Error(`Account ${accountCode} (${account.accountName}) does not allow direct posting`);
     }
-    
+
     return account;
   }
 
@@ -52,10 +52,10 @@ class AccountingService {
       'Cost of Goods Sold': ['Cost of Goods Sold', 'COGS', 'Cost of Sales'],
       'Other Expenses': ['Other Expenses', 'Miscellaneous Expenses', 'Other Operating Expenses']
     };
-    
+
     // Get search terms for this account name
     const searchTerms = namePatterns[accountName] || [accountName];
-    
+
     // Try each search pattern
     for (const searchTerm of searchTerms) {
       const query = {
@@ -64,17 +64,17 @@ class AccountingService {
         isActive: true,
         allowDirectPosting: true
       };
-      
+
       if (accountCategory) {
         query.accountCategory = accountCategory;
       }
-      
+
       const account = await ChartOfAccountsRepository.findOne(query);
       if (account) {
         return account.accountCode;
       }
     }
-    
+
     // Fallback: Try to find by account name pattern (partial match) and type
     const fallbackAccount = await ChartOfAccountsRepository.findOne({
       accountName: { $regex: new RegExp(accountName.split(' ')[0], 'i') }, // Match first word
@@ -82,22 +82,22 @@ class AccountingService {
       isActive: true,
       allowDirectPosting: true
     });
-    
+
     if (fallbackAccount) {
       return fallbackAccount.accountCode;
     }
-    
+
     // Final fallback: Try to find by account name only (any type)
     const anyTypeAccount = await ChartOfAccountsRepository.findOne({
       accountName: { $regex: new RegExp(accountName.split(' ')[0], 'i') },
       isActive: true
     });
-    
+
     if (anyTypeAccount) {
       console.warn(`Account found but type mismatch: ${accountName}. Expected: ${accountType}, Found: ${anyTypeAccount.accountType}`);
       return anyTypeAccount.accountCode;
     }
-    
+
     throw new Error(`Account not found: ${accountName} (${accountType}${accountCategory ? '/' + accountCategory : ''})`);
   }
 
@@ -107,7 +107,7 @@ class AccountingService {
    */
   static async getDefaultAccountCodes() {
     const codes = {};
-    
+
     try {
       codes.cash = await this.getAccountCode('Cash', 'asset', 'current_assets').catch((err) => {
         console.warn(`Account lookup failed for Cash, using fallback '1001':`, err.message);
@@ -158,7 +158,7 @@ class AccountingService {
       codes.costOfGoodsSold = '5001';
       codes.otherExpenses = '5430';
     }
-    
+
     return codes;
   }
   /**
@@ -170,7 +170,7 @@ class AccountingService {
     try {
       const transactions = [];
       const accountCodes = await this.getDefaultAccountCodes();
-      
+
       // Debit: Cash Account
       const cashTransaction = await this.createTransaction({
         transactionId: `CR-${cashReceipt._id}`,
@@ -253,7 +253,7 @@ class AccountingService {
     try {
       const transactions = [];
       const accountCodes = await this.getDefaultAccountCodes();
-      
+
       // Credit: Cash Account
       const cashTransaction = await this.createTransaction({
         transactionId: `CP-${cashPayment._id}`,
@@ -371,7 +371,7 @@ class AccountingService {
     try {
       const transactions = [];
       const accountCodes = await this.getDefaultAccountCodes();
-      
+
       // Debit: Bank Account
       const bankTransaction = await this.createTransaction({
         transactionId: `BR-${bankReceipt._id}`,
@@ -454,7 +454,7 @@ class AccountingService {
     try {
       const transactions = [];
       const accountCodes = await this.getDefaultAccountCodes();
-      
+
       // Credit: Bank Account
       const bankTransaction = await this.createTransaction({
         transactionId: `BP-${bankPayment._id}`,
@@ -573,7 +573,7 @@ class AccountingService {
     const totalDebits = transactions.reduce((sum, t) => sum + (t.debitAmount || 0), 0);
     const totalCredits = transactions.reduce((sum, t) => sum + (t.creditAmount || 0), 0);
     const balanceDifference = Math.abs(totalDebits - totalCredits);
-    
+
     if (balanceDifference > 0.01) {
       // Delete created transactions if unbalanced - use transaction for atomicity
       const session = await mongoose.startSession();
@@ -593,7 +593,7 @@ class AccountingService {
       }
       throw new Error(`Unbalanced transaction entries for ${reference}: Debits ${totalDebits.toFixed(2)} ≠ Credits ${totalCredits.toFixed(2)}`);
     }
-    
+
     return { totalDebits, totalCredits };
   }
 
@@ -608,7 +608,7 @@ class AccountingService {
       if (transactionData.accountCode) {
         await this.validateAccount(transactionData.accountCode);
       }
-      
+
       const transaction = new Transaction(transactionData);
       await transaction.save();
       return transaction;
@@ -633,11 +633,11 @@ class AccountingService {
       }
 
       // Get account to determine normal balance type
-      const account = await ChartOfAccountsRepository.findOne({ 
-        accountCode: normalizedAccountCode, 
-        isActive: true 
+      const account = await ChartOfAccountsRepository.findOne({
+        accountCode: normalizedAccountCode,
+        isActive: true
       });
-      
+
       if (!account) {
         console.warn(`Account ${normalizedAccountCode} not found or inactive`);
         return 0;
@@ -659,7 +659,7 @@ class AccountingService {
       transactions.forEach(transaction => {
         const debit = transaction.debitAmount || 0;
         const credit = transaction.creditAmount || 0;
-        
+
         if (account.normalBalance === 'credit') {
           // Credit normal balance: credits increase, debits decrease
           balance = balance + credit - debit;
@@ -721,7 +721,7 @@ class AccountingService {
       const amountPaid = order.payment?.amountPaid || 0;
       const unpaidAmount = orderTotal - amountPaid;
       const accountCodes = await this.getDefaultAccountCodes();
-      
+
       // Handle payment method and partial payments
       // For partial payments, debit both Cash and AR
       if (amountPaid > 0) {
@@ -745,7 +745,7 @@ class AccountingService {
         });
         transactions.push(cashTransaction);
       }
-      
+
       // Debit AR for unpaid amount (if any)
       if (unpaidAmount > 0) {
         const arTransaction = await this.createTransaction({
@@ -791,18 +791,18 @@ class AccountingService {
       // Debit: Cost of Goods Sold (COGS)
       let totalCOGS = 0;
       const Product = require('../models/Product');
-      
+
       // Collect all product IDs to avoid N+1 queries
       const productIds = order.items
         ? order.items.map(item => item.product).filter(Boolean)
         : [];
-      
+
       // Fetch all products in one batch query
       const products = productIds.length > 0
         ? await Product.find({ _id: { $in: productIds } })
         : [];
       const productMap = new Map(products.map(p => [p._id.toString(), p]));
-      
+
       // Calculate COGS using pre-fetched products
       if (order.items && Array.isArray(order.items)) {
         for (const item of order.items) {
@@ -810,10 +810,10 @@ class AccountingService {
             const product = productMap.get(item.product.toString());
             if (product) {
               const productCost = product.pricing?.cost;
-            if (productCost === undefined || productCost === null) {
-              console.warn(`Product ${product._id} missing pricing.cost for order ${order.orderNumber}`);
-            }
-            const cost = productCost || 0;
+              if (productCost === undefined || productCost === null) {
+                console.warn(`Product ${product._id} missing pricing.cost for order ${order.orderNumber}`);
+              }
+              const cost = productCost || 0;
               totalCOGS += item.quantity * cost;
             }
           }
@@ -881,20 +881,20 @@ class AccountingService {
     try {
       const transactions = [];
       const accountCodes = await this.getDefaultAccountCodes();
-      
-      // Validate purchase order has pricing.total
-      const purchaseTotal = purchaseOrder.pricing?.total;
+
+      // Validate purchase order has total (PurchaseOrder model uses root-level total, but we handle pricing.total for compatibility)
+      const purchaseTotal = purchaseOrder.total !== undefined ? purchaseOrder.total : purchaseOrder.pricing?.total;
       if (purchaseTotal === undefined || purchaseTotal === null) {
-        throw new Error(`Purchase order ${purchaseOrder._id || purchaseOrder.poNumber} missing required pricing.total`);
+        throw new Error(`Purchase order ${purchaseOrder._id || purchaseOrder.poNumber} missing required total`);
       }
-      
+
       // Debit: Inventory (increase inventory value)
       const inventoryTransaction = await this.createTransaction({
         transactionId: `PO-INV-${purchaseOrder._id}`,
         orderId: purchaseOrder._id,
         paymentId: purchaseOrder._id,
         paymentMethod: 'account',
-        type: 'sale',
+        type: 'purchase',
         amount: purchaseTotal,
         currency: 'USD',
         status: 'completed',
@@ -914,7 +914,7 @@ class AccountingService {
         orderId: purchaseOrder._id,
         paymentId: purchaseOrder._id,
         paymentMethod: 'account',
-        type: 'sale',
+        type: 'purchase',
         amount: purchaseTotal,
         currency: 'USD',
         status: 'completed',
@@ -948,7 +948,7 @@ class AccountingService {
     try {
       // Get account codes dynamically instead of hardcoding
       const accountCodes = await this.getDefaultAccountCodes();
-      
+
       // Get current balances for key accounts using dynamic account codes
       const cashBalance = await this.getAccountBalance(accountCodes.cash, statementDate);
       const bankBalance = await this.getAccountBalance(accountCodes.bank, statementDate);
@@ -958,7 +958,7 @@ class AccountingService {
 
       // Create or update balance sheet
       const statementNumber = `BS-${statementDate.getFullYear()}-${String(statementDate.getMonth() + 1).padStart(2, '0')}`;
-      
+
       const balanceSheetData = {
         statementNumber,
         statementDate,

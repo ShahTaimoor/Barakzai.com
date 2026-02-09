@@ -40,7 +40,7 @@ const purchaseInvoiceSchema = new mongoose.Schema({
     enum: ['purchase', 'return', 'adjustment'],
     default: 'purchase'
   },
-  
+
   // Supplier Information
   supplier: {
     type: mongoose.Schema.Types.ObjectId,
@@ -53,10 +53,10 @@ const purchaseInvoiceSchema = new mongoose.Schema({
     companyName: String,
     address: String
   },
-  
+
   // Invoice Items
   items: [purchaseInvoiceItemSchema],
-  
+
   // Pricing Summary
   pricing: {
     subtotal: {
@@ -84,7 +84,7 @@ const purchaseInvoiceSchema = new mongoose.Schema({
       min: 0
     }
   },
-  
+
   // Payment Information
   payment: {
     status: {
@@ -109,20 +109,20 @@ const purchaseInvoiceSchema = new mongoose.Schema({
       default: false
     }
   },
-  
+
   // Additional Information
   expectedDelivery: Date,
   actualDelivery: Date,
   notes: String,
   terms: String,
-  
+
   // Editable Invoice Date (for backdating/postdating)
   invoiceDate: {
     type: Date,
     default: null,
     index: true
   },
-  
+
   // Status and Tracking
   status: {
     type: String,
@@ -131,6 +131,24 @@ const purchaseInvoiceSchema = new mongoose.Schema({
   },
   confirmedDate: Date,
   receivedDate: Date,
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  },
+
   lastModifiedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -140,7 +158,7 @@ const purchaseInvoiceSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  
+
   // Soft Delete Fields
   isDeleted: {
     type: Boolean,
@@ -162,40 +180,40 @@ purchaseInvoiceSchema.index({ status: 1 });
 purchaseInvoiceSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to generate invoice number
-purchaseInvoiceSchema.pre('save', async function(next) {
+purchaseInvoiceSchema.pre('save', async function (next) {
   if (this.isNew && !this.invoiceNumber) {
     // Use invoiceDate if provided (for backdating), otherwise use current date
     const dateToUse = this.invoiceDate ? new Date(this.invoiceDate) : new Date();
     const year = dateToUse.getFullYear();
     const month = String(dateToUse.getMonth() + 1).padStart(2, '0');
     const day = String(dateToUse.getDate()).padStart(2, '0');
-    
+
     // Use atomic counter for date-based invoice numbers (same approach as Sales)
     try {
       const Counter = mongoose.model('Counter');
       const counterKey = `purchaseInvoiceNumber_${year}${month}${day}`;
-      
+
       // Atomically increment counter using findOneAndUpdate
       const counter = await Counter.findOneAndUpdate(
         { _id: counterKey },
         { $inc: { seq: 1 } },
         { upsert: true, new: true }
       );
-      
+
       this.invoiceNumber = `PI-${year}${month}${day}-${String(counter.seq).padStart(4, '0')}`;
     } catch (err) {
       console.error('Error generating purchase invoice number:', err);
       // Fallback to count-based method if Counter model fails
       const startOfDay = new Date(dateToUse.getFullYear(), dateToUse.getMonth(), dateToUse.getDate());
       const endOfDay = new Date(dateToUse.getFullYear(), dateToUse.getMonth(), dateToUse.getDate() + 1);
-      
+
       const count = await this.constructor.countDocuments({
         $or: [
           { invoiceDate: { $gte: startOfDay, $lt: endOfDay } },
           { createdAt: { $gte: startOfDay, $lt: endOfDay } }
         ]
       });
-      
+
       this.invoiceNumber = `PI-${year}${month}${day}-${String(count + 1).padStart(4, '0')}`;
     }
   }
@@ -203,28 +221,28 @@ purchaseInvoiceSchema.pre('save', async function(next) {
 });
 
 // Static method to generate invoice number
-purchaseInvoiceSchema.statics.generateInvoiceNumber = function() {
+purchaseInvoiceSchema.statics.generateInvoiceNumber = function () {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const time = String(now.getTime()).slice(-4);
-  
+
   return `PI-${year}${month}${day}-${time}`;
 };
 
 // Method to calculate totals
-purchaseInvoiceSchema.methods.calculateTotals = function() {
+purchaseInvoiceSchema.methods.calculateTotals = function () {
   let subtotal = 0;
-  
+
   this.items.forEach(item => {
     item.totalCost = item.quantity * item.unitCost;
     subtotal += item.totalCost;
   });
-  
+
   this.pricing.subtotal = subtotal;
   this.pricing.total = subtotal - (this.pricing.discountAmount || 0) + (this.pricing.taxAmount || 0);
-  
+
   return this.pricing;
 };
 

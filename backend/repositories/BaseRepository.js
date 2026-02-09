@@ -14,15 +14,15 @@ class BaseRepository {
    */
   async findAll(query = {}, options = {}) {
     const { skip, limit, sort, populate, select, lean, includeDeleted = false } = options;
-    
+
     // Add soft delete filter (only if model supports soft delete)
     const finalQuery = { ...query };
     if (!includeDeleted && this.Model.schema.paths.isDeleted) {
       finalQuery.isDeleted = { $ne: true };
     }
-    
+
     let queryBuilder = this.Model.find(finalQuery);
-    
+
     if (populate) {
       if (Array.isArray(populate)) {
         populate.forEach(pop => queryBuilder = queryBuilder.populate(pop));
@@ -30,20 +30,20 @@ class BaseRepository {
         queryBuilder = queryBuilder.populate(populate);
       }
     }
-    
+
     if (select) {
       queryBuilder = queryBuilder.select(select);
     }
-    
+
     // Validate and apply sort - only if sort is a valid value
     if (sort !== undefined && sort !== null) {
       // Ensure sort is a valid type (string, object, array, or map)
       // Empty strings, empty objects {}, null, undefined are invalid for MongoDB sort
-      const isValidSort = 
+      const isValidSort =
         (typeof sort === 'string' && sort.trim().length > 0) ||
         (typeof sort === 'object' && sort !== null && !Array.isArray(sort) && Object.keys(sort).length > 0) ||
         (Array.isArray(sort) && sort.length > 0);
-      
+
       if (isValidSort) {
         try {
           queryBuilder = queryBuilder.sort(sort);
@@ -54,19 +54,19 @@ class BaseRepository {
         console.warn('Invalid sort parameter provided, skipping sort. Type:', typeof sort, 'Value:', sort);
       }
     }
-    
+
     if (skip !== undefined) {
       queryBuilder = queryBuilder.skip(skip);
     }
-    
+
     if (limit !== undefined) {
       queryBuilder = queryBuilder.limit(limit);
     }
-    
+
     if (lean) {
       queryBuilder = queryBuilder.lean();
     }
-    
+
     return await queryBuilder.exec();
   }
 
@@ -76,15 +76,15 @@ class BaseRepository {
    */
   async findOne(query = {}, options = {}) {
     const { populate, select, lean, includeDeleted = false } = options;
-    
+
     // Add soft delete filter (only if model supports soft delete)
     const finalQuery = { ...query };
     if (!includeDeleted && this.Model.schema.paths.isDeleted) {
       finalQuery.isDeleted = { $ne: true };
     }
-    
+
     let queryBuilder = this.Model.findOne(finalQuery);
-    
+
     if (populate) {
       if (Array.isArray(populate)) {
         populate.forEach(pop => queryBuilder = queryBuilder.populate(pop));
@@ -92,15 +92,15 @@ class BaseRepository {
         queryBuilder = queryBuilder.populate(populate);
       }
     }
-    
+
     if (select) {
       queryBuilder = queryBuilder.select(select);
     }
-    
+
     if (lean) {
       queryBuilder = queryBuilder.lean();
     }
-    
+
     return await queryBuilder.exec();
   }
 
@@ -110,7 +110,7 @@ class BaseRepository {
    */
   async findById(id, options = {}) {
     if (!id) return null;
-    
+
     return await this.findOne({ _id: id }, options);
   }
 
@@ -148,17 +148,24 @@ class BaseRepository {
    */
   async updateById(id, updateData, options = {}) {
     const { new: returnNew = true, runValidators = true, includeDeleted = false } = options;
-    
+
     const query = { _id: id };
     if (!includeDeleted && this.Model.schema.paths.isDeleted) {
       query.isDeleted = { $ne: true };
     }
-    
+
     return await this.Model.findOneAndUpdate(
       query,
       updateData,
       { new: returnNew, runValidators }
     );
+  }
+
+  /**
+   * Alias for updateById
+   */
+  async update(id, updateData, options = {}) {
+    return await this.updateById(id, updateData, options);
   }
 
   /**
@@ -174,9 +181,9 @@ class BaseRepository {
    * Soft delete a document (set isDeleted flag)
    */
   async softDelete(id) {
-    return await this.updateById(id, { 
-      isDeleted: true, 
-      deletedAt: new Date() 
+    return await this.updateById(id, {
+      isDeleted: true,
+      deletedAt: new Date()
     });
   }
 
@@ -191,9 +198,9 @@ class BaseRepository {
    * Restore a soft-deleted document
    */
   async restore(id) {
-    return await this.updateById(id, { 
-      isDeleted: false, 
-      deletedAt: null 
+    return await this.updateById(id, {
+      isDeleted: false,
+      deletedAt: null
     }, { includeDeleted: true });
   }
 
@@ -244,15 +251,15 @@ class BaseRepository {
     if (!Array.isArray(ids) || ids.length === 0) {
       return { deletedCount: 0 };
     }
-    
+
     const result = await this.Model.updateMany(
       { _id: { $in: ids } },
-      { 
-        isDeleted: true, 
-        deletedAt: new Date() 
+      {
+        isDeleted: true,
+        deletedAt: new Date()
       }
     );
-    
+
     return { deletedCount: result.modifiedCount };
   }
 
@@ -263,15 +270,15 @@ class BaseRepository {
     if (!Array.isArray(ids) || ids.length === 0) {
       return { restoredCount: 0 };
     }
-    
+
     const result = await this.Model.updateMany(
       { _id: { $in: ids }, isDeleted: true },
-      { 
-        isDeleted: false, 
-        deletedAt: null 
+      {
+        isDeleted: false,
+        deletedAt: null
       }
     );
-    
+
     return { restoredCount: result.modifiedCount };
   }
 
@@ -282,12 +289,12 @@ class BaseRepository {
   async purgeOldDeleted(olderThanDays = 30) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-    
+
     const result = await this.Model.deleteMany({
       isDeleted: true,
       deletedAt: { $lt: cutoffDate }
     });
-    
+
     return { deletedCount: result.deletedCount };
   }
 
@@ -300,7 +307,7 @@ class BaseRepository {
       isDeleted: true,
       deletedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
     });
-    
+
     return {
       totalDeleted,
       recentlyDeleted,
@@ -318,7 +325,7 @@ class BaseRepository {
   async aggregate(pipeline) {
     // Add soft delete filter to the beginning of the pipeline
     const softDeleteFilter = { $match: { isDeleted: { $ne: true } } };
-    
+
     // If pipeline already starts with $match, merge the conditions
     if (pipeline.length > 0 && pipeline[0].$match) {
       pipeline[0].$match = {
@@ -328,7 +335,7 @@ class BaseRepository {
     } else {
       pipeline.unshift(softDeleteFilter);
     }
-    
+
     return await this.Model.aggregate(pipeline);
   }
 

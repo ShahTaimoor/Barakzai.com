@@ -253,6 +253,18 @@ const PrintModal = ({
             .gap-4 { gap: 1rem; }
             .p-2 { padding: 0.5rem; }
             .p-4 { padding: 1rem; }
+            .uppercase { text-transform: uppercase; }
+            .underline { text-decoration: underline; }
+
+            /* Tailwind Preflight / Reset for Print */
+            *, ::before, ::after {
+              box-sizing: border-box;
+              border-width: 0;
+              border-style: solid;
+              border-color: #e5e7eb;
+            }
+
+            /* Utilities */
             .border-black { border-color: #000 !important; }
             .border-t { border-top-width: 1px; }
             .border-l { border-left-width: 1px; }

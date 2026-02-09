@@ -58,6 +58,10 @@ const orderItemSchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema({
   // Order Information
+  salesOrderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SalesOrder'
+  },
   orderNumber: {
     type: String,
     required: false,
@@ -197,6 +201,24 @@ const orderSchema = new mongoose.Schema({
   internalNotes: {
     type: String,
     maxlength: 1000
+  },
+
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
   },
 
   // Metadata

@@ -4,6 +4,7 @@ const customerRepository = require('../repositories/CustomerRepository');
 const supplierRepository = require('../repositories/SupplierRepository');
 const salesRepository = require('../repositories/SalesRepository');
 const purchaseOrderRepository = require('../repositories/PurchaseOrderRepository');
+const purchaseInvoiceRepository = require('../repositories/PurchaseInvoiceRepository');
 const cashReceiptRepository = require('../repositories/CashReceiptRepository');
 const bankReceiptRepository = require('../repositories/BankReceiptRepository');
 const cashPaymentRepository = require('../repositories/CashPaymentRepository');
@@ -549,8 +550,16 @@ class AccountLedgerService {
 
             // Calculate adjusted opening balance (transactions before startDate)
             if (start) {
-              // Purchases before startDate (removed as per request)
-              const openingPurchasesTotal = 0;
+              // Purchase Invoices before startDate (increases payables)
+              const openingPurchases = await purchaseInvoiceRepository.findAll({
+                supplier: supplierId,
+                createdAt: { $lt: start },
+                status: 'confirmed'
+              }, { lean: true });
+
+              const openingPurchasesTotal = openingPurchases.reduce((sum, invoice) => {
+                return sum + (invoice.pricing?.total || 0);
+              }, 0);
 
               // Cash payments before startDate (decreases payables)
               const openingCashPayments = await cashPaymentRepository.findAll({
@@ -617,10 +626,16 @@ class AccountLedgerService {
               if (end) periodFilter.createdAt.$lte = end;
             }
 
-            // Purchases (CREDITS - increases payables) - Removed as per request
-            const purchases = [];
+            // Purchase Invoices (CREDITS - increases payables)
+            const purchases = await purchaseInvoiceRepository.findAll({
+              supplier: supplierId,
+              ...periodFilter,
+              status: 'confirmed'
+            }, { lean: true });
 
-            const totalCredits = 0;
+            const totalCredits = purchases.reduce((sum, invoice) => {
+              return sum + (invoice.pricing?.total || 0);
+            }, 0);
 
             // Cash payments (DEBITS - decreases payables)
             const paymentDateFilter = {};
@@ -691,7 +706,12 @@ class AccountLedgerService {
 
             // Build particular/description
             const particulars = [];
-            // Purchases removed from particulars
+            // Add Purchases to particulars
+            purchases.forEach(invoice => {
+              if (invoice.invoiceNumber) {
+                particulars.push(`Purchase: ${invoice.invoiceNumber}`);
+              }
+            });
 
             cashPayments.forEach(payment => {
               if (payment.voucherCode) {
@@ -720,7 +740,7 @@ class AccountLedgerService {
             });
 
             const particular = particulars.join('; ');
-            const transactionCount = cashPayments.length + bankPayments.length + cashReceipts.length + bankReceipts.length + returns.length;
+            const transactionCount = purchases.length + cashPayments.length + bankPayments.length + cashReceipts.length + bankReceipts.length + returns.length;
 
             return {
               id: supplier._id,

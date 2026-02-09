@@ -6,6 +6,7 @@ import { useGetSuppliersQuery } from '../store/services/suppliersApi';
 import { useLazyGetOrderByIdQuery } from '../store/services/salesApi';
 import { useLazyGetCashReceiptByIdQuery } from '../store/services/cashReceiptsApi';
 import { useLazyGetBankReceiptByIdQuery } from '../store/services/bankReceiptsApi';
+import { useLazyGetPurchaseInvoiceQuery } from '../store/services/purchaseInvoicesApi';
 
 import PrintModal from '../components/PrintModal';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
@@ -54,6 +55,7 @@ const AccountLedgerSummary = () => {
   const [getOrderById] = useLazyGetOrderByIdQuery();
   const [getCashReceiptById] = useLazyGetCashReceiptByIdQuery();
   const [getBankReceiptById] = useLazyGetBankReceiptByIdQuery();
+  const [getPurchaseInvoiceById] = useLazyGetPurchaseInvoiceQuery();
 
 
   const [filters, setFilters] = useState({
@@ -288,6 +290,17 @@ const AccountLedgerSummary = () => {
         } else {
           toast.error('Could not load bank receipt for printing.');
         }
+      } else if (entry.source === 'Purchase') {
+        const result = await getPurchaseInvoiceById(entry.referenceId).unwrap();
+        const invoice = result?.invoice || result?.data?.invoice || result?.data || result;
+        if (invoice) {
+          setPrintDocumentTitle('Purchase Invoice');
+          setPrintPartyLabel('Supplier');
+          setPrintData(invoice);
+          setShowPrintModal(true);
+        } else {
+          toast.error('Could not load purchase invoice for printing.');
+        }
       } else if (entry.source === 'Cash Payment' || entry.source === 'Bank Payment') {
         toast('Print this payment from Cash Payments or Bank Payments page.');
       } else {
@@ -353,7 +366,7 @@ const AccountLedgerSummary = () => {
               text-align: center;
               margin-bottom: 10px;
               border-bottom: 1px solid #000;
-              padding: 5px 0;
+             
             }
             .print-header h1 {
               font-size: 16px;
@@ -399,11 +412,7 @@ const AccountLedgerSummary = () => {
           </style>
         </head>
         <body>
-          <div class="print-header">
-            <h1>Account Ledger Summary</h1>
-            <p>${customerName}${accountCode ? ` - Account Code: ${accountCode}` : ''}</p>
-            <p>Period: ${formatDate(filters.startDate)} to ${formatDate(filters.endDate)}</p>
-          </div>
+
           ${printContent.innerHTML}
           <div class="print-footer">
             <p>Generated on ${new Date().toLocaleString('en-GB', {
@@ -656,7 +665,7 @@ const AccountLedgerSummary = () => {
                   <LoadingSpinner />
                 </div>
               ) : (
-                <div className="overflow-x-auto" ref={selectedCustomerId ? printRef : null}>
+                <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -719,10 +728,10 @@ const AccountLedgerSummary = () => {
                               {entry.particular || '-'}
                             </td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">
-                              {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '-'}
+                              {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
                             </td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">
-                              {entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : '-'}
+                              {entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : '0'}
                             </td>
                             <td className={`px-4 py-3 text-sm text-right font-semibold ${(entry.balance || 0) < 0 ? 'text-red-600' : 'text-gray-900'
                               }`}>
@@ -805,7 +814,7 @@ const AccountLedgerSummary = () => {
                   <LoadingSpinner />
                 </div>
               ) : (
-                <div className="overflow-x-auto" ref={selectedSupplierId && !selectedCustomerId ? printRef : null}>
+                <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -822,8 +831,8 @@ const AccountLedgerSummary = () => {
                       {/* Opening Balance Row */}
                       <tr className="bg-gray-50">
                         <td colSpan="3" className="px-4 py-3 text-sm font-medium text-gray-900">Opening Balance:</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">-</td>
-                        <td className="px-4 py-3 text-sm text-right text-gray-900">-</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">0</td>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900">0</td>
                         <td className={`px-4 py-3 text-sm text-right font-bold ${(detailedSupplierTransactionsData?.data?.openingBalance || 0) < 0 ? 'text-red-600' : 'text-gray-900'
                           }`}>
                           {formatCurrency(detailedSupplierTransactionsData?.data?.openingBalance || 0)}
@@ -852,10 +861,10 @@ const AccountLedgerSummary = () => {
                               {entry.particular || '-'}
                             </td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">
-                              {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '-'}
+                              {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
                             </td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">
-                              {entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : '-'}
+                              {entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : '0'}
                             </td>
                             <td className={`px-4 py-3 text-sm text-right font-semibold ${(entry.balance || 0) < 0 ? 'text-red-600' : 'text-gray-900'
                               }`}>
@@ -943,6 +952,95 @@ const AccountLedgerSummary = () => {
         documentTitle={receiptPrintTitle}
         receiptData={receiptPrintData}
       />
+
+      {/* Hidden Print Section */}
+      <div className="hidden print:block" ref={printRef}>
+        <div className="print-header text-center mb-4">
+          <h1 className="text-xl font-bold uppercase underline">Account Ledger Summary</h1>
+          <p className="font-bold">
+            {selectedCustomerId
+              ? (detailedTransactionsData?.data?.customer?.name || 'Customer Receivables')
+              : (detailedSupplierTransactionsData?.data?.supplier?.name || 'Supplier Payables')}
+            {(selectedCustomerId ? detailedTransactionsData?.data?.customer?.accountCode : detailedSupplierTransactionsData?.data?.supplier?.accountCode)
+              ? ` - Account Code: ${(selectedCustomerId ? detailedTransactionsData?.data?.customer?.accountCode : detailedSupplierTransactionsData?.data?.supplier?.accountCode)}`
+              : ''}
+          </p>
+          <p>Period: {formatDate(filters.startDate)} to {formatDate(filters.endDate)}</p>
+        </div>
+
+        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px' }}>
+          <thead>
+            <tr>
+              <th style={{ width: '4%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>S.NO</th>
+              <th style={{ width: '6%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>DATE</th>
+              <th style={{ width: '60%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
+              <th style={{ width: '5%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>DEBITS</th>
+              <th style={{ width: '5%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>CREDITS</th>
+              <th style={{ width: '5%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>BALANCE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Opening Balance */}
+            <tr>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>-</td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: 'bold' }}>Opening Balance</td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right', fontWeight: 'bold' }}>
+                {formatCurrency(
+                  (selectedCustomerId ? detailedTransactionsData?.data?.openingBalance : detailedSupplierTransactionsData?.data?.openingBalance) || 0
+                )}
+              </td>
+            </tr>
+
+            {/* Transaction Rows */}
+            {(selectedCustomerId ? detailedTransactionsData?.data?.entries : detailedSupplierTransactionsData?.data?.entries)?.map((entry, index) => (
+              <tr key={index}>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>{index + 1}</td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>{formatDate(entry.date)}</td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px' }}>
+                  <span className="font-medium">{entry.particular || '-'}</span>
+                  {entry.voucherNo && entry.voucherNo !== '-' && (
+                    <span className="ml-1">
+                      {entry.particular && entry.particular.toLowerCase().includes('sale') ? '#' : ''}:{entry.voucherNo}
+                    </span>
+                  )}
+                </td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                  {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
+                </td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                  {entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : '0'}
+                </td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                  {formatCurrency(entry.balance || 0)}
+                </td>
+              </tr>
+            ))}
+
+            {/* Total Row */}
+            <tr style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>
+              <td colSpan="3" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>Total</td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                {formatCurrency(
+                  (selectedCustomerId ? detailedTransactionsData?.data?.entries : detailedSupplierTransactionsData?.data?.entries)?.reduce((sum, e) => sum + (e.debitAmount || 0), 0) || 0
+                )}
+              </td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                {formatCurrency(
+                  (selectedCustomerId ? detailedTransactionsData?.data?.entries : detailedSupplierTransactionsData?.data?.entries)?.reduce((sum, e) => sum + (e.creditAmount || 0), 0) || 0
+                )}
+              </td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                {formatCurrency(
+                  (selectedCustomerId ? detailedTransactionsData?.data?.closingBalance : detailedSupplierTransactionsData?.data?.closingBalance) || 0
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
