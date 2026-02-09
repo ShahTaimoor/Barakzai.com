@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { 
-  X, 
+import {
+  X,
   TrendingUp,
   TrendingDown,
   FileText,
@@ -18,12 +18,12 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 
 import { useGetBalanceSheetQuery } from '../store/services/balanceSheetsApi';
 
-const BalanceSheetDetailModal = ({ 
-  balanceSheet, 
-  isOpen, 
-  onClose, 
-  onStatusUpdate, 
-  isLoading 
+const BalanceSheetDetailModal = ({
+  balanceSheet,
+  isOpen,
+  onClose,
+  onStatusUpdate,
+  isLoading
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showStatusUpdate, setShowStatusUpdate] = useState(false);
@@ -33,8 +33,8 @@ const BalanceSheetDetailModal = ({
   });
 
   // Fetch full balance sheet data dynamically
-  const { 
-    data: balanceSheetData, 
+  const {
+    data: balanceSheetData,
     isLoading: balanceSheetLoading,
     error: balanceSheetError
   } = useGetBalanceSheetQuery(
@@ -48,9 +48,9 @@ const BalanceSheetDetailModal = ({
   const fullBalanceSheet = balanceSheetData?.data || balanceSheetData || balanceSheet;
 
   // Fetch comparison data
-  const { 
-    data: comparisonData, 
-    isLoading: comparisonLoading 
+  const {
+    data: comparisonData,
+    isLoading: comparisonLoading
   } = useGetComparisonQuery(
     { id: fullBalanceSheet?._id, type: 'previous' },
     {
@@ -90,10 +90,8 @@ const BalanceSheetDetailModal = ({
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount || 0);
   };
 
@@ -153,9 +151,9 @@ const BalanceSheetDetailModal = ({
             <div>
               <h3 className="text-xl font-bold text-gray-900">{fullBalanceSheet.statementNumber || 'Invalid Date'}</h3>
               <p className="text-sm text-gray-500">
-                {fullBalanceSheet.statementDate 
-                  ? new Date(fullBalanceSheet.statementDate).toLocaleDateString() 
-                  : 'Invalid Date'} • 
+                {fullBalanceSheet.statementDate
+                  ? new Date(fullBalanceSheet.statementDate).toLocaleDateString()
+                  : 'Invalid Date'} •
                 <span className="capitalize ml-1">{fullBalanceSheet.periodType || 'N/A'}</span>
               </p>
             </div>
@@ -183,11 +181,10 @@ const BalanceSheetDetailModal = ({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
-                    activeTab === tab.id
+                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-4 w-4 mr-2" />
                   {tab.label}
@@ -252,30 +249,27 @@ const BalanceSheetDetailModal = ({
                 const totalLiabilities = fullBalanceSheet.liabilities?.totalLiabilities || 0;
                 const totalEquity = fullBalanceSheet.equity?.totalEquity || 0;
                 const isBalanced = Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01;
-                
+
                 return (
-                  <div className={`p-4 rounded-lg border ${
-                    isBalanced 
-                      ? 'bg-green-50 border-green-200' 
+                  <div className={`p-4 rounded-lg border ${isBalanced
+                      ? 'bg-green-50 border-green-200'
                       : 'bg-red-50 border-red-200'
-                  }`}>
+                    }`}>
                     <div className="flex items-center">
                       {isBalanced ? (
                         <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
                       ) : (
                         <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
                       )}
-                      <span className={`font-medium ${
-                        isBalanced ? 'text-green-800' : 'text-red-800'
-                      }`}>
+                      <span className={`font-medium ${isBalanced ? 'text-green-800' : 'text-red-800'
+                        }`}>
                         {isBalanced ? 'Balance Sheet is Balanced' : 'Balance Sheet is Not Balanced'}
                       </span>
                     </div>
-                    <p className={`text-sm mt-1 ${
-                      isBalanced ? 'text-green-700' : 'text-red-700'
-                    }`}>
-                      Assets: {formatCurrency(totalAssets)} = 
-                      Liabilities: {formatCurrency(totalLiabilities)} + 
+                    <p className={`text-sm mt-1 ${isBalanced ? 'text-green-700' : 'text-red-700'
+                      }`}>
+                      Assets: {formatCurrency(totalAssets)} =
+                      Liabilities: {formatCurrency(totalLiabilities)} +
                       Equity: {formatCurrency(totalEquity)}
                     </p>
                   </div>
@@ -298,7 +292,7 @@ const BalanceSheetDetailModal = ({
                       <p className={`text-sm ${getChangeColor(comparisonData.changes?.assets?.totalAssets?.change)}`}>
                         {getChangeIcon(comparisonData.changes?.assets?.totalAssets?.change)}
                         <span className="ml-1">
-                          {formatCurrency(comparisonData.changes?.assets?.totalAssets?.change)} 
+                          {formatCurrency(comparisonData.changes?.assets?.totalAssets?.change)}
                           ({formatPercentage(comparisonData.changes?.assets?.totalAssets?.percentageChange)})
                         </span>
                       </p>
@@ -315,7 +309,7 @@ const BalanceSheetDetailModal = ({
                       <p className={`text-sm ${getChangeColor(comparisonData.changes?.liabilities?.totalLiabilities?.change)}`}>
                         {getChangeIcon(comparisonData.changes?.liabilities?.totalLiabilities?.change)}
                         <span className="ml-1">
-                          {formatCurrency(comparisonData.changes?.liabilities?.totalLiabilities?.change)} 
+                          {formatCurrency(comparisonData.changes?.liabilities?.totalLiabilities?.change)}
                           ({formatPercentage(comparisonData.changes?.liabilities?.totalLiabilities?.percentageChange)})
                         </span>
                       </p>
@@ -332,7 +326,7 @@ const BalanceSheetDetailModal = ({
                       <p className={`text-sm ${getChangeColor(comparisonData.changes?.equity?.totalEquity?.change)}`}>
                         {getChangeIcon(comparisonData.changes?.equity?.totalEquity?.change)}
                         <span className="ml-1">
-                          {formatCurrency(comparisonData.changes?.equity?.totalEquity?.change)} 
+                          {formatCurrency(comparisonData.changes?.equity?.totalEquity?.change)}
                           ({formatPercentage(comparisonData.changes?.equity?.totalEquity?.percentageChange)})
                         </span>
                       </p>
@@ -346,7 +340,7 @@ const BalanceSheetDetailModal = ({
           {activeTab === 'assets' && (
             <div className="space-y-6">
               <h4 className="text-lg font-medium text-gray-900">Assets Breakdown</h4>
-              
+
               {/* Current Assets */}
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h5 className="text-md font-medium text-gray-900 mb-4">Current Assets</h5>
@@ -417,7 +411,7 @@ const BalanceSheetDetailModal = ({
           {activeTab === 'liabilities' && (
             <div className="space-y-6">
               <h4 className="text-lg font-medium text-gray-900">Liabilities Breakdown</h4>
-              
+
               {/* Current Liabilities */}
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h5 className="text-md font-medium text-gray-900 mb-4">Current Liabilities</h5>
@@ -480,7 +474,7 @@ const BalanceSheetDetailModal = ({
           {activeTab === 'equity' && (
             <div className="space-y-6">
               <h4 className="text-lg font-medium text-gray-900">Equity Breakdown</h4>
-              
+
               <div className="bg-white border border-gray-200 rounded-lg p-6">
                 <h5 className="text-md font-medium text-gray-900 mb-4">Shareholders' Equity</h5>
                 <div className="space-y-3">
@@ -537,7 +531,7 @@ const BalanceSheetDetailModal = ({
           {activeTab === 'ratios' && (
             <div className="space-y-6">
               <h4 className="text-lg font-medium text-gray-900">Financial Ratios</h4>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Liquidity Ratios */}
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
