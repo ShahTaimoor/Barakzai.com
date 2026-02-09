@@ -427,6 +427,46 @@
   margin-bottom: 20px;
 }
 
+/* Layout 2 (Professional Boxed Layout) */
+.print-document--layout2 {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #000;
+  line-height: 1.4;
+}
+
+.layout2-header {
+  margin-bottom: 20px;
+}
+
+.layout2-header .grid {
+  display: grid;
+  align-items: center;
+}
+
+.layout2-company-name {
+  font-size: 28px;
+  color: #000;
+  margin-bottom: 4px;
+}
+
+.layout2-table th {
+  background-color: #f3f4f6 !important;
+  color: #000 !important;
+  font-weight: 700 !important;
+  border-color: #000 !important;
+}
+
+.layout2-table td {
+  border-color: #000 !important;
+  color: #000 !important;
+}
+
+.urdu-note {
+  font-family: inherit;
+  font-weight: 700;
+  margin-top: 40px;
+}
+
 @media print {
   @page {
     size: A4 landscape;
