@@ -34,7 +34,9 @@ class BalanceSheetRepository extends BaseRepository {
     const skip = getAll ? 0 : (page - 1) * limit;
     const finalLimit = getAll ? 999999 : limit;
 
-    let queryBuilder = this.Model.find(filter);
+    // Exclude soft-deleted so deleted balance sheets don't show in list
+    const listFilter = { ...filter, isDeleted: { $ne: true } };
+    let queryBuilder = this.Model.find(listFilter);
     
     if (populate && populate.length > 0) {
       populate.forEach(pop => queryBuilder = queryBuilder.populate(pop));
@@ -54,7 +56,7 @@ class BalanceSheetRepository extends BaseRepository {
 
     const [balanceSheets, total] = await Promise.all([
       queryBuilder,
-      this.Model.countDocuments(filter)
+      this.Model.countDocuments(listFilter)
     ]);
 
     return {

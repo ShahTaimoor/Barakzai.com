@@ -166,7 +166,9 @@ const balanceSheetSchema = new mongoose.Schema({
     performedAt: { type: Date, default: Date.now },
     details: { type: String, default: '' },
     changes: { type: mongoose.Schema.Types.Mixed }
-  }]
+  }],
+  isDeleted: { type: Boolean, default: false, index: true },
+  deletedAt: { type: Date, default: null }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
