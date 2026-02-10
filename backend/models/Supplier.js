@@ -35,7 +35,7 @@ const supplierSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  
+
   // Business Information
   taxId: {
     type: String,
@@ -46,7 +46,7 @@ const supplierSchema = new mongoose.Schema({
     enum: ['manufacturer', 'distributor', 'wholesaler', 'dropshipper', 'other'],
     default: 'wholesaler'
   },
-  
+
   // Address Information
   addresses: [{
     type: {
@@ -67,7 +67,7 @@ const supplierSchema = new mongoose.Schema({
       default: false
     }
   }],
-  
+
   // Payment Terms
   paymentTerms: {
     type: String,
@@ -86,18 +86,21 @@ const supplierSchema = new mongoose.Schema({
   currentBalance: {
     type: Number,
     default: 0
+    // @deprecated - Calculate from Transaction ledger dynamically
   },
   pendingBalance: {
     type: Number,
     default: 0,
     min: 0
+    // @deprecated - Calculate from Transaction ledger dynamically
   },
   advanceBalance: {
     type: Number,
     default: 0,
     min: 0
+    // @deprecated - Calculate from Transaction ledger dynamically
   },
-  
+
   // Supplier Rating
   rating: {
     type: Number,
@@ -110,13 +113,13 @@ const supplierSchema = new mongoose.Schema({
     enum: ['excellent', 'good', 'average', 'poor'],
     default: 'average'
   },
-  
+
   // Product Categories
   categories: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category'
   }],
-  
+
   // Minimum Order
   minOrderAmount: {
     type: Number,
@@ -128,28 +131,28 @@ const supplierSchema = new mongoose.Schema({
     default: 1,
     min: 1
   },
-  
+
   // Lead Times
   leadTime: {
     type: Number,
     default: 7, // days
     min: 0
   },
-  
+
   // Status
   status: {
     type: String,
     enum: ['active', 'inactive', 'suspended', 'blacklisted'],
     default: 'active'
   },
-  
+
   // Notes
   notes: {
     type: String,
     trim: true,
     maxlength: 1000
   },
-  
+
   // Audit
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -163,7 +166,7 @@ const supplierSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ChartOfAccounts'
   },
-  
+
   // Soft Delete Fields
   isDeleted: {
     type: Boolean,
@@ -187,34 +190,34 @@ supplierSchema.index({ businessType: 1, status: 1 });
 supplierSchema.index({ status: 1 });
 
 // Virtual for contact person full name
-supplierSchema.virtual('contactPerson.fullName').get(function() {
+supplierSchema.virtual('contactPerson.fullName').get(function () {
   return `${this.contactPerson.firstName} ${this.contactPerson.lastName}`;
 });
 
 // Virtual for display name
-supplierSchema.virtual('displayName').get(function() {
+supplierSchema.virtual('displayName').get(function () {
   return this.companyName;
 });
 
 // Virtual for UI terminology alignment
-supplierSchema.virtual('outstandingBalance').get(function() {
+supplierSchema.virtual('outstandingBalance').get(function () {
   return this.pendingBalance;
 });
 
 // Method to get default address
-supplierSchema.methods.getDefaultAddress = function(type = 'both') {
-  return this.addresses.find(addr => 
+supplierSchema.methods.getDefaultAddress = function (type = 'both') {
+  return this.addresses.find(addr =>
     addr.isDefault && (addr.type === type || addr.type === 'both')
   );
 };
 
 // Method to check if supplier is reliable
-supplierSchema.methods.isReliable = function() {
+supplierSchema.methods.isReliable = function () {
   return this.reliability === 'excellent' || this.reliability === 'good';
 };
 
 // Method to get payment terms in days
-supplierSchema.methods.getPaymentTermsDays = function() {
+supplierSchema.methods.getPaymentTermsDays = function () {
   const termsMap = {
     'cash': 0,
     'net15': 15,

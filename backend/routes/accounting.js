@@ -1,9 +1,10 @@
 const express = require('express');
 const { query, param, body } = require('express-validator');
 const AccountingService = require('../services/accountingService');
-const Transaction = require('../models/Transaction'); // Still needed for model reference
-const ChartOfAccounts = require('../models/ChartOfAccounts'); // Still needed for model reference
-const BalanceSheet = require('../models/BalanceSheet'); // Still needed for model reference
+const financialValidationService = require('../services/financialValidationService');
+const Transaction = require('../models/Transaction');
+const ChartOfAccounts = require('../models/ChartOfAccounts');
+const BalanceSheet = require('../models/BalanceSheet');
 const transactionRepository = require('../repositories/TransactionRepository');
 const chartOfAccountsRepository = require('../repositories/ChartOfAccountsRepository');
 const { auth, requirePermission, requireAnyPermission } = require('../middleware/auth');
@@ -128,6 +129,34 @@ router.get('/accounts/:accountCode/balance', [
     });
   } catch (error) {
     console.error('Error getting account balance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Validate double-entry integrity (all transaction groups must have Debits = Credits)
+router.get('/ledger-integrity', [
+  auth,
+  requireAnyPermission(['view_reports', 'view_general_reports', 'view_accounting_transactions']),
+  query('asOfDate').optional().isISO8601().withMessage('Invalid date format')
+], async (req, res) => {
+  try {
+    const asOfDate = req.query.asOfDate ? new Date(req.query.asOfDate) : null;
+    const result = await financialValidationService.validateLedgerDoubleEntry(asOfDate);
+    res.json({
+      success: true,
+      data: {
+        valid: result.valid,
+        message: result.message,
+        unbalancedGroups: result.unbalancedGroups || [],
+        asOfDate: asOfDate || undefined
+      }
+    });
+  } catch (error) {
+    console.error('Error validating ledger integrity:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

@@ -382,12 +382,13 @@ router.get('/all-entries', [
     });
 
     cashReceipts.forEach(receipt => {
-      if (!accountCode || accountCode === cashCode) {
+      // Only include if no specific account code requested OR requested code matches cash code
+      if (!accountCode || (cashCode && accountCode === cashCode)) {
         const entryDate = receipt.createdAt || receipt.date || new Date();
         allEntries.push({
           date: entryDate,
           datetime: new Date(entryDate).getTime(), // For precise sorting
-          accountCode: cashCode,
+          accountCode: cashCode || 'UNASSIGNED_CASH',
           accountName: 'Cash',
           description: `Cash Receipt: ${receipt.particular}`,
           reference: receipt.voucherCode,
@@ -411,12 +412,12 @@ router.get('/all-entries', [
     });
 
     cashPayments.forEach(payment => {
-      if (!accountCode || accountCode === cashCode) {
+      if (!accountCode || (cashCode && accountCode === cashCode)) {
         const entryDate = payment.createdAt || payment.date || new Date();
         allEntries.push({
           date: entryDate,
           datetime: new Date(entryDate).getTime(), // For precise sorting
-          accountCode: cashCode,
+          accountCode: cashCode || 'UNASSIGNED_CASH',
           accountName: 'Cash',
           description: `Cash Payment: ${payment.particular}`,
           reference: payment.voucherCode,
@@ -440,12 +441,14 @@ router.get('/all-entries', [
     });
 
     bankReceipts.forEach(receipt => {
-      if (!accountCode || accountCode === bankCode) {
+      // Only include if no specific account code requested OR requested code matches bank code
+      // If bankCode is null, we only include if no specific account code requested
+      if (!accountCode || (bankCode && accountCode === bankCode)) {
         const entryDate = receipt.createdAt || receipt.date || new Date();
         allEntries.push({
           date: entryDate,
           datetime: new Date(entryDate).getTime(), // For precise sorting
-          accountCode: bankCode,
+          accountCode: bankCode || 'UNASSIGNED_BANK',
           accountName: 'Bank',
           description: `Bank Receipt: ${receipt.particular}`,
           reference: receipt.transactionReference,
@@ -469,12 +472,12 @@ router.get('/all-entries', [
     });
 
     bankPayments.forEach(payment => {
-      if (!accountCode || accountCode === bankCode) {
+      if (!accountCode || (bankCode && accountCode === bankCode)) {
         const entryDate = payment.createdAt || payment.date || new Date();
         allEntries.push({
           date: entryDate,
           datetime: new Date(entryDate).getTime(), // For precise sorting
-          accountCode: bankCode,
+          accountCode: bankCode || 'UNASSIGNED_BANK',
           accountName: 'Bank',
           description: `Bank Payment: ${payment.particular}`,
           reference: payment.transactionReference,

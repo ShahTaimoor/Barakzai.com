@@ -73,11 +73,11 @@ class ChartOfAccountsRepository extends BaseRepository {
       const accounts = await this.Model.find({ accountType: 'asset' })
         .select('accountCode accountName')
         .lean();
-      const cash = accounts.find(a => /cash/i.test(a.accountName))?.accountCode || '1001';
-      const bank = accounts.find(a => /bank/i.test(a.accountName))?.accountCode || '1002';
-      return { cashCode: cash, bankCode: bank };
+      const cash = accounts.find(a => /cash/i.test(a.accountName))?.accountCode;
+      const bank = accounts.find(a => /bank/i.test(a.accountName))?.accountCode;
+      return { cashCode: cash || null, bankCode: bank || null };
     } catch (_) {
-      return { cashCode: '1001', bankCode: '1002' };
+      return { cashCode: null, bankCode: null };
     }
   }
 

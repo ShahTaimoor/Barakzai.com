@@ -4,20 +4,21 @@ const Supplier = require('../models/Supplier'); // Still needed for model refere
 const PurchaseOrder = require('../models/PurchaseOrder'); // Still needed for model reference
 const SupplierBalanceService = require('../services/supplierBalanceService');
 const supplierRepository = require('../repositories/SupplierRepository');
+const AccountingService = require('../services/accountingService');
 const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Get supplier balance summary
 router.get('/:supplierId', [
-  auth, 
+  auth,
   requirePermission('view_suppliers'),
   param('supplierId').isMongoId().withMessage('Invalid supplier ID')
 ], async (req, res) => {
   try {
     const { supplierId } = req.params;
     const summary = await SupplierBalanceService.getBalanceSummary(supplierId);
-    
+
     res.json({
       success: true,
       data: summary
@@ -34,7 +35,7 @@ router.get('/:supplierId', [
 
 // Record payment to supplier
 router.post('/:supplierId/payment', [
-  auth, 
+  auth,
   requirePermission('manage_payments'),
   param('supplierId').isMongoId().withMessage('Invalid supplier ID'),
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
@@ -44,9 +45,9 @@ router.post('/:supplierId/payment', [
   try {
     const { supplierId } = req.params;
     const { amount, purchaseOrderId, notes } = req.body;
-    
+
     const updatedSupplier = await SupplierBalanceService.recordPayment(supplierId, amount, purchaseOrderId);
-    
+
     res.json({
       success: true,
       message: 'Payment recorded successfully',
@@ -67,7 +68,7 @@ router.post('/:supplierId/payment', [
 
 // Record refund from supplier
 router.post('/:supplierId/refund', [
-  auth, 
+  auth,
   requirePermission('manage_payments'),
   param('supplierId').isMongoId().withMessage('Invalid supplier ID'),
   body('amount').isFloat({ min: 0.01 }).withMessage('Refund amount must be greater than 0'),
@@ -77,9 +78,9 @@ router.post('/:supplierId/refund', [
   try {
     const { supplierId } = req.params;
     const { amount, purchaseOrderId, reason } = req.body;
-    
+
     const updatedSupplier = await SupplierBalanceService.recordRefund(supplierId, amount, purchaseOrderId);
-    
+
     res.json({
       success: true,
       message: 'Refund recorded successfully',
@@ -100,14 +101,14 @@ router.post('/:supplierId/refund', [
 
 // Recalculate supplier balance
 router.post('/:supplierId/recalculate', [
-  auth, 
+  auth,
   requirePermission('manage_suppliers'),
   param('supplierId').isMongoId().withMessage('Invalid supplier ID')
 ], async (req, res) => {
   try {
     const { supplierId } = req.params;
     const updatedSupplier = await SupplierBalanceService.recalculateBalance(supplierId);
-    
+
     res.json({
       success: true,
       message: 'Supplier balance recalculated successfully',
@@ -125,7 +126,7 @@ router.post('/:supplierId/recalculate', [
 
 // Check if supplier can accept purchase
 router.get('/:supplierId/can-accept-purchase', [
-  auth, 
+  auth,
   requirePermission('view_suppliers'),
   param('supplierId').isMongoId().withMessage('Invalid supplier ID'),
   query('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0')
@@ -133,9 +134,9 @@ router.get('/:supplierId/can-accept-purchase', [
   try {
     const { supplierId } = req.params;
     const { amount } = req.query;
-    
+
     const eligibility = await SupplierBalanceService.canAcceptPurchase(supplierId, parseFloat(amount));
-    
+
     res.json({
       success: true,
       data: eligibility
@@ -152,43 +153,50 @@ router.get('/:supplierId/can-accept-purchase', [
 
 // Get all suppliers with balance issues
 router.get('/reports/balance-issues', [
-  auth, 
+  auth,
   requirePermission('view_reports')
 ], async (req, res) => {
   try {
-    // Find suppliers with pending balances
-    const suppliersWithPendingBalances = await supplierRepository.findAll({
-      pendingBalance: { $gt: 0 }
-    }, {
-      select: 'companyName contactPerson email phone pendingBalance advanceBalance creditLimit'
+    // Fetch all active suppliers
+    const suppliers = await supplierRepository.findAll({ isDeleted: { $ne: true } }, {
+      select: 'companyName contactPerson email phone openingBalance creditLimit'
     });
 
-    // Find suppliers with advance balances
-    const suppliersWithAdvanceBalances = await supplierRepository.findAll({
-      advanceBalance: { $gt: 0 }
-    }, {
-      select: 'companyName contactPerson email phone pendingBalance advanceBalance creditLimit'
-    });
+    const supplierIds = suppliers.map(s => s._id.toString());
+    const balanceMap = await AccountingService.getBulkSupplierBalances(supplierIds);
 
-    // Find suppliers over credit limit
-    const suppliersOverCreditLimit = await supplierRepository.findAll({
-      $expr: { $gt: ['$currentBalance', '$creditLimit'] }
-    }, {
-      select: 'companyName contactPerson email phone currentBalance creditLimit'
+    const pendingBalances = [];
+    const advanceBalances = [];
+    const overCreditLimit = [];
+
+    suppliers.forEach(s => {
+      const ledgerBalance = balanceMap.get(s._id.toString()) || 0;
+      const netBalance = (s.openingBalance || 0) + ledgerBalance;
+
+      const supplierWithBalance = {
+        ...s.toObject(),
+        pendingBalance: netBalance > 0 ? netBalance : 0,
+        advanceBalance: netBalance < 0 ? Math.abs(netBalance) : 0,
+        currentBalance: netBalance
+      };
+
+      if (netBalance > 0) pendingBalances.push(supplierWithBalance);
+      if (netBalance < 0) advanceBalances.push(supplierWithBalance);
+      if (s.creditLimit > 0 && netBalance > s.creditLimit) overCreditLimit.push(supplierWithBalance);
     });
 
     res.json({
       success: true,
       data: {
-        pendingBalances: suppliersWithPendingBalances,
-        advanceBalances: suppliersWithAdvanceBalances,
-        overCreditLimit: suppliersOverCreditLimit,
+        pendingBalances,
+        advanceBalances,
+        overCreditLimit,
         summary: {
-          totalPendingBalance: suppliersWithPendingBalances.reduce((sum, s) => sum + s.pendingBalance, 0),
-          totalAdvanceBalance: suppliersWithAdvanceBalances.reduce((sum, s) => sum + s.advanceBalance, 0),
-          suppliersWithPendingBalances: suppliersWithPendingBalances.length,
-          suppliersWithAdvanceBalances: suppliersWithAdvanceBalances.length,
-          suppliersOverCreditLimit: suppliersOverCreditLimit.length
+          totalPendingBalance: pendingBalances.reduce((sum, s) => sum + s.pendingBalance, 0),
+          totalAdvanceBalance: advanceBalances.reduce((sum, s) => sum + s.advanceBalance, 0),
+          suppliersWithPendingBalances: pendingBalances.length,
+          suppliersWithAdvanceBalances: advanceBalances.length,
+          suppliersOverCreditLimit: overCreditLimit.length
         }
       }
     });
@@ -204,7 +212,7 @@ router.get('/reports/balance-issues', [
 
 // Fix all supplier balances (recalculate from purchase orders)
 router.post('/fix-all-balances', [
-  auth, 
+  auth,
   requirePermission('manage_suppliers')
 ], async (req, res) => {
   try {

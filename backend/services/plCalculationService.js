@@ -8,6 +8,7 @@ const ReturnRepository = require('../repositories/ReturnRepository');
 const TransactionRepository = require('../repositories/TransactionRepository');
 const ChartOfAccountsRepository = require('../repositories/ChartOfAccountsRepository');
 const AccountingService = require('./accountingService');
+const financialValidationService = require('./financialValidationService');
 const expenseAccountMapping = require('../config/expenseAccountMapping');
 const expenseCategorizationService = require('./expenseCategorizationService');
 const budgetComparisonService = require('./budgetComparisonService');
@@ -41,7 +42,14 @@ class PLCalculationService {
     const startTime = Date.now();
 
     try {
-      // Calculate all financial data
+      // Block if any transaction group is unbalanced (double-entry integrity)
+      const ledgerValidation = await financialValidationService.validateLedgerDoubleEntry(period.endDate);
+      if (!ledgerValidation.valid) {
+        const msg = ledgerValidation.message || 'Unbalanced ledger entries detected.';
+        throw new Error(`${msg} Unbalanced groups: ${JSON.stringify(ledgerValidation.unbalancedGroups)}`);
+      }
+
+      // Calculate all financial data from General Ledger only (no cached balances)
       const financialData = await this.calculateFinancialData(period);
 
       // Create P&L statement (using model for instance methods)
@@ -125,13 +133,51 @@ class PLCalculationService {
     return this._accountCodes;
   }
 
-  // Calculate revenue data
+  // Calculate revenue data from the General Ledger only (no cached balances).
+  // Account type: Revenue increases with Credit. Revenue balance = Credit - Debit.
   async calculateRevenue(period) {
-    // Get Sales Revenue account code dynamically
+    try {
+      const accountCodes = await this.getAccountCodes();
+      const salesRevenueCode = accountCodes.salesRevenue;
+
+      if (!salesRevenueCode) {
+        console.warn('[P&L] Sales Revenue account code not found');
+        return this.calculateRevenueFallback(period);
+      }
+
+      const summary = await AccountingService.getPeriodSummary(
+        salesRevenueCode,
+        period.startDate,
+        period.endDate
+      );
+
+      // Revenue is credit-normal: net period change = Credits - Debits (positive = revenue)
+      const totalCredit = summary.totalCredit || 0;
+      const totalDebit = summary.totalDebit || 0;
+
+      return {
+        grossSales: totalCredit,
+        salesReturns: totalDebit,
+        salesDiscounts: 0,
+        salesByCategory: { 'Ledger Revenue': totalCredit },
+        returnsByCategory: { 'Ledger Returns': totalDebit },
+        discountsByType: {},
+        discountDetails: [],
+      };
+    } catch (error) {
+      console.error('Error calculating revenue from ledger:', error);
+      return this.calculateRevenueFallback(period);
+    }
+  }
+
+  /**
+   * Fallback for revenue calculation (deprecated)
+   */
+  async calculateRevenueFallback(period) {
+    // Original implementation...
     const accountCodes = await this.getAccountCodes();
     const salesRevenueCode = accountCodes.salesRevenue;
 
-    // Get revenue transactions
     const revenueTransactions = await TransactionRepository.findAll({
       accountCode: salesRevenueCode,
       createdAt: { $gte: period.startDate, $lte: period.endDate },
@@ -140,176 +186,24 @@ class PLCalculationService {
 
     let grossSales = 0;
     let salesReturns = 0;
-    let salesDiscounts = 0;
-    const salesByCategory = {};
-    const returnsByCategory = {};
-    const discountsByType = {};
-    const discountDetails = [];
 
-    // Calculate total sales revenue from transactions
     revenueTransactions.forEach(transaction => {
       if (transaction.creditAmount > 0) {
         grossSales += transaction.creditAmount;
-
-        // Categorize by description
-        const category = this.categorizeRevenue(transaction.description);
-        salesByCategory[category] = (salesByCategory[category] || 0) + transaction.creditAmount;
       }
-    });
-
-    // Get sales returns (negative revenue transactions)
-    // First, try to get from transactions (if accounting entries were created)
-    const returnTransactions = await TransactionRepository.findAll({
-      accountCode: salesRevenueCode,
-      createdAt: { $gte: period.startDate, $lte: period.endDate },
-      status: 'completed',
-      debitAmount: { $gt: 0 }
-    });
-
-    returnTransactions.forEach(transaction => {
-      salesReturns += transaction.debitAmount;
-    });
-
-    // Also get directly from Return model (more reliable)
-    const salesReturnsFromModel = await ReturnRepository.findAll({
-      origin: 'sales',
-      returnDate: { 
-        $gte: new Date(period.startDate), 
-        $lte: new Date(period.endDate) 
-      },
-      status: { $in: ['completed', 'received', 'approved', 'refunded'] }
-    }, { lean: true });
-
-    // Sum up return amounts (avoid double counting if already in transactions)
-    salesReturnsFromModel.forEach(returnItem => {
-      const returnAmount = returnItem.netRefundAmount || returnItem.totalRefundAmount || 0;
-      // Only add if not already counted in transactions (check by returnNumber)
-      const alreadyCounted = returnTransactions.some(t => 
-        t.reference === returnItem.returnNumber || 
-        t.description?.includes(returnItem.returnNumber)
-      );
-      if (!alreadyCounted && returnAmount > 0) {
-        salesReturns += returnAmount;
-      }
-    });
-
-    // Get actual sales orders for fallback calculation and discounts
-    const salesOrders = await SalesRepository.findAll({
-      createdAt: { $gte: period.startDate, $lte: period.endDate },
-      status: { $in: ['completed', 'delivered', 'shipped', 'confirmed'] }
-    }, {
-      select: 'orderNumber pricing.total pricing.subtotal pricing.discountAmount items.discountAmount items.discountPercent createdAt customer orderType'
-    });
-
-    // FALLBACK: If no transactions found, calculate from Sales orders directly
-    if (grossSales === 0 && salesOrders.length > 0) {
-      salesOrders.forEach(order => {
-        // Only count sales (not returns or exchanges)
-        if (order.orderType !== 'return' && order.orderType !== 'exchange') {
-          const orderTotal = order.pricing?.total || order.pricing?.subtotal || 0;
-          if (orderTotal > 0) {
-            grossSales += orderTotal;
-
-            // Categorize by order type
-            const category = order.orderType === 'wholesale' ? 'Wholesale' : 'Retail';
-            salesByCategory[category] = (salesByCategory[category] || 0) + orderTotal;
-          }
-        } else if (order.orderType === 'return') {
-          // Handle returns
-          const returnAmount = order.pricing?.total || order.pricing?.subtotal || 0;
-          if (returnAmount > 0) {
-            salesReturns += returnAmount;
-          }
-        }
-      });
-    }
-
-    // Calculate discounts from orders
-    salesOrders.forEach(order => {
-      const orderDiscount = order.pricing?.discountAmount || 0;
-
-      if (orderDiscount > 0) {
-        salesDiscounts += orderDiscount;
-
-        // Categorize discount by type based on item discounts
-        let discountType = 'other';
-
-        // Check if discount is from item-level (bulk, customer discount, etc.)
-        const hasItemDiscounts = order.items?.some(item => (item.discountAmount || 0) > 0);
-        if (hasItemDiscounts) {
-          // Calculate average discount percentage
-          const totalItemDiscount = order.items.reduce((sum, item) =>
-            sum + (item.discountAmount || 0), 0);
-          const totalItemSubtotal = order.items.reduce((sum, item) =>
-            sum + (item.subtotal || (item.quantity * item.unitPrice)), 0);
-          const avgDiscountPercent = totalItemSubtotal > 0 ?
-            (totalItemDiscount / totalItemSubtotal) * 100 : 0;
-
-          // Categorize based on discount percentage and patterns
-          if (avgDiscountPercent >= 15) {
-            discountType = 'bulk'; // High discount usually means bulk
-          } else if (avgDiscountPercent >= 5) {
-            discountType = 'customer'; // Medium discount usually customer discount
-          } else if (avgDiscountPercent > 0) {
-            discountType = 'promotional'; // Small discount usually promotional
-          }
-
-          // Check if customer has discount (would indicate customer discount)
-          if (order.customer && avgDiscountPercent > 0 && avgDiscountPercent < 15) {
-            discountType = 'customer';
-          }
-        }
-
-        discountDetails.push({
-          orderNumber: order.orderNumber,
-          date: order.createdAt,
-          amount: orderDiscount,
-          type: discountType,
-        });
-
-        // Sum by discount type
-        discountsByType[discountType] = (discountsByType[discountType] || 0) + orderDiscount;
-      }
-    });
-
-    // Also check for discount-type transactions (if any)
-    const discountTransactions = await TransactionRepository.findAll({
-      type: 'discount',
-      createdAt: { $gte: period.startDate, $lte: period.endDate },
-      status: 'completed',
-      debitAmount: { $gt: 0 }
-    });
-
-    discountTransactions.forEach(transaction => {
-      const discountAmount = transaction.debitAmount || 0;
-      if (discountAmount > 0) {
-        salesDiscounts += discountAmount;
-
-        const discountType = this.categorizeDiscountType(
-          transaction.description || 'other',
-          transaction.reference || ''
-        );
-
-        discountsByType[discountType] = (discountsByType[discountType] || 0) + discountAmount;
-
-        discountDetails.push({
-          orderNumber: transaction.reference || transaction.transactionId,
-          date: transaction.createdAt,
-          amount: discountAmount,
-          type: discountType,
-          transactionId: transaction.transactionId,
-        });
+      if (transaction.debitAmount > 0) {
+        salesReturns += transaction.debitAmount;
       }
     });
 
     return {
       grossSales,
       salesReturns,
-      salesDiscounts,
-      salesByCategory,
-      returnsByCategory,
-      discountsByType,
-      discountDetails,
+      salesDiscounts: 0,
+      salesByCategory: { 'Estimated': grossSales },
+      returnsByCategory: { 'Estimated': salesReturns },
+      discountsByType: {},
+      discountDetails: []
     };
   }
 
@@ -341,13 +235,54 @@ class PLCalculationService {
     return 'other';
   }
 
-  // Calculate Cost of Goods Sold
+  // Calculate Cost of Goods Sold from the ledger
   async calculateCOGS(period) {
-    // Get COGS account code dynamically
+    try {
+      // Get COGS account code dynamically
+      const accountCodes = await this.getAccountCodes();
+      const cogsCode = accountCodes.costOfGoodsSold;
+
+      if (!cogsCode) {
+        console.warn('[P&L] COGS account code not found');
+        return this.calculateCOGSFallback(period);
+      }
+
+      // Expense (COGS): net period change = Debits - Credits (source: General Ledger only)
+      const summary = await AccountingService.getPeriodSummary(
+        cogsCode,
+        period.startDate,
+        period.endDate
+      );
+      const totalCOGSPeriod = (summary.totalDebit || 0) - (summary.totalCredit || 0);
+
+      const beginningInventory = await this.getInventoryValue(period.startDate);
+      const endingInventory = await this.getInventoryValue(period.endDate);
+
+      return {
+        beginningInventory,
+        endingInventory,
+        purchases: 0,
+        totalCOGS: totalCOGSPeriod, // Expense = Debit - Credit
+        cogsDetails: [{
+          description: 'Ledger COGS',
+          amount: totalCOGSPeriod,
+          date: period.endDate
+        }]
+      };
+    } catch (error) {
+      console.error('Error calculating COGS from ledger:', error);
+      return this.calculateCOGSFallback(period);
+    }
+  }
+
+  /**
+   * Fallback for COGS calculation (deprecated)
+   */
+  async calculateCOGSFallback(period) {
+    // Original implementation logic...
     const accountCodes = await this.getAccountCodes();
     const cogsCode = accountCodes.costOfGoodsSold;
 
-    // Get COGS transactions
     const cogsTransactions = await TransactionRepository.findAll({
       accountCode: cogsCode,
       createdAt: { $gte: period.startDate, $lte: period.endDate },
@@ -355,82 +290,46 @@ class PLCalculationService {
     });
 
     let totalCOGS = 0;
-    const cogsDetails = [];
-
-    cogsTransactions.forEach(transaction => {
-      const debit = transaction.debitAmount || 0;
-      const credit = transaction.creditAmount || 0;
-
-      if (debit > 0 || credit > 0) {
-        const netAmount = debit - credit;
-        totalCOGS += netAmount;
-
-        cogsDetails.push({
-          description: transaction.description,
-          amount: netAmount,
-          reference: transaction.reference,
-          date: transaction.createdAt,
-          type: credit > 0 ? 'credit' : 'debit'
-        });
-      }
+    cogsTransactions.forEach(t => {
+      totalCOGS += (t.debitAmount || 0) - (t.creditAmount || 0);
     });
 
-    // Get beginning inventory (from previous period)
-    const beginningInventory = await this.getInventoryValue(period.startDate);
-
-    // Get ending inventory (from current period end)
-    const endingInventory = await this.getInventoryValue(period.endDate);
-
-    // Get purchases during the period
-    const purchases = await this.calculatePurchases(period);
-
-    // Get purchase returns and discounts
-    const purchaseAdjustments = await this.calculatePurchaseAdjustments(period);
-
-    // FALLBACK: If no COGS transactions found, calculate from Sales orders
-    if (totalCOGS === 0) {
-      const Sales = require('../models/Sales');
-      const salesOrders = await Sales.find({
-        createdAt: { $gte: period.startDate, $lte: period.endDate },
-        status: { $in: ['completed', 'delivered', 'shipped', 'confirmed'] },
-        orderType: { $ne: 'return' } // Exclude returns
-      }).select('items.product items.quantity items.unitCost createdAt orderNumber');
-
-      for (const order of salesOrders) {
-        for (const item of order.items || []) {
-          const unitCost = item.unitCost || 0;
-          const quantity = item.quantity || 0;
-          const itemCOGS = unitCost * quantity;
-
-          if (itemCOGS > 0) {
-            totalCOGS += itemCOGS;
-            cogsDetails.push({
-              description: `COGS for order ${order.orderNumber}`,
-              amount: itemCOGS,
-              reference: order.orderNumber,
-              date: order.createdAt
-            });
-          }
-        }
-      }
-    }
-
     return {
-      beginningInventory,
-      endingInventory,
-      purchases: purchases.total,
-      purchaseDetails: purchases.details,
-      freightIn: purchases.freightIn || 0,
-      purchaseReturns: purchaseAdjustments.returns,
-      purchaseDiscounts: purchaseAdjustments.discounts,
-      purchaseAdjustments: purchaseAdjustments, // Include full adjustment details
+      beginningInventory: 0,
+      endingInventory: 0,
+      purchases: 0,
       totalCOGS,
-      cogsDetails
+      cogsDetails: []
     };
   }
 
-  // Calculate inventory value at a specific date
+  /**
+   * Calculate inventory value at a specific date from the ledger
+   * @param {Date} date - Date to calculate value for
+   * @returns {Promise<Number>} Total inventory value
+   */
   async getInventoryValue(date) {
+    try {
+      const accountCodes = await this.getAccountCodes();
+      const inventoryAccountCode = accountCodes.inventory;
+
+      if (!inventoryAccountCode) {
+        console.warn('[P&L] Inventory account code not found, falling back to product-based calculation');
+        return this.getInventoryValueFallback(date);
+      }
+
+      // Fetch dynamic balance from ledger
+      return await AccountingService.getAccountBalance(inventoryAccountCode, date);
+    } catch (error) {
+      console.error('Error calculating inventory value from ledger:', error);
+      return this.getInventoryValueFallback(date);
+    }
+  }
+
+  /**
+   * Fallback for inventory value calculation (deprecated)
+   */
+  async getInventoryValueFallback(date) {
     const products = await ProductRepository.findAll({ status: 'active' });
     let totalValue = 0;
 
@@ -442,141 +341,118 @@ class PLCalculationService {
     return totalValue;
   }
 
-  // Calculate purchases during period
+  // Calculate purchases during period from the ledger
   async calculatePurchases(period) {
-    const purchaseOrders = await PurchaseOrderRepository.findAll({
-      createdAt: { $gte: period.startDate, $lte: period.endDate },
-      status: { $in: ['received', 'completed'] }
-    }, {
-      populate: [
-        { path: 'items.product' },
-        { path: 'supplier' }
-      ]
-    });
+    try {
+      const accountCodes = await this.getAccountCodes();
+      const inventoryCode = accountCodes.inventory;
 
-    let totalPurchases = 0;
-    let freightIn = 0;
-    const purchaseDetails = [];
-
-    purchaseOrders.forEach(po => {
-      const orderTotal = po.total || 0;
-      totalPurchases += orderTotal;
-
-      if (po.shippingCost) {
-        freightIn += po.shippingCost;
+      if (!inventoryCode) {
+        console.warn('[P&L] Inventory account code not found for purchase calculation');
+        return { total: 0, details: [], freightIn: 0 };
       }
 
-      purchaseDetails.push({
-        supplier: po.supplier?.companyName || 'Unknown',
-        amount: orderTotal,
-        date: po.createdAt,
+      // Purchases are typically debits to Inventory (in a perpetual system)
+      // that are NOT related to returns or direct adjustments
+      const purchaseTransactions = await TransactionRepository.findAll({
+        accountCode: inventoryCode,
+        createdAt: { $gte: period.startDate, $lte: period.endDate },
+        status: 'completed',
+        debitAmount: { $gt: 0 }
       });
-    });
 
-    return {
-      total: totalPurchases,
-      details: purchaseDetails,
-      freightIn,
-    };
+      let totalPurchases = 0;
+      let freightIn = 0;
+      const purchaseDetails = [];
+
+      purchaseTransactions.forEach(txn => {
+        // Exclude internal adjustments if possible (by description or metadata)
+        const desc = (txn.description || '').toLowerCase();
+        if (desc.includes('return') || desc.includes('adjustment') || desc.includes('correction')) {
+          return;
+        }
+
+        totalPurchases += txn.debitAmount;
+
+        // If freight/shipping is tracked in metadata or separable, add it
+        if (txn.metadata?.shippingCost) {
+          freightIn += txn.metadata.shippingCost;
+        }
+
+        purchaseDetails.push({
+          supplier: txn.metadata?.supplierName || 'Ledger Purchase',
+          amount: txn.debitAmount,
+          date: txn.createdAt,
+        });
+      });
+
+      return {
+        total: totalPurchases,
+        details: purchaseDetails,
+        freightIn,
+      };
+    } catch (error) {
+      console.error('Error calculating purchases from ledger:', error);
+      return { total: 0, details: [], freightIn: 0 };
+    }
   }
 
-  // Calculate purchase adjustments (returns and discounts)
+  // Calculate purchase adjustments (returns and discounts) from the ledger
   async calculatePurchaseAdjustments(period) {
-    let purchaseReturns = 0;
-    let purchaseDiscounts = 0;
-    const returnDetails = [];
-    const discountDetails = [];
+    try {
+      const accountCodes = await this.getAccountCodes();
+      const inventoryCode = accountCodes.inventory;
 
-    // Get purchase returns from PurchaseInvoice (invoiceType = 'return')
-    const purchaseReturnInvoices = await PurchaseInvoiceRepository.findAll({
-      invoiceType: 'return',
-      createdAt: { $gte: period.startDate, $lte: period.endDate },
-      status: { $in: ['confirmed', 'received', 'paid', 'closed'] }
-    }, {
-      populate: [{ path: 'supplier', select: 'companyName' }],
-      select: 'invoiceNumber pricing.total pricing.subtotal supplier createdAt'
-    });
-
-    purchaseReturnInvoices.forEach(invoice => {
-      const returnAmount = invoice.pricing?.total || invoice.pricing?.subtotal || 0;
-      if (returnAmount > 0) {
-        purchaseReturns += returnAmount;
-        returnDetails.push({
-          invoiceNumber: invoice.invoiceNumber,
-          date: invoice.createdAt,
-          amount: returnAmount,
-          supplier: invoice.supplier?.companyName || 'Unknown',
-        });
+      if (!inventoryCode) {
+        return { returns: 0, discounts: 0, returnDetails: [], discountDetails: [] };
       }
-    });
 
-    // Get purchase returns from Return model (origin = 'purchase')
-    // Use returnDate for consistency with sales returns
-    const purchaseReturnsFromReturnModel = await ReturnRepository.findAll({
-      origin: 'purchase',
-      returnDate: { 
-        $gte: new Date(period.startDate), 
-        $lte: new Date(period.endDate) 
-      },
-      status: { $in: ['approved', 'processing', 'received', 'completed', 'refunded'] }
-    }, {
-      populate: [{ path: 'supplier', select: 'companyName' }],
-      select: 'returnNumber totalRefundAmount netRefundAmount supplier returnDate createdAt'
-    });
+      // Purchase returns are typically credits to Inventory
+      const adjustmentTransactions = await TransactionRepository.findAll({
+        accountCode: inventoryCode,
+        createdAt: { $gte: period.startDate, $lte: period.endDate },
+        status: 'completed',
+        creditAmount: { $gt: 0 }
+      });
 
-    purchaseReturnsFromReturnModel.forEach(returnDoc => {
-      const returnAmount = returnDoc.netRefundAmount || returnDoc.totalRefundAmount || 0;
-      if (returnAmount > 0) {
-        purchaseReturns += returnAmount;
-        returnDetails.push({
-          returnNumber: returnDoc.returnNumber,
-          date: returnDoc.createdAt,
-          amount: returnAmount,
-          supplier: returnDoc.supplier?.companyName || 'Unknown',
-        });
-      }
-    });
+      let purchaseReturns = 0;
+      let purchaseDiscounts = 0;
+      const returnDetails = [];
+      const discountDetails = [];
 
-    // Get purchase discounts from PurchaseInvoice (invoiceType = 'purchase' with discountAmount)
-    const purchaseInvoices = await PurchaseInvoiceRepository.findAll({
-      invoiceType: 'purchase',
-      createdAt: { $gte: period.startDate, $lte: period.endDate },
-      status: { $in: ['confirmed', 'received', 'paid', 'closed'] },
-      'pricing.discountAmount': { $gt: 0 }
-    }, {
-      populate: [{ path: 'supplier', select: 'companyName' }],
-      select: 'invoiceNumber pricing.discountAmount pricing.subtotal supplier createdAt'
-    });
+      adjustmentTransactions.forEach(txn => {
+        const desc = (txn.description || '').toLowerCase();
 
-    purchaseInvoices.forEach(invoice => {
-      const discountAmount = invoice.pricing?.discountAmount || 0;
-      if (discountAmount > 0) {
-        purchaseDiscounts += discountAmount;
+        // Categorize based on description
+        if (desc.includes('return')) {
+          purchaseReturns += txn.creditAmount;
+          returnDetails.push({
+            returnNumber: txn.reference || 'Ledger Return',
+            date: txn.createdAt,
+            amount: txn.creditAmount,
+            supplier: txn.metadata?.supplierName || 'Unknown',
+          });
+        } else if (desc.includes('discount')) {
+          purchaseDiscounts += txn.creditAmount;
+          discountDetails.push({
+            invoiceNumber: txn.reference || 'Ledger Discount',
+            date: txn.createdAt,
+            amount: txn.creditAmount,
+            supplier: txn.metadata?.supplierName || 'Unknown',
+          });
+        }
+      });
 
-        // Calculate discount percentage to categorize
-        const subtotal = invoice.pricing?.subtotal || 0;
-        const discountPercent = subtotal > 0 ? (discountAmount / subtotal) * 100 : 0;
-
-        discountDetails.push({
-          invoiceNumber: invoice.invoiceNumber,
-          date: invoice.createdAt,
-          amount: discountAmount,
-          discountPercent: discountPercent,
-          supplier: invoice.supplier?.companyName || 'Unknown',
-        });
-      }
-    });
-
-    // Also check PurchaseOrder for any discount-related fields (if they exist in future)
-    // Currently PurchaseOrder doesn't have discount fields, but we can check transactions
-    // that might be related to purchase discounts
-
-    return {
-      returns: purchaseReturns,
-      discounts: purchaseDiscounts,
-      returnDetails: returnDetails,
-      discountDetails: discountDetails,
-    };
+      return {
+        returns: purchaseReturns,
+        discounts: purchaseDiscounts,
+        returnDetails: returnDetails,
+        discountDetails: discountDetails,
+      };
+    } catch (error) {
+      console.error('Error calculating purchase adjustments from ledger:', error);
+      return { returns: 0, discounts: 0, returnDetails: [], discountDetails: [] };
+    }
   }
 
   // Calculate operating expenses from actual transactions
@@ -618,11 +494,9 @@ class PLCalculationService {
     const expenseAccountCodes = allUniqueExpenseAccounts.map(acc => acc.accountCode);
 
     // If no expense accounts found, try to get by category codes
-    if (expenseAccountCodes.length === 0) {
-      // Try to find common expense account codes
-      const commonExpenseCodes = ['5210', '5220', accountCodes.otherExpenses].filter(Boolean);
-      expenseAccountCodes.push(...commonExpenseCodes);
-    }
+    // Try to find common expense account codes
+    const commonExpenseCodes = [accountCodes.otherExpenses].filter(Boolean);
+    expenseAccountCodes.push(...commonExpenseCodes);
 
     // Query all expense transactions
     // Use createdAt for date filtering (Transaction model uses createdAt, not a separate date field)
@@ -775,8 +649,7 @@ class PLCalculationService {
       isActive: true,
       allowDirectPosting: true,
       $or: [
-        { accountName: { $regex: /interest/i } },
-        { accountCode: { $regex: /^43/ } } // Common pattern for interest income
+        { accountName: { $regex: /interest/i } }
       ]
     }, {
       select: 'accountCode accountName'
@@ -1318,7 +1191,7 @@ class PLCalculationService {
     const grossSales = financialData.revenue.grossSales;
     const salesReturns = financialData.revenue.salesReturns;
     const salesDiscounts = financialData.revenue.salesDiscounts;
-    const totalRevenue = grossSales - salesReturns - salesDiscounts + 
+    const totalRevenue = grossSales - salesReturns - salesDiscounts +
       (financialData.otherIncome.interestIncome + financialData.otherIncome.rentalIncome + financialData.otherIncome.other);
 
     const totalCOGS = financialData.cogs.totalCOGS;
@@ -1334,7 +1207,7 @@ class PLCalculationService {
 
     // Calculate other income/expenses
     const otherIncome = financialData.otherIncome.interestIncome + financialData.otherIncome.rentalIncome + financialData.otherIncome.other;
-    const otherExpenses = financialData.otherExpenses.interestExpense + financialData.otherExpenses.depreciation + 
+    const otherExpenses = financialData.otherExpenses.interestExpense + financialData.otherExpenses.depreciation +
       financialData.otherExpenses.amortization + financialData.otherExpenses.other;
 
     // Calculate earnings before tax

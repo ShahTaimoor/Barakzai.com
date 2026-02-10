@@ -2,6 +2,7 @@ const Customer = require('../models/Customer');
 const Sales = require('../models/Sales');
 const CustomerTransaction = require('../models/CustomerTransaction');
 const mongoose = require('mongoose');
+const AccountingService = require('./accountingService');
 
 class CustomerBalanceService {
   /**
@@ -78,31 +79,10 @@ class CustomerBalanceService {
         await paymentTransaction.save();
       }
 
-      // Update customer balance atomically with version check
-      const updatedCustomer = await Customer.findOneAndUpdate(
-        { _id: customerId, __v: customer.__v },
-        {
-          $set: {
-            pendingBalance,
-            advanceBalance,
-            currentBalance
-          },
-          $inc: { __v: 1 }
-        },
-        { new: true }
-      );
+      // Note: We no longer update Customer balance fields (pendingBalance, advanceBalance, currentBalance)
+      // All balances are now fetched dynamically from the ledger.
 
-      if (!updatedCustomer) {
-        throw new Error('Concurrent balance update conflict. Please retry.');
-      }
-
-      console.log(`Customer ${customerId} balance updated:`, {
-        pendingBalance: updatedCustomer.pendingBalance,
-        advanceBalance: updatedCustomer.advanceBalance,
-        paymentAmount
-      });
-
-      return updatedCustomer;
+      return customer;
     } catch (error) {
       console.error('Error recording payment:', error);
       throw error;
@@ -179,31 +159,10 @@ class CustomerBalanceService {
         await invoiceTransaction.save();
       }
 
-      // Update customer balance atomically with version check
-      const updatedCustomer = await Customer.findOneAndUpdate(
-        { _id: customerId, __v: customer.__v },
-        {
-          $set: {
-            pendingBalance: balanceAfter.pendingBalance,
-            advanceBalance: balanceAfter.advanceBalance,
-            currentBalance: balanceAfter.currentBalance
-          },
-          $inc: { __v: 1 }
-        },
-        { new: true }
-      );
+      // Note: We no longer update Customer balance fields (pendingBalance, advanceBalance, currentBalance)
+      // All balances are now fetched dynamically from the ledger.
 
-      if (!updatedCustomer) {
-        throw new Error('Concurrent balance update conflict. Please retry.');
-      }
-
-      console.log(`Customer ${customerId} invoice recorded:`, {
-        invoiceAmount,
-        newPendingBalance: updatedCustomer.pendingBalance,
-        orderId
-      });
-
-      return updatedCustomer;
+      return customer;
     } catch (error) {
       console.error('Error recording invoice:', error);
       throw error;
@@ -314,32 +273,10 @@ class CustomerBalanceService {
         updates.advanceBalance = newAdvanceBalance;
       }
 
-      // Recalculate currentBalance currentBalance = pendingBalance - advanceBalance
-      const newPendingBalance = balanceBefore.pendingBalance;
-      updates.currentBalance = newPendingBalance - newAdvanceBalance;
+      // Note: Manual balance updates removed. 
+      // Reliance now exclusively on AccountingService for dynamic balances.
 
-      const updatedCustomer = await Customer.findOneAndUpdate(
-        { _id: customerId, __v: customer.__v },
-        {
-          $set: updates,
-          $inc: { __v: 1 }
-        },
-        { new: true }
-      );
-
-      if (!updatedCustomer) {
-        throw new Error('Concurrent balance update conflict. Please retry.');
-      }
-
-      console.log(`Customer ${customerId} refund recorded:`, {
-        refundAmount,
-        newPendingBalance: updatedCustomer.pendingBalance,
-        newAdvanceBalance: updatedCustomer.advanceBalance,
-        newCurrentBalance: updatedCustomer.currentBalance,
-        orderId
-      });
-
-      return updatedCustomer;
+      return customer;
     } catch (error) {
       console.error('Error recording refund:', error);
       throw error;
@@ -364,6 +301,8 @@ class CustomerBalanceService {
         .limit(10)
         .select('orderNumber pricing.total payment.status createdAt');
 
+      const balance = await AccountingService.getCustomerBalance(customerId);
+
       return {
         customer: {
           _id: customer._id,
@@ -373,9 +312,9 @@ class CustomerBalanceService {
           phone: customer.phone
         },
         balances: {
-          pendingBalance: customer.pendingBalance || 0,
-          advanceBalance: customer.advanceBalance || 0,
-          currentBalance: customer.currentBalance || 0,
+          pendingBalance: balance > 0 ? balance : 0,
+          advanceBalance: balance < 0 ? Math.abs(balance) : 0,
+          currentBalance: balance,
           creditLimit: customer.creditLimit || 0
         },
         recentOrders: recentOrders.map(order => ({
@@ -460,16 +399,17 @@ class CustomerBalanceService {
         throw new Error('Customer not found');
       }
 
-      const canPurchase = customer.canMakePurchase(amount);
-      const availableCredit = customer.creditLimit - customer.currentBalance;
+      const currentBalance = await AccountingService.getCustomerBalance(customerId);
+      const canPurchase = (currentBalance + amount) <= (customer.creditLimit || 0);
+      const availableCredit = (customer.creditLimit || 0) - currentBalance;
 
       return {
         canPurchase,
         availableCredit,
-        currentBalance: customer.currentBalance,
+        currentBalance,
         creditLimit: customer.creditLimit,
-        pendingBalance: customer.pendingBalance,
-        advanceBalance: customer.advanceBalance
+        pendingBalance: currentBalance > 0 ? currentBalance : 0,
+        advanceBalance: currentBalance < 0 ? Math.abs(currentBalance) : 0
       };
     } catch (error) {
       console.error('Error checking purchase eligibility:', error);

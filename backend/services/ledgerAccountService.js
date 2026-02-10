@@ -82,80 +82,41 @@ const createLedgerAccount = async ({
 const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => {
   if (!customer) return null;
 
+  let accountsReceivableAccount = null;
+
   // Find or get the general "Accounts Receivable" account
   // Try multiple possible account codes/names that might exist (dynamic lookup)
-  const possibleAccountCodes = ['1130', '1201', '1200', '1100'];
-  const accountNamePatterns = [
-    /^Accounts Receivable$/i,
-    /^Account Receivable$/i,
-    /^AR$/i,
-    /^Receivables$/i
-  ];
-
-  let accountsReceivableAccount = null;
-  
-  // First, try to find by account code (try without session first for better reliability)
-  for (const code of possibleAccountCodes) {
-    const upperCode = code.toUpperCase();
-    accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
-      { accountCode: upperCode, isActive: true }
-    );
-    if (accountsReceivableAccount) break;
-    
-    // If not found without session, try with session
-    if (!accountsReceivableAccount && session) {
-      accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
-        { accountCode: upperCode, isActive: true },
-        { session }
-      );
-      if (accountsReceivableAccount) break;
+  // 1. Try to get from AccountingService default codes
+  try {
+    const defaultCodes = await AccountingService.getDefaultAccountCodes();
+    if (defaultCodes.accountsReceivable) {
+      accountsReceivableAccount = await ChartOfAccountsRepository.findOne({
+        accountCode: defaultCodes.accountsReceivable,
+        isActive: true
+      }, { session });
     }
+  } catch (err) {
+    console.warn('Failed to get default codes from AccountingService:', err.message);
   }
 
-  // If not found by code, try to find by name pattern (try without isActive first)
+  // 2. If not found, try dynamic search by name/type
   if (!accountsReceivableAccount) {
-    for (const pattern of accountNamePatterns) {
-      // Try with isActive: true first
-      accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
-        {
-          accountName: { $regex: pattern },
-          accountType: 'asset',
-          accountCategory: 'current_assets',
-          isActive: true
-        }
-      );
-      if (accountsReceivableAccount) break;
-      
-      // If not found, try without isActive filter (might be inactive)
-      if (!accountsReceivableAccount) {
-        accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
-          {
-            accountName: { $regex: pattern },
-            accountType: 'asset',
-            accountCategory: 'current_assets'
-          }
-        );
-        if (accountsReceivableAccount) {
-          // Reactivate if found but inactive
-          accountsReceivableAccount.isActive = true;
-          await accountsReceivableAccount.save(session ? { session } : undefined);
-          break;
-        }
-      }
-      
-      // Try with session if still not found
-      if (!accountsReceivableAccount && session) {
-        accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
-          {
-            accountName: { $regex: pattern },
-            accountType: 'asset',
-            accountCategory: 'current_assets',
-            isActive: true
-          },
-          { session }
-        );
-        if (accountsReceivableAccount) break;
-      }
+    try {
+      // Use getAccountCode logic from AccountingService to find valid AR account
+      // We don't use the service directly here to avoid potential circular dep issues during init, 
+      // but we use the same logic pattern: find by name & type
+      accountsReceivableAccount = await ChartOfAccountsRepository.findOne({
+        $or: [
+          { accountName: { $regex: /^Accounts Receivable$/i } },
+          { accountName: { $regex: /^Account Receivable$/i } },
+          { accountName: { $regex: /^AR$/i } },
+          { accountName: { $regex: /Receivables/i } }
+        ],
+        accountType: 'asset',
+        isActive: true
+      }, { session });
+    } catch (err) {
+      console.warn('Error during dynamic AR account search:', err.message);
     }
   }
 
@@ -168,7 +129,7 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
         isActive: true
       }
     );
-    
+
     // Try with session if not found
     if (!accountsReceivableAccount && session) {
       accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
@@ -184,35 +145,23 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
 
   // If Accounts Receivable doesn't exist, create it dynamically
   if (!accountsReceivableAccount) {
-    // Try to find an available account code starting from 1130
-    let accountCode = '1130';
-    let codeFound = false;
-    
-    // Check if 1130 is available, if not try other codes (without session first for better reliability)
-    for (const code of possibleAccountCodes) {
-      const existing = await ChartOfAccountsRepository.findOne(
-        { accountCode: code.toUpperCase() }
-      );
-      if (!existing) {
-        accountCode = code.toUpperCase();
-        codeFound = true;
-        break;
-      }
-    }
-    
-    // If all codes are taken, generate a new one in the 1100-1199 range
-    if (!codeFound) {
-      for (let i = 1100; i <= 1199; i++) {
-        const code = String(i).toUpperCase();
-        const existing = await ChartOfAccountsRepository.findOne(
-          { accountCode: code }
-        );
-        if (!existing) {
-          accountCode = code;
-          codeFound = true;
-          break;
-        }
-      }
+    // Find a free code in the 1200 range (standard for Receivables)
+    let accountCode = '1200';
+
+    // Find the highest existing code in the 12xx range
+    const highestAccount = await ChartOfAccountsRepository.findOne(
+      { accountCode: { $regex: /^12\d{2}$/ } },
+      { sort: { accountCode: -1 } }
+    );
+
+    if (highestAccount) {
+      const nextNum = parseInt(highestAccount.accountCode) + 1;
+      accountCode = String(nextNum);
+    } else {
+      // Fallback: check 11xx range if 12xx is empty? No, stick to 1200 as base.
+      // Check if 1200 itself exists (might be a non-regex match?)
+      const startAccount = await ChartOfAccountsRepository.findOne({ accountCode: '1200' });
+      if (startAccount) accountCode = '1201';
     }
 
     const accountData = {
@@ -229,7 +178,7 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
       currentBalance: 0,
       openingBalance: 0
     };
-    
+
     try {
       // First, try to create directly using the model (most reliable)
       try {
@@ -253,7 +202,7 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
               { accountCode: accountCode }
             );
           }
-          
+
           // If still not found, try finding by name
           if (!accountsReceivableAccount) {
             accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
@@ -283,13 +232,13 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
             { $setOnInsert: accountData },
             { upsert: true, ...updateOptions }
           );
-          
+
           // Fetch after upsert
           accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
             { accountCode: accountCode },
             { session }
           );
-          
+
           // If still null, try without session
           if (!accountsReceivableAccount) {
             accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
@@ -305,7 +254,7 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
         name: error.name,
         stack: error.stack
       });
-      
+
       // Last resort: try to find any active Accounts Receivable account (without session)
       accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
         {
@@ -314,7 +263,7 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
           isActive: true
         }
       );
-      
+
       // If still not found, try with session
       if (!accountsReceivableAccount) {
         accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
@@ -329,59 +278,16 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
     }
   }
 
-  // Validate that we have an account
+
+
+  // Final validation
   if (!accountsReceivableAccount || !accountsReceivableAccount._id) {
-    // Last resort: try to create a minimal account without session constraints
-    try {
-      console.log('Last resort: attempting to create Accounts Receivable account without session');
-      const minimalAccountData = {
-        accountCode: '1130',
-        accountName: 'Accounts Receivable',
-        accountType: 'asset',
-        accountCategory: 'current_assets',
-        normalBalance: 'debit',
-        allowDirectPosting: true,
-        isActive: true,
-        isSystemAccount: true,
-        description: 'Money owed by customers - General Accounts Receivable account',
-        currentBalance: 0,
-        openingBalance: 0
-      };
-      
-      // Try to find or create without session
-      accountsReceivableAccount = await ChartOfAccountsRepository.findOne(
-        { accountCode: '1130' }
-      );
-      
-      if (!accountsReceivableAccount) {
-        const newAccount = new ChartOfAccounts(minimalAccountData);
-        await newAccount.save();
-        accountsReceivableAccount = newAccount;
-        console.log('Successfully created Accounts Receivable account as last resort');
-      }
-    } catch (lastResortError) {
-      console.error('Last resort account creation failed:', {
-        message: lastResortError.message,
-        code: lastResortError.code,
-        name: lastResortError.name
-      });
-      
-      // If still failing, throw a more helpful error
-      throw new Error(
-        `Failed to find or create Accounts Receivable account. ` +
-        `Please ensure the chart of accounts is properly configured. ` +
-        `Error: ${lastResortError.message}`
-      );
-    }
-    
-    // Final validation
-    if (!accountsReceivableAccount || !accountsReceivableAccount._id) {
-      throw new Error(
-        'Failed to find or create Accounts Receivable account. ' +
-        'Please ensure the chart of accounts is properly configured and try again.'
-      );
-    }
+    throw new Error(
+      'Failed to find or create Accounts Receivable account. ' +
+      'Please ensure the chart of accounts is properly configured and try again.'
+    );
   }
+
 
   // If customer has an individual account (like "Customer - NAME"), migrate to general account
   if (customer.ledgerAccount) {
@@ -406,7 +312,7 @@ const syncCustomerLedgerAccount = async (customer, { session, userId } = {}) => 
   // Link customer to the general Accounts Receivable account
   customer.ledgerAccount = accountsReceivableAccount._id;
   await customer.save({ session, validateBeforeSave: false });
-  
+
   return accountsReceivableAccount;
 };
 
@@ -473,7 +379,7 @@ const ensureCustomerLedgerAccounts = async ({ userId } = {}) => {
   // Find all customers that need ledger accounts or have individual accounts
   const customers = await CustomerRepository.findAll({
     $or: [
-      { ledgerAccount: { $exists: false } }, 
+      { ledgerAccount: { $exists: false } },
       { ledgerAccount: null }
     ]
   });

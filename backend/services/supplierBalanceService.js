@@ -1,5 +1,6 @@
 const Supplier = require('../models/Supplier');
 const PurchaseOrder = require('../models/PurchaseOrder');
+const AccountingService = require('./accountingService');
 
 class SupplierBalanceService {
   /**
@@ -16,36 +17,9 @@ class SupplierBalanceService {
         throw new Error('Supplier not found');
       }
 
-      // Update supplier balances
-      const updates = {};
-
-      if (paymentAmount > 0) {
-        // Reduce outstanding balance first (money we owe)
-        if (supplier.pendingBalance > 0) {
-          const pendingReduction = Math.min(paymentAmount, supplier.pendingBalance);
-          updates.pendingBalance = supplier.pendingBalance - pendingReduction;
-          paymentAmount -= pendingReduction;
-        }
-
-        // If there's still payment left, add to advance balance (credit we have with supplier)
-        if (paymentAmount > 0) {
-          updates.advanceBalance = (supplier.advanceBalance || 0) + paymentAmount;
-        }
-      }
-
-      const updatedSupplier = await Supplier.findByIdAndUpdate(
-        supplierId,
-        { $set: updates },
-        { new: true }
-      );
-
-      console.log(`Supplier ${supplierId} balance updated:`, {
-        pendingBalance: updatedSupplier.pendingBalance,
-        advanceBalance: updatedSupplier.advanceBalance,
-        paymentAmount
-      });
-
-      return updatedSupplier;
+      // Note: Manual balance updates removed. 
+      // Reliance now exclusively on AccountingService for dynamic balances.
+      return supplier;
     } catch (error) {
       console.error('Error recording supplier payment:', error);
       throw error;
@@ -66,20 +40,9 @@ class SupplierBalanceService {
         throw new Error('Supplier not found');
       }
 
-      // Add to pending balance (money we owe to supplier)
-      const updatedSupplier = await Supplier.findByIdAndUpdate(
-        supplierId,
-        { $inc: { pendingBalance: purchaseAmount } },
-        { new: true }
-      );
-
-      console.log(`Supplier ${supplierId} purchase recorded:`, {
-        purchaseAmount,
-        newPendingBalance: updatedSupplier.pendingBalance,
-        purchaseOrderId
-      });
-
-      return updatedSupplier;
+      // Note: Manual balance updates removed. 
+      // Reliance now exclusively on AccountingService for dynamic balances.
+      return supplier;
     } catch (error) {
       console.error('Error recording supplier purchase:', error);
       throw error;
@@ -100,37 +63,9 @@ class SupplierBalanceService {
         throw new Error('Supplier not found');
       }
 
-      // Update supplier balances
-      const updates = {};
-
-      if (refundAmount > 0) {
-        // Reduce advance balance first (money we've overpaid)
-        if (supplier.advanceBalance > 0) {
-          const advanceReduction = Math.min(refundAmount, supplier.advanceBalance);
-          updates.advanceBalance = supplier.advanceBalance - advanceReduction;
-          refundAmount -= advanceReduction;
-        }
-
-        // If there's still refund left, reduce pending balance (credit)
-        if (refundAmount > 0) {
-          updates.pendingBalance = Math.max(0, (supplier.pendingBalance || 0) - refundAmount);
-        }
-      }
-
-      const updatedSupplier = await Supplier.findByIdAndUpdate(
-        supplierId,
-        { $set: updates },
-        { new: true }
-      );
-
-      console.log(`Supplier ${supplierId} refund recorded:`, {
-        refundAmount,
-        newPendingBalance: updatedSupplier.pendingBalance,
-        newAdvanceBalance: updatedSupplier.advanceBalance,
-        purchaseOrderId
-      });
-
-      return updatedSupplier;
+      // Note: Manual balance updates removed. 
+      // Reliance now exclusively on AccountingService for dynamic balances.
+      return supplier;
     } catch (error) {
       console.error('Error recording supplier refund:', error);
       throw error;
@@ -155,6 +90,8 @@ class SupplierBalanceService {
         .limit(10)
         .select('poNumber total status createdAt');
 
+      const balance = await AccountingService.getSupplierBalance(supplierId);
+
       return {
         supplier: {
           _id: supplier._id,
@@ -164,9 +101,9 @@ class SupplierBalanceService {
           phone: supplier.phone
         },
         balances: {
-          pendingBalance: supplier.pendingBalance || 0,
-          advanceBalance: supplier.advanceBalance || 0,
-          currentBalance: supplier.currentBalance || 0,
+          pendingBalance: balance > 0 ? balance : 0,
+          advanceBalance: balance < 0 ? Math.abs(balance) : 0,
+          currentBalance: balance,
           creditLimit: supplier.creditLimit || 0
         },
         recentPurchaseOrders: recentPurchaseOrders.map(po => ({
@@ -248,16 +185,17 @@ class SupplierBalanceService {
         throw new Error('Supplier not found');
       }
 
+      const currentBalance = await AccountingService.getSupplierBalance(supplierId);
       const canAccept = supplier.status === 'active';
-      const availableCredit = supplier.creditLimit - supplier.currentBalance;
+      const availableCredit = (supplier.creditLimit || 0) - currentBalance;
 
       return {
         canAccept,
         availableCredit,
-        currentBalance: supplier.currentBalance,
+        currentBalance,
         creditLimit: supplier.creditLimit,
-        pendingBalance: supplier.pendingBalance,
-        advanceBalance: supplier.advanceBalance
+        pendingBalance: currentBalance > 0 ? currentBalance : 0,
+        advanceBalance: currentBalance < 0 ? Math.abs(currentBalance) : 0
       };
     } catch (error) {
       console.error('Error checking purchase eligibility:', error);

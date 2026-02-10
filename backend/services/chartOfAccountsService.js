@@ -76,7 +76,7 @@ class ChartOfAccountsService {
       parentAccount: accountData.parentAccount || null,
       level: accountData.level || 0,
       openingBalance: accountData.openingBalance || 0,
-      currentBalance: accountData.openingBalance || 0,
+      currentBalance: 0, // Initial balance is 0, will be updated by transaction if openingBalance > 0
       allowDirectPosting: accountData.allowDirectPosting !== undefined ? accountData.allowDirectPosting : true,
       isTaxable: accountData.isTaxable || false,
       taxRate: accountData.taxRate || 0,
@@ -86,6 +86,22 @@ class ChartOfAccountsService {
 
     try {
       const account = await chartOfAccountsRepository.create(newAccountData);
+
+      // If opening balance is provided, record it as a transaction
+      if (accountData.openingBalance && accountData.openingBalance > 0) {
+        try {
+          await AccountingService.recordOpeningBalance(
+            account.accountCode,
+            accountData.openingBalance,
+            `Initial opening balance for ${account.accountName}`,
+            userId
+          );
+        } catch (error) {
+          console.error(`Failed to record opening balance transaction for ${account.accountCode}:`, error);
+          // We don't fail account creation, but log the error
+        }
+      }
+
       return account;
     } catch (err) {
       if (err.code === 11000) {
@@ -104,7 +120,7 @@ class ChartOfAccountsService {
    */
   async updateAccount(id, updateData, userId) {
     const account = await chartOfAccountsRepository.findById(id);
-    
+
     if (!account) {
       throw new Error('Account not found');
     }
@@ -146,7 +162,7 @@ class ChartOfAccountsService {
    */
   async deleteAccount(id) {
     const account = await chartOfAccountsRepository.findById(id);
-    
+
     if (!account) {
       throw new Error('Account not found');
     }

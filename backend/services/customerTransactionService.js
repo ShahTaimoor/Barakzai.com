@@ -128,10 +128,8 @@ class CustomerTransactionService {
 
     await transaction.save();
 
-    // Update customer balance if posted
-    if (!requiresApproval) {
-      await this.updateCustomerBalance(customerId, balanceAfter);
-    }
+    // Note: Manual customer balance updates removed. 
+    // Reliance now exclusively on AccountingService for dynamic balances.
 
     // Create accounting entries if posted
     if (!requiresApproval) {
@@ -158,7 +156,7 @@ class CustomerTransactionService {
         const paymentAmount = Math.abs(balanceImpact);
         const pendingReduction = Math.min(paymentAmount, pendingBalance);
         pendingBalance -= pendingReduction;
-        
+
         const remainingPayment = paymentAmount - pendingReduction;
         if (remainingPayment > 0) {
           advanceBalance += remainingPayment;
@@ -173,7 +171,7 @@ class CustomerTransactionService {
         const refundAmount = Math.abs(balanceImpact);
         const pendingReduction = Math.min(refundAmount, pendingBalance);
         pendingBalance -= pendingReduction;
-        
+
         const remainingRefund = refundAmount - pendingReduction;
         if (remainingRefund > 0) {
           advanceBalance += remainingRefund;
@@ -187,7 +185,7 @@ class CustomerTransactionService {
         const adjustmentAmount = Math.abs(balanceImpact);
         const pendingReduction = Math.min(adjustmentAmount, pendingBalance);
         pendingBalance -= pendingReduction;
-        
+
         const remainingAdjustment = adjustmentAmount - pendingReduction;
         if (remainingAdjustment > 0) {
           advanceBalance = Math.max(0, advanceBalance - remainingAdjustment);
@@ -305,8 +303,8 @@ class CustomerTransactionService {
 
       case 'payment':
         // Debit: Cash/Bank, Credit: AR
-        const paymentAccount = transaction.paymentDetails.paymentMethod === 'bank_transfer' 
-          ? 'BANK' 
+        const paymentAccount = transaction.paymentDetails.paymentMethod === 'bank_transfer'
+          ? 'BANK'
           : 'CASH';
         entries.push({
           accountCode: paymentAccount,
@@ -449,16 +447,8 @@ class CustomerTransactionService {
 
     await paymentApplication.save();
 
-    // Update customer balance (handled by payment transaction creation)
-    // But need to handle unapplied amount
-    if (unappliedAmount > 0) {
-      const customer = await Customer.findById(customerId);
-      const newAdvanceBalance = (customer.advanceBalance || 0) + unappliedAmount;
-      await Customer.findByIdAndUpdate(customerId, {
-        advanceBalance: newAdvanceBalance,
-        currentBalance: customer.pendingBalance - newAdvanceBalance
-      });
-    }
+    // Note: Manual balance updates removed.
+    // Applications are recorded, but customer balances are derived from the ledger.
 
     return paymentApplication;
   }
@@ -512,13 +502,7 @@ class CustomerTransactionService {
     originalTransaction.reversedAt = new Date();
     await originalTransaction.save();
 
-    // Update customer balance
-    const balanceAfter = this.calculateNewBalances(
-      balanceBefore,
-      -originalTransaction.balanceImpact,
-      'reversal'
-    );
-    await this.updateCustomerBalance(originalTransaction.customer, balanceAfter);
+    // Note: Reversal balances are now dynamically derived from ledger.
 
     return reversalTransaction;
   }
@@ -578,23 +562,17 @@ class CustomerTransactionService {
     // Update original transaction
     originalTransaction.remainingAmount -= amount;
     originalTransaction.paidAmount -= amount;
-    
+
     if (originalTransaction.remainingAmount <= 0.01) {
       originalTransaction.status = 'paid';
       originalTransaction.remainingAmount = 0;
     } else {
       originalTransaction.status = 'partially_paid';
     }
-    
+
     await originalTransaction.save();
 
-    // Update customer balance
-    const balanceAfter = this.calculateNewBalances(
-      balanceBefore,
-      -amount, // Negative impact for reversal
-      'reversal'
-    );
-    await this.updateCustomerBalance(originalTransaction.customer, balanceAfter);
+    // Note: Reversal balances are now dynamically derived from ledger.
 
     return reversalTransaction;
   }
@@ -617,19 +595,19 @@ class CustomerTransactionService {
     } = options;
 
     const filter = { customer: customerId };
-    
+
     if (transactionType) {
       filter.transactionType = transactionType;
     }
-    
+
     if (status) {
       filter.status = status;
     }
-    
+
     if (!includeReversed) {
       filter.status = { $ne: 'reversed' };
     }
-    
+
     if (startDate || endDate) {
       filter.transactionDate = {};
       if (startDate) filter.transactionDate.$gte = new Date(startDate);
@@ -666,8 +644,8 @@ class CustomerTransactionService {
       dueDate: { $lt: new Date() },
       remainingAmount: { $gt: 0 }
     })
-    .sort({ dueDate: 1 })
-    .populate('lineItems.product', 'name');
+      .sort({ dueDate: 1 })
+      .populate('lineItems.product', 'name');
   }
 
   /**

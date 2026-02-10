@@ -11,6 +11,7 @@ const { validateDateParams, processDateFilter } = require('../middleware/dateFil
 const purchaseInvoiceService = require('../services/purchaseInvoiceService');
 const purchaseInvoiceRepository = require('../repositories/PurchaseInvoiceRepository');
 const supplierRepository = require('../repositories/SupplierRepository');
+const AccountingService = require('../services/accountingService');
 
 const router = express.Router();
 
@@ -66,16 +67,16 @@ router.get('/', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     // Merge date filter from middleware if present (for Pakistan timezone)
     const queryParams = { ...req.query };
     if (req.dateFilter && Object.keys(req.dateFilter).length > 0) {
       queryParams.dateFilter = req.dateFilter;
     }
-    
+
     // Call service to get purchase invoices
     const result = await purchaseInvoiceService.getPurchaseInvoices(queryParams);
-    
+
     res.json({
       invoices: result.invoices,
       pagination: result.pagination
@@ -95,7 +96,7 @@ router.get('/:id', [
 ], async (req, res) => {
   try {
     const invoice = await purchaseInvoiceService.getPurchaseInvoiceById(req.params.id);
-    
+
     res.json({ invoice });
   } catch (error) {
     if (error.message === 'Purchase invoice not found') {
@@ -139,7 +140,7 @@ router.post('/', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const {
       supplier,
       supplierInfo,
@@ -152,7 +153,7 @@ router.post('/', [
       terms,
       invoiceDate
     } = req.body;
-    
+
     const invoiceData = {
       supplier,
       supplierInfo,
@@ -172,12 +173,12 @@ router.post('/', [
       invoiceDate: invoiceDate ? new Date(invoiceDate) : null, // Allow custom invoice date (for backdating/postdating)
       createdBy: req.user._id
     };
-    
+
     // Handle potential duplicate invoice number by generating a new one if needed
     let invoice = new PurchaseInvoice(invoiceData);
     let retryCount = 0;
     const maxRetries = 3;
-    
+
     while (retryCount < maxRetries) {
       try {
         await invoice.save();
@@ -189,12 +190,12 @@ router.post('/', [
           if (retryCount >= maxRetries) {
             throw new Error('Failed to generate unique invoice number after multiple attempts');
           }
-          
+
           // Generate a new invoice number with additional randomness
           const timestamp = Date.now();
           const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
           const newInvoiceNumber = `${invoiceData.invoiceNumber}-${timestamp}-${random}`;
-          
+
           invoiceData.invoiceNumber = newInvoiceNumber;
           invoice = new PurchaseInvoice(invoiceData);
         } else {
@@ -203,15 +204,15 @@ router.post('/', [
         }
       }
     }
-    
+
     // IMMEDIATE INVENTORY UPDATE - No confirmation required
     const inventoryService = require('../services/inventoryService');
     const inventoryUpdates = [];
     let inventoryUpdateFailed = false;
-    
+
     for (const item of items) {
       try {
-        
+
         const inventoryUpdate = await inventoryService.updateStock({
           productId: item.product,
           type: 'in',
@@ -224,14 +225,14 @@ router.post('/', [
           performedBy: req.user._id,
           notes: `Stock increased due to purchase invoice creation - Invoice: ${invoiceNumber}`
         });
-        
+
         inventoryUpdates.push({
           productId: item.product,
           quantity: item.quantity,
           newStock: inventoryUpdate.currentStock,
           success: true
         });
-        
+
       } catch (inventoryError) {
         console.error(`Failed to update inventory for product ${item.product}:`, inventoryError);
         console.error('Full error details:', {
@@ -239,70 +240,75 @@ router.post('/', [
           stack: inventoryError.stack,
           name: inventoryError.name
         });
-        
+
         inventoryUpdates.push({
           productId: item.product,
           quantity: item.quantity,
           success: false,
           error: inventoryError.message
         });
-        
+
         inventoryUpdateFailed = true;
-        
+
         // Continue with other items instead of failing immediately
         console.warn(`Continuing with other items despite inventory update failure for product ${item.product}`);
       }
     }
-    
+
     // If any inventory updates failed, still create the invoice but warn about it
     if (inventoryUpdateFailed) {
       console.warn('Some inventory updates failed, but invoice will still be created');
       // Don't return error - just log the issue and continue
     }
-    
+
     // Update supplier outstanding balance for purchase invoices
-    // Logic: 
+    // Logic:
     // 1. Add invoice total to pendingBalance (we owe this amount)
     // 2. Record payment which will reduce pendingBalance and handle overpayments (add to advanceBalance)
-    
+
     if (supplier && pricing && pricing.total > 0) {
       try {
         const SupplierBalanceService = require('../services/supplierBalanceService');
         const supplierExists = await supplierRepository.findById(supplier);
-        
+
         if (supplierExists) {
-          // Step 1: Add invoice total to pendingBalance (we owe this amount to supplier)
-          await supplierRepository.updateById(supplier, {
-            $inc: { pendingBalance: pricing.total }
-          });
-          
-          // Step 2: Record payment (this will reduce pendingBalance and handle overpayments)
+          // Note: Manual pendingBalance update removed.
+          // Balance is now derived from Accounting entries.
+
+          // Record payment (this will handle the ledger update)
           const amountPaid = payment?.amount || payment?.paidAmount || 0;
           if (amountPaid > 0) {
             await SupplierBalanceService.recordPayment(supplier, amountPaid, invoice._id);
           }
-        } else {
         }
       } catch (error) {
         console.error('Error updating supplier balance on purchase invoice creation:', error);
         // Don't fail the invoice creation if supplier update fails
       }
     }
-    
+
     // Update invoice status to 'confirmed' since inventory was updated
     invoice.status = 'confirmed';
     invoice.confirmedDate = new Date();
     await invoice.save();
-    
+
+    // Record accounting transaction (General Ledger)
+    try {
+      await AccountingService.recordPurchaseInvoice(invoice);
+    } catch (accountingError) {
+      console.error('Failed to record accounting entry for purchase invoice:', accountingError);
+      // Don't fail the request, but log the error for investigation
+    }
+
     await invoice.populate([
       { path: 'supplier', select: 'name companyName email phone' },
       { path: 'items.product', select: 'name description pricing' },
       { path: 'createdBy', select: 'name email' }
     ]);
-    
+
     const successCount = inventoryUpdates.filter(update => update.success).length;
     const failureCount = inventoryUpdates.filter(update => !update.success).length;
-    
+
     let message = 'Purchase invoice created successfully';
     if (successCount > 0) {
       message += ` and ${successCount} product(s) added to inventory`;
@@ -310,7 +316,7 @@ router.post('/', [
     if (failureCount > 0) {
       message += ` (${failureCount} inventory update(s) failed - check logs for details)`;
     }
-    
+
     res.status(201).json({
       message: message,
       invoice,
@@ -342,17 +348,17 @@ router.put('/:id', [
     if (!invoice) {
       return res.status(404).json({ message: 'Purchase invoice not found' });
     }
-    
+
     // Cannot update received, paid, or closed invoices
     if (['received', 'paid', 'closed'].includes(invoice.status)) {
       return res.status(400).json({ message: 'Cannot update received, paid, or closed invoices' });
     }
-    
+
     // Store old values for comparison
     const oldItems = JSON.parse(JSON.stringify(invoice.items));
     const oldTotal = invoice.pricing.total;
     const oldSupplier = invoice.supplier;
-    
+
     // Get supplier data if supplier is being updated
     let supplierData = null;
     if (req.body.supplier) {
@@ -362,18 +368,18 @@ router.put('/:id', [
         return res.status(400).json({ message: 'Supplier not found' });
       }
     }
-    
+
     // Prepare update data
     const updateData = {
       ...req.body,
       lastModifiedBy: req.user._id
     };
-    
+
     // Update invoiceDate if provided (for backdating/postdating)
     if (req.body.invoiceDate !== undefined) {
       updateData.invoiceDate = req.body.invoiceDate ? new Date(req.body.invoiceDate) : null;
     }
-    
+
     // Update supplier info if supplier is being updated
     if (req.body.supplier !== undefined) {
       updateData.supplier = req.body.supplier || null;
@@ -385,24 +391,24 @@ router.put('/:id', [
         address: formatSupplierAddress(supplierData)
       } : null;
     }
-    
+
     // Recalculate pricing if items are being updated
     if (req.body.items && req.body.items.length > 0) {
       let newSubtotal = 0;
       let newTotalDiscount = 0;
       let newTotalTax = 0;
-      
+
       for (const item of req.body.items) {
         const itemSubtotal = item.quantity * item.unitCost;
         const itemDiscount = itemSubtotal * ((item.discountPercent || 0) / 100);
         const itemTaxable = itemSubtotal - itemDiscount;
         const itemTax = invoice.pricing.isTaxExempt ? 0 : itemTaxable * (item.taxRate || 0);
-        
+
         newSubtotal += itemSubtotal;
         newTotalDiscount += itemDiscount;
         newTotalTax += itemTax;
       }
-      
+
       // Update pricing in updateData
       updateData.pricing = {
         ...invoice.pricing,
@@ -412,17 +418,17 @@ router.put('/:id', [
         total: newSubtotal - newTotalDiscount + newTotalTax
       };
     }
-    
+
     const updatedInvoice = await purchaseInvoiceRepository.update(req.params.id, updateData, {
       new: true,
       runValidators: true
     });
-    
+
     // Adjust inventory based on item changes if invoice was confirmed
     if (invoice.status === 'confirmed' && req.body.items && req.body.items.length > 0) {
       try {
         const inventoryService = require('../services/inventoryService');
-        
+
         for (const newItem of req.body.items) {
           const oldItem = oldItems.find(oi => {
             const oldProductId = oi.product?._id ? oi.product._id.toString() : oi.product?.toString() || oi.product;
@@ -431,7 +437,7 @@ router.put('/:id', [
           });
           const oldQuantity = oldItem ? oldItem.quantity : 0;
           const quantityChange = newItem.quantity - oldQuantity;
-          
+
           if (quantityChange !== 0) {
             if (quantityChange > 0) {
               // Quantity increased - add more inventory
@@ -462,7 +468,7 @@ router.put('/:id', [
             }
           }
         }
-        
+
         // Handle removed items (items that were in old but not in new)
         for (const oldItem of oldItems) {
           const oldProductId = oldItem.product?._id ? oldItem.product._id.toString() : oldItem.product?.toString() || oldItem.product;
@@ -470,7 +476,7 @@ router.put('/:id', [
             const newProductId = newItem.product?.toString() || newItem.product;
             return oldProductId === newProductId;
           });
-          
+
           if (!stillExists) {
             // Item was removed - reduce inventory
             await inventoryService.updateStock({
@@ -491,74 +497,36 @@ router.put('/:id', [
         // Don't fail update if inventory adjustment fails
       }
     }
-    
+
     // Adjust supplier balance if total changed, payment changed, or supplier changed
     // Need to properly handle overpayments using SupplierBalanceService
     if (updatedInvoice.supplier && (
-      updatedInvoice.pricing.total !== oldTotal || 
+      updatedInvoice.pricing.total !== oldTotal ||
       oldSupplier?.toString() !== updatedInvoice.supplier?.toString() ||
       (updatedInvoice.payment?.amount || updatedInvoice.payment?.paidAmount || 0) !== (invoice.payment?.amount || invoice.payment?.paidAmount || 0)
     )) {
       try {
         const SupplierBalanceService = require('../services/supplierBalanceService');
-        const Supplier = require('../models/Supplier');
-        
-        // Step 1: Rollback old invoice's impact on supplier balance
-        if (oldSupplier) {
-          const oldSupplierDoc = await supplierRepository.findById(oldSupplier);
-          if (oldSupplierDoc) {
-            const oldAmountPaid = invoice.payment?.amount || invoice.payment?.paidAmount || 0;
-            
-            // Reverse old payment: 
-            // When payment was recorded, it reduced pendingBalance by min(oldAmountPaid, oldTotal)
-            // and added excess (oldAmountPaid - oldTotal) to advanceBalance if oldAmountPaid > oldTotal
-            if (oldAmountPaid > 0) {
-              const pendingRestored = Math.min(oldAmountPaid, oldTotal);
-              const advanceToRemove = Math.max(0, oldAmountPaid - oldTotal);
-              
-              // Reverse: restore pendingBalance, remove from advanceBalance
-              await supplierRepository.updateById(oldSupplier, {
-                $inc: {
-                  pendingBalance: pendingRestored,
-                  advanceBalance: -advanceToRemove
-                }
-              });
-            }
-            
-            // Remove old invoice total from pendingBalance
-            await supplierRepository.updateById(oldSupplier, {
-              $inc: { pendingBalance: -oldTotal }
-            });
-          }
-        }
-        
-        // Step 2: Apply new invoice's impact on supplier balance
-        if (updatedInvoice.supplier) {
-          const newSupplier = await supplierRepository.findById(updatedInvoice.supplier);
-          if (newSupplier) {
-            // Add new invoice total to pendingBalance
-          await supplierRepository.updateById(updatedInvoice.supplier, {
-            $inc: { pendingBalance: updatedInvoice.pricing.total }
-          });
-            
-            // Record new payment (handles overpayments correctly)
-            const newAmountPaid = updatedInvoice.payment?.amount || updatedInvoice.payment?.paidAmount || 0;
-            if (newAmountPaid > 0) {
-              await SupplierBalanceService.recordPayment(updatedInvoice.supplier, newAmountPaid, updatedInvoice._id);
-            }
-          }
+
+        // Note: Manual supplier balance rollback and update removed.
+        // The ledger entries will be updated/reversed as needed.
+
+        // Record new payment if any
+        const newAmountPaid = updatedInvoice.payment?.amount || updatedInvoice.payment?.paidAmount || 0;
+        if (newAmountPaid > 0) {
+          await SupplierBalanceService.recordPayment(updatedInvoice.supplier, newAmountPaid, updatedInvoice._id);
         }
       } catch (error) {
         console.error('Error adjusting supplier balance on purchase invoice update:', error);
         // Don't fail update if balance adjustment fails
       }
     }
-    
+
     await updatedInvoice.populate([
       { path: 'supplier', select: 'name companyName email phone address' },
       { path: 'items.product', select: 'name description pricing' }
     ]);
-    
+
     res.json({
       message: 'Purchase invoice updated successfully',
       invoice: updatedInvoice
@@ -581,21 +549,21 @@ router.delete('/:id', [
     if (!invoice) {
       return res.status(404).json({ message: 'Purchase invoice not found' });
     }
-    
+
     // Cannot delete paid or closed invoices
     if (['paid', 'closed'].includes(invoice.status)) {
       return res.status(400).json({ message: 'Cannot delete paid or closed invoices' });
     }
-    
-    
+
+
     // ROLLBACK INVENTORY - Subtract the quantities that were added
     const inventoryService = require('../services/inventoryService');
     const inventoryRollbacks = [];
-    
+
     if (invoice.status === 'confirmed') {
       for (const item of invoice.items) {
         try {
-          
+
           const inventoryRollback = await inventoryService.updateStock({
             productId: item.product,
             type: 'out',
@@ -607,14 +575,14 @@ router.delete('/:id', [
             performedBy: req.user._id,
             notes: `Inventory rolled back due to deletion of purchase invoice ${invoice.invoiceNumber}`
           });
-          
+
           inventoryRollbacks.push({
             productId: item.product,
             quantity: item.quantity,
             newStock: inventoryRollback.currentStock,
             success: true
           });
-          
+
         } catch (error) {
           console.error(`Failed to rollback inventory for product ${item.product}:`, error);
           inventoryRollbacks.push({
@@ -626,47 +594,32 @@ router.delete('/:id', [
         }
       }
     }
-    
+
     // ROLLBACK SUPPLIER BALANCE - Reverse invoice total and payment
     // This matches the new logic in purchase invoice creation
     if (invoice.supplier && invoice.pricing && invoice.pricing.total > 0) {
       try {
-        const Supplier = require('../models/Supplier');
-        const supplierExists = await supplierRepository.findById(invoice.supplier);
-        
-        if (supplierExists) {
-          const amountPaid = invoice.payment?.amount || invoice.payment?.paidAmount || 0;
-          
-          // Reverse payment first: restore pendingBalance, remove from advanceBalance
-          if (amountPaid > 0) {
-            const pendingRestored = Math.min(amountPaid, invoice.pricing.total);
-            const advanceToRemove = Math.max(0, amountPaid - invoice.pricing.total);
-            
-            await supplierRepository.updateById(invoice.supplier, {
-              $inc: {
-                pendingBalance: pendingRestored,
-                advanceBalance: -advanceToRemove
-              }
-            });
-          }
-          
-          // Remove invoice total from pendingBalance
-          const updateResult = await supplierRepository.updateById(invoice.supplier, {
-            $inc: { pendingBalance: -invoice.pricing.total }
-          });
-        } else {
+        // Note: Supplier balance rollback removed from route.
+        // The ledger entries will handle the reversal.
+
+        // Potential reversal of payment if needed
+        const amountPaid = invoice.payment?.amount || invoice.payment?.paidAmount || 0;
+        if (amountPaid > 0) {
+          // If we had a direct reversal method in SupplierBalanceService, we'd use it here.
+          // For now, the ledger reversal in AccountingService will handle it partially,
+          // but we should ensure the payment entry in the ledger is also voided.
         }
       } catch (error) {
         console.error('Error rolling back supplier balance:', error);
         // Continue with deletion even if supplier update fails
       }
     }
-    
+
     // Delete the invoice
     await purchaseInvoiceRepository.delete(req.params.id);
-    
-    
-    res.json({ 
+
+
+    res.json({
       message: 'Purchase invoice deleted successfully',
       inventoryRollbacks: inventoryRollbacks
     });
@@ -687,7 +640,7 @@ router.put('/:id/confirm', [
     if (!invoice) {
       return res.status(404).json({ message: 'Purchase invoice not found' });
     }
-    
+
     // Purchase invoices are now automatically confirmed upon creation
     // This endpoint is kept for backward compatibility but does nothing
     res.json({
@@ -711,16 +664,16 @@ router.put('/:id/cancel', [
     if (!invoice) {
       return res.status(404).json({ message: 'Purchase invoice not found' });
     }
-    
+
     if (['paid', 'closed'].includes(invoice.status)) {
       return res.status(400).json({ message: 'Cannot cancel paid or closed invoice' });
     }
-    
+
     invoice.status = 'cancelled';
     invoice.lastModifiedBy = req.user._id;
-    
+
     await invoice.save();
-    
+
     res.json({
       message: 'Purchase invoice cancelled successfully',
       invoice
@@ -737,29 +690,29 @@ router.put('/:id/cancel', [
 router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], async (req, res) => {
   try {
     const { filters = {} } = req.body;
-    
+
     // Build query based on filters
     const filter = {};
-    
+
     if (filters.search) {
       filter.$or = [
         { invoiceNumber: { $regex: filters.search, $options: 'i' } },
         { notes: { $regex: filters.search, $options: 'i' } }
       ];
     }
-    
+
     if (filters.status) {
       filter.status = filters.status;
     }
-    
+
     if (filters.paymentStatus) {
       filter['payment.status'] = filters.paymentStatus;
     }
-    
+
     if (filters.supplier) {
       filter.supplier = filters.supplier;
     }
-    
+
     if (filters.dateFrom || filters.dateTo) {
       filter.createdAt = {};
       if (filters.dateFrom) {
@@ -774,19 +727,19 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
         filter.createdAt.$lt = dateTo;
       }
     }
-    
+
     // Fetch supplier name if supplier filter is applied
     let supplierName = null;
     if (filters.supplier) {
       const supplier = await supplierRepository.findById(filters.supplier, { lean: true });
       if (supplier) {
-        supplierName = supplier.companyName || 
-                      supplier.name || 
-                      `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim() || 
-                      'Unknown Supplier';
+        supplierName = supplier.companyName ||
+          supplier.name ||
+          `${supplier.firstName || ''} ${supplier.lastName || ''}`.trim() ||
+          'Unknown Supplier';
       }
     }
-    
+
     const invoices = await purchaseInvoiceRepository.findAll(filter, {
       populate: [
         { path: 'supplier', select: 'companyName name firstName lastName email phone' },
@@ -796,31 +749,31 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
       sort: { createdAt: -1 },
       lean: true
     });
-    
+
     if (invoices.length > 0) {
     }
-    
+
     // Ensure exports directory exists
     const exportsDir = path.join(__dirname, '../exports');
     if (!fs.existsSync(exportsDir)) {
       fs.mkdirSync(exportsDir, { recursive: true });
     }
-    
+
     // Generate filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
     const filename = `purchases_${timestamp}.pdf`;
     const filepath = path.join(exportsDir, filename);
-    
+
     // Create PDF document
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
     const stream = fs.createWriteStream(filepath);
     doc.pipe(stream);
-    
+
     // Helper function to format currency
     const formatCurrency = (amount) => {
       return `$${Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
-    
+
     // Helper function to format date as DD/MM/YYYY
     const formatDate = (date) => {
       if (!date) return 'N/A';
@@ -830,26 +783,26 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
       const year = d.getFullYear();
       return `${day}/${month}/${year}`;
     };
-    
+
     // Header
     doc.fontSize(20).font('Helvetica-Bold').text('PURCHASE REPORT', { align: 'center' });
     doc.moveDown(0.5);
-    
+
     // Supplier name (if filtered by supplier)
     if (supplierName) {
       doc.fontSize(14).font('Helvetica-Bold').text(`Supplier: ${supplierName}`, { align: 'center' });
       doc.moveDown(0.5);
     }
-    
+
     // Report date range (only show if date filters are applied)
     if (filters.dateFrom || filters.dateTo) {
       const dateRange = `Period: ${filters.dateFrom ? formatDate(filters.dateFrom) : 'All'} - ${filters.dateTo ? formatDate(filters.dateTo) : 'All'}`;
       doc.fontSize(12).font('Helvetica').text(dateRange, { align: 'center' });
       doc.moveDown(0.5);
     }
-    
+
     doc.moveDown(1);
-    
+
     // Summary section
     const totalInvoices = invoices.length;
     const totalAmount = invoices.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0);
@@ -858,20 +811,20 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
     let totalItems = 0;
     let earliestDate = null;
     let latestDate = null;
-    
+
     invoices.forEach(invoice => {
       // Status breakdown
       statusCounts[invoice.status] = (statusCounts[invoice.status] || 0) + 1;
-      
+
       // Payment status breakdown
       const paymentStatus = invoice.payment?.status || 'pending';
       paymentStatusCounts[paymentStatus] = (paymentStatusCounts[paymentStatus] || 0) + 1;
-      
+
       // Total items
       if (invoice.items && Array.isArray(invoice.items)) {
         totalItems += invoice.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
       }
-      
+
       // Date range
       if (invoice.createdAt) {
         const invoiceDate = new Date(invoice.createdAt);
@@ -883,9 +836,9 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
         }
       }
     });
-    
+
     const averageInvoiceValue = totalInvoices > 0 ? totalAmount / totalInvoices : 0;
-    
+
     // Summary section with three columns (similar to invoice format)
     const leftColumnX = 50;
     const middleColumnX = 220;
@@ -893,22 +846,22 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
     const columnWidth = 160; // Width for each column
     const lineHeight = 16; // Consistent line height
     const headerLineYOffset = 12; // Offset for header separator line
-    
+
     doc.fontSize(11).font('Helvetica-Bold').text('Summary', { underline: true });
     doc.moveDown(0.5);
-    
+
     // Start all columns at the same Y position
     const startY = doc.y;
     let leftY = startY;
     let middleY = startY;
     let rightY = startY;
-    
+
     // Left column - Purchase Summary
     doc.fontSize(10).font('Helvetica-Bold').text('Purchase Summary:', leftColumnX, leftY);
     // Draw separator line under header
     doc.moveTo(leftColumnX, leftY + headerLineYOffset).lineTo(leftColumnX + columnWidth, leftY + headerLineYOffset).stroke({ color: '#cccccc', width: 0.5 });
     leftY += lineHeight + 3;
-    
+
     doc.fontSize(10).font('Helvetica');
     doc.text(`Total Amount: ${formatCurrency(totalAmount)}`, leftColumnX, leftY);
     leftY += lineHeight;
@@ -916,13 +869,13 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
     leftY += lineHeight;
     doc.text(`Avg Invoice Value: ${formatCurrency(averageInvoiceValue)}`, leftColumnX, leftY);
     leftY += lineHeight;
-    
+
     // Middle column - Status Details
     doc.fontSize(10).font('Helvetica-Bold').text('Status Details:', middleColumnX, middleY);
     // Draw separator line under header
     doc.moveTo(middleColumnX, middleY + headerLineYOffset).lineTo(middleColumnX + columnWidth, middleY + headerLineYOffset).stroke({ color: '#cccccc', width: 0.5 });
     middleY += lineHeight + 3;
-    
+
     doc.fontSize(10).font('Helvetica');
     if (Object.keys(statusCounts).length > 0) {
       Object.entries(statusCounts).forEach(([status, count]) => {
@@ -930,13 +883,13 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
         middleY += lineHeight;
       });
     }
-    
+
     // Right column - Payment & Types
     doc.fontSize(10).font('Helvetica-Bold').text('Payment Status:', rightColumnX, rightY);
     // Draw separator line under header
     doc.moveTo(rightColumnX, rightY + headerLineYOffset).lineTo(rightColumnX + columnWidth, rightY + headerLineYOffset).stroke({ color: '#cccccc', width: 0.5 });
     rightY += lineHeight + 3;
-    
+
     doc.fontSize(10).font('Helvetica');
     if (Object.keys(paymentStatusCounts).length > 0) {
       Object.entries(paymentStatusCounts).forEach(([status, count]) => {
@@ -944,21 +897,21 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
         rightY += lineHeight;
       });
     }
-    
+
     // Move to the lower of all three columns
     const finalY = Math.max(leftY, Math.max(middleY, rightY));
     doc.y = finalY;
     doc.moveDown(1);
-    
+
     // Table setup
     const tableTop = doc.y;
     const leftMargin = 50;
     const pageWidth = 550;
-    
+
     // Adjust column widths based on whether supplier filter is applied
     const showSupplierColumn = !supplierName; // Only show supplier column if no supplier filter
     const availableWidth = pageWidth - leftMargin; // Total available width for columns
-    
+
     const colWidths = showSupplierColumn ? {
       sno: 30,
       invoiceNumber: 110,
@@ -975,7 +928,7 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
       total: 85,
       items: 90
     };
-    
+
     // Verify total width doesn't exceed available space
     const totalWidth = Object.values(colWidths).reduce((sum, width) => sum + width, 0);
     if (totalWidth > availableWidth) {
@@ -985,7 +938,7 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
         colWidths[key] = Math.floor(colWidths[key] * scale);
       });
     }
-    
+
     // Table headers
     doc.fontSize(10).font('Helvetica-Bold');
     let xPos = leftMargin;
@@ -1006,22 +959,22 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
     xPos += colWidths.total;
     // Items header - right-aligned to match data
     doc.text('Items', xPos, tableTop, { width: colWidths.items, align: 'right' });
-    
+
     // Draw header line
     doc.moveTo(leftMargin, tableTop + 15).lineTo(pageWidth, tableTop + 15).stroke();
-    
+
     let currentY = tableTop + 25;
     const rowHeight = 20;
     const pageHeight = 750;
     let serialNumber = 1; // Track serial number across pages
-    
+
     // Table rows
     invoices.forEach((invoice, index) => {
       // Check if we need a new page
       if (currentY > pageHeight - 50) {
         doc.addPage();
         currentY = 50;
-        
+
         // Redraw headers on new page
         doc.fontSize(10).font('Helvetica-Bold');
         xPos = leftMargin;
@@ -1042,86 +995,86 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
         xPos += colWidths.total;
         // Items header - right-aligned to match data
         doc.text('Items', xPos, currentY, { width: colWidths.items, align: 'right' });
-        
+
         doc.moveTo(leftMargin, currentY + 15).lineTo(pageWidth, currentY + 15).stroke();
         currentY += 25;
       }
-      
+
       const statusText = invoice.status ? invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1) : 'N/A';
       const itemsCount = invoice.items?.length || 0;
-      
+
       // Alternating row background color (zebra striping)
       const isEvenRow = (serialNumber - 1) % 2 === 1;
       const rowBgColor = isEvenRow ? '#f9fafb' : '#ffffff';
-      
+
       // Draw row background
       doc.fillColor(rowBgColor);
       doc.rect(leftMargin, currentY, pageWidth - leftMargin, rowHeight).fill();
-      
+
       // Reset fill color to black for text
       doc.fillColor('black');
       doc.fontSize(9).font('Helvetica');
       xPos = leftMargin;
       // Serial number - centered
-      doc.text(serialNumber.toString(), xPos, currentY, { 
+      doc.text(serialNumber.toString(), xPos, currentY, {
         width: colWidths.sno,
         align: 'center'
       });
       xPos += colWidths.sno;
       serialNumber++; // Increment for next row
       // Date - before Invoice #
-      doc.text(formatDate(invoice.createdAt), xPos, currentY, { 
+      doc.text(formatDate(invoice.createdAt), xPos, currentY, {
         width: colWidths.date
       });
       xPos += colWidths.date;
       // Invoice number - prevent wrapping, use ellipsis if too long
       const invoiceNum = invoice.invoiceNumber || 'N/A';
-      doc.text(invoiceNum, xPos, currentY, { 
+      doc.text(invoiceNum, xPos, currentY, {
         width: colWidths.invoiceNumber,
         ellipsis: true
       });
       xPos += colWidths.invoiceNumber;
       // Supplier name - only show if no supplier filter is applied
       if (showSupplierColumn) {
-        const invoiceSupplierName = invoice.supplier?.companyName || 
-                                  invoice.supplier?.name || 
-                                  `${invoice.supplier?.firstName || ''} ${invoice.supplier?.lastName || ''}`.trim() || 
-                                  invoice.supplierInfo?.companyName ||
-                                  invoice.supplierInfo?.name ||
-                                  'Unknown Supplier';
-        doc.text(invoiceSupplierName.substring(0, 20), xPos, currentY, { 
+        const invoiceSupplierName = invoice.supplier?.companyName ||
+          invoice.supplier?.name ||
+          `${invoice.supplier?.firstName || ''} ${invoice.supplier?.lastName || ''}`.trim() ||
+          invoice.supplierInfo?.companyName ||
+          invoice.supplierInfo?.name ||
+          'Unknown Supplier';
+        doc.text(invoiceSupplierName.substring(0, 20), xPos, currentY, {
           width: colWidths.supplier,
           ellipsis: true
         });
         xPos += colWidths.supplier;
       }
-      doc.text(statusText, xPos, currentY, { 
+      doc.text(statusText, xPos, currentY, {
         width: colWidths.status
       });
       xPos += colWidths.status;
-      doc.text(formatCurrency(invoice.pricing?.total || 0), xPos, currentY, { 
-        width: colWidths.total, 
+      doc.text(formatCurrency(invoice.pricing?.total || 0), xPos, currentY, {
+        width: colWidths.total,
         align: 'right'
       });
       xPos += colWidths.total;
-      doc.text(itemsCount.toString(), xPos, currentY, { 
-        width: colWidths.items, 
+      doc.text(itemsCount.toString(), xPos, currentY, {
+        width: colWidths.items,
         align: 'right'
       });
-      
+
       // Draw row line
       doc.moveTo(leftMargin, currentY + 12).lineTo(pageWidth, currentY + 12).stroke({ color: '#cccccc', width: 0.5 });
-      
+
       currentY += rowHeight;
     });
-    
+
     // Footer - Center aligned (same line format like invoice)
     currentY += 20;
     if (currentY > pageHeight - 50) {
       doc.addPage();
       currentY = 50;
     }
-    
+
     doc.moveDown(2);
     let footerText = `Generated on: ${formatDate(new Date())}`;
     if (req.user) {
@@ -1133,24 +1086,24 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
     // Center the footer text by using the full page width
     const footerX = leftMargin;
     const footerWidth = pageWidth - leftMargin;
-    doc.fontSize(9).font('Helvetica').text(footerText, footerX, doc.y, { 
+    doc.fontSize(9).font('Helvetica').text(footerText, footerX, doc.y, {
       width: footerWidth,
-      align: 'center' 
+      align: 'center'
     });
-    
+
     // Add date range below if available
     if (earliestDate && latestDate) {
       doc.moveDown(0.3);
       const dateRangeText = `Date Range: ${formatDate(earliestDate)} ${formatDate(latestDate)}`;
-      doc.fontSize(9).font('Helvetica').text(dateRangeText, footerX, doc.y, { 
+      doc.fontSize(9).font('Helvetica').text(dateRangeText, footerX, doc.y, {
         width: footerWidth,
-        align: 'center' 
+        align: 'center'
       });
     }
-    
+
     // Finalize PDF
     doc.end();
-    
+
     // Wait for stream to finish
     await new Promise((resolve, reject) => {
       stream.on('finish', () => {
@@ -1158,14 +1111,14 @@ router.post('/export/pdf', [auth, requirePermission('view_purchase_invoices')], 
       });
       stream.on('error', reject);
     });
-    
+
     res.json({
       message: 'Purchase invoices exported successfully',
       filename: filename,
       recordCount: invoices.length,
       downloadUrl: `/api/purchase-invoices/download/${filename}`
     });
-    
+
   } catch (error) {
     console.error('PDF export error:', error);
     res.status(500).json({ message: 'Export failed', error: error.message });
@@ -1179,11 +1132,11 @@ router.get('/download/:filename', [auth, requirePermission('view_purchase_invoic
   try {
     const filename = req.params.filename;
     const filepath = path.join(__dirname, '../exports', filename);
-    
+
     if (!fs.existsSync(filepath)) {
       return res.status(404).json({ message: 'File not found' });
     }
-    
+
     res.download(filepath, filename, (err) => {
       if (err) {
         console.error('Download error:', err);

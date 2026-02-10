@@ -4,20 +4,21 @@ const Customer = require('../models/Customer'); // Still needed for model refere
 const Sales = require('../models/Sales'); // Still needed for model reference
 const CustomerBalanceService = require('../services/customerBalanceService');
 const customerRepository = require('../repositories/CustomerRepository');
+const AccountingService = require('../services/accountingService');
 const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Get customer balance summary
 router.get('/:customerId', [
-  auth, 
+  auth,
   requirePermission('view_customers'),
   param('customerId').isMongoId().withMessage('Invalid customer ID')
 ], async (req, res) => {
   try {
     const { customerId } = req.params;
     const summary = await CustomerBalanceService.getBalanceSummary(customerId);
-    
+
     res.json({
       success: true,
       data: summary
@@ -34,7 +35,7 @@ router.get('/:customerId', [
 
 // Record payment for customer
 router.post('/:customerId/payment', [
-  auth, 
+  auth,
   requirePermission('manage_payments'),
   param('customerId').isMongoId().withMessage('Invalid customer ID'),
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
@@ -44,9 +45,9 @@ router.post('/:customerId/payment', [
   try {
     const { customerId } = req.params;
     const { amount, orderId, notes } = req.body;
-    
+
     const updatedCustomer = await CustomerBalanceService.recordPayment(customerId, amount, orderId);
-    
+
     res.json({
       success: true,
       message: 'Payment recorded successfully',
@@ -67,7 +68,7 @@ router.post('/:customerId/payment', [
 
 // Record refund for customer
 router.post('/:customerId/refund', [
-  auth, 
+  auth,
   requirePermission('manage_payments'),
   param('customerId').isMongoId().withMessage('Invalid customer ID'),
   body('amount').isFloat({ min: 0.01 }).withMessage('Refund amount must be greater than 0'),
@@ -77,9 +78,9 @@ router.post('/:customerId/refund', [
   try {
     const { customerId } = req.params;
     const { amount, orderId, reason } = req.body;
-    
+
     const updatedCustomer = await CustomerBalanceService.recordRefund(customerId, amount, orderId);
-    
+
     res.json({
       success: true,
       message: 'Refund recorded successfully',
@@ -100,14 +101,14 @@ router.post('/:customerId/refund', [
 
 // Recalculate customer balance
 router.post('/:customerId/recalculate', [
-  auth, 
+  auth,
   requirePermission('manage_customers'),
   param('customerId').isMongoId().withMessage('Invalid customer ID')
 ], async (req, res) => {
   try {
     const { customerId } = req.params;
     const updatedCustomer = await CustomerBalanceService.recalculateBalance(customerId);
-    
+
     res.json({
       success: true,
       message: 'Customer balance recalculated successfully',
@@ -125,7 +126,7 @@ router.post('/:customerId/recalculate', [
 
 // Check if customer can make purchase
 router.get('/:customerId/can-purchase', [
-  auth, 
+  auth,
   requirePermission('view_customers'),
   param('customerId').isMongoId().withMessage('Invalid customer ID'),
   query('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0')
@@ -133,9 +134,9 @@ router.get('/:customerId/can-purchase', [
   try {
     const { customerId } = req.params;
     const { amount } = req.query;
-    
+
     const eligibility = await CustomerBalanceService.canMakePurchase(customerId, parseFloat(amount));
-    
+
     res.json({
       success: true,
       data: eligibility
@@ -152,43 +153,50 @@ router.get('/:customerId/can-purchase', [
 
 // Get all customers with balance issues
 router.get('/reports/balance-issues', [
-  auth, 
+  auth,
   requirePermission('view_reports')
 ], async (req, res) => {
   try {
-    // Find customers with pending balances
-    const customersWithPendingBalances = await customerRepository.findAll({
-      pendingBalance: { $gt: 0 }
-    }, {
-      select: 'name businessName email phone pendingBalance advanceBalance creditLimit'
+    // Fetch all active customers
+    const customers = await customerRepository.findAll({ isDeleted: { $ne: true } }, {
+      select: 'name businessName email phone openingBalance creditLimit'
     });
 
-    // Find customers with advance balances
-    const customersWithAdvanceBalances = await customerRepository.findAll({
-      advanceBalance: { $gt: 0 }
-    }, {
-      select: 'name businessName email phone pendingBalance advanceBalance creditLimit'
-    });
+    const customerIds = customers.map(c => c._id.toString());
+    const balanceMap = await AccountingService.getBulkCustomerBalances(customerIds);
 
-    // Find customers over credit limit
-    const customersOverCreditLimit = await customerRepository.findAll({
-      $expr: { $gt: ['$currentBalance', '$creditLimit'] }
-    }, {
-      select: 'name businessName email phone currentBalance creditLimit'
+    const pendingBalances = [];
+    const advanceBalances = [];
+    const overCreditLimit = [];
+
+    customers.forEach(c => {
+      const ledgerBalance = balanceMap.get(c._id.toString()) || 0;
+      const netBalance = (c.openingBalance || 0) + ledgerBalance;
+
+      const customerWithBalance = {
+        ...c.toObject(),
+        pendingBalance: netBalance > 0 ? netBalance : 0,
+        advanceBalance: netBalance < 0 ? Math.abs(netBalance) : 0,
+        currentBalance: netBalance
+      };
+
+      if (netBalance > 0) pendingBalances.push(customerWithBalance);
+      if (netBalance < 0) advanceBalances.push(customerWithBalance);
+      if (c.creditLimit > 0 && netBalance > c.creditLimit) overCreditLimit.push(customerWithBalance);
     });
 
     res.json({
       success: true,
       data: {
-        pendingBalances: customersWithPendingBalances,
-        advanceBalances: customersWithAdvanceBalances,
-        overCreditLimit: customersOverCreditLimit,
+        pendingBalances,
+        advanceBalances,
+        overCreditLimit,
         summary: {
-          totalPendingBalance: customersWithPendingBalances.reduce((sum, c) => sum + c.pendingBalance, 0),
-          totalAdvanceBalance: customersWithAdvanceBalances.reduce((sum, c) => sum + c.advanceBalance, 0),
-          customersWithPendingBalances: customersWithPendingBalances.length,
-          customersWithAdvanceBalances: customersWithAdvanceBalances.length,
-          customersOverCreditLimit: customersOverCreditLimit.length
+          totalPendingBalance: pendingBalances.reduce((sum, c) => sum + c.pendingBalance, 0),
+          totalAdvanceBalance: advanceBalances.reduce((sum, c) => sum + c.advanceBalance, 0),
+          customersWithPendingBalances: pendingBalances.length,
+          customersWithAdvanceBalances: advanceBalances.length,
+          customersOverCreditLimit: overCreditLimit.length
         }
       }
     });
@@ -204,7 +212,7 @@ router.get('/reports/balance-issues', [
 
 // Fix all customer balances (recalculate from orders)
 router.post('/fix-all-balances', [
-  auth, 
+  auth,
   requirePermission('manage_customers')
 ], async (req, res) => {
   try {
@@ -258,14 +266,14 @@ router.post('/fix-all-balances', [
 
 // Fix currentBalance for a specific customer (recalculate from pendingBalance and advanceBalance)
 router.post('/:customerId/fix-current-balance', [
-  auth, 
+  auth,
   requirePermission('manage_customers'),
   param('customerId').isMongoId().withMessage('Invalid customer ID')
 ], async (req, res) => {
   try {
     const { customerId } = req.params;
     const result = await CustomerBalanceService.fixCurrentBalance(customerId);
-    
+
     res.json({
       success: true,
       message: result.fixed ? 'CurrentBalance fixed successfully' : result.message,
@@ -283,12 +291,12 @@ router.post('/:customerId/fix-current-balance', [
 
 // Fix currentBalance for all customers (recalculate from pendingBalance and advanceBalance)
 router.post('/fix-all-current-balances', [
-  auth, 
+  auth,
   requirePermission('manage_customers')
 ], async (req, res) => {
   try {
     const result = await CustomerBalanceService.fixAllCurrentBalances();
-    
+
     res.json({
       success: true,
       message: `CurrentBalance fix completed. ${result.summary.fixed} fixed, ${result.summary.alreadyCorrect} already correct, ${result.summary.failed} failed.`,

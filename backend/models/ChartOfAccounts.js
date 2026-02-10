@@ -14,7 +14,7 @@ const accountSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  
+
   // Account Classification
   accountType: {
     type: String,
@@ -41,7 +41,7 @@ const accountSchema = new mongoose.Schema({
       'warehouse_operations', 'shipping_handling', 'security_loss_prevention'
     ]
   },
-  
+
   // Account Hierarchy
   parentAccount: {
     type: mongoose.Schema.Types.ObjectId,
@@ -54,7 +54,7 @@ const accountSchema = new mongoose.Schema({
     min: 0,
     max: 5
   },
-  
+
   // Account Properties
   isActive: {
     type: Boolean,
@@ -68,7 +68,7 @@ const accountSchema = new mongoose.Schema({
     type: Boolean,
     default: true // Can transactions be posted directly to this account?
   },
-  
+
   // Balance Information
   normalBalance: {
     type: String,
@@ -78,12 +78,13 @@ const accountSchema = new mongoose.Schema({
   currentBalance: {
     type: Number,
     default: 0
+    // @deprecated - Use AccountingService.getAccountBalance() which calculates from ledger
   },
   openingBalance: {
     type: Number,
     default: 0
   },
-  
+
   // Additional Information
   description: {
     type: String,
@@ -93,7 +94,7 @@ const accountSchema = new mongoose.Schema({
     type: String,
     default: 'USD'
   },
-  
+
   // Tax Information
   isTaxable: {
     type: Boolean,
@@ -105,7 +106,7 @@ const accountSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
-  
+
   // Reconciliation
   requiresReconciliation: {
     type: Boolean,
@@ -137,7 +138,7 @@ const accountSchema = new mongoose.Schema({
     discrepancyAmount: Number,
     discrepancyReason: String
   },
-  
+
   // Metadata
   notes: {
     type: String
@@ -146,7 +147,7 @@ const accountSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
-  
+
   // Audit Trail
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -164,29 +165,29 @@ const accountSchema = new mongoose.Schema({
 // No need for additional index definitions here to avoid duplicate warnings
 
 // Virtual for full account path
-accountSchema.virtual('fullAccountPath').get(function() {
-  return this.parentAccount 
-    ? `${this.parentAccount.accountCode} > ${this.accountCode}` 
+accountSchema.virtual('fullAccountPath').get(function () {
+  return this.parentAccount
+    ? `${this.parentAccount.accountCode} > ${this.accountCode}`
     : this.accountCode;
 });
 
 // Method to get account hierarchy
-accountSchema.statics.getAccountHierarchy = async function() {
+accountSchema.statics.getAccountHierarchy = async function () {
   const accounts = await this.find({ isActive: true })
     .sort({ accountCode: 1 })
     .populate('parentAccount', 'accountCode accountName');
-  
+
   // Build tree structure
   const accountMap = {};
   const rootAccounts = [];
-  
+
   accounts.forEach(account => {
     accountMap[account._id] = {
       ...account.toObject(),
       children: []
     };
   });
-  
+
   accounts.forEach(account => {
     if (account.parentAccount) {
       const parent = accountMap[account.parentAccount._id];
@@ -197,24 +198,24 @@ accountSchema.statics.getAccountHierarchy = async function() {
       rootAccounts.push(accountMap[account._id]);
     }
   });
-  
+
   return rootAccounts;
 };
 
-// Method to update account balance
-accountSchema.methods.updateBalance = function(amount, isDebit) {
+// @deprecated - Use AccountingService.getAccountBalance() which calculates from ledger
+accountSchema.methods.updateBalance = function (amount, isDebit) {
   // CRITICAL: Prevent modifications during reconciliation
-  if (this.reconciliationStatus && 
-      this.reconciliationStatus.status === 'in_progress' &&
-      this.reconciliationStatus.lockedBy &&
-      this.reconciliationStatus.lockExpiresAt &&
-      this.reconciliationStatus.lockExpiresAt > new Date()) {
+  if (this.reconciliationStatus &&
+    this.reconciliationStatus.status === 'in_progress' &&
+    this.reconciliationStatus.lockedBy &&
+    this.reconciliationStatus.lockExpiresAt &&
+    this.reconciliationStatus.lockExpiresAt > new Date()) {
     throw new Error(
       `Cannot modify account ${this.accountCode} during reconciliation. ` +
       `Account is locked by another user until ${this.reconciliationStatus.lockExpiresAt.toISOString()}`
     );
   }
-  
+
   if (this.normalBalance === 'debit') {
     this.currentBalance += isDebit ? amount : -amount;
   } else {
@@ -224,27 +225,27 @@ accountSchema.methods.updateBalance = function(amount, isDebit) {
 };
 
 // Method to lock account for reconciliation
-accountSchema.methods.lockForReconciliation = function(userId, durationMinutes = 30) {
-  if (this.reconciliationStatus.lockedBy && 
-      this.reconciliationStatus.lockExpiresAt > new Date()) {
+accountSchema.methods.lockForReconciliation = function (userId, durationMinutes = 30) {
+  if (this.reconciliationStatus.lockedBy &&
+    this.reconciliationStatus.lockExpiresAt > new Date()) {
     throw new Error('Account is already locked for reconciliation by another user');
   }
-  
+
   this.reconciliationStatus.status = 'in_progress';
   this.reconciliationStatus.lockedBy = userId;
   this.reconciliationStatus.lockedAt = new Date();
   this.reconciliationStatus.lockExpiresAt = new Date(Date.now() + durationMinutes * 60000);
-  
+
   return this.save();
 };
 
 // Method to unlock account after reconciliation
-accountSchema.methods.unlockAfterReconciliation = function(userId, reconciled = true, discrepancyAmount = null, discrepancyReason = null) {
-  if (this.reconciliationStatus.lockedBy && 
-      this.reconciliationStatus.lockedBy.toString() !== userId.toString()) {
+accountSchema.methods.unlockAfterReconciliation = function (userId, reconciled = true, discrepancyAmount = null, discrepancyReason = null) {
+  if (this.reconciliationStatus.lockedBy &&
+    this.reconciliationStatus.lockedBy.toString() !== userId.toString()) {
     throw new Error('Only the user who locked the account can unlock it');
   }
-  
+
   this.reconciliationStatus.status = reconciled ? 'reconciled' : 'discrepancy';
   this.reconciliationStatus.reconciledBy = userId;
   this.reconciliationStatus.reconciledAt = new Date();
@@ -252,12 +253,12 @@ accountSchema.methods.unlockAfterReconciliation = function(userId, reconciled = 
   this.reconciliationStatus.lockedBy = null;
   this.reconciliationStatus.lockedAt = null;
   this.reconciliationStatus.lockExpiresAt = null;
-  
+
   if (discrepancyAmount !== null) {
     this.reconciliationStatus.discrepancyAmount = discrepancyAmount;
     this.reconciliationStatus.discrepancyReason = discrepancyReason;
   }
-  
+
   return this.save();
 };
 

@@ -443,35 +443,10 @@ router.put('/:id/status', [
     order.status = req.body.status;
     order.processedBy = req.user._id;
 
-    // Handle balance updates based on status change
-    if (req.body.status === 'confirmed' && oldStatus !== 'confirmed' && order.customer) {
-      // Move unpaid amount from pendingBalance to currentBalance when confirming
-      try {
-        const customerExists = await Customer.findById(order.customer);
-        if (customerExists) {
-          const unpaidAmount = order.pricing.total - order.payment.amountPaid;
+    // Note: Customer balance updates removed from route.
+    // Balances are now dynamically derived from the Account Ledger.
 
-          if (unpaidAmount > 0) {
-            const updateResult = await Customer.findByIdAndUpdate(
-              order.customer,
-              {
-                $inc: {
-                  pendingBalance: -unpaidAmount,  // Remove from pending
-                  currentBalance: unpaidAmount    // Add to current (outstanding)
-                }
-              },
-              { new: true }
-            );
-          }
-        } else {
-        }
-      } catch (error) {
-        console.error('Error updating customer balance on order confirmation:', error);
-        // Don't fail the status update if customer update fails
-      }
-    }
-
-    // If cancelling, restore inventory and reverse customer balance
+    // If cancelling, restore inventory
     if (req.body.status === 'cancelled') {
       for (const item of order.items) {
         await Product.findByIdAndUpdate(
@@ -480,40 +455,7 @@ router.put('/:id/status', [
         );
       }
 
-      // Reverse customer balance for cancelled orders
-      if (order.customer) {
-        try {
-          const customerExists = await Customer.findById(order.customer);
-          if (customerExists) {
-            const unpaidAmount = order.pricing.total - order.payment.amountPaid;
-
-            if (unpaidAmount > 0) {
-              let balanceUpdate = {};
-
-              if (oldStatus === 'confirmed') {
-                // If order was confirmed, it was moved to currentBalance, so reverse it back to pendingBalance
-                balanceUpdate = {
-                  pendingBalance: unpaidAmount,  // Add back to pending
-                  currentBalance: -unpaidAmount  // Remove from current
-                };
-              } else {
-                // If order was not confirmed, it was still in pendingBalance, so just remove it
-                balanceUpdate = { pendingBalance: -unpaidAmount };
-              }
-
-              const updateResult = await Customer.findByIdAndUpdate(
-                order.customer,
-                { $inc: balanceUpdate },
-                { new: true }
-              );
-            }
-          } else {
-          }
-        } catch (error) {
-          console.error('Error reversing customer balance on cancellation:', error);
-          // Don't fail the cancellation if customer update fails
-        }
-      }
+      // Note: Reversing customer balance is now handled by the ledger.
     }
 
     await order.save();

@@ -53,12 +53,12 @@ class AutoPurchaseOrderService {
 
       for (const alert of alerts) {
         const product = products.find(p => p._id.toString() === alert.product._id.toString());
-        
+
         if (!product) continue;
 
         // Get preferred supplier from purchase history
         const supplier = await this.findSupplierForProduct(product._id, supplierPreference);
-        
+
         if (!supplier) {
           unassignedProducts.push({
             product: alert.product,
@@ -69,7 +69,7 @@ class AutoPurchaseOrderService {
         }
 
         const supplierId = supplier._id.toString();
-        
+
         if (!supplierGroups[supplierId]) {
           supplierGroups[supplierId] = {
             supplier,
@@ -148,7 +148,7 @@ class AutoPurchaseOrderService {
           };
 
           const purchaseOrder = await PurchaseOrderRepository.create(poData);
-          
+
           // Populate the purchase order for response
           await purchaseOrder.populate([
             { path: 'supplier', select: 'companyName email phone' },
@@ -156,14 +156,8 @@ class AutoPurchaseOrderService {
             { path: 'createdBy', select: 'firstName lastName' }
           ]);
 
-          // Update supplier balance if confirmed
-          if (autoConfirm && total > 0) {
-            await SupplierRepository.updateById(
-              supplierId,
-              { $inc: { pendingBalance: total } },
-              { new: true }
-            );
-          }
+          // Note: Supplier balances are now dynamically derived from Account Ledger
+          // No manual increment of pendingBalance required.
 
           console.log(`Successfully created PO ${purchaseOrder.poNumber} for supplier ${group.supplier.companyName}`);
           generatedPOs.push(purchaseOrder);
@@ -179,8 +173,8 @@ class AutoPurchaseOrderService {
       const message = generatedPOs.length > 0
         ? `Generated ${generatedPOs.length} purchase order(s)`
         : unassignedProducts.length > 0
-        ? `No purchase orders generated. ${unassignedProducts.length} product(s) could not be assigned to suppliers.`
-        : 'No purchase orders generated. No products need reordering or all products are already assigned.';
+          ? `No purchase orders generated. ${unassignedProducts.length} product(s) could not be assigned to suppliers.`
+          : 'No purchase orders generated. No products need reordering or all products are already assigned.';
 
       return {
         success: true,
@@ -262,7 +256,7 @@ class AutoPurchaseOrderService {
         }
         supplierCounts[supplierId].count++;
         supplierCounts[supplierId].totalValue += po.total || 0;
-        
+
         // Calculate average cost for this product from this supplier
         const item = po.items.find(i => i.product.toString() === productId.toString());
         if (item) {
@@ -274,7 +268,7 @@ class AutoPurchaseOrderService {
 
       // Select supplier based on preference
       const supplierEntries = Object.values(supplierCounts);
-      
+
       if (supplierEntries.length === 0) return null;
       if (supplierEntries.length === 1) return supplierEntries[0].supplier;
 
@@ -282,11 +276,11 @@ class AutoPurchaseOrderService {
         case 'cheapest':
           // Return supplier with lowest average cost
           return supplierEntries.sort((a, b) => a.avgCost - b.avgCost)[0].supplier;
-        
+
         case 'fastest':
           // Return most frequently used supplier (assumed to be faster)
           return supplierEntries.sort((a, b) => b.count - a.count)[0].supplier;
-        
+
         case 'primary':
         default:
           // Return most frequently used supplier
@@ -353,10 +347,10 @@ class AutoPurchaseOrderService {
       if (sales.length > 1) {
         const firstHalf = sales.slice(0, Math.floor(sales.length / 2));
         const secondHalf = sales.slice(Math.floor(sales.length / 2));
-        
+
         const firstAvg = firstHalf.reduce((sum, s) => sum + s.dailyQuantity, 0) / firstHalf.length;
         const secondAvg = secondHalf.reduce((sum, s) => sum + s.dailyQuantity, 0) / secondHalf.length;
-        
+
         trend = (secondAvg - firstAvg) / firstHalf.length;
       }
 
@@ -415,7 +409,7 @@ class AutoPurchaseOrderService {
         alerts.map(async (alert) => {
           const product = products.find(p => p._id.toString() === alert.product._id.toString());
           const supplier = await this.findSupplierForProduct(alert.product._id, 'primary');
-          
+
           return {
             ...alert,
             product: {

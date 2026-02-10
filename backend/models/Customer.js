@@ -80,16 +80,19 @@ const customerSchema = new mongoose.Schema({
   currentBalance: {
     type: Number,
     default: 0
+    // @deprecated - Calculate from Transaction ledger dynamically
   },
   pendingBalance: {
     type: Number,
     default: 0,
     min: 0
+    // @deprecated - Calculate from Transaction ledger dynamically
   },
   advanceBalance: {
     type: Number,
     default: 0,
     min: 0
+    // @deprecated - Calculate from Transaction ledger dynamically
   },
 
   // Payment Terms

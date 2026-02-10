@@ -97,17 +97,30 @@ class PurchaseOrderService {
       getAll: getAllPurchaseOrders,
       sort: { createdAt: -1 },
       populate: [
-        { path: 'supplier', select: 'companyName contactPerson email phone businessType currentBalance pendingBalance addresses' },
+        { path: 'supplier', select: 'companyName contactPerson email phone businessType openingBalance addresses' },
         { path: 'items.product', select: 'name description pricing inventory' },
         { path: 'createdBy', select: 'firstName lastName email' },
         { path: 'lastModifiedBy', select: 'firstName lastName email' }
       ]
     });
 
-    // Transform names to uppercase
+    // Fetch dynamic balances from ledger for all suppliers in this page
+    const supplierIds = result.purchaseOrders
+      .filter(po => po.supplier)
+      .map(po => po.supplier._id.toString());
+
+    const balanceMap = await AccountingService.getBulkSupplierBalances(supplierIds);
+
+    // Transform names to uppercase and attach dynamic balances
     result.purchaseOrders.forEach(po => {
       if (po.supplier) {
         po.supplier = this.transformSupplierToUppercase(po.supplier);
+        const ledgerBalance = balanceMap.get(po.supplier._id.toString()) || 0;
+        const netBalance = (po.supplier.openingBalance || 0) + ledgerBalance;
+
+        po.supplier.currentBalance = netBalance;
+        po.supplier.pendingBalance = netBalance > 0 ? netBalance : 0;
+        po.supplier.advanceBalance = netBalance < 0 ? Math.abs(netBalance) : 0;
       }
       if (po.items && Array.isArray(po.items)) {
         po.items.forEach(item => {
@@ -135,16 +148,21 @@ class PurchaseOrderService {
 
     // Populate related fields
     await purchaseOrder.populate([
-      { path: 'supplier', select: 'companyName contactPerson email phone businessType paymentTerms currentBalance pendingBalance addresses' },
+      { path: 'supplier', select: 'companyName contactPerson email phone businessType paymentTerms openingBalance addresses' },
       { path: 'items.product', select: 'name description pricing inventory' },
       { path: 'createdBy', select: 'firstName lastName email' },
       { path: 'lastModifiedBy', select: 'firstName lastName email' },
       { path: 'conversions.convertedBy', select: 'firstName lastName email' }
     ]);
 
-    // Transform names to uppercase
+    // Transform names to uppercase and attach dynamic balance
     if (purchaseOrder.supplier) {
       purchaseOrder.supplier = this.transformSupplierToUppercase(purchaseOrder.supplier);
+      const balance = await AccountingService.getSupplierBalance(purchaseOrder.supplier._id);
+
+      purchaseOrder.supplier.currentBalance = balance;
+      purchaseOrder.supplier.pendingBalance = balance > 0 ? balance : 0;
+      purchaseOrder.supplier.advanceBalance = balance < 0 ? Math.abs(balance) : 0;
     }
     if (purchaseOrder.items && Array.isArray(purchaseOrder.items)) {
       purchaseOrder.items.forEach(item => {
@@ -172,20 +190,8 @@ class PurchaseOrderService {
 
     const purchaseOrder = await purchaseOrderRepository.create(purchaseOrderData);
 
-    // Update supplier pending balance for unpaid purchase orders
-    if (purchaseOrder.supplier && purchaseOrder.total > 0) {
-      try {
-        const supplier = await supplierRepository.findById(purchaseOrder.supplier);
-        if (supplier) {
-          await supplierRepository.update(purchaseOrder.supplier, {
-            $inc: { pendingBalance: purchaseOrder.total }
-          });
-        }
-      } catch (error) {
-        // Don't fail the purchase order creation if supplier update fails
-        console.error('Error updating supplier pending balance:', error);
-      }
-    }
+    // Note: Manual increment of supplier.pendingBalance removed.
+    // Balances are now dynamically derived from the Account Ledger transactions.
 
     // Populate related fields
     await purchaseOrder.populate([

@@ -269,6 +269,70 @@ class FinancialValidationService {
   }
   
   /**
+   * Validate double-entry integrity: every transaction group (by paymentId) must have
+   * total debits = total credits. General Ledger is the only source of truth.
+   * Call this before generating P&L or Balance Sheet; block reports if unbalanced.
+   * @param {Date} asOfDate - Optional: only validate transactions on or before this date
+   * @returns {Promise<{ valid: boolean, unbalancedGroups: Array, message?: string }>}
+   */
+  async validateLedgerDoubleEntry(asOfDate = null) {
+    try {
+      const match = {
+        status: 'completed',
+        $or: [
+          { debitAmount: { $gt: 0 } },
+          { creditAmount: { $gt: 0 } }
+        ]
+      };
+      if (asOfDate) {
+        match.createdAt = { $lte: asOfDate };
+      }
+
+      const groups = await Transaction.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: '$paymentId',
+            totalDebit: { $sum: '$debitAmount' },
+            totalCredit: { $sum: '$creditAmount' },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $project: {
+            paymentId: '$_id',
+            totalDebit: 1,
+            totalCredit: 1,
+            count: 1,
+            difference: {
+              $abs: { $subtract: ['$totalDebit', '$totalCredit'] }
+            }
+          }
+        },
+        { $match: { difference: { $gt: 0.01 } } }
+      ]);
+
+      const unbalancedGroups = groups.map(g => ({
+        paymentId: g.paymentId?.toString?.() || g.paymentId,
+        totalDebit: Math.round((g.totalDebit || 0) * 100) / 100,
+        totalCredit: Math.round((g.totalCredit || 0) * 100) / 100,
+        difference: Math.round((g.difference || 0) * 100) / 100
+      }));
+
+      return {
+        valid: unbalancedGroups.length === 0,
+        unbalancedGroups,
+        message: unbalancedGroups.length > 0
+          ? `Unbalanced transaction groups: ${unbalancedGroups.length}. Debits must equal Credits for each group.`
+          : undefined
+      };
+    } catch (error) {
+      console.error('Error validating ledger double-entry:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Validate journal entry balances
    */
   async validateJournalEntryBalances(entries) {

@@ -8,6 +8,7 @@ const SalesOrder = require('../models/SalesOrder');
 const Transaction = require('../models/Transaction');
 const customerAuditLogService = require('./customerAuditLogService');
 const accountLedgerService = require('./accountLedgerService');
+const AccountingService = require('./accountingService');
 
 class ReconciliationService {
   /**
@@ -30,10 +31,16 @@ class ReconciliationService {
       status: { $ne: 'reversed' }
     }).sort({ transactionDate: 1 });
 
-    // Calculate balances from transactions
-    const calculated = this.calculateBalancesFromTransactions(transactions);
+    // Get ledger balance (Authoritative source)
+    const ledgerBalance = await AccountingService.getCustomerBalance(customerId);
 
-    // Get current customer balances
+    const calculated = {
+      pendingBalance: ledgerBalance > 0 ? ledgerBalance : 0,
+      advanceBalance: ledgerBalance < 0 ? Math.abs(ledgerBalance) : 0,
+      currentBalance: ledgerBalance
+    };
+
+    // Get current customer profile balances (Legacy cached source)
     const current = {
       pendingBalance: customer.pendingBalance || 0,
       advanceBalance: customer.advanceBalance || 0,
@@ -455,24 +462,33 @@ class ReconciliationService {
       errors: []
     };
 
-    if (ledgerResult.success) {
-      const supplierSummaries = ledgerResult.data.suppliers.summary;
-      const summaryMap = new Map(supplierSummaries.map(s => [s.id.toString(), s]));
+    for (const supplier of suppliers) {
+      try {
+        const ledgerBalance = await AccountingService.getSupplierBalance(supplier._id);
+        const profileBalance = supplier.currentBalance || 0;
 
-      for (const supplier of suppliers) {
-        const summary = summaryMap.get(supplier._id.toString());
-        if (summary) {
-          const ledgerBalance = summary.closingBalance;
-          const profileBalance = supplier.currentBalance;
-
-          if (Math.abs(ledgerBalance - profileBalance) > 0.01) {
-            results.discrepancies++;
-            if (autoCorrect) {
-              await Supplier.updateOne({ _id: supplier._id }, { $set: { currentBalance: ledgerBalance } });
-              results.corrected++;
-            }
+        if (Math.abs(ledgerBalance - profileBalance) > 0.01) {
+          results.discrepancies++;
+          if (autoCorrect) {
+            await Supplier.updateOne(
+              { _id: supplier._id },
+              {
+                $set: {
+                  currentBalance: ledgerBalance,
+                  pendingBalance: ledgerBalance > 0 ? ledgerBalance : 0,
+                  advanceBalance: ledgerBalance < 0 ? Math.abs(ledgerBalance) : 0
+                }
+              }
+            );
+            results.corrected++;
           }
         }
+      } catch (err) {
+        results.errors.push({
+          supplierId: supplier._id,
+          supplierName: supplier.companyName,
+          error: err.message
+        });
       }
     }
 

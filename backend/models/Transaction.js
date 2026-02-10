@@ -26,7 +26,7 @@ const TransactionSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['sale', 'purchase', 'refund', 'purchase_return', 'void', 'adjustment', 'tip', 'discount']
+    enum: ['sale', 'purchase', 'refund', 'purchase_return', 'void', 'adjustment', 'tip', 'discount', 'opening_balance', 'accounting']
   },
 
   // Transaction amount
@@ -79,7 +79,7 @@ const TransactionSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: false,
-    enum: ['cash', 'credit_card', 'debit_card', 'digital_wallet', 'bank_transfer', 'check', 'gift_card', 'store_credit', 'account']
+    enum: ['cash', 'credit_card', 'debit_card', 'digital_wallet', 'bank_transfer', 'check', 'gift_card', 'store_credit', 'account', 'other']
   },
 
   // Gateway information
