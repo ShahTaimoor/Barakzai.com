@@ -13,7 +13,7 @@ const auditLogSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  
+
   // Action Information
   action: {
     type: String,
@@ -34,53 +34,53 @@ const auditLogSchema = new mongoose.Schema({
     ],
     index: true
   },
-  
+
   // Document type (for compatibility with comprehensive audit)
   documentType: {
     type: String,
     index: true
   },
-  
+
   documentId: {
     type: mongoose.Schema.Types.ObjectId,
     index: true
   },
-  
+
   oldValue: mongoose.Schema.Types.Mixed,
   newValue: mongoose.Schema.Types.Mixed,
-  
+
   // Request details
   requestMethod: String,
   requestPath: String,
   requestBody: mongoose.Schema.Types.Mixed,
   responseStatus: Number,
   duration: Number, // Response time in milliseconds
-  
+
   // Approval tracking
   approvalRequired: Boolean,
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  
+
   // Description
   description: String,
-  
+
   // Change Details
   changes: {
     before: mongoose.Schema.Types.Mixed,
     after: mongoose.Schema.Types.Mixed,
     fieldsChanged: [String]
   },
-  
+
   // User Information
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false,
     index: true
   },
-  
+
   // Request Information
   ipAddress: {
     type: String,
@@ -90,7 +90,7 @@ const auditLogSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  
+
   // Additional Information
   reason: {
     type: String,
@@ -101,7 +101,7 @@ const auditLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
-  
+
   // Timestamp
   timestamp: {
     type: Date,

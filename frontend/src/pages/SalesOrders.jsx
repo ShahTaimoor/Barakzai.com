@@ -74,7 +74,7 @@ const safeRender = (value) => {
 };
 
 const SalesOrders = () => {
-  const { updateTabTitle, tabs, activeTabId } = useTab();
+  const { updateTabTitle, tabs, activeTabId, openTab } = useTab();
   const { companyInfo: companySettings } = useCompanyInfo();
   const resolvedCompanyName = companySettings.companyName || 'Company Name';
   const resolvedCompanyAddress = companySettings.address || companySettings.billingAddress || '';
@@ -482,21 +482,22 @@ const SalesOrders = () => {
   };
 
   const customerDisplayKey = useCallback((customer) => {
-    const receivables = (customer.pendingBalance || 0);
-    const advance = (customer.advanceBalance || 0);
-    const netBalance = receivables - advance;
-    const isPayable = netBalance < 0;
-    const isReceivable = netBalance > 0;
-    const hasBalance = receivables > 0 || advance > 0;
+    // Calculate total balance: currentBalance (which is net balance)
+    const totalBalance = customer.currentBalance !== undefined
+      ? customer.currentBalance
+      : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
+    const hasBalance = totalBalance !== 0;
+    const isPayable = totalBalance < 0;
+    const isReceivable = totalBalance > 0;
 
     return (
       <div>
         <div className="font-medium">{customer.displayName || customer.businessName || customer.name || 'Unknown'}</div>
-        {hasBalance && (
+        {hasBalance ? (
           <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-            {isPayable ? 'Payables:' : 'Receivables:'} {Math.abs(netBalance).toFixed(2)}
+            Total Balance: {isPayable ? '-' : '+'}{Math.abs(totalBalance).toFixed(2)}
           </div>
-        )}
+        ) : null}
       </div>
     );
   }, []);
@@ -1153,11 +1154,20 @@ const SalesOrders = () => {
   };
 
   const handleConfirm = (id) => {
-    if (window.confirm('Are you sure you want to confirm this pending sales order? This will change its status to confirmed and make it ready for invoicing.')) {
+    if (window.confirm('Are you sure you want to confirm this sales order? This will automatically generate a sales invoice and update inventory.')) {
       confirmSalesOrderMutation(id)
         .unwrap()
-        .then(() => {
-          showSuccessToast('Sales order confirmed successfully');
+        .then((response) => {
+          if (response.invoiceError) {
+            showSuccessToast(`Sales order confirmed but failed to generate invoice: ${response.invoiceError}`);
+          } else {
+            showSuccessToast('Sales order confirmed and invoice generated successfully');
+            // Automatically navigate to the Sales Invoices page to show the generated record
+            openTab({
+              path: '/orders',
+              title: 'Sales Invoices'
+            });
+          }
           refetch(); // Refetch sales orders list
           // Immediately refetch products to update stock levels
           if (refetchProducts && typeof refetchProducts === 'function') {
@@ -1714,19 +1724,20 @@ const SalesOrders = () => {
                   </p>
                   <div className="flex items-center space-x-4 mt-2">
                     {(() => {
-                      const receivables = (selectedCustomer.pendingBalance || 0);
-                      const advance = (selectedCustomer.advanceBalance || 0);
-                      const netBalance = receivables - advance;
-                      const isPayable = netBalance < 0;
-                      const isReceivable = netBalance > 0;
-                      const hasBalance = receivables > 0 || advance > 0;
+                      // Calculate total balance: currentBalance (which is net balance)
+                      const totalBalance = selectedCustomer.currentBalance !== undefined
+                        ? selectedCustomer.currentBalance
+                        : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                      const hasBalance = totalBalance !== 0;
+                      const isPayable = totalBalance < 0;
+                      const isReceivable = totalBalance > 0;
 
                       return hasBalance ? (
                         <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>
+                          <span className="text-xs text-gray-500">Total Balance:</span>
                           <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
                             }`}>
-                            {Math.abs(netBalance).toFixed(2)}
+                            {isPayable ? '-' : '+'}{Math.abs(totalBalance).toFixed(2)}
                           </span>
                         </div>
                       ) : null;
@@ -2424,20 +2435,21 @@ const SalesOrders = () => {
                 </div>
               )}
               {selectedCustomer && (() => {
-                const receivables = selectedCustomer.pendingBalance || 0;
-                const advance = selectedCustomer.advanceBalance || 0;
-                const netBalance = receivables - advance;
-                const hasPreviousBalance = receivables > 0 || advance > 0;
+                // Calculate total balance: currentBalance (which is net balance)
+                const totalBalance = selectedCustomer.currentBalance !== undefined
+                  ? selectedCustomer.currentBalance
+                  : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                const hasPreviousBalance = totalBalance !== 0;
 
                 if (!hasPreviousBalance) return null;
 
                 return (
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-gray-800 font-semibold">
-                      {netBalance < 0 ? 'Previous Advance:' : 'Previous Balance:'}
+                      Previous Total Balance:
                     </span>
-                    <span className={`text-xl font-bold ${netBalance < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {netBalance < 0 ? '-' : '+'}{Math.abs(Math.round(netBalance))}
+                    <span className={`text-xl font-bold ${totalBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {totalBalance < 0 ? '-' : '+'}{Math.abs(Math.round(totalBalance))}
                     </span>
                   </div>
                 );
@@ -2447,23 +2459,24 @@ const SalesOrders = () => {
                 <span className="text-blue-900 text-3xl">{Math.round(total)}</span>
               </div>
               {selectedCustomer && (() => {
-                const receivables = selectedCustomer.pendingBalance || 0;
-                const advance = selectedCustomer.advanceBalance || 0;
-                const netBalance = receivables - advance;
-                const hasPreviousBalance = receivables > 0 || advance > 0;
+                // Calculate total balance: currentBalance (which is net balance)
+                const totalBalance = selectedCustomer.currentBalance !== undefined
+                  ? selectedCustomer.currentBalance
+                  : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                const hasPreviousBalance = totalBalance !== 0;
 
                 if (!hasPreviousBalance) return null;
 
-                const totalPayables = total + netBalance;
-                const isPayable = totalPayables < 0;
+                const totalBalanceAfterOrder = total + totalBalance;
+                const isPayable = totalBalanceAfterOrder < 0;
 
                 return (
                   <div className="flex justify-between items-center text-lg font-bold border-t-2 border-red-400 pt-3 mt-2">
-                    <span className={isPayable ? 'text-green-700' : 'text-red-700'}>
-                      {isPayable ? 'Total Advance:' : 'Total Payables:'}
+                    <span className={isPayable ? 'text-red-700' : 'text-green-700'}>
+                      Total Balance After Order:
                     </span>
-                    <span className={`text-2xl ${isPayable ? 'text-green-700' : 'text-red-700'}`}>
-                      {Math.abs(Math.round(totalPayables))}
+                    <span className={`text-2xl ${isPayable ? 'text-red-700' : 'text-green-700'}`}>
+                      {isPayable ? '-' : '+'}{Math.abs(Math.round(totalBalanceAfterOrder))}
                     </span>
                   </div>
                 );
@@ -3266,21 +3279,24 @@ const SalesOrders = () => {
                     )}
                     <div className="mt-3 pt-2 border-t border-gray-200">
                       <p className={`font-semibold ${(() => {
-                        const receivables = selectedOrder.customer?.pendingBalance || 0;
-                        const advance = selectedOrder.customer?.advanceBalance || 0;
-                        const netBalance = receivables - advance;
-                        return netBalance < 0 ? 'text-red-600' : 'text-green-600';
+                        const customer = selectedOrder.customer || {};
+                        const totalBalance = customer.currentBalance !== undefined
+                          ? customer.currentBalance
+                          : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
+                        return totalBalance < 0 ? 'text-red-600' : 'text-green-600';
                       })()}`}>
-                        <span className="font-medium">{(() => {
-                          const receivables = selectedOrder.customer?.pendingBalance || 0;
-                          const advance = selectedOrder.customer?.advanceBalance || 0;
-                          const netBalance = receivables - advance;
-                          return netBalance < 0 ? 'Current Payables:' : 'Current Receivables:';
-                        })()}</span> {Math.round((() => {
-                          const receivables = selectedOrder.customer?.pendingBalance || 0;
-                          const advance = selectedOrder.customer?.advanceBalance || 0;
-                          return Math.abs(receivables - advance);
-                        })())}
+                        <span className="font-medium">Total Balance:</span> {(() => {
+                          const customer = selectedOrder.customer || {};
+                          const totalBalance = customer.currentBalance !== undefined
+                            ? customer.currentBalance
+                            : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
+                          return totalBalance < 0 ? '-' : '+';
+                        })()}{Math.abs(Math.round((() => {
+                          const customer = selectedOrder.customer || {};
+                          return customer.currentBalance !== undefined
+                            ? customer.currentBalance
+                            : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
+                        })()))}
                       </p>
                     </div>
                   </div>
@@ -3365,36 +3381,42 @@ const SalesOrders = () => {
                       <span className="text-gray-600">SO Total:</span>
                       <span className="font-medium">{Math.round(selectedOrder.total || 0)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{(() => {
-                        const receivables = selectedOrder.customer?.pendingBalance || 0;
-                        const advance = selectedOrder.customer?.advanceBalance || 0;
-                        const netBalance = receivables - advance;
-                        return netBalance < 0 ? 'Payables:' : 'Receivables:';
-                      })()}</span>
-                      <span className={`font-medium ${(() => {
-                        const receivables = selectedOrder.customer?.pendingBalance || 0;
-                        const advance = selectedOrder.customer?.advanceBalance || 0;
-                        const netBalance = receivables - advance;
-                        return netBalance < 0 ? 'text-red-600' : 'text-green-600';
-                      })()}`}>{Math.round((() => {
-                        const receivables = selectedOrder.customer?.pendingBalance || 0;
-                        const advance = selectedOrder.customer?.advanceBalance || 0;
-                        return Math.abs(receivables - advance);
-                      })())}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold border-t pt-2">
-                      <span>Total {(() => {
-                        const receivables = selectedOrder.customer?.pendingBalance || 0;
-                        const advance = selectedOrder.customer?.advanceBalance || 0;
-                        const netBalance = receivables - advance;
-                        return netBalance < 0 ? 'Payables' : 'Receivables';
-                      })()}:</span>
-                      <span className="text-red-600">{Math.round((selectedOrder.total || 0) + (() => {
-                        const receivables = selectedOrder.customer?.pendingBalance || 0;
-                        const advance = selectedOrder.customer?.advanceBalance || 0;
-                        return Math.abs(receivables - advance);
-                      })())}</span>
+                    <div className="border-t border-gray-200 my-2 pt-2">
+                      {(() => {
+                        const customer = selectedOrder.customer || {};
+                        const currentBal = customer.currentBalance !== undefined
+                          ? customer.currentBalance
+                          : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
+
+                        const orderTotal = selectedOrder.total || 0;
+                        const paid = selectedOrder.payment?.amountPaid || 0;
+                        // For legacy/simple orders without payment obj, assume unpaid if no payment info
+                        const remaining = selectedOrder.payment?.remainingBalance ?? (orderTotal - paid);
+
+                        const isDraft = ['draft', 'cancelled'].includes(selectedOrder.status);
+
+                        // If draft, currentBal doesn't include this order yet -> Previous = Current
+                        // If confirmed, currentBal includes this order -> Previous = Current - Remaining
+                        const prevBal = isDraft ? currentBal : (currentBal - remaining);
+                        const totalBal = isDraft ? (currentBal + remaining) : currentBal;
+
+                        return (
+                          <>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-600">Previous Balance:</span>
+                              <span className={`font-medium ${prevBal < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {prevBal < 0 ? '-' : '+'}{Math.round(Math.abs(prevBal))}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-lg font-bold">
+                              <span className="text-gray-900">Total Balance:</span>
+                              <span className={`${totalBal < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {totalBal < 0 ? '-' : '+'}{Math.round(Math.abs(totalBal))}
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

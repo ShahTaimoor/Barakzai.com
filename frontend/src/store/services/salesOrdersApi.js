@@ -11,12 +11,12 @@ export const salesOrdersApi = api.injectEndpoints({
       providesTags: (result) =>
         result?.data?.salesOrders
           ? [
-              ...result.data.salesOrders.map(({ _id, id }) => ({
-                type: 'Orders',
-                id: _id || id,
-              })),
-              { type: 'Orders', id: 'LIST' },
-            ]
+            ...result.data.salesOrders.map(({ _id, id }) => ({
+              type: 'Orders',
+              id: _id || id,
+            })),
+            { type: 'Orders', id: 'LIST' },
+          ]
           : [{ type: 'Orders', id: 'LIST' }],
     }),
     getSalesOrder: builder.query({
@@ -63,8 +63,10 @@ export const salesOrdersApi = api.injectEndpoints({
       invalidatesTags: (_r, _e, id) => [
         { type: 'Orders', id },
         { type: 'Orders', id: 'LIST' },
-        { type: 'Products', id: 'LIST' }, // Invalidate products to update stock levels
-        { type: 'Inventory', id: 'LIST' }, // Invalidate inventory cache
+        { type: 'Sales', id: 'LIST' },
+        { type: 'Customers', id: 'LIST' },
+        { type: 'Products', id: 'LIST' },
+        { type: 'Inventory', id: 'LIST' },
       ],
     }),
     cancelSalesOrder: builder.mutation({

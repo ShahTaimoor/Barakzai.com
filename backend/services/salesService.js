@@ -1,6 +1,40 @@
+const mongoose = require('mongoose');
+const Sales = require('../models/Sales');
+const Customer = require('../models/Customer');
+const Product = require('../models/Product');
+const Inventory = require('../models/Inventory');
 const salesRepository = require('../repositories/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
 const customerRepository = require('../repositories/CustomerRepository');
+const productVariantRepository = require('../repositories/ProductVariantRepository');
+const StockMovementService = require('./stockMovementService');
+const inventoryService = require('./inventoryService');
+const customerTransactionService = require('./customerTransactionService');
+const CustomerBalanceService = require('./customerBalanceService');
+const AccountingService = require('./accountingService');
+const profitDistributionService = require('./profitDistributionService');
+
+// Helper function to parse date string as local date (not UTC)
+const parseLocalDate = (dateString) => {
+  if (!dateString) return null;
+  if (dateString instanceof Date) return dateString;
+  if (typeof dateString !== 'string') return null;
+  const [year, month, day] = dateString.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+};
+
+// Helper to format customer address
+const formatCustomerAddress = (customerData) => {
+  if (!customerData) return '';
+  if (customerData.address && typeof customerData.address === 'string') return customerData.address;
+  if (customerData.addresses && Array.isArray(customerData.addresses) && customerData.addresses.length > 0) {
+    const addr = customerData.addresses.find(a => a.isDefault) || customerData.addresses.find(a => a.type === 'billing' || a.type === 'both') || customerData.addresses[0];
+    const parts = [addr.street, addr.city, addr.state, addr.country, addr.zipCode].filter(Boolean);
+    return parts.join(', ');
+  }
+  return '';
+};
 
 class SalesService {
   /**
@@ -50,7 +84,7 @@ class SalesService {
     if (queryParams.productSearch) {
       const productSearchTerm = queryParams.productSearch.trim();
       const matchingProducts = await productRepository.search(productSearchTerm, 1000);
-      
+
       if (matchingProducts.length > 0) {
         const productIds = matchingProducts.map(p => p._id);
         filter['items.product'] = { $in: productIds };
@@ -73,7 +107,7 @@ class SalesService {
 
       // Search in Customer collection and match by customer ID
       const customerMatches = await customerRepository.search(searchTerm, { limit: 1000 });
-      
+
       if (customerMatches.length > 0) {
         const customerIds = customerMatches.map(c => c._id);
         searchConditions.push({ customer: { $in: customerIds } });
@@ -125,16 +159,16 @@ class SalesService {
       }
     } else if (queryParams.dateFrom || queryParams.dateTo) {
       const dateConditions = [];
-      
+
       if (queryParams.dateFrom) {
         const dateFrom = new Date(queryParams.dateFrom);
         dateFrom.setHours(0, 0, 0, 0);
-        
+
         if (queryParams.dateTo) {
           const dateTo = new Date(queryParams.dateTo);
           dateTo.setDate(dateTo.getDate() + 1);
           dateTo.setHours(0, 0, 0, 0);
-          
+
           // Match orders where billDate is in range, or if billDate doesn't exist, use createdAt
           dateConditions.push({
             $or: [
@@ -170,7 +204,7 @@ class SalesService {
         const dateTo = new Date(queryParams.dateTo);
         dateTo.setDate(dateTo.getDate() + 1);
         dateTo.setHours(0, 0, 0, 0);
-        
+
         dateConditions.push({
           $or: [
             {
@@ -185,7 +219,7 @@ class SalesService {
           ]
         });
       }
-      
+
       if (dateConditions.length > 0) {
         if (filter.$and) {
           filter.$and.push(...dateConditions);
@@ -205,7 +239,7 @@ class SalesService {
    */
   async getSalesOrders(queryParams) {
     const getAllOrders = queryParams.all === 'true' || queryParams.all === true ||
-                        (queryParams.limit && parseInt(queryParams.limit) >= 999999);
+      (queryParams.limit && parseInt(queryParams.limit) >= 999999);
 
     const page = getAllOrders ? 1 : (parseInt(queryParams.page) || 1);
     const limit = getAllOrders ? 999999 : (parseInt(queryParams.limit) || 20);
@@ -218,7 +252,7 @@ class SalesService {
       getAll: getAllOrders,
       sort: { createdAt: -1 },
       populate: [
-        { path: 'customer', select: 'firstName lastName businessName email phone address pendingBalance' },
+        { path: 'customer', select: 'firstName lastName businessName email phone address currentBalance pendingBalance advanceBalance' },
         { path: 'items.product', select: 'name description pricing' },
         { path: 'createdBy', select: 'firstName lastName' }
       ]
@@ -248,14 +282,14 @@ class SalesService {
    */
   async getSalesOrderById(id) {
     const order = await salesRepository.findById(id);
-    
+
     if (!order) {
       throw new Error('Order not found');
     }
 
     // Populate related fields
     await order.populate([
-      { path: 'customer', select: 'firstName lastName businessName email phone address pendingBalance' },
+      { path: 'customer', select: 'firstName lastName businessName email phone address currentBalance pendingBalance advanceBalance' },
       { path: 'items.product', select: 'name description pricing' },
       { path: 'createdBy', select: 'firstName lastName' }
     ]);
@@ -351,6 +385,280 @@ class SalesService {
     }
 
     return order;
+  }
+
+  /**
+   * Create a new sale (invoice)
+   * @param {object} data - Sale data
+   * @param {object} user - User creating the sale
+   * @param {object} options - Options (skipInventoryUpdate, session)
+   * @returns {Promise<object>}
+   */
+  async createSale(data, user, options = {}) {
+    const { skipInventoryUpdate = false, session: existingSession = null } = options;
+    const { customer, items, orderType, payment, notes, isTaxExempt, billDate, billStartTime, salesOrderId } = data;
+
+    // Validate customer if provided
+    let customerData = null;
+    if (customer) {
+      customerData = await customerRepository.findById(customer);
+      if (!customerData) {
+        throw new Error('Customer not found');
+      }
+    }
+
+    // Prepare order items and calculate pricing
+    const orderItems = [];
+    let subtotal = 0;
+    let totalDiscount = 0;
+    let totalTax = 0;
+
+    for (const item of items) {
+      // Try to find as product first, then as variant
+      let product = await productRepository.findById(item.product);
+      let isVariant = false;
+
+      if (!product) {
+        product = await productVariantRepository.findById(item.product);
+        if (product) isVariant = true;
+      }
+
+      if (!product) {
+        throw new Error(`Product or variant ${item.product} not found`);
+      }
+
+      // pricing logic (same as in sales.js)
+      let unitPrice = item.unitPrice;
+      if (unitPrice === undefined || unitPrice === null) {
+        const customerType = customerData ? customerData.businessType : 'retail';
+        if (isVariant) {
+          unitPrice = (customerType === 'wholesale' || customerType === 'distributor')
+            ? (product.pricing?.wholesale || product.pricing?.retail || 0)
+            : (product.pricing?.retail || 0);
+        } else {
+          unitPrice = product.getPriceForCustomerType ? product.getPriceForCustomerType(customerType, item.quantity) : (product.pricing?.retail || 0);
+        }
+      }
+
+      const itemDiscountPercent = item.discountPercent || 0;
+      const itemSubtotal = item.quantity * unitPrice;
+      const itemDiscount = itemSubtotal * (itemDiscountPercent / 100);
+      const itemTaxable = itemSubtotal - itemDiscount;
+      const taxRate = isVariant ? (product.baseProduct?.taxSettings?.taxRate || 0) : (product.taxSettings?.taxRate || 0);
+      const itemTax = isTaxExempt ? 0 : itemTaxable * taxRate;
+
+      let unitCost = 0;
+      const inventory = await Inventory.findOne({ product: product._id });
+      if (inventory && inventory.cost) {
+        unitCost = inventory.cost.average || inventory.cost.lastPurchase || 0;
+      }
+      if (unitCost === 0) unitCost = product.pricing?.cost || 0;
+
+      orderItems.push({
+        product: product._id,
+        quantity: item.quantity,
+        unitCost,
+        unitPrice,
+        discountPercent: itemDiscountPercent,
+        taxRate,
+        subtotal: itemSubtotal,
+        discountAmount: itemDiscount,
+        taxAmount: itemTax,
+        total: itemSubtotal - itemDiscount + itemTax
+      });
+
+      subtotal += itemSubtotal;
+      totalDiscount += itemDiscount;
+      totalTax += itemTax;
+    }
+
+    const orderTotal = subtotal - totalDiscount + totalTax;
+
+    // Check credit limit for credit sales (account payment or partial payment)
+    if (customerData && customerData.creditLimit > 0) {
+      const amountPaid = payment.amount || 0;
+      const unpaidAmount = orderTotal - amountPaid;
+
+      if (payment.method === 'account' || unpaidAmount > 0) {
+        const currentBalance = customerData.currentBalance || 0;
+        const newBalanceAfterOrder = currentBalance + unpaidAmount;
+
+        if (newBalanceAfterOrder > customerData.creditLimit) {
+          throw new Error(`Credit limit exceeded for customer ${customerData.displayName || customerData.name}. Available credit: ${customerData.creditLimit - currentBalance}`);
+        }
+      }
+    }
+
+    // Inventory Updates (unless skipped)
+    if (!skipInventoryUpdate) {
+      for (const item of items) {
+        await inventoryService.updateStock({
+          productId: item.product,
+          type: 'out',
+          quantity: item.quantity,
+          reason: 'Sales Invoice Creation',
+          reference: 'Sales Invoice',
+          performedBy: user._id,
+          notes: `Stock reduced due to sales invoice creation`
+        });
+      }
+    }
+
+    const orderData = {
+      salesOrderId: salesOrderId || null,
+      orderType,
+      customer: customer || null,
+      customerInfo: customerData ? {
+        name: customerData.displayName,
+        email: customerData.email,
+        phone: customerData.phone,
+        businessName: customerData.businessName,
+        address: formatCustomerAddress(customerData),
+        currentBalance: customerData.currentBalance,
+        pendingBalance: customerData.pendingBalance,
+        advanceBalance: customerData.advanceBalance
+      } : null,
+      items: orderItems,
+      pricing: {
+        subtotal,
+        discountAmount: totalDiscount,
+        taxAmount: totalTax,
+        isTaxExempt: isTaxExempt || false,
+        shippingAmount: 0,
+        total: orderTotal
+      },
+      payment: {
+        method: payment.method,
+        status: payment.isPartialPayment ? 'partial' : (payment.method === 'cash' ? 'paid' : 'pending'),
+        amountPaid: payment.amount || 0,
+        remainingBalance: payment.remainingBalance || 0,
+        isPartialPayment: payment.isPartialPayment || false,
+        isAdvancePayment: payment.isAdvancePayment || false,
+        advanceAmount: payment.advanceAmount || 0
+      },
+      status: 'confirmed',
+      notes,
+      createdBy: user._id,
+      billStartTime: billStartTime || new Date(),
+      billDate: parseLocalDate(billDate) || new Date()
+    };
+
+    const session = existingSession || await mongoose.startSession();
+    if (!existingSession) session.startTransaction();
+
+    try {
+      const order = new Sales(orderData);
+      await order.save({ session });
+
+      // Track stock movements
+      await StockMovementService.trackSalesOrder(order, user, { session });
+
+      // Profit distribution
+      if (order.status === 'confirmed' || order.payment?.status === 'paid') {
+        await profitDistributionService.distributeProfitForOrder(order, user, { session });
+      }
+
+      // Customer Transactions and Balance
+      if (customer && orderData.pricing.total > 0) {
+        const amountPaid = payment.amount || 0;
+        const isAccountPayment = payment.method === 'account' || amountPaid < orderData.pricing.total;
+
+        if (isAccountPayment) {
+          const productIds = orderItems.map(item => item.product);
+          const products = await Product.find({ _id: { $in: productIds } }).select('name').lean();
+          const productMap = new Map(products.map(p => [p._id.toString(), p.name]));
+
+          const lineItems = orderItems.map(item => ({
+            product: item.product,
+            description: productMap.get(item.product.toString()) || 'Product',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice || 0,
+            discountAmount: item.discountAmount || 0,
+            taxAmount: item.taxAmount || 0,
+            totalPrice: item.total || 0
+          }));
+
+          await customerTransactionService.createTransaction({
+            customerId: customer,
+            transactionType: 'invoice',
+            netAmount: orderData.pricing.total,
+            grossAmount: subtotal,
+            discountAmount: totalDiscount,
+            taxAmount: totalTax,
+            referenceType: 'sales_order',
+            referenceId: order._id,
+            referenceNumber: order.orderNumber,
+            lineItems: lineItems,
+            notes: `Invoice for sale ${order.orderNumber}${salesOrderId ? ' (from SO)' : ''}`
+          }, user, { session });
+        }
+
+        if (amountPaid > 0) {
+          await CustomerBalanceService.recordPayment(
+            customer,
+            amountPaid,
+            order._id,
+            user,
+            {
+              paymentMethod: payment.method,
+              paymentReference: order.orderNumber,
+              session
+            }
+          );
+        }
+      }
+
+      // Accounting entries
+      await AccountingService.recordSale(order, { session });
+
+      if (!existingSession) await session.commitTransaction();
+
+      const billEndTime = new Date();
+      await Sales.findByIdAndUpdate(order._id, { billEndTime }, { new: true });
+
+      return await Sales.findById(order._id).populate([
+        { path: 'customer' },
+        { path: 'items.product', select: 'name description' },
+        { path: 'createdBy', select: 'firstName lastName' }
+      ]);
+    } catch (error) {
+      if (!existingSession) await session.abortTransaction();
+      throw error;
+    } finally {
+      if (!existingSession) session.endSession();
+    }
+  }
+
+  /**
+   * Automatically create a sale from a sales order
+   * @param {object} salesOrder - Sales order object
+   * @param {object} user - User performing the action
+   * @returns {Promise<object>}
+   */
+  async createSaleFromSalesOrder(salesOrder, user) {
+    const saleData = {
+      salesOrderId: salesOrder._id,
+      customer: salesOrder.customer,
+      orderType: salesOrder.orderType || 'wholesale',
+      items: salesOrder.items.map(item => ({
+        product: item.product,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discountPercent: item.discountPercent || 0
+      })),
+      payment: {
+        method: 'account',
+        amount: 0,
+        isPartialPayment: true,
+        remainingBalance: salesOrder.total
+      },
+      isTaxExempt: salesOrder.isTaxExempt,
+      notes: salesOrder.notes || `Generated from Sales Order ${salesOrder.soNumber}`,
+      billStartTime: new Date(),
+      billDate: new Date()
+    };
+
+    return await this.createSale(saleData, user, { skipInventoryUpdate: true });
   }
 }
 

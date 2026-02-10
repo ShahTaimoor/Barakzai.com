@@ -84,7 +84,7 @@ class PurchaseOrderService {
    */
   async getPurchaseOrders(queryParams) {
     const getAllPurchaseOrders = queryParams.all === 'true' || queryParams.all === true ||
-                                (queryParams.limit && parseInt(queryParams.limit) >= 999999);
+      (queryParams.limit && parseInt(queryParams.limit) >= 999999);
 
     const page = getAllPurchaseOrders ? 1 : (parseInt(queryParams.page) || 1);
     const limit = getAllPurchaseOrders ? 999999 : (parseInt(queryParams.limit) || 20);
@@ -128,7 +128,7 @@ class PurchaseOrderService {
    */
   async getPurchaseOrderById(id) {
     const purchaseOrder = await purchaseOrderRepository.findById(id);
-    
+
     if (!purchaseOrder) {
       throw new Error('Purchase order not found');
     }
@@ -402,6 +402,68 @@ class PurchaseOrderService {
       },
       availableItems
     };
+  }
+
+  /**
+   * Automatically create a purchase invoice from a purchase order
+   * @param {object} purchaseOrder - Purchase order object
+   * @param {string} userId - User ID performing the action
+   * @param {Array} convertItems - Specific items to convert (optional, if null converts all PO items)
+   * @returns {Promise<object>}
+   */
+  async createInvoiceFromPurchaseOrder(purchaseOrder, userId, convertItems = null) {
+    const PurchaseInvoice = require('../models/PurchaseInvoice');
+
+    // Ensure supplier is populated to get info
+    if (purchaseOrder.supplier && !purchaseOrder.supplier.companyName) {
+      await purchaseOrder.populate('supplier');
+    }
+
+    const items = convertItems || purchaseOrder.items;
+
+    // Calculate subtotal for the items being converted
+    const subtotal = items.reduce((sum, item) => sum + (item.quantity * (item.costPerUnit || item.unitCost || 0)), 0);
+
+    const invoiceData = {
+      supplier: purchaseOrder.supplier?._id || purchaseOrder.supplier,
+      supplierInfo: purchaseOrder.supplier ? {
+        name: purchaseOrder.supplier.contactPerson?.name || purchaseOrder.supplier.companyName,
+        email: purchaseOrder.supplier.email || '',
+        phone: purchaseOrder.supplier.phone || '',
+        companyName: purchaseOrder.supplier.companyName || '',
+        address: purchaseOrder.supplier.address || ''
+      } : null,
+      items: (items || []).map(item => ({
+        product: item.product,
+        productName: item.displayName || 'Product',
+        quantity: item.quantity,
+        unitCost: item.costPerUnit || item.unitCost || 0,
+        totalCost: item.quantity * (item.costPerUnit || item.unitCost || 0)
+      })),
+      pricing: {
+        subtotal: subtotal,
+        discountAmount: 0,
+        taxAmount: 0, // Simplified tax handling for partial conversions
+        isTaxExempt: purchaseOrder.isTaxExempt || true,
+        total: subtotal
+      },
+      payment: {
+        status: 'pending',
+        method: 'credit',
+        paidAmount: 0,
+        isPartialPayment: false
+      },
+      expectedDelivery: purchaseOrder.expectedDelivery,
+      notes: purchaseOrder.notes || `Generated from Purchase Order ${purchaseOrder.poNumber}`,
+      terms: purchaseOrder.terms,
+      status: 'confirmed',
+      confirmedDate: new Date(),
+      createdBy: userId,
+      invoiceDate: new Date()
+    };
+
+    const invoice = new PurchaseInvoice(invoiceData);
+    return await invoice.save();
   }
 }
 

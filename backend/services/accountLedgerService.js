@@ -4,6 +4,7 @@ const customerRepository = require('../repositories/CustomerRepository');
 const supplierRepository = require('../repositories/SupplierRepository');
 const salesRepository = require('../repositories/SalesRepository');
 const purchaseOrderRepository = require('../repositories/PurchaseOrderRepository');
+const purchaseInvoiceRepository = require('../repositories/PurchaseInvoiceRepository');
 const cashReceiptRepository = require('../repositories/CashReceiptRepository');
 const bankReceiptRepository = require('../repositories/BankReceiptRepository');
 const cashPaymentRepository = require('../repositories/CashPaymentRepository');
@@ -549,15 +550,15 @@ class AccountLedgerService {
 
             // Calculate adjusted opening balance (transactions before startDate)
             if (start) {
-              // Purchases before startDate (increases payables)
-              const openingPurchases = await purchaseOrderRepository.findAll({
+              // Purchase Invoices before startDate (increases payables)
+              const openingPurchases = await purchaseInvoiceRepository.findAll({
                 supplier: supplierId,
                 createdAt: { $lt: start },
-                isDeleted: { $ne: true }
+                status: 'confirmed'
               }, { lean: true });
 
-              const openingPurchasesTotal = openingPurchases.reduce((sum, purchase) => {
-                return sum + (purchase.total || 0);
+              const openingPurchasesTotal = openingPurchases.reduce((sum, invoice) => {
+                return sum + (invoice.pricing?.total || 0);
               }, 0);
 
               // Cash payments before startDate (decreases payables)
@@ -625,15 +626,15 @@ class AccountLedgerService {
               if (end) periodFilter.createdAt.$lte = end;
             }
 
-            // Purchases (CREDITS - increases payables)
-            const purchases = await purchaseOrderRepository.findAll({
+            // Purchase Invoices (CREDITS - increases payables)
+            const purchases = await purchaseInvoiceRepository.findAll({
               supplier: supplierId,
               ...periodFilter,
-              isDeleted: { $ne: true }
+              status: 'confirmed'
             }, { lean: true });
 
-            const totalCredits = purchases.reduce((sum, purchase) => {
-              return sum + (purchase.total || 0);
+            const totalCredits = purchases.reduce((sum, invoice) => {
+              return sum + (invoice.pricing?.total || 0);
             }, 0);
 
             // Cash payments (DEBITS - decreases payables)
@@ -705,11 +706,13 @@ class AccountLedgerService {
 
             // Build particular/description
             const particulars = [];
-            purchases.forEach(purchase => {
-              if (purchase.poNumber) {
-                particulars.push(`Purchase: ${purchase.poNumber}`);
+            // Add Purchases to particulars
+            purchases.forEach(invoice => {
+              if (invoice.invoiceNumber) {
+                particulars.push(`Purchase: ${invoice.invoiceNumber}`);
               }
             });
+
             cashPayments.forEach(payment => {
               if (payment.voucherCode) {
                 particulars.push(`Cash Payment: ${payment.voucherCode}`);

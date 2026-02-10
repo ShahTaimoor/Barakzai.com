@@ -15,6 +15,7 @@ const customerRepository = require('../repositories/CustomerRepository');
 const supplierRepository = require('../repositories/SupplierRepository');
 const salesRepository = require('../repositories/SalesRepository');
 const purchaseOrderRepository = require('../repositories/PurchaseOrderRepository');
+const purchaseInvoiceRepository = require('../repositories/PurchaseInvoiceRepository');
 const path = require('path');
 const fs = require('fs');
 
@@ -1254,15 +1255,15 @@ router.get('/supplier/:supplierId/transactions', [
 
     // Calculate adjusted opening balance (transactions before startDate)
     if (start) {
-      // Purchases before startDate (increases payables)
-      const openingPurchases = await purchaseOrderRepository.findAll({
+      // Purchase Invoices before startDate (increases payables)
+      const openingPurchases = await purchaseInvoiceRepository.findAll({
         supplier: supplierId,
         createdAt: { $lt: start },
-        isDeleted: { $ne: true }
+        status: 'confirmed'
       }, { lean: true });
 
-      const openingPurchasesTotal = openingPurchases.reduce((sum, purchase) => {
-        return sum + (purchase.total || 0);
+      const openingPurchasesTotal = openingPurchases.reduce((sum, invoice) => {
+        return sum + (invoice.pricing?.total || 0);
       }, 0);
 
       // Cash payments before startDate (decreases payables)
@@ -1369,10 +1370,10 @@ router.get('/supplier/:supplierId/transactions', [
     // Fetch all transactions in parallel
     const Return = require('../models/Return');
     const [purchases, cashPayments, bankPayments, cashReceipts, bankReceipts, returns] = await Promise.all([
-      purchaseOrderRepository.findAll({
+      purchaseInvoiceRepository.findAll({
         supplier: supplierId,
         ...purchaseDateFilter,
-        isDeleted: { $ne: true }
+        status: 'confirmed'
       }, { lean: true, sort: { createdAt: 1 } }),
       cashPaymentRepository.findAll({
         supplier: supplierId,
@@ -1402,19 +1403,21 @@ router.get('/supplier/:supplierId/transactions', [
     const allEntries = [];
 
     // Add purchases (CREDITS - increases payables)
-    purchases.forEach(purchase => {
-      // Use createdAt for precise datetime (includes time)
-      const entryDate = purchase.createdAt || purchase.date || new Date();
-      allEntries.push({
-        date: entryDate,
-        datetime: new Date(entryDate).getTime(), // For precise sorting
-        voucherNo: purchase.poNumber || '',
-        particular: `Purchase: ${purchase.poNumber || purchase._id}`,
-        debitAmount: 0,
-        creditAmount: purchase.total || 0,
-        source: 'Purchase',
-        referenceId: purchase._id?.toString?.() || purchase._id
-      });
+    purchases.forEach(invoice => {
+      const invoiceTotal = invoice.pricing?.total || 0;
+      if (invoiceTotal > 0) {
+        const entryDate = invoice.createdAt || invoice.date || new Date();
+        allEntries.push({
+          date: entryDate,
+          datetime: new Date(entryDate).getTime(),
+          voucherNo: invoice.invoiceNumber || '',
+          particular: `Purchase: ${invoice.invoiceNumber || invoice._id}`,
+          debitAmount: 0,
+          creditAmount: invoiceTotal,
+          source: 'Purchase',
+          referenceId: invoice._id?.toString?.() || invoice._id
+        });
+      }
     });
 
     // Add cash payments (DEBITS - decreases payables)
@@ -1504,7 +1507,7 @@ router.get('/supplier/:supplierId/transactions', [
       const dateDiff = (a.datetime || new Date(a.date).getTime()) - (b.datetime || new Date(b.date).getTime());
       if (dateDiff !== 0) return dateDiff;
       // If same datetime, sort by source type for consistency
-      const sourceOrder = { 'Cash Payment': 1, 'Bank Payment': 2, 'Cash Receipt': 3, 'Bank Receipt': 4, 'Purchase Return': 5, 'Purchase': 6 };
+      const sourceOrder = { 'Cash Payment': 1, 'Bank Payment': 2, 'Cash Receipt': 3, 'Bank Receipt': 4, 'Purchase Return': 5, 'Purchase': 0 };
       return (sourceOrder[a.source] || 99) - (sourceOrder[b.source] || 99);
     });
 

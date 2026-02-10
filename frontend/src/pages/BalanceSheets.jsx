@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  RefreshCw, 
-  Search, 
-  Filter, 
-  Plus, 
-  Eye, 
-  Edit, 
+import {
+  RefreshCw,
+  Search,
+  Filter,
+  Plus,
+  Eye,
+  Edit,
   Trash2,
   TrendingUp,
   TrendingDown,
@@ -43,7 +43,7 @@ const BalanceSheets = () => {
     startDate: '',
     endDate: ''
   });
-  
+
   const [selectedBalanceSheet, setSelectedBalanceSheet] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -51,9 +51,9 @@ const BalanceSheets = () => {
   const { confirmation, confirmDelete, handleConfirm, handleCancel } = useDeleteConfirmation();
 
   // Fetch balance sheets
-  const { 
-    data: balanceSheetsData, 
-    isLoading: balanceSheetsLoading, 
+  const {
+    data: balanceSheetsData,
+    isLoading: balanceSheetsLoading,
     error: balanceSheetsError,
     refetch: refetchBalanceSheets
   } = useGetBalanceSheetsQuery(filters, {
@@ -64,9 +64,9 @@ const BalanceSheets = () => {
   });
 
   // Fetch balance sheet statistics
-  const { 
-    data: statsData, 
-    isLoading: statsLoading 
+  const {
+    data: statsData,
+    isLoading: statsLoading
   } = useGetBalanceSheetStatsQuery(
     {
       startDate: filters.startDate,
@@ -212,16 +212,16 @@ const BalanceSheets = () => {
           </h1>
           <p className="text-slate-500 mt-1 font-medium">Financial position and asset management</p>
         </div>
-        
+
         <div className="flex items-center space-x-3">
-          <button 
+          <button
             onClick={() => refetchBalanceSheets()}
             className="flex items-center space-x-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm"
           >
             <RefreshCw className={`h-4 w-4 ${balanceSheetsLoading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
-          <button 
+          <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center space-x-2 px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-all shadow-md"
           >
@@ -317,15 +317,15 @@ const BalanceSheets = () => {
           </div>
 
           <div className="lg:col-span-2 flex justify-end">
-            <button 
+            <button
               onClick={() => {
-                handleFilterChange({ 
-                  search: '', 
-                  status: '', 
+                handleFilterChange({
+                  search: '',
+                  status: '',
                   periodType: '',
                   startDate: '',
                   endDate: '',
-                  page: 1 
+                  page: 1
                 });
               }}
               className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
@@ -402,12 +402,12 @@ const BalanceSheets = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-bold text-slate-900">
-                        ${(balanceSheet.assets?.totalAssets || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(balanceSheet.assets?.totalAssets || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-bold text-slate-900">
-                        ${(balanceSheet.equity?.totalEquity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(balanceSheet.equity?.totalEquity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">

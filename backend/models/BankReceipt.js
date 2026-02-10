@@ -25,7 +25,7 @@ const bankReceiptSchema = new mongoose.Schema({
     maxlength: 500,
     default: 'Bank Receipt'
   },
-  
+
   // Bank Information
   bank: {
     type: mongoose.Schema.Types.ObjectId,
@@ -48,7 +48,7 @@ const bankReceiptSchema = new mongoose.Schema({
     trim: true,
     // Bank's transaction reference number from statement (e.g., bank confirmation/check number)
   },
-  
+
   // Reference Information
   order: {
     type: mongoose.Schema.Types.ObjectId,
@@ -65,21 +65,39 @@ const bankReceiptSchema = new mongoose.Schema({
     ref: 'Supplier',
     required: false
   },
-  
+
   // Status
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'cancelled'],
     default: 'confirmed'
   },
-  
+
   // Additional Information
   notes: {
     type: String,
     trim: true,
     maxlength: 1000
   },
-  
+
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  },
+
   // Audit Fields
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -96,7 +114,7 @@ const bankReceiptSchema = new mongoose.Schema({
 
 // Generate voucher code and transaction reference before saving
 const { generateDateBasedVoucherCode } = require('../utils/voucherCodeGenerator');
-bankReceiptSchema.pre('save', async function(next) {
+bankReceiptSchema.pre('save', async function (next) {
   if (this.isNew && !this.voucherCode) {
     try {
       this.voucherCode = await generateDateBasedVoucherCode({
@@ -107,19 +125,19 @@ bankReceiptSchema.pre('save', async function(next) {
       return next(error);
     }
   }
-  
+
   // Auto-generate transaction reference if not provided
   if (this.isNew && !this.transactionReference) {
     this.transactionReference = `${this.voucherCode || 'BR'}-${Date.now().toString().slice(-6)}`;
   }
-  
+
   // Populate legacy fields from bank reference for backward compatibility
   if (this.bank) {
     // Check if bank is populated (has accountNumber property)
     // When populated, this.bank will be an object with accountNumber/bankName
     // When not populated, this.bank will be an ObjectId, and accessing .accountNumber returns undefined
     const isPopulated = this.bank.accountNumber !== undefined && this.bank.bankName !== undefined;
-    
+
     if (isPopulated) {
       // Bank is already populated (from populate())
       this.bankAccount = this.bank.accountNumber;
@@ -140,7 +158,7 @@ bankReceiptSchema.pre('save', async function(next) {
       }
     }
   }
-  
+
   next();
 });
 

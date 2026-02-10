@@ -175,7 +175,7 @@ const returnSchema = new mongoose.Schema({
   },
   returnDate: {
     type: Date,
-    default: function() {
+    default: function () {
       // Set to start of today in local timezone to avoid timezone issues
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -337,7 +337,25 @@ const returnSchema = new mongoose.Schema({
       default: 0
     }
   },
-  
+
+  // Automation and Ledger Tracking
+  ledgerPosted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  autoPosted: {
+    type: Boolean,
+    default: false
+  },
+  postedAt: {
+    type: Date
+  },
+  ledgerReferenceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  },
+
   // Soft Delete Fields
   isDeleted: {
     type: Boolean,
@@ -365,7 +383,7 @@ returnSchema.index({ requestedBy: 1 });
 returnSchema.index({ 'items.product': 1 });
 
 // Validation: Either customer or supplier must be provided
-returnSchema.pre('validate', function(next) {
+returnSchema.pre('validate', function (next) {
   if (!this.customer && !this.supplier) {
     this.invalidate('customer', 'Either customer or supplier must be provided');
   }
@@ -373,28 +391,28 @@ returnSchema.pre('validate', function(next) {
 });
 
 // Virtual for return age in days
-returnSchema.virtual('ageInDays').get(function() {
+returnSchema.virtual('ageInDays').get(function () {
   return Math.floor((Date.now() - this.returnDate) / (1000 * 60 * 60 * 24));
 });
 
 // Virtual for is overdue
-returnSchema.virtual('isOverdue').get(function() {
+returnSchema.virtual('isOverdue').get(function () {
   if (!this.expectedReceiveDate) return false;
   return new Date() > this.expectedReceiveDate && !['completed', 'cancelled'].includes(this.status);
 });
 
 // Virtual for can be approved
-returnSchema.virtual('canBeApproved').get(function() {
+returnSchema.virtual('canBeApproved').get(function () {
   return this.status === 'pending';
 });
 
 // Virtual for can be processed
-returnSchema.virtual('canBeProcessed').get(function() {
+returnSchema.virtual('canBeProcessed').get(function () {
   return ['approved', 'received'].includes(this.status);
 });
 
 // Pre-save middleware to generate return number
-returnSchema.pre('save', async function(next) {
+returnSchema.pre('save', async function (next) {
   if (!this.returnNumber) {
     try {
       const counter = await Counter.findOneAndUpdate(
@@ -407,26 +425,26 @@ returnSchema.pre('save', async function(next) {
       return next(err);
     }
   }
-  
+
   // Calculate totals
   this.totalRefundAmount = this.items.reduce((sum, item) => sum + (item.refundAmount || 0), 0);
   this.totalRestockingFee = this.items.reduce((sum, item) => sum + (item.restockingFee || 0), 0);
   this.netRefundAmount = this.totalRefundAmount - this.totalRestockingFee;
-  
+
   next();
 });
 
 // Static method to get return statistics
-returnSchema.statics.getReturnStats = async function(period = {}) {
+returnSchema.statics.getReturnStats = async function (period = {}) {
   const match = {};
-  
+
   if (period.startDate && period.endDate) {
     match.returnDate = {
       $gte: period.startDate,
       $lte: period.endDate
     };
   }
-  
+
   // First, get basic stats
   const basicStats = await this.aggregate([
     { $match: match },
@@ -482,12 +500,12 @@ returnSchema.statics.getReturnStats = async function(period = {}) {
   stats.statusBreakdown = statusObj;
   stats.typeBreakdown = typeObj;
   stats.averageRefundAmount = stats.averageRefundAmount ? Math.round(stats.averageRefundAmount * 100) / 100 : 0;
-  
+
   return stats;
 };
 
 // Method to add communication log
-returnSchema.methods.addCommunication = function(type, message, sentBy, recipient = null) {
+returnSchema.methods.addCommunication = function (type, message, sentBy, recipient = null) {
   this.communication.push({
     type,
     message,
@@ -499,7 +517,7 @@ returnSchema.methods.addCommunication = function(type, message, sentBy, recipien
 };
 
 // Method to add note
-returnSchema.methods.addNote = function(note, addedBy, isInternal = false) {
+returnSchema.methods.addNote = function (note, addedBy, isInternal = false) {
   this.notes.push({
     note,
     addedBy,
@@ -510,10 +528,10 @@ returnSchema.methods.addNote = function(note, addedBy, isInternal = false) {
 };
 
 // Method to update status with audit trail
-returnSchema.methods.updateStatus = function(newStatus, updatedBy, notes = null) {
+returnSchema.methods.updateStatus = function (newStatus, updatedBy, notes = null) {
   const oldStatus = this.status;
   this.status = newStatus;
-  
+
   // Set relevant dates
   const now = new Date();
   switch (newStatus) {
@@ -533,12 +551,12 @@ returnSchema.methods.updateStatus = function(newStatus, updatedBy, notes = null)
       this.completionDate = now;
       break;
   }
-  
+
   // Add note about status change
   if (notes) {
     this.addNote(`Status changed from ${oldStatus} to ${newStatus}. ${notes}`, updatedBy, true);
   }
-  
+
   return this.save();
 };
 

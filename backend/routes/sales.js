@@ -174,7 +174,7 @@ router.get('/cctv-orders', [
 
     // Get orders with CCTV timestamps
     const orders = await Sales.find(query)
-      .populate('customer', 'displayName firstName lastName email phone addresses')
+      .populate('customer', 'displayName firstName lastName email phone addresses currentBalance pendingBalance advanceBalance')
       .populate('createdBy', 'firstName lastName')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -369,8 +369,6 @@ router.post('/', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.error('Validation failed for sales order creation:', errors.array());
-      console.error('Request body:', JSON.stringify(req.body, null, 2));
       return res.status(400).json({
         message: 'Validation failed',
         errors: errors.array().map(error => ({
@@ -383,576 +381,34 @@ router.post('/', [
 
     const { customer, items, orderType, payment, notes, isTaxExempt, billDate } = req.body;
 
-    // Validate customer if provided
-    let customerData = null;
-    if (customer) {
-      customerData = await customerRepository.findById(customer);
-      if (!customerData) {
-        return res.status(400).json({ message: 'Customer not found' });
-      }
-    }
-
-    // Validate products and calculate pricing
-    const orderItems = [];
-    let subtotal = 0;
-    let totalDiscount = 0;
-    let totalTax = 0;
-
-    for (const item of items) {
-      // Try to find as product first, then as variant
-      let product = await productRepository.findById(item.product);
-      let isVariant = false;
-
-      if (!product) {
-        // Try to find as variant
-        product = await productVariantRepository.findById(item.product);
-        if (product) {
-          isVariant = true;
-        }
-      }
-
-      if (!product) {
-        return res.status(400).json({ message: `Product or variant ${item.product} not found` });
-      }
-
-      // Check actual inventory from Inventory model (source of truth) instead of Product/Variant model cache
-      let inventoryRecord = await Inventory.findOne({ product: item.product });
-      let availableStock = 0;
-      const productStock = Number(product.inventory?.currentStock || 0);
-
-      // If Inventory record doesn't exist, create it from Product/Variant's stock
-      if (!inventoryRecord) {
-        // Create Inventory record with Product/Variant's stock value
-        try {
-          inventoryRecord = await Inventory.create({
-            product: item.product,
-            productModel: isVariant ? 'ProductVariant' : 'Product',
-            currentStock: productStock,
-            reorderPoint: product.inventory?.reorderPoint || product.inventory?.minStock || 10,
-            reorderQuantity: product.inventory?.reorderQuantity || 50,
-            reservedStock: 0,
-            availableStock: productStock,
-            status: productStock > 0 ? 'active' : 'out_of_stock'
-          });
-          availableStock = productStock;
-        } catch (inventoryError) {
-          // If creation fails, use Product/Variant stock as fallback
-          console.error('Error creating inventory record:', inventoryError);
-          availableStock = productStock;
-        }
-      } else {
-        // Use availableStock from Inventory model (currentStock - reservedStock)
-        // This is the actual available stock accounting for reservations
-        const inventoryAvailableStock = Number(inventoryRecord.availableStock || 0);
-        const inventoryCurrentStock = Number(inventoryRecord.currentStock || 0);
-        const inventoryReservedStock = Number(inventoryRecord.reservedStock || 0);
-
-        // Calculate available stock: currentStock - reservedStock
-        const calculatedAvailableStock = Math.max(0, inventoryCurrentStock - inventoryReservedStock);
-
-        // Use the calculated value or the stored availableStock field
-        availableStock = inventoryAvailableStock > 0 ? inventoryAvailableStock : calculatedAvailableStock;
-
-        // Check if Product has more stock than Inventory (sync issue)
-        if (productStock > inventoryCurrentStock) {
-          // Product has more stock, use Product stock as available (Inventory might be outdated)
-          // But still account for reserved stock
-          availableStock = Math.max(0, productStock - inventoryReservedStock);
-        }
-      }
-
-      const requestedQuantity = Number(item.quantity);
-
-      // Get product name (for variants, use displayName)
-      const productName = isVariant
-        ? (product.displayName || product.variantName || `${product.baseProduct?.name || 'Product'} - ${product.variantValue || ''}`)
-        : product.name;
-
-      if (availableStock < requestedQuantity) {
-        return res.status(400).json({
-          message: `Insufficient stock for ${productName}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
-          product: productName,
-          availableStock: availableStock,
-          requestedQuantity: requestedQuantity
-        });
-      }
-
-      // Use custom unitPrice if provided, otherwise calculate based on customer type
-      let unitPrice;
-      if (item.unitPrice !== undefined && item.unitPrice !== null) {
-        // Use the custom unitPrice from the request
-        unitPrice = item.unitPrice;
-      } else {
-        // Determine customer type for pricing and calculate default price
-        const customerType = customerData ? customerData.businessType : 'retail';
-        if (isVariant) {
-          // For variants, use pricing directly
-          if (customerType === 'wholesale' || customerType === 'distributor') {
-            unitPrice = product.pricing?.wholesale || product.pricing?.retail || 0;
-          } else {
-            unitPrice = product.pricing?.retail || 0;
-          }
-        } else {
-          // For regular products, use the method
-          unitPrice = product.getPriceForCustomerType ? product.getPriceForCustomerType(customerType, item.quantity) : (product.pricing?.retail || 0);
-        }
-      }
-
-      // Apply customer discount if applicable
-      const customerDiscount = customerData ? customerData.getEffectiveDiscount() : 0;
-      const itemDiscountPercent = Math.max(item.discountPercent || 0, customerDiscount);
-
-      const itemSubtotal = item.quantity * unitPrice;
-      const itemDiscount = itemSubtotal * (itemDiscountPercent / 100);
-      const itemTaxable = itemSubtotal - itemDiscount;
-      // For variants, use base product's tax settings if available, otherwise default to 0
-      const taxRate = isVariant
-        ? (product.baseProduct?.taxSettings?.taxRate || 0)
-        : (product.taxSettings?.taxRate || 0);
-      const itemTax = isTaxExempt ? 0 : itemTaxable * taxRate;
-
-      // Get unit cost from multiple sources (priority: Inventory > Product)
-      let unitCost = 0;
-
-      // First try to get from Inventory (most accurate - reflects actual purchase cost)
-      try {
-        const Inventory = require('../models/Inventory');
-        const inventory = await Inventory.findOne({ product: product._id });
-        if (inventory && inventory.cost) {
-          // Use average cost if available, otherwise last purchase cost
-          unitCost = inventory.cost.average || inventory.cost.lastPurchase || 0;
-        }
-      } catch (inventoryError) {
-        // If inventory lookup fails, continue with product cost
-        console.warn('Could not fetch inventory cost:', inventoryError.message);
-      }
-
-      // Fallback to product pricing.cost if inventory cost not available
-      if (unitCost === 0) {
-        unitCost = product.pricing?.cost || 0;
-      }
-
-      orderItems.push({
-        product: product._id,
-        quantity: item.quantity,
-        unitCost,
-        unitPrice,
-        discountPercent: itemDiscountPercent,
-        taxRate: isVariant
-          ? (product.baseProduct?.taxSettings?.taxRate || 0)
-          : (product.taxSettings?.taxRate || 0),
-        subtotal: itemSubtotal,
-        discountAmount: itemDiscount,
-        taxAmount: itemTax,
-        total: itemSubtotal - itemDiscount + itemTax
-      });
-
-      subtotal += itemSubtotal;
-      totalDiscount += itemDiscount;
-      totalTax += itemTax;
-    }
-
-    // Generate order number
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-
-    // Order number will be auto-generated by the model's pre-save hook with SI- prefix
-    // No need to manually generate it here
-
-    // Calculate order total
-    const orderTotal = subtotal - totalDiscount + totalTax;
-
-    // Check credit limit for credit sales (account payment or partial payment)
-    if (customerData && customerData.creditLimit > 0) {
-      // Determine unpaid amount
-      const paymentMethod = payment?.method || 'cash';
-      const amountPaid = payment?.amountPaid || payment?.amount || 0;
-      const unpaidAmount = orderTotal - amountPaid;
-
-      // For account payments or partial payments, check credit limit
-      if (paymentMethod === 'account' || unpaidAmount > 0) {
-        const currentBalance = customerData.currentBalance || 0;
-        const totalOutstanding = currentBalance;
-        const newBalanceAfterOrder = totalOutstanding + unpaidAmount;
-
-        if (newBalanceAfterOrder > customerData.creditLimit) {
-          return res.status(400).json({
-            message: `Credit limit exceeded for customer ${customerData.displayName || customerData.name}`,
-            error: 'CREDIT_LIMIT_EXCEEDED',
-            details: {
-              currentBalance: currentBalance,
-              pendingBalance: pendingBalance,
-              totalOutstanding: totalOutstanding,
-              orderAmount: orderTotal,
-              unpaidAmount: unpaidAmount,
-              creditLimit: customerData.creditLimit,
-              newBalance: newBalanceAfterOrder,
-              availableCredit: customerData.creditLimit - totalOutstanding
-            }
-          });
-        }
-      }
-    }
-
-    // Update inventory BEFORE order save to prevent creating orders with insufficient stock
-    const inventoryService = require('../services/inventoryService');
-    const inventoryUpdates = [];
-
-    for (const item of items) {
-      try {
-        // Try to find as product first, then as variant
-        let product = await productRepository.findById(item.product);
-        let isVariant = false;
-
-        if (!product) {
-          product = await productVariantRepository.findById(item.product);
-          if (product) {
-            isVariant = true;
-          }
-        }
-
-        if (!product) {
-          return res.status(400).json({ message: `Product or variant ${item.product} not found during inventory update` });
-        }
-
-        // Get product name (for variants, use displayName)
-        const productName = isVariant
-          ? (product.displayName || product.variantName || `${product.baseProduct?.name || 'Product'} - ${product.variantValue || ''}`)
-          : product.name;
-
-        // Check actual inventory from Inventory model (source of truth) instead of Product/Variant model cache
-        let inventoryRecord = await Inventory.findOne({ product: item.product });
-        let availableStock = 0;
-        const productStock = Number(product.inventory?.currentStock || 0);
-
-        // If Inventory record doesn't exist, create it from Product/Variant's stock
-        if (!inventoryRecord) {
-          // Create Inventory record with Product/Variant's stock value
-          inventoryRecord = await Inventory.create({
-            product: item.product,
-            productModel: isVariant ? 'ProductVariant' : 'Product',
-            currentStock: productStock,
-            reorderPoint: product.inventory?.reorderPoint || product.inventory?.minStock || 10,
-            reorderQuantity: 50,
-            reservedStock: 0,
-            availableStock: productStock,
-            status: productStock > 0 ? 'active' : 'out_of_stock'
-          });
-          availableStock = productStock;
-        } else {
-          // Use availableStock from Inventory model (currentStock - reservedStock)
-          const inventoryCurrentStock = Number(inventoryRecord.currentStock || 0);
-          const inventoryReservedStock = Number(inventoryRecord.reservedStock || 0);
-          const inventoryAvailableStock = Number(inventoryRecord.availableStock || 0);
-
-          // Calculate available stock: currentStock - reservedStock
-          const calculatedAvailableStock = Math.max(0, inventoryCurrentStock - inventoryReservedStock);
-
-          // Use the calculated value or the stored availableStock field
-          availableStock = inventoryAvailableStock > 0 ? inventoryAvailableStock : calculatedAvailableStock;
-
-          // Check if Product has more stock than Inventory (sync issue)
-          if (productStock > inventoryCurrentStock) {
-            // Sync Inventory to match Product stock
-            await inventoryService.updateStock({
-              productId: item.product,
-              type: 'adjustment',
-              quantity: productStock,
-              reason: 'Auto-sync from Product model',
-              reference: 'Stock Sync',
-              referenceId: null,
-              referenceModel: 'StockAdjustment',
-              performedBy: req.user._id,
-              notes: `Syncing Inventory model to match Product model stock (${inventoryCurrentStock} -> ${productStock})`
-            });
-            // Refresh inventory record
-            inventoryRecord = await Inventory.findOne({ product: item.product });
-            // Recalculate available stock after sync
-            const refreshedReservedStock = Number(inventoryRecord.reservedStock || 0);
-            availableStock = Math.max(0, productStock - refreshedReservedStock);
-          }
-        }
-
-        const requestedQuantity = Number(item.quantity);
-
-        // Re-check stock availability right before updating (race condition protection)
-        if (availableStock < requestedQuantity) {
-          return res.status(400).json({
-            message: `Insufficient stock for ${productName}. Available: ${availableStock}, Requested: ${requestedQuantity}`,
-            product: productName,
-            availableStock: availableStock,
-            requestedQuantity: requestedQuantity
-          });
-        }
-
-        // Use inventoryService for proper audit trail
-        const inventoryUpdate = await inventoryService.updateStock({
-          productId: item.product,
-          type: 'out',
-          quantity: item.quantity,
-          reason: 'Sales Order Creation',
-          reference: 'Sales Order',
-          referenceId: null, // Will be updated after order save
-          referenceModel: 'SalesOrder',
-          performedBy: req.user._id,
-          notes: `Stock reduced due to sales order creation`
-        });
-
-        inventoryUpdates.push({
-          productId: item.product,
-          quantity: item.quantity,
-          newStock: inventoryUpdate.currentStock,
-          success: true
-        });
-
-      } catch (error) {
-        console.error(`Error updating inventory for product ${item.product}:`, error);
-
-        // Get product name and actual stock for better error message
-        let productName = 'Unknown Product';
-        let availableStock = 0;
-        try {
-          const productForError = await Product.findById(item.product);
-          if (productForError) {
-            productName = productForError.name;
-            // Get actual stock from Inventory model (source of truth)
-            const inventoryRecord = await Inventory.findOne({ product: item.product });
-            availableStock = Number(inventoryRecord ? inventoryRecord.currentStock : (productForError.inventory?.currentStock || 0));
-          }
-        } catch (productError) {
-          console.error('Error fetching product for error message:', productError);
-        }
-
-        // Check if this is an insufficient stock error
-        const isInsufficientStock = error.message && error.message.includes('Insufficient stock');
-        const statusCode = isInsufficientStock ? 400 : 500;
-
-        // Rollback successful inventory updates
-        for (const successUpdate of inventoryUpdates) {
-          try {
-            await inventoryService.updateStock({
-              productId: successUpdate.productId,
-              type: 'in',
-              quantity: successUpdate.quantity,
-              reason: 'Rollback - Sales Order Creation Failed',
-              reference: 'Sales Order',
-              referenceId: null,
-              referenceModel: 'SalesOrder',
-              performedBy: req.user._id,
-              notes: `Rollback: Sales order creation failed`
-            });
-          } catch (rollbackError) {
-            console.error(`Failed to rollback inventory for product ${successUpdate.productId}:`, rollbackError);
-          }
-        }
-
-        return res.status(statusCode).json({
-          message: isInsufficientStock
-            ? `Insufficient stock for ${productName}. Available: ${availableStock}, Requested: ${item.quantity}`
-            : `Failed to update inventory for product ${productName}`,
-          error: error.message,
-          product: productName,
-          productId: item.product,
-          availableStock: availableStock,
-          requestedQuantity: item.quantity
-        });
-      }
-    }
-
-    // Create order
-    // Note: orderNumber will be auto-generated by Order model's pre-save hook with SI- prefix
-    // Sales page orders are automatically confirmed since they directly impact stock
-    const orderData = {
-      orderType,
-      customer: customer || null,
-      customerInfo: customerData ? {
-        name: customerData.displayName,
-        email: customerData.email,
-        phone: customerData.phone,
-        businessName: customerData.businessName,
-        address: formatCustomerAddress(customerData)
-      } : null,
-      items: orderItems,
-      pricing: {
-        subtotal,
-        discountAmount: totalDiscount,
-        taxAmount: totalTax,
-        isTaxExempt: isTaxExempt || false,
-        shippingAmount: 0,
-        total: subtotal - totalDiscount + totalTax
+    // Use SalesService to create the sale (invoice)
+    const savedOrder = await salesService.createSale(
+      {
+        customer,
+        items,
+        orderType,
+        payment,
+        notes,
+        isTaxExempt,
+        billDate,
+        billStartTime
       },
-      payment: {
-        method: payment.method,
-        status: payment.isPartialPayment ? 'partial' : (payment.method === 'cash' ? 'paid' : 'pending'),
-        amountPaid: payment.amount || 0,
-        remainingBalance: payment.remainingBalance || 0,
-        isPartialPayment: payment.isPartialPayment || false,
-        isAdvancePayment: payment.isAdvancePayment || false,
-        advanceAmount: payment.advanceAmount || 0
-      },
-      status: 'confirmed', // Sales page orders are automatically confirmed since they directly impact stock
-      notes,
-      createdBy: req.user._id,
-      billStartTime: billStartTime, // Capture bill start time
-      billDate: parseLocalDate(billDate) // Allow custom bill date (for backdating/postdating) - parse as local date
-    };
+      req.user
+    );
 
+    // Get plain object for response transformations
+    const orderForResponse = savedOrder.toObject ? savedOrder.toObject({ virtuals: true }) : { ...savedOrder };
 
-    // Use MongoDB transaction for atomicity across Sales, CustomerTransaction, and Customer
-    const mongoose = require('mongoose');
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      // 1. Create sales order
-      const order = new Sales(orderData);
-      await order.save({ session });
-
-      // 2. Track stock movements
-      try {
-        await StockMovementService.trackSalesOrder(order, req.user);
-      } catch (movementError) {
-        console.error('Error recording stock movements for sales order:', movementError);
-        // Log but don't fail - stock movements are tracked separately
-      }
-
-      // 3. Distribute profit for investor-linked products
-      if (order.status === 'confirmed' || order.payment?.status === 'paid') {
-        try {
-          const profitDistributionService = require('../services/profitDistributionService');
-          await profitDistributionService.distributeProfitForOrder(order, req.user);
-        } catch (profitError) {
-          console.error('Error distributing profit for order:', profitError);
-        }
-      }
-
-      // 4. Create CustomerTransaction invoice and update balance (if customer account payment)
-      if (customer && orderData.pricing.total > 0) {
-        const customerTransactionService = require('../services/customerTransactionService');
-        const Customer = require('../models/Customer');
-        const customerExists = await Customer.findById(customer).session(session);
-
-        if (customerExists) {
-          const amountPaid = payment.amount || 0;
-          const isAccountPayment = payment.method === 'account' || amountPaid < orderData.pricing.total;
-
-          // Create invoice transaction if account payment or partial payment
-          if (isAccountPayment) {
-            // Fetch product names for line items
-            const productIds = orderItems.map(item => item.product);
-            const products = await Product.find({ _id: { $in: productIds } }).select('name').lean();
-            const productMap = new Map(products.map(p => [p._id.toString(), p.name]));
-
-            // Prepare line items for invoice
-            const lineItems = orderItems.map(item => ({
-              product: item.product,
-              description: productMap.get(item.product.toString()) || 'Product',
-              quantity: item.quantity,
-              unitPrice: item.unitPrice || 0, // Use unitPrice, not price
-              discountAmount: item.discountAmount || 0,
-              taxAmount: item.taxAmount || 0,
-              totalPrice: item.total || 0
-            }));
-
-            // Create CustomerTransaction invoice
-            await customerTransactionService.createTransaction({
-              customerId: customer,
-              transactionType: 'invoice',
-              netAmount: orderData.pricing.total,
-              grossAmount: subtotal,
-              discountAmount: totalDiscount,
-              taxAmount: totalTax,
-              referenceType: 'sales_order',
-              referenceId: order._id,
-              referenceNumber: order.orderNumber,
-              lineItems: lineItems,
-              notes: `Invoice for sales order ${order.orderNumber}`
-            }, req.user);
-          }
-
-          // Record payment if any amount paid
-          if (amountPaid > 0) {
-            const CustomerBalanceService = require('../services/customerBalanceService');
-            await CustomerBalanceService.recordPayment(
-              customer,
-              amountPaid,
-              order._id,
-              req.user,
-              {
-                paymentMethod: payment.method,
-                paymentReference: order.orderNumber
-              }
-            );
-          }
-        }
-      }
-
-      // 5. Create accounting entries
-      try {
-        const AccountingService = require('../services/accountingService');
-        await AccountingService.recordSale(order);
-      } catch (error) {
-        console.error('Error creating accounting entries for sales order:', error);
-        // Log but don't fail - accounting entries can be created later
-      }
-
-      // Commit transaction
-      await session.commitTransaction();
-
-      // Capture bill end time (when bill is finalized)
-      const billEndTime = new Date();
-
-      // Order is now saved and all related records created atomically
-      // Store order ID for later retrieval
-      const orderId = order._id;
-
-      // Update order with bill end time
-      await Sales.findByIdAndUpdate(orderId, { billEndTime }, { new: true });
-
-      // Reload order after transaction (since it was saved in session)
-      const savedOrder = await Sales.findById(orderId);
-
-      // Populate order for response (include addresses for print preview)
-      await savedOrder.populate([
-        { path: 'customer', select: 'firstName lastName businessName email phone addresses' },
-        { path: 'items.product', select: 'name description' },
-        { path: 'createdBy', select: 'firstName lastName' }
-      ]);
-
-      // Send plain object so customerInfo.address is always in JSON (populate is already on savedOrder)
-      const orderForResponse = savedOrder.toObject ? savedOrder.toObject({ virtuals: true }) : { ...savedOrder };
-      if (customerData) {
-        const addr = formatCustomerAddress(customerData);
-        if (addr) {
-          if (!orderForResponse.customerInfo) orderForResponse.customerInfo = {};
-          orderForResponse.customerInfo.address = addr;
-        }
-      }
-
-      res.status(201).json({
-        success: true,
-        message: 'Order created successfully',
-        order: orderForResponse
-      });
-    } catch (error) {
-      // Rollback transaction on error
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
-    }
+    res.status(201).json({
+      success: true,
+      message: 'Order created successfully',
+      order: orderForResponse
+    });
   } catch (error) {
     console.error('Create order error:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
     res.status(500).json({
-      message: 'Server error. Please try again later.',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.message || 'Server error. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -1121,7 +577,10 @@ router.put('/:id', [
         email: customerData.email,
         phone: customerData.phone,
         businessName: customerData.businessName,
-        address: formatCustomerAddress(customerData)
+        address: formatCustomerAddress(customerData),
+        currentBalance: customerData.currentBalance,
+        pendingBalance: customerData.pendingBalance,
+        advanceBalance: customerData.advanceBalance
       } : null;
     }
 
@@ -1437,7 +896,7 @@ router.put('/:id', [
 
     // Populate order for response (include addresses for print)
     await order.populate([
-      { path: 'customer', select: 'firstName lastName businessName email phone addresses' },
+      { path: 'customer', select: 'firstName lastName businessName email phone addresses currentBalance pendingBalance advanceBalance' },
       { path: 'items.product', select: 'name description pricing' },
       { path: 'createdBy', select: 'firstName lastName' }
     ]);

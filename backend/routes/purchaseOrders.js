@@ -62,10 +62,10 @@ router.get('/', [
     if (req.dateFilter && Object.keys(req.dateFilter).length > 0) {
       queryParams.dateFilter = req.dateFilter;
     }
-    
+
     // Call service to get purchase orders
     const result = await purchaseOrderService.getPurchaseOrders(queryParams);
-    
+
     res.json({
       purchaseOrders: result.purchaseOrders,
       pagination: result.pagination
@@ -112,9 +112,9 @@ router.post('/', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const purchaseOrder = await purchaseOrderService.createPurchaseOrder(req.body, req.user._id);
-    
+
     // Transform names to uppercase
     if (purchaseOrder.supplier) {
       purchaseOrder.supplier = transformSupplierToUppercase(purchaseOrder.supplier);
@@ -126,7 +126,7 @@ router.post('/', [
         }
       });
     }
-    
+
     res.status(201).json({
       message: 'Purchase order created successfully',
       purchaseOrder
@@ -138,7 +138,7 @@ router.post('/', [
       message: error.message,
       stack: error.stack
     });
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server error. Please try again later.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -166,21 +166,21 @@ router.put('/:id', [
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    
+
     const updatedPO = await purchaseOrderService.updatePurchaseOrder(
       req.params.id,
       req.body,
       req.user._id
     );
-    
+
     // Store old items for comparison (for inventory updates)
     const oldItems = JSON.parse(JSON.stringify(updatedPO.items));
-    
+
     // Adjust inventory if order was confirmed and items changed
     if (updatedPO.status === 'confirmed' && req.body.items && req.body.items.length > 0) {
       try {
         const inventoryService = require('../services/inventoryService');
-        
+
         for (const newItem of req.body.items) {
           const oldItem = oldItems.find(oi => {
             const oldProductId = oi.product?._id ? oi.product._id.toString() : oi.product?.toString() || oi.product;
@@ -189,7 +189,7 @@ router.put('/:id', [
           });
           const oldQuantity = oldItem ? oldItem.quantity : 0;
           const quantityChange = newItem.quantity - oldQuantity;
-          
+
           if (quantityChange !== 0) {
             if (quantityChange > 0) {
               // Quantity increased - add more inventory
@@ -221,7 +221,7 @@ router.put('/:id', [
             }
           }
         }
-        
+
         // Handle removed items (items that were in old but not in new)
         for (const oldItem of oldItems) {
           const oldProductId = oldItem.product?._id ? oldItem.product._id.toString() : oldItem.product?.toString() || oldItem.product;
@@ -229,7 +229,7 @@ router.put('/:id', [
             const newProductId = newItem.product?.toString() || newItem.product;
             return oldProductId === newProductId;
           });
-          
+
           if (!stillExists) {
             // Item was removed - reduce inventory
             await inventoryService.updateStock({
@@ -250,9 +250,9 @@ router.put('/:id', [
         // Don't fail update if inventory adjustment fails
       }
     }
-    
+
     // Note: Supplier balance adjustments are handled in the service layer
-    
+
     res.json({
       message: 'Purchase order updated successfully',
       purchaseOrder: updatedPO
@@ -272,7 +272,7 @@ router.put('/:id/confirm', [
 ], async (req, res) => {
   try {
     const purchaseOrder = await purchaseOrderService.confirmPurchaseOrder(req.params.id);
-    
+
     // Update inventory for each item in the purchase order
     const inventoryUpdates = [];
     for (const item of purchaseOrder.items) {
@@ -289,14 +289,14 @@ router.put('/:id/confirm', [
           performedBy: req.user._id,
           notes: `Stock increased due to purchase order confirmation - PO: ${purchaseOrder.poNumber}`
         });
-        
+
         inventoryUpdates.push({
           productId: item.product,
           quantity: item.quantity,
           newStock: inventoryUpdate.currentStock,
           success: true
         });
-        
+
       } catch (inventoryError) {
         console.error(`Failed to update inventory for product ${item.product}:`, inventoryError.message);
         inventoryUpdates.push({
@@ -305,7 +305,7 @@ router.put('/:id/confirm', [
           success: false,
           error: inventoryError.message
         });
-        
+
         // If inventory update fails, return error but don't rollback (since this is stock increase)
         return res.status(400).json({
           message: `Failed to update inventory for product ${item.product}. Cannot confirm purchase order.`,
@@ -314,17 +314,17 @@ router.put('/:id/confirm', [
         });
       }
     }
-    
+
     // Update supplier balance: move from pendingBalance to currentBalance
-    if (purchaseOrder.supplier && purchaseOrder.pricing && purchaseOrder.pricing.total > 0) {
+    if (purchaseOrder.supplier && purchaseOrder.total > 0) {
       try {
         const supplier = await supplierRepository.findById(purchaseOrder.supplier);
         if (supplier) {
           // Move amount from pendingBalance to currentBalance (outstanding amount we owe to supplier)
-          await supplierRepository.update(purchaseOrder.supplier, {
-            $inc: { 
-              pendingBalance: -purchaseOrder.pricing.total,  // Remove from pending
-              currentBalance: purchaseOrder.pricing.total    // Add to current (outstanding)
+          await supplierRepository.updateById(purchaseOrder.supplier, {
+            $inc: {
+              pendingBalance: -purchaseOrder.total,  // Remove from pending
+              currentBalance: purchaseOrder.total    // Add to current (outstanding)
             }
           });
         }
@@ -338,9 +338,36 @@ router.put('/:id/confirm', [
     purchaseOrder.status = 'confirmed';
     purchaseOrder.confirmedDate = new Date();
     purchaseOrder.lastModifiedBy = req.user._id;
-    
+
     await purchaseOrder.save();
-    
+
+    // Automatically create a Purchase Invoice from this confirmed order
+    try {
+      const invoice = await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, req.user._id);
+
+      // Track conversion in purchase order
+      purchaseOrder.conversions = purchaseOrder.conversions || [];
+      purchaseOrder.conversions.push({
+        invoiceId: invoice._id,
+        convertedBy: req.user._id,
+        convertedAt: new Date(),
+        items: (purchaseOrder.items || []).map(item => ({
+          product: item.product,
+          quantity: item.quantity,
+          costPerUnit: item.costPerUnit,
+          status: 'success'
+        })),
+        notes: `Automatically converted to invoice PI: ${invoice.invoiceNumber} on confirmation`
+      });
+
+      // Update PO status to fully_received since confirmation in this system increases stock immediately
+      purchaseOrder.status = 'fully_received';
+      purchaseOrder.lastReceivedDate = new Date();
+    } catch (createInvoiceError) {
+      console.error('Failed to automatically create purchase invoice during PO confirmation:', createInvoiceError);
+      // Don't fail the confirmation if invoice creation fails
+    }
+
     // Create accounting entries for confirmed purchase order
     try {
       const AccountingService = require('../services/accountingService');
@@ -349,14 +376,14 @@ router.put('/:id/confirm', [
       console.error('Error creating accounting entries for purchase order:', error);
       // Don't fail the confirmation if accounting fails
     }
-    
+
     await purchaseOrder.populate([
       { path: 'supplier', select: 'companyName contactPerson email phone businessType' },
       { path: 'items.product', select: 'name description pricing inventory' },
       { path: 'createdBy', select: 'firstName lastName email' },
       { path: 'lastModifiedBy', select: 'firstName lastName email' }
     ]);
-    
+
     // Transform names to uppercase
     if (purchaseOrder.supplier) {
       purchaseOrder.supplier = transformSupplierToUppercase(purchaseOrder.supplier);
@@ -368,9 +395,9 @@ router.put('/:id/confirm', [
         }
       });
     }
-    
+
     res.json({
-      message: 'Purchase order confirmed successfully and inventory updated',
+      message: 'Purchase order confirmed and converted to invoice successfully',
       purchaseOrder,
       inventoryUpdates: inventoryUpdates
     });
@@ -391,9 +418,9 @@ router.put('/:id/cancel', [
     // Get purchase order before cancellation to check status
     const purchaseOrderBeforeCancel = await purchaseOrderService.getPurchaseOrderById(req.params.id);
     const wasConfirmed = purchaseOrderBeforeCancel.status === 'confirmed';
-    
+
     const purchaseOrder = await purchaseOrderService.cancelPurchaseOrder(req.params.id, req.user._id);
-    
+
     // If the purchase order was confirmed, reduce inventory
     const inventoryUpdates = [];
     if (wasConfirmed) {
@@ -410,14 +437,14 @@ router.put('/:id/cancel', [
             performedBy: req.user._id,
             notes: `Stock reduced due to purchase order cancellation - PO: ${purchaseOrder.poNumber}`
           });
-          
+
           inventoryUpdates.push({
             productId: item.product,
             quantity: item.quantity,
             newStock: inventoryUpdate.currentStock,
             success: true
           });
-          
+
         } catch (inventoryError) {
           console.error(`Failed to reduce inventory for product ${item.product}:`, inventoryError.message);
           inventoryUpdates.push({
@@ -426,7 +453,7 @@ router.put('/:id/cancel', [
             success: false,
             error: inventoryError.message
           });
-          
+
           // If inventory update fails, check if it's due to insufficient stock
           if (inventoryError.message.includes('Insufficient stock')) {
             return res.status(400).json({
@@ -435,22 +462,22 @@ router.put('/:id/cancel', [
               inventoryUpdates: inventoryUpdates
             });
           }
-          
+
           // Continue with cancellation for other errors
           console.warn(`Continuing with purchase order cancellation despite inventory reduction failure for product ${item.product}`);
         }
       }
-      
+
       // Reverse supplier balance: move from currentBalance back to pendingBalance
-      if (purchaseOrder.supplier && purchaseOrder.pricing && purchaseOrder.pricing.total > 0) {
+      if (purchaseOrder.supplier && purchaseOrder.total > 0) {
         try {
           const supplier = await supplierRepository.findById(purchaseOrder.supplier);
           if (supplier) {
             // Move amount from currentBalance back to pendingBalance (reverse the confirmation)
-            await supplierRepository.update(purchaseOrder.supplier, {
-              $inc: { 
-                pendingBalance: purchaseOrder.pricing.total,  // Add back to pending
-                currentBalance: -purchaseOrder.pricing.total  // Remove from current
+            await supplierRepository.updateById(purchaseOrder.supplier, {
+              $inc: {
+                pendingBalance: purchaseOrder.total,  // Add back to pending
+                currentBalance: -purchaseOrder.total  // Remove from current
               }
             });
           }
@@ -460,14 +487,14 @@ router.put('/:id/cancel', [
         }
       }
     }
-    
+
     purchaseOrder.status = 'cancelled';
     purchaseOrder.lastModifiedBy = req.user._id;
-    
+
     await purchaseOrder.save();
-    
+
     res.json({
-      message: purchaseOrder.status === 'confirmed' 
+      message: purchaseOrder.status === 'confirmed'
         ? 'Purchase order cancelled successfully and inventory reduced'
         : 'Purchase order cancelled successfully',
       purchaseOrder,
@@ -488,7 +515,7 @@ router.put('/:id/close', [
 ], async (req, res) => {
   try {
     const purchaseOrder = await purchaseOrderService.closePurchaseOrder(req.params.id, req.user._id);
-    
+
     res.json({
       message: 'Purchase order closed successfully',
       purchaseOrder
@@ -513,10 +540,10 @@ router.delete('/:id', [
     // Get purchase order before deletion to check status
     const purchaseOrder = await purchaseOrderService.getPurchaseOrderById(req.params.id);
     const wasConfirmed = purchaseOrder.status === 'confirmed';
-    
+
     // Delete the purchase order (service handles validation and supplier balance)
     await purchaseOrderService.deletePurchaseOrder(req.params.id);
-    
+
     // Restore inventory if PO was confirmed (but we only allow deletion of draft orders, so this shouldn't run)
     // Keeping this for safety in case the status check is bypassed
     if (wasConfirmed) {
@@ -544,9 +571,9 @@ router.delete('/:id', [
         // Don't fail deletion if inventory update fails
       }
     }
-    
+
     await purchaseOrderService.deletePurchaseOrder(req.params.id);
-    
+
     res.json({ message: 'Purchase order deleted successfully' });
   } catch (error) {
     console.error('Delete purchase order error:', error);
@@ -614,10 +641,10 @@ router.post('/:id/convert', [
         );
 
         // Update purchase order item received quantity
-        const poItem = purchaseOrder.items.find(poItem => 
+        const poItem = purchaseOrder.items.find(poItem =>
           poItem.product.toString() === item.product
         );
-        
+
         if (poItem) {
           poItem.receivedQuantity += item.quantity;
           poItem.remainingQuantity = Math.max(0, poItem.quantity - poItem.receivedQuantity);
@@ -661,6 +688,21 @@ router.post('/:id/convert', [
       notes: req.body.notes || `Converted ${items.length} items to purchase`
     });
 
+    // Automatically create a Purchase Invoice for the converted items
+    try {
+      const invoice = await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, req.user._id, items);
+
+      // Update conversion record with invoiceId
+      const lastConversion = purchaseOrder.conversions[purchaseOrder.conversions.length - 1];
+      if (lastConversion) {
+        lastConversion.invoiceId = invoice._id;
+        lastConversion.notes = lastConversion.notes || ``;
+        lastConversion.notes += ` - Created Invoice PI: ${invoice.invoiceNumber}`;
+      }
+    } catch (createInvoiceError) {
+      console.error('Failed to create purchase invoice during conversion:', createInvoiceError);
+    }
+
     await purchaseOrder.save();
 
     res.json({
@@ -680,7 +722,7 @@ router.post('/:id/convert', [
       message: error.message,
       stack: error.stack
     });
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server error. Please try again later.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });

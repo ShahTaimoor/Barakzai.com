@@ -1,6 +1,13 @@
 const Customer = require('../models/Customer');
+const Supplier = require('../models/Supplier');
 const CustomerTransaction = require('../models/CustomerTransaction');
+const Sales = require('../models/Sales');
+const PurchaseInvoice = require('../models/PurchaseInvoice');
+const PurchaseOrder = require('../models/PurchaseOrder');
+const SalesOrder = require('../models/SalesOrder');
+const Transaction = require('../models/Transaction');
 const customerAuditLogService = require('./customerAuditLogService');
+const accountLedgerService = require('./accountLedgerService');
 
 class ReconciliationService {
   /**
@@ -11,7 +18,7 @@ class ReconciliationService {
    */
   async reconcileCustomerBalance(customerId, options = {}) {
     const { autoCorrect = false, alertOnDiscrepancy = true } = options;
-    
+
     const customer = await Customer.findById(customerId);
     if (!customer) {
       throw new Error('Customer not found');
@@ -43,9 +50,9 @@ class ReconciliationService {
 
     // Check if discrepancy exceeds threshold (0.01 for rounding)
     const threshold = 0.01;
-    if (discrepancy.pendingBalance > threshold || 
-        discrepancy.advanceBalance > threshold ||
-        discrepancy.currentBalance > threshold) {
+    if (discrepancy.pendingBalance > threshold ||
+      discrepancy.advanceBalance > threshold ||
+      discrepancy.currentBalance > threshold) {
       discrepancy.hasDifference = true;
     }
 
@@ -126,7 +133,7 @@ class ReconciliationService {
 
       transactions.forEach(transaction => {
         const impact = transaction.balanceImpact;
-        
+
         if (transaction.transactionType === 'invoice' || transaction.transactionType === 'debit_note') {
           pendingBalance += impact;
         } else if (transaction.transactionType === 'payment') {
@@ -134,7 +141,7 @@ class ReconciliationService {
           const paymentAmount = Math.abs(impact);
           const pendingReduction = Math.min(paymentAmount, pendingBalance);
           pendingBalance -= pendingReduction;
-          
+
           const remainingPayment = paymentAmount - pendingReduction;
           if (remainingPayment > 0) {
             advanceBalance += remainingPayment;
@@ -144,7 +151,7 @@ class ReconciliationService {
           const refundAmount = Math.abs(impact);
           const pendingReduction = Math.min(refundAmount, pendingBalance);
           pendingBalance -= pendingReduction;
-          
+
           const remainingRefund = refundAmount - pendingReduction;
           if (remainingRefund > 0) {
             advanceBalance += remainingRefund;
@@ -156,7 +163,7 @@ class ReconciliationService {
             const adjustmentAmount = Math.abs(impact);
             const pendingReduction = Math.min(adjustmentAmount, pendingBalance);
             pendingBalance -= pendingReduction;
-            
+
             const remainingAdjustment = adjustmentAmount - pendingReduction;
             if (remainingAdjustment > 0) {
               advanceBalance = Math.max(0, advanceBalance - remainingAdjustment);
@@ -190,9 +197,9 @@ class ReconciliationService {
    */
   async reconcileAllCustomerBalances(options = {}) {
     const { autoCorrect = false, alertOnDiscrepancy = true, batchSize = 100 } = options;
-    
-    const customers = await Customer.find({ 
-      isDeleted: false 
+
+    const customers = await Customer.find({
+      isDeleted: false
     }).select('_id businessName name pendingBalance advanceBalance currentBalance');
 
     const results = {
@@ -207,7 +214,7 @@ class ReconciliationService {
     // Process in batches
     for (let i = 0; i < customers.length; i += batchSize) {
       const batch = customers.slice(i, i + batchSize);
-      
+
       await Promise.all(batch.map(async (customer) => {
         try {
           const reconciliation = await this.reconcileCustomerBalance(
@@ -330,7 +337,7 @@ class ReconciliationService {
    */
   async getReconciliationReport(customerId, startDate, endDate) {
     const reconciliation = await this.reconcileCustomerBalance(customerId);
-    
+
     const transactions = await CustomerTransaction.find({
       customer: customerId,
       transactionDate: {
@@ -388,6 +395,144 @@ class ReconciliationService {
     });
 
     return summary;
+  }
+
+  /**
+   * Run full system reconciliation (Customers, Suppliers, Orders, Invoices)
+   * @param {Object} options - Options with autoCorrect
+   * @returns {Promise<Object>}
+   */
+  async runFullSystemReconciliation(options = {}) {
+    const { autoCorrect = false } = options;
+    const results = {
+      startTime: new Date(),
+      customers: null,
+      suppliers: null,
+      orders: {
+        totalIssues: 0,
+        fixed: 0,
+        details: []
+      }
+    };
+
+    // 1. Reconcile Customers
+    results.customers = await this.reconcileAllCustomerBalances({ autoCorrect });
+
+    // 2. Reconcile Suppliers
+    results.suppliers = await this.reconcileAllSupplierBalances({ autoCorrect });
+
+    // 3. Reconcile Orders and Invoices
+    const orderIssues = await this.reconcileOrderAndInvoiceConsistency({ autoCorrect });
+    results.orders.totalIssues = orderIssues.length;
+    results.orders.details = orderIssues;
+    if (autoCorrect) {
+      results.orders.fixed = orderIssues.length; // Assuming all fixed if autoCorrect is true
+    }
+
+    results.endTime = new Date();
+    results.duration = results.endTime - results.startTime;
+
+    return results;
+  }
+
+  /**
+   * Reconcile all supplier balances
+   */
+  async reconcileAllSupplierBalances(options = {}) {
+    const { autoCorrect = false, batchSize = 100 } = options;
+    const suppliers = await Supplier.find({ isDeleted: false });
+
+    // We'll use the accountLedgerService logic for suppliers since it's already robust
+    const ledgerResult = await accountLedgerService.getLedgerSummary({
+      startDate: '1970-01-01',
+      endDate: '2099-12-31'
+    });
+
+    const results = {
+      total: suppliers.length,
+      discrepancies: 0,
+      corrected: 0,
+      errors: []
+    };
+
+    if (ledgerResult.success) {
+      const supplierSummaries = ledgerResult.data.suppliers.summary;
+      const summaryMap = new Map(supplierSummaries.map(s => [s.id.toString(), s]));
+
+      for (const supplier of suppliers) {
+        const summary = summaryMap.get(supplier._id.toString());
+        if (summary) {
+          const ledgerBalance = summary.closingBalance;
+          const profileBalance = supplier.currentBalance;
+
+          if (Math.abs(ledgerBalance - profileBalance) > 0.01) {
+            results.discrepancies++;
+            if (autoCorrect) {
+              await Supplier.updateOne({ _id: supplier._id }, { $set: { currentBalance: ledgerBalance } });
+              results.corrected++;
+            }
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Reconcile consistency between Orders, Invoices and Ledger
+   */
+  async reconcileOrderAndInvoiceConsistency(options = {}) {
+    const { autoCorrect = false } = options;
+    const issues = [];
+
+    // Sales Invoices
+    const sales = await Sales.find({ isDeleted: { $ne: true } });
+    for (const sale of sales) {
+      const calculatedBalance = sale.pricing.total - sale.payment.amountPaid;
+      const storedBalance = sale.payment.remainingBalance;
+
+      if (Math.abs(calculatedBalance - storedBalance) > 0.01) {
+        issues.push({ type: 'SI_BALANCE', id: sale._id, ref: sale.orderNumber, expected: calculatedBalance });
+        if (autoCorrect) {
+          await Sales.updateOne({ _id: sale._id }, { $set: { 'payment.remainingBalance': calculatedBalance } });
+        }
+      }
+
+      // Paid status SI
+      const paidSI = sale.payment.amountPaid;
+      const totalSI = sale.pricing.total;
+      let expectedStatusSI = 'pending';
+      if (paidSI >= totalSI && totalSI > 0) expectedStatusSI = 'paid';
+      else if (paidSI > 0) expectedStatusSI = 'partial';
+
+      if (sale.payment.status !== expectedStatusSI && sale.status !== 'cancelled' && sale.status !== 'returned') {
+        issues.push({ type: 'SI_STATUS', id: sale._id, ref: sale.orderNumber, expected: expectedStatusSI });
+        if (autoCorrect) {
+          await Sales.updateOne({ _id: sale._id }, { $set: { 'payment.status': expectedStatusSI } });
+        }
+      }
+    }
+
+    // Purchase Orders (simplified status check logic)
+    const pos = await PurchaseOrder.find({ isDeleted: { $ne: true } });
+    for (const po of pos) {
+      const totalQty = po.items.reduce((sum, item) => sum + item.quantity, 0);
+      const receivedQty = po.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
+
+      let expectedStatus = po.status;
+      if (receivedQty >= totalQty && totalQty > 0) expectedStatus = 'fully_received';
+      else if (receivedQty > 0) expectedStatus = 'partially_received';
+
+      if (po.status !== expectedStatus && !['cancelled', 'closed', 'draft', 'confirmed'].includes(po.status)) {
+        issues.push({ type: 'PO_STATUS', id: po._id, ref: po.poNumber, expected: expectedStatus });
+        if (autoCorrect) {
+          await PurchaseOrder.updateOne({ _id: po._id }, { $set: { status: expectedStatus } });
+        }
+      }
+    }
+
+    return issues;
   }
 }
 

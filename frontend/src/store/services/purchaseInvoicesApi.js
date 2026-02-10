@@ -148,6 +148,7 @@ export const purchaseInvoicesApi = api.injectEndpoints({
 export const {
   useGetPurchaseInvoicesQuery,
   useGetPurchaseInvoiceQuery,
+  useLazyGetPurchaseInvoiceQuery,
   useCreatePurchaseInvoiceMutation,
   useUpdatePurchaseInvoiceMutation,
   useDeletePurchaseInvoiceMutation,

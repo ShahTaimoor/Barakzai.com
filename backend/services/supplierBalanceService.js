@@ -18,7 +18,7 @@ class SupplierBalanceService {
 
       // Update supplier balances
       const updates = {};
-      
+
       if (paymentAmount > 0) {
         // Reduce outstanding balance first (money we owe)
         if (supplier.pendingBalance > 0) {
@@ -26,7 +26,7 @@ class SupplierBalanceService {
           updates.pendingBalance = supplier.pendingBalance - pendingReduction;
           paymentAmount -= pendingReduction;
         }
-        
+
         // If there's still payment left, add to advance balance (credit we have with supplier)
         if (paymentAmount > 0) {
           updates.advanceBalance = (supplier.advanceBalance || 0) + paymentAmount;
@@ -102,7 +102,7 @@ class SupplierBalanceService {
 
       // Update supplier balances
       const updates = {};
-      
+
       if (refundAmount > 0) {
         // Reduce advance balance first (money we've overpaid)
         if (supplier.advanceBalance > 0) {
@@ -110,7 +110,7 @@ class SupplierBalanceService {
           updates.advanceBalance = supplier.advanceBalance - advanceReduction;
           refundAmount -= advanceReduction;
         }
-        
+
         // If there's still refund left, reduce pending balance (credit)
         if (refundAmount > 0) {
           updates.pendingBalance = Math.max(0, (supplier.pendingBalance || 0) - refundAmount);
@@ -153,7 +153,7 @@ class SupplierBalanceService {
       const recentPurchaseOrders = await PurchaseOrder.find({ supplier: supplierId })
         .sort({ createdAt: -1 })
         .limit(10)
-        .select('poNumber pricing.total status createdAt');
+        .select('poNumber total status createdAt');
 
       return {
         supplier: {
@@ -171,7 +171,7 @@ class SupplierBalanceService {
         },
         recentPurchaseOrders: recentPurchaseOrders.map(po => ({
           poNumber: po.poNumber,
-          total: po.pricing.total,
+          total: po.total,
           status: po.status,
           createdAt: po.createdAt
         }))
@@ -201,7 +201,7 @@ class SupplierBalanceService {
       let totalPaid = 0;
 
       purchaseOrders.forEach(po => {
-        totalPurchased += po.pricing.total;
+        totalPurchased += po.total;
         totalPaid += po.payment?.amountPaid || 0;
       });
 
