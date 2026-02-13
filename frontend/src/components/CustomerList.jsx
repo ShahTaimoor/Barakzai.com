@@ -106,7 +106,7 @@ export const CustomerList = ({
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <p className="text-gray-500 mb-1">ID</p>
-                    <p className="text-gray-700 font-mono">{(customer.id || customer._id).slice(-6)}</p>
+                    <p className="text-gray-700 font-mono">{(customer.id || customer._id || '').slice(-6)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500 mb-1">Email</p>
@@ -161,7 +161,7 @@ export const CustomerList = ({
                     className="text-xs text-gray-500 font-mono cursor-help" 
                     title={customer.id || customer._id}
                   >
-                    {(customer.id || customer._id).slice(-6)}
+                    {(customer.id || customer._id || '').slice(-6)}
                   </p>
                 </div>
 
