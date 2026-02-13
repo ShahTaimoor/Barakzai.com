@@ -4,9 +4,8 @@ const { auth, requirePermission } = require('../middleware/auth');
 const { handleValidationErrors, sanitizeRequest } = require('../middleware/validation');
 const { validateDateParams, processDateFilter } = require('../middleware/dateFilter');
 const returnManagementService = require('../services/returnManagementService');
-const ReturnRepository = require('../repositories/ReturnRepository');
-const Sales = require('../models/Sales');
-const SalesOrder = require('../models/SalesOrder');
+const ReturnRepository = require('../repositories/postgres/ReturnRepository');
+const SalesRepository = require('../repositories/SalesRepository');
 
 const router = express.Router();
 
@@ -36,10 +35,10 @@ router.post('/', [
   auth,
   requirePermission('create_orders'),
   sanitizeRequest,
-  body('originalOrder').isMongoId().withMessage('Valid original order ID is required'),
+  body('originalOrder').isUUID(4).withMessage('Valid original order ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one return item is required'),
-  body('items.*.product').isMongoId().withMessage('Valid product ID is required'),
-  body('items.*.originalOrderItem').isMongoId().withMessage('Valid order item ID is required'),
+  body('items.*.product').isUUID(4).withMessage('Valid product ID is required'),
+  body('items.*.originalOrderItem').isUUID(4).withMessage('Valid order item ID is required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Valid quantity is required'),
   body('items.*.returnReason').isIn([
     'defective', 'wrong_item', 'not_as_described', 'damaged_shipping',
@@ -54,31 +53,29 @@ router.post('/', [
 ], async (req, res) => {
   try {
     // Ensure origin is set to 'sales'
+    const userId = req.user?.id || req.user?._id;
     const returnData = {
       ...req.body,
       origin: 'sales',
-      requestedBy: req.user._id
+      requestedBy: userId
     };
 
-    const returnRequest = await returnManagementService.createReturn(returnData, req.user._id);
-    
-    // Populate the return with related data
-    await returnRequest.populate([
-      { path: 'originalOrder', populate: { path: 'customer' } },
-      { path: 'customer', select: 'name businessName email phone firstName lastName' },
-      { path: 'items.product' },
-      { path: 'requestedBy', select: 'firstName lastName email' }
-    ]);
+    const returnRequest = await returnManagementService.createReturn(returnData, userId);
 
-    // Transform names to uppercase
+    if (typeof returnRequest.populate === 'function') {
+      await returnRequest.populate([
+        { path: 'originalOrder', populate: { path: 'customer' } },
+        { path: 'customer' },
+        { path: 'items.product' },
+        { path: 'requestedBy' }
+      ]);
+    }
     if (returnRequest.customer) {
       returnRequest.customer = transformCustomerToUppercase(returnRequest.customer);
     }
     if (returnRequest.items && Array.isArray(returnRequest.items)) {
       returnRequest.items.forEach(item => {
-        if (item.product) {
-          item.product = transformProductToUppercase(item.product);
-        }
+        if (item.product) item.product = transformProductToUppercase(item.product);
       });
     }
     if (returnRequest.originalOrder && returnRequest.originalOrder.customer) {
@@ -138,7 +135,7 @@ router.get('/', [
 // @access  Private
 router.get('/:id', [
   auth,
-  param('id').isMongoId().withMessage('Valid return ID is required'),
+  param('id').isUUID(4).withMessage('Valid return ID is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -163,7 +160,7 @@ router.get('/:id', [
 // @access  Private
 router.get('/customer/:customerId/invoices', [
   auth,
-  param('customerId').isMongoId().withMessage('Valid customer ID is required'),
+  param('customerId').isUUID(4).withMessage('Valid customer ID is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -192,36 +189,37 @@ router.get('/customer/:customerId/invoices', [
 // @access  Private
 router.get('/customer/:customerId/products', [
   auth,
-  param('customerId').isMongoId().withMessage('Valid customer ID is required'),
+  param('customerId').isUUID(4).withMessage('Valid customer ID is required'),
   query('search').optional().trim(),
   handleValidationErrors,
 ], async (req, res) => {
   try {
     const { customerId } = req.params;
     const { search } = req.query;
-    const Return = require('../models/Return');
-    const Product = require('../models/Product');
+    const ProductRepository = require('../repositories/postgres/ProductRepository');
 
-    // Get all sales for this customer
-    const sales = await Sales.find({ customer: customerId })
-      .populate('items.product', 'name sku barcode')
-      .select('orderNumber createdAt items')
-      .sort({ createdAt: -1 })
-      .lean();
+    const sales = await SalesRepository.findAll(
+      { customerId },
+      { limit: 500, sort: 'created_at DESC' }
+    );
 
-    // Collect all product items from sales
     const productMap = new Map();
+    for (const sale of sales || []) {
+      let items = sale.items;
+      if (typeof items === 'string') items = JSON.parse(items);
+      if (!items || items.length === 0) continue;
+      const saleId = sale.id || sale._id;
+      const existingReturns = await ReturnRepository.findAll({ referenceId: saleId, returnType: 'sale_return' });
 
-    for (const sale of sales) {
-      if (!sale.items || sale.items.length === 0) continue;
-
-      for (const item of sale.items) {
-        if (!item.product) continue;
-
-        const productId = item.product._id.toString();
-        const productName = item.product.name || '';
-        const productSku = item.product.sku || '';
-        const productBarcode = item.product.barcode || '';
+      for (let idx = 0; idx < items.length; idx++) {
+        const item = items[idx];
+        const productId = item.product || item.product_id;
+        if (!productId) continue;
+        const id = typeof productId === 'object' ? (productId.id || productId._id) : productId;
+        const product = await ProductRepository.findById(id);
+        const productName = product?.name || '';
+        const productSku = product?.sku || '';
+        const productBarcode = product?.barcode || '';
 
         // Filter by search term if provided
         if (search) {
@@ -235,20 +233,13 @@ router.get('/customer/:customerId/products', [
           }
         }
 
-        // Get existing returns for this order item
-        const existingReturns = await Return.find({
-          origin: 'sales',
-          'items.originalOrderItem': item._id,
-          status: { $nin: ['cancelled', 'rejected'] }
-        }).lean();
-
-        // Calculate returned quantity
+        const itemId = item.id || item._id || `${saleId}-${idx}`;
         let returnedQuantity = 0;
-        for (const returnDoc of existingReturns) {
-          for (const returnItem of returnDoc.items || []) {
-            if (returnItem.originalOrderItem && returnItem.originalOrderItem.toString() === item._id.toString()) {
-              returnedQuantity += returnItem.quantity || 0;
-            }
+        for (const returnDoc of existingReturns || []) {
+          if (['cancelled', 'rejected'].includes(returnDoc.status)) continue;
+          const docItems = returnDoc.items && (typeof returnDoc.items === 'string' ? JSON.parse(returnDoc.items) : returnDoc.items) || [];
+          for (const returnItem of docItems) {
+            if (String(returnItem.originalOrderItem) === String(itemId)) returnedQuantity += returnItem.quantity || 0;
           }
         }
 
@@ -256,22 +247,17 @@ router.get('/customer/:customerId/products', [
 
         if (remainingQuantity <= 0) continue;
 
-        // Group by product, keeping track of all sales
-        if (!productMap.has(productId)) {
-          productMap.set(productId, {
-            product: item.product,
-            sales: []
-          });
+        if (!productMap.has(id)) {
+          productMap.set(id, { product, sales: [] });
         }
-
-        const productData = productMap.get(productId);
+        const productData = productMap.get(id);
         productData.sales.push({
-          orderId: sale._id,
-          orderNumber: sale.orderNumber,
-          orderItemId: item._id,
+          orderId: saleId,
+          orderNumber: sale.order_number || sale.orderNumber,
+          orderItemId: itemId,
           quantitySold: item.quantity || 0,
-          price: item.unitPrice || item.price || 0,
-          date: sale.createdAt,
+          price: item.unit_price || item.unitPrice || item.price || 0,
+          date: sale.created_at || sale.createdAt,
           returnedQuantity,
           remainingQuantity
         });
@@ -313,7 +299,7 @@ router.get('/customer/:customerId/products', [
 router.put('/:id/approve', [
   auth,
   requirePermission('approve_returns'),
-  param('id').isMongoId().withMessage('Valid return ID is required'),
+  param('id').isUUID(4).withMessage('Valid return ID is required'),
   body('notes').optional().isString().isLength({ max: 1000 }),
   handleValidationErrors,
 ], async (req, res) => {
@@ -345,7 +331,7 @@ router.put('/:id/approve', [
 router.put('/:id/reject', [
   auth,
   requirePermission('approve_returns'),
-  param('id').isMongoId().withMessage('Valid return ID is required'),
+  param('id').isUUID(4).withMessage('Valid return ID is required'),
   body('reason').isString().isLength({ min: 1, max: 500 }).withMessage('Rejection reason is required'),
   handleValidationErrors,
 ], async (req, res) => {
@@ -377,7 +363,7 @@ router.put('/:id/reject', [
 router.put('/:id/process', [
   auth,
   requirePermission('process_returns'),
-  param('id').isMongoId().withMessage('Valid return ID is required'),
+  param('id').isUUID(4).withMessage('Valid return ID is required'),
   body('inspection').optional().isObject(),
   body('inspection.resellable').optional().isBoolean(),
   body('inspection.conditionVerified').optional().isBoolean(),

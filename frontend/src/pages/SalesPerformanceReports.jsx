@@ -466,7 +466,7 @@ const SalesPerformanceReports = () => {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">{product.product.name}</p>
-                          <p className="text-xs text-gray-500">Category: {product.product.category || 'N/A'}</p>
+                          <p className="text-xs text-gray-500">Category: {typeof product.product?.category === 'object' ? (product.product?.category?.name ?? 'N/A') : (product.product?.category || 'N/A')}</p>
                         </div>
                       </div>
                       <div className="text-right">

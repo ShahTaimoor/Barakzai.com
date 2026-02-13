@@ -1,6 +1,6 @@
 const { createRateLimiter } = require('./rateLimit');
 const validator = require('validator');
-const AuditLog = require('../models/AuditLog');
+const AuditLogRepository = require('../repositories/AuditLogRepository');
 
 /**
  * Security Middleware
@@ -102,8 +102,8 @@ class SecurityMiddleware {
           !userPermissions.includes('super_admin')) {
         // Log unauthorized access attempt
         try {
-          await AuditLog.create({
-            user: req.user._id,
+          await AuditLogRepository.create({
+            user: req.user?.id ?? req.user?._id,
             action: 'unauthorized_access_attempt',
             documentType: 'financial_operation',
             description: `Attempted ${req.method} ${req.path} without permission: ${requiredPermission}`,
@@ -149,8 +149,8 @@ class SecurityMiddleware {
         
         if (isFinancial && req.user) {
           // Log financial operation asynchronously (don't block response)
-          AuditLog.create({
-            user: req.user._id,
+          AuditLogRepository.create({
+            user: req.user?.id ?? req.user?._id,
             action: `${req.method} ${req.path}`,
             documentType: 'financial_operation',
             description: `Financial operation: ${req.method} ${req.path}`,
@@ -193,17 +193,18 @@ class SecurityMiddleware {
   }
   
   /**
-   * Validate MongoDB ObjectId
+   * Validate id (UUID v4 for PostgreSQL; accepts legacy 24-char hex)
    */
   validateObjectId(id, fieldName = 'id') {
     if (!id) {
       throw new Error(`${fieldName} is required`);
     }
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    const s = String(id).trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+    const isMongoId = /^[a-f0-9]{24}$/i.test(s);
+    if (!isUuid && !isMongoId) {
       throw new Error(`Invalid ${fieldName}: ${id}`);
     }
-    
     return true;
   }
   
@@ -233,7 +234,7 @@ class SecurityMiddleware {
   }
   
   /**
-   * Prevent SQL injection (for MongoDB, but good practice)
+   * Prevent SQL injection
    */
   preventInjection(input) {
     if (typeof input === 'string') {

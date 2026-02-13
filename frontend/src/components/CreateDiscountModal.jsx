@@ -787,7 +787,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                           disabled={isCreating}
                         />
                         <span className="text-sm text-gray-900">
-                          {product.name} ({product.category || 'N/A'})
+                          {product.name} ({typeof product.category === 'object' ? (product.category?.name ?? 'N/A') : (product.category || 'N/A')})
                         </span>
                       </label>
                     ))}

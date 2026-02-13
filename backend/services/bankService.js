@@ -1,4 +1,6 @@
 const BankRepository = require('../repositories/BankRepository');
+const BankPaymentRepository = require('../repositories/BankPaymentRepository');
+const BankReceiptRepository = require('../repositories/BankReceiptRepository');
 
 class BankService {
   /**
@@ -100,12 +102,9 @@ class BankService {
    * @returns {Promise<object>}
    */
   async checkBankUsage(bankId) {
-    const BankPayment = require('../models/BankPayment');
-    const BankReceipt = require('../models/BankReceipt');
-
     const [paymentCount, receiptCount] = await Promise.all([
-      BankPayment.countDocuments({ bank: bankId }),
-      BankReceipt.countDocuments({ bank: bankId })
+      BankPaymentRepository.countByBankId(bankId),
+      BankReceiptRepository.countByBankId(bankId)
     ]);
 
     return {

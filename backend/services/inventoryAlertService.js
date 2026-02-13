@@ -116,37 +116,15 @@ class InventoryAlertService {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const sales = await SalesRepository.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: thirtyDaysAgo },
-            status: 'completed',
-            'items.product': productId
-          }
-        },
-        {
-          $unwind: '$items'
-        },
-        {
-          $match: {
-            'items.product': productId
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalQuantity: { $sum: '$items.quantity' },
-            totalDays: { $sum: 1 }
-          }
-        }
-      ]);
+      const salesStats = await SalesRepository.getProductSalesStats(productId, thirtyDaysAgo);
 
-      if (!sales || sales.length === 0 || sales[0].totalQuantity === 0) {
+      if (!salesStats || parseFloat(salesStats.totalQuantity) === 0) {
         // No sales data, return a high number (90 days)
         return 90;
       }
 
-      const averageDailySales = sales[0].totalQuantity / 30;
+      const totalQuantity = parseFloat(salesStats.totalQuantity);
+      const averageDailySales = totalQuantity / 30;
       
       if (averageDailySales === 0) {
         return 90; // No sales, won't run out soon

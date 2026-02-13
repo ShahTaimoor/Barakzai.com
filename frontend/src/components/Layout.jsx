@@ -237,7 +237,7 @@ export const Layout = ({ children }) => {
 
   // Fetch categories using Redux
   const { data: categoriesData, isLoading: categoriesLoading, refetch: refetchCategories } = useGetCategoriesQuery(
-    {},
+    { limit: 999999 },
     { skip: !user }
   );
 

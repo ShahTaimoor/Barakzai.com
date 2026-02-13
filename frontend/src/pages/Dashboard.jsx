@@ -260,7 +260,7 @@ export const Dashboard = () => {
   // RTK Query wraps responses in 'data', but some APIs return data directly
   const summary = todaySummary?.data?.summary || todaySummary?.summary || {};
   const lowStockCount = lowStockData?.data?.products?.length || lowStockData?.products?.length || 0;
-  const inventorySummary = inventoryData?.data?.summary || inventoryData?.summary || {};
+  const inventorySummary = inventoryData?.data?.summary ?? inventoryData?.data ?? inventoryData?.summary ?? {};
 
   const activeCustomersCount = customersData?.data?.customers?.length || customersData?.customers?.length || 0;
 
@@ -330,10 +330,30 @@ export const Dashboard = () => {
   const purchaseInvoicesTotal = purchaseInvoicesData?.data?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) ||
     purchaseInvoicesData?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) || 0;
 
-  const cashReceiptsTotal = cashReceiptsData?.data?.cashReceipts?.reduce((sum, receipt) => sum + (receipt.amount || 0), 0) || 0;
-  const cashPaymentsTotal = cashPaymentsData?.data?.cashPayments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
-  const bankReceiptsTotal = bankReceiptsData?.data?.bankReceipts?.reduce((sum, receipt) => sum + (receipt.amount || 0), 0) || 0;
-  const bankPaymentsTotal = bankPaymentsData?.data?.bankPayments?.reduce((sum, payment) => sum + (payment.amount || 0), 0) || 0;
+  // Safely calculate totals with proper number conversion and NaN handling
+  const cashReceiptsArray = cashReceiptsData?.data?.cashReceipts || [];
+  const cashReceiptsTotal = cashReceiptsArray.reduce((sum, receipt) => {
+    const amount = Number(receipt?.amount) || 0;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
+
+  const cashPaymentsArray = cashPaymentsData?.data?.cashPayments || [];
+  const cashPaymentsTotal = cashPaymentsArray.reduce((sum, payment) => {
+    const amount = Number(payment?.amount) || 0;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
+
+  const bankReceiptsArray = bankReceiptsData?.data?.bankReceipts || [];
+  const bankReceiptsTotal = bankReceiptsArray.reduce((sum, receipt) => {
+    const amount = Number(receipt?.amount) || 0;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
+
+  const bankPaymentsArray = bankPaymentsData?.data?.bankPayments || [];
+  const bankPaymentsTotal = bankPaymentsArray.reduce((sum, payment) => {
+    const amount = Number(payment?.amount) || 0;
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
 
   // Calculate total sales (Sales Orders + Sales Invoices)
   const totalSales = salesOrdersTotal + salesInvoicesTotal;
@@ -349,16 +369,19 @@ export const Dashboard = () => {
 
   // Separate Cash/Bank Payments into Supplier Payments vs Operating Expenses
   // Operating expenses are payments that don't have a supplier or customer (general expenses)
-  const cashPayments = cashPaymentsData?.data?.cashPayments || [];
-  const bankPayments = bankPaymentsData?.data?.bankPayments || [];
-
-  const cashOperatingExpenses = cashPayments
+  const cashOperatingExpenses = cashPaymentsArray
     .filter(payment => !payment?.supplier && !payment?.customer)
-    .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    .reduce((sum, payment) => {
+      const amount = Number(payment?.amount) || 0;
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
 
-  const bankOperatingExpenses = bankPayments
+  const bankOperatingExpenses = bankPaymentsArray
     .filter(payment => !payment?.supplier && !payment?.customer)
-    .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    .reduce((sum, payment) => {
+      const amount = Number(payment?.amount) || 0;
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
 
   const operatingExpenses = cashOperatingExpenses + bankOperatingExpenses;
 
@@ -382,7 +405,7 @@ export const Dashboard = () => {
   // Column definitions for modals
   const salesOrdersColumns = [
     { key: 'soNumber', label: 'Order Number', sortable: true },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
     { key: 'orderDate', label: 'Date', sortable: true, format: 'date' },
     { key: 'status', label: 'Status', sortable: true },
     { key: 'total', label: 'Total', sortable: true, format: 'currency' }
@@ -390,57 +413,57 @@ export const Dashboard = () => {
 
   const purchaseOrdersColumns = [
     { key: 'poNumber', label: 'PO Number', sortable: true },
-    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
     { key: 'orderDate', label: 'Date', sortable: true, format: 'date' },
     { key: 'status', label: 'Status', sortable: true },
     { key: 'total', label: 'Total', sortable: true, format: 'currency' }
   ];
 
   const salesInvoicesColumns = [
-    { key: 'orderNumber', label: 'Order Number', sortable: true },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customerInfo?.businessName || row.customerInfo?.name || '-' },
-    { key: 'createdAt', label: 'Date', sortable: true, format: 'date' },
+    { key: 'order_number', label: 'Order Number', sortable: true, render: (val, row) => val || row.orderNumber || row.invoiceNo || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customerInfo?.businessName || row.customerInfo?.business_name || row.customerName || row.customer?.name || row.customerInfo?.name || '-' },
+    { key: 'sale_date', label: 'Date', sortable: true, format: 'date', render: (val, row) => formatDate(val || row.createdAt || row.orderDate || row.date) },
     { key: 'status', label: 'Status', sortable: true },
-    { key: 'pricing', label: 'Total', sortable: true, render: (val) => formatCurrency(val?.total || 0) }
+    { key: 'total', label: 'Total', sortable: true, render: (val, row) => formatCurrency(val !== undefined && val !== null ? val : (row.pricing?.total || 0)) }
   ];
 
   const purchaseInvoicesColumns = [
-    { key: 'invoiceNumber', label: 'Invoice Number', sortable: true },
-    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
-    { key: 'invoiceDate', label: 'Date', sortable: true, format: 'date' },
+    { key: 'invoice_number', label: 'Invoice Number', sortable: true, render: (val, row) => val || row.invoiceNumber || '-' },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
+    { key: 'invoice_date', label: 'Date', sortable: true, format: 'date', render: (val, row) => formatDate(val || row.invoiceDate || row.createdAt) },
     { key: 'status', label: 'Status', sortable: true },
-    { key: 'pricing', label: 'Total', sortable: true, render: (val) => formatCurrency(val?.total || 0) }
+    { key: 'total', label: 'Total', sortable: true, render: (val, row) => formatCurrency(val !== undefined && val !== null ? val : (row.pricing?.total || 0)) }
   ];
 
   const cashReceiptsColumns = [
-    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.receipt_number || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
     { key: 'date', label: 'Date', sortable: true, format: 'date' },
     { key: 'particular', label: 'Particular', sortable: true },
     { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
   ];
 
   const cashPaymentsColumns = [
-    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
-    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.payment_number || '-' },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
     { key: 'date', label: 'Date', sortable: true, format: 'date' },
     { key: 'particular', label: 'Particular', sortable: true },
     { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
   ];
 
   const bankReceiptsColumns = [
-    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.receipt_number || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
     { key: 'date', label: 'Date', sortable: true, format: 'date' },
     { key: 'particular', label: 'Particular', sortable: true },
     { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
   ];
 
   const bankPaymentsColumns = [
-    { key: 'voucherCode', label: 'Voucher Code', sortable: true },
-    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.companyName || row.supplier?.name || '-' },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.name || '-' },
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.payment_number || '-' },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
     { key: 'date', label: 'Date', sortable: true, format: 'date' },
     { key: 'particular', label: 'Particular', sortable: true },
     { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
@@ -451,10 +474,10 @@ export const Dashboard = () => {
   const purchaseOrdersModalData = purchaseOrdersData?.data?.purchaseOrders || purchaseOrdersData?.purchaseOrders || [];
   const salesInvoicesModalData = salesInvoicesArray;
   const purchaseInvoicesDataArray = purchaseInvoicesData?.data?.invoices || purchaseInvoicesData?.invoices || [];
-  const cashReceiptsDataArray = cashReceiptsData?.data?.cashReceipts || [];
-  const cashPaymentsDataArray = cashPayments;
+  const cashReceiptsDataArray = cashReceiptsArray;
+  const cashPaymentsDataArray = cashPaymentsArray;
   const bankReceiptsDataArray = bankReceiptsData?.data?.bankReceipts || [];
-  const bankPaymentsDataArray = bankPayments;
+  const bankPaymentsDataArray = bankPaymentsArray;
 
   const companyInfo = companySettingsData?.data || {};
   const companyFromApi = companyData?.data || companyData || {};
@@ -742,8 +765,12 @@ export const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Total Receipts</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{Math.round(totalReceipts).toLocaleString()}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Cash: {Math.round(totalCashReceipts)} | Bank: {Math.round(totalBankReceipts)}</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">
+                  {isNaN(totalReceipts) ? '0' : Math.round(totalReceipts).toLocaleString()}
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">
+                  Cash: {isNaN(totalCashReceipts) ? '0' : Math.round(totalCashReceipts)} | Bank: {isNaN(totalBankReceipts) ? '0' : Math.round(totalBankReceipts)}
+                </p>
               </div>
 
               {/* Total Payments */}
@@ -760,8 +787,12 @@ export const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Total Payments</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{Math.round(totalPayments).toLocaleString()}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Cash: {Math.round(totalCashPayments)} | Bank: {Math.round(totalBankPayments)}</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">
+                  {isNaN(totalPayments) ? '0' : Math.round(totalPayments).toLocaleString()}
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">
+                  Cash: {isNaN(totalCashPayments) ? '0' : Math.round(totalCashPayments)} | Bank: {isNaN(totalBankPayments) ? '0' : Math.round(totalBankPayments)}
+                </p>
               </div>
 
               {/* Net Cash Flow */}
@@ -772,8 +803,8 @@ export const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Net Cash Flow</p>
-                <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${netCashFlow >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                  {Math.round(netCashFlow).toLocaleString()}
+                <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${(isNaN(netCashFlow) ? 0 : netCashFlow) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                  {isNaN(netCashFlow) ? '0' : Math.round(netCashFlow).toLocaleString()}
                 </p>
                 <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Receipts - Payments</p>
               </div>

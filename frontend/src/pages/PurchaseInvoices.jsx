@@ -64,7 +64,7 @@ const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onP
           <div className="space-y-2">
             <div className="flex items-center text-sm text-gray-600">
               <FileText className="h-4 w-4 mr-2" />
-              {invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
+              {invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
             </div>
 
             <div className="flex items-center text-sm text-gray-600">
@@ -73,7 +73,9 @@ const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onP
             </div>
 
             <div className="text-sm text-gray-500">
-              {new Date(invoice.createdAt).toLocaleDateString()}
+              {invoice.invoiceDate || invoice.invoice_date || invoice.createdAt 
+                ? new Date(invoice.invoiceDate || invoice.invoice_date || invoice.createdAt).toLocaleDateString()
+                : 'Invalid Date'}
             </div>
           </div>
         </div>
@@ -189,7 +191,9 @@ export const PurchaseInvoices = () => {
         <div>
           <div className="font-medium text-gray-900">{value}</div>
           <div className="text-sm text-gray-500">
-            {new Date(item.createdAt).toLocaleDateString()}
+            {item.invoiceDate || item.invoice_date || item.createdAt 
+              ? new Date(item.invoiceDate || item.invoice_date || item.createdAt).toLocaleDateString()
+              : 'Invalid Date'}
           </div>
         </div>
       ),
@@ -525,10 +529,12 @@ export const PurchaseInvoices = () => {
                         <StatusBadge status={invoice.status} />
                       </div>
                       <p className="text-xs text-gray-600 truncate">
-                        {invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
+                        {invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
                       </p>
                       <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                        <span>{new Date(invoice.createdAt).toLocaleDateString()}</span>
+                        <span>{invoice.invoiceDate || invoice.invoice_date || invoice.createdAt 
+                          ? new Date(invoice.invoiceDate || invoice.invoice_date || invoice.createdAt).toLocaleDateString()
+                          : 'Invalid Date'}</span>
                         <span>•</span>
                         <span>{invoice.items?.length || 0} items</span>
                       </div>
@@ -602,14 +608,16 @@ export const PurchaseInvoices = () => {
                   {/* Supplier */}
                   <div className="col-span-2">
                     <div className="text-sm text-gray-900 truncate">
-                      {invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
+                      {invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
                     </div>
                   </div>
 
                   {/* Date */}
                   <div className="col-span-1">
                     <span className="text-xs sm:text-sm text-gray-600">
-                      {new Date(invoice.createdAt).toLocaleDateString()}
+                      {invoice.invoiceDate || invoice.invoice_date || invoice.createdAt 
+                        ? new Date(invoice.invoiceDate || invoice.invoice_date || invoice.createdAt).toLocaleDateString()
+                        : 'Invalid Date'}
                     </span>
                   </div>
 

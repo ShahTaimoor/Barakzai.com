@@ -116,6 +116,19 @@ export const salesApi = api.injectEndpoints({
           ]
           : [{ type: 'Sales', id: 'CCTV_LIST' }],
     }),
+    postMissingSalesToLedger: builder.mutation({
+      query: (params = {}) => ({
+        url: 'sales/post-missing-to-ledger',
+        method: 'post',
+        params: params?.dateFrom || params?.dateTo ? { dateFrom: params.dateFrom, dateTo: params.dateTo } : undefined,
+      }),
+      invalidatesTags: [
+        { type: 'Sales', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'ChartOfAccounts', id: 'LIST' },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
@@ -134,5 +147,6 @@ export const {
   useGetLastPricesQuery,
   useLazyGetLastPricesQuery,
   useGetCCTVOrdersQuery,
+  usePostMissingSalesToLedgerMutation,
 } = salesApi;
 

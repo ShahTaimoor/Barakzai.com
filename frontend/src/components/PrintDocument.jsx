@@ -151,8 +151,7 @@ const PrintDocument = ({
             }
         }
         if (!customerAddress) {
-            customerAddress =
-                customer.address ||
+            const addr = customer.address ||
                 customer.location ||
                 customer.companyAddress ||
                 customer.billingAddress ||
@@ -161,6 +160,13 @@ const PrintDocument = ({
                 orderData.shippingAddress ||
                 orderData.billingAddress ||
                 '';
+            
+            // Format address if it's an object
+            if (typeof addr === 'object' && addr !== null) {
+                customerAddress = [addr.street, addr.city, addr.province || addr.state, addr.country].filter(Boolean).join(', ');
+            } else {
+                customerAddress = addr || '';
+            }
         }
 
         return {

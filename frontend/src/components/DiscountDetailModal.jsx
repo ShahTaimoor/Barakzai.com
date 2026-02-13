@@ -198,7 +198,7 @@ const DiscountDetailModal = ({
                 <div className="mt-2 max-h-32 overflow-y-auto">
                   {discount.applicableProducts.map((product) => (
                     <div key={product._id} className="text-sm text-gray-900 py-1">
-                      • {product.name} ({product.category || 'N/A'})
+                      • {product.name} ({typeof product.category === 'object' ? (product.category?.name ?? 'N/A') : (product.category || 'N/A')})
                     </div>
                   ))}
                 </div>

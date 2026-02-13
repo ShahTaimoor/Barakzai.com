@@ -107,7 +107,7 @@ const CashPayments = () => {
 
   // Fetch customers for dropdown
   const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
-    { search: '', limit: 100 },
+    { search: '', limit: 999999 },
     { refetchOnMountOrArgChange: true }
   );
 
@@ -129,8 +129,9 @@ const CashPayments = () => {
 
   // Update selected supplier when suppliers data changes
   useEffect(() => {
-    if (selectedSupplier && suppliers.length > 0) {
-      const updatedSupplier = suppliers.find(s => s._id === selectedSupplier._id);
+    const selectedId = selectedSupplier?.id || selectedSupplier?._id;
+    if (selectedId && suppliers.length > 0) {
+      const updatedSupplier = suppliers.find(s => (s.id || s._id) === selectedId);
       if (updatedSupplier && (
         updatedSupplier.pendingBalance !== selectedSupplier.pendingBalance ||
         updatedSupplier.advanceBalance !== selectedSupplier.advanceBalance ||
@@ -140,14 +141,13 @@ const CashPayments = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Note: selectedSupplier is intentionally excluded from deps to prevent infinite loops.
-    // We only want to sync when the suppliers list updates, not when selectedSupplier changes.
   }, [suppliers]);
 
   // Update selected customer when customers data changes
   useEffect(() => {
-    if (selectedCustomer && customers.length > 0) {
-      const updatedCustomer = customers.find(c => c._id === selectedCustomer._id);
+    const selectedId = selectedCustomer?.id || selectedCustomer?._id;
+    if (selectedId && customers.length > 0) {
+      const updatedCustomer = customers.find(c => (c.id || c._id) === selectedId);
       if (updatedCustomer && (
         updatedCustomer.pendingBalance !== selectedCustomer.pendingBalance ||
         updatedCustomer.advanceBalance !== selectedCustomer.advanceBalance ||
@@ -157,8 +157,6 @@ const CashPayments = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Note: selectedCustomer is intentionally excluded from deps to prevent infinite loops.
-    // We only want to sync when the customers list updates, not when selectedCustomer changes.
   }, [customers]);
 
   // Mutations
@@ -196,7 +194,7 @@ const CashPayments = () => {
   };
 
   const handleSupplierSelect = (supplierId) => {
-    const supplier = suppliers.find(s => s._id === supplierId);
+    const supplier = suppliers.find(s => (s.id || s._id) === supplierId);
     setSelectedSupplier(supplier);
     setFormData(prev => ({ ...prev, supplier: supplierId, customer: '' }));
     setSelectedCustomer(null);
@@ -204,7 +202,7 @@ const CashPayments = () => {
   };
 
   const handleCustomerSelect = (customerId) => {
-    const customer = customers.find(c => c._id === customerId);
+    const customer = customers.find(c => (c.id || c._id) === customerId);
     setSelectedCustomer(customer);
     setFormData(prev => ({ ...prev, customer: customerId, supplier: '' }));
     setSelectedSupplier(null);
@@ -273,7 +271,7 @@ const CashPayments = () => {
         e.preventDefault();
         if (expenseDropdownIndex >= 0 && expenseDropdownIndex < filteredAccounts.length) {
           const account = filteredAccounts[expenseDropdownIndex];
-          handleExpenseAccountSelect(account._id);
+          handleExpenseAccountSelect(account.id || account._id);
           setExpenseSearchTerm(account.accountName || '');
           setExpenseDropdownIndex(-1);
         }
@@ -317,7 +315,7 @@ const CashPayments = () => {
         e.preventDefault();
         if (supplierDropdownIndex >= 0 && supplierDropdownIndex < filteredSuppliers.length) {
           const supplier = filteredSuppliers[supplierDropdownIndex];
-          handleSupplierSelect(supplier._id);
+          handleSupplierSelect(supplier.id || supplier._id);
           setSupplierSearchTerm(supplier.displayName || supplier.companyName || supplier.name || '');
           setSupplierDropdownIndex(-1);
         }
@@ -333,7 +331,7 @@ const CashPayments = () => {
 
   const handleCustomerKeyDown = (e) => {
     const filteredCustomers = (customers || []).filter(customer => {
-      const displayName = customer.displayName || customer.businessName || customer.name ||
+      const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
         `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
       return (
         displayName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
@@ -365,9 +363,9 @@ const CashPayments = () => {
         e.preventDefault();
         if (customerDropdownIndex >= 0 && customerDropdownIndex < filteredCustomers.length) {
           const customer = filteredCustomers[customerDropdownIndex];
-          const displayName = customer.displayName || customer.businessName || customer.name ||
+          const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
             `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
-          handleCustomerSelect(customer._id);
+          handleCustomerSelect(customer.id || customer._id);
           setCustomerSearchTerm(displayName);
           setCustomerDropdownIndex(-1);
         }
@@ -455,7 +453,7 @@ const CashPayments = () => {
       notes: formData.notes
     };
 
-    updateCashPayment({ id: selectedPayment._id, ...submissionData })
+    updateCashPayment({ id: (selectedPayment.id || selectedPayment._id), ...submissionData })
       .unwrap()
       .then(() => {
         setShowEditModal(false);
@@ -477,7 +475,7 @@ const CashPayments = () => {
 
   const handleDelete = (payment) => {
     if (window.confirm('Are you sure you want to delete this cash payment?')) {
-      deleteCashPayment(payment._id)
+      deleteCashPayment(payment.id || payment._id)
         .unwrap()
         .then(() => {
           showSuccessToast('Cash payment deleted successfully');
@@ -497,25 +495,28 @@ const CashPayments = () => {
 
   const handleEdit = (payment) => {
     setSelectedPayment(payment);
+    const supplierId = payment.supplier?.id || payment.supplier?._id;
+    const customerId = payment.customer?.id || payment.customer?._id;
+    
     setFormData({
       date: payment.date ? payment.date.split('T')[0] : today,
       amount: payment.amount || '',
       particular: payment.particular || '',
-      supplier: payment.supplier?._id || '',
-      customer: payment.customer?._id || '',
+      supplier: supplierId || '',
+      customer: customerId || '',
       notes: payment.notes || ''
     });
 
-    if (payment.supplier) {
+    if (supplierId) {
       setPaymentType('supplier');
       setSelectedSupplier(payment.supplier);
       setSupplierSearchTerm(payment.supplier.displayName || payment.supplier.companyName || payment.supplier.name || '');
       setSelectedCustomer(null);
       setCustomerSearchTerm('');
-    } else if (payment.customer) {
+    } else if (customerId) {
       setPaymentType('customer');
       setSelectedCustomer(payment.customer);
-      setCustomerSearchTerm(payment.customer.displayName || payment.customer.businessName || payment.customer.name || '');
+      setCustomerSearchTerm(payment.customer.businessName || payment.customer.business_name || payment.customer.displayName || payment.customer.name || '');
       setSelectedSupplier(null);
       setSupplierSearchTerm('');
     } else {
@@ -700,48 +701,51 @@ const CashPayments = () => {
                         (supplier.companyName || supplier.name || supplier.displayName || '').toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
                         (supplier.phone || '').includes(supplierSearchTerm) ||
                         (supplier.email || '').toLowerCase().includes(supplierSearchTerm.toLowerCase())
-                      ).map((supplier, index) => (
-                        <div
-                          key={supplier._id}
-                          onClick={() => {
-                            handleSupplierSelect(supplier._id);
-                            setSupplierSearchTerm(supplier.displayName || supplier.companyName || supplier.name || '');
-                            setSupplierDropdownIndex(-1);
-                          }}
-                          className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${supplierDropdownIndex === index ? 'bg-blue-50' : ''
-                            }`}
-                        >
-                          <div className="font-medium text-gray-900">
-                            {supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}
-                          </div>
-                          <div className="text-sm text-gray-600 capitalize mt-0.5">
-                            {supplier.businessType && supplier.reliability
-                              ? `${supplier.businessType} • ${supplier.reliability}`
-                              : supplier.businessType || supplier.reliability || ''
-                            }
-                          </div>
-                          <div className="flex items-center space-x-3 mt-1">
-                            <div className="text-sm text-gray-600">
-                              <span className="text-gray-500">Outstanding Balance:</span>{' '}
-                              <span className={`font-medium ${(supplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                ${Math.round(supplier.pendingBalance || 0)}
-                              </span>
+                      ).map((supplier, index) => {
+                        const supplierId = supplier.id || supplier._id;
+                        return (
+                          <div
+                            key={supplierId}
+                            onClick={() => {
+                              handleSupplierSelect(supplierId);
+                              setSupplierSearchTerm(supplier.displayName || supplier.companyName || supplier.name || '');
+                              setSupplierDropdownIndex(-1);
+                            }}
+                            className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${supplierDropdownIndex === index ? 'bg-blue-50' : ''
+                              }`}
+                          >
+                            <div className="font-medium text-gray-900">
+                              {supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}
                             </div>
-                            {supplier.phone && (
-                              <div className="flex items-center space-x-1 text-sm text-gray-500">
-                                <Phone className="h-3 w-3" />
-                                <span>{supplier.phone}</span>
+                            <div className="text-sm text-gray-600 capitalize mt-0.5">
+                              {supplier.businessType && supplier.reliability
+                                ? `${supplier.businessType} • ${supplier.reliability}`
+                                : supplier.businessType || supplier.reliability || ''
+                              }
+                            </div>
+                            <div className="flex items-center space-x-3 mt-1">
+                              <div className="text-sm text-gray-600">
+                                <span className="text-gray-500">Outstanding Balance:</span>{' '}
+                                <span className={`font-medium ${(supplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  ${Math.round(supplier.pendingBalance || 0)}
+                                </span>
                               </div>
-                            )}
-                            {supplier.email && (
-                              <div className="flex items-center space-x-1 text-sm text-gray-500">
-                                <Mail className="h-3 w-3" />
-                                <span>{supplier.email}</span>
-                              </div>
-                            )}
+                              {supplier.phone && (
+                                <div className="flex items-center space-x-1 text-sm text-gray-500">
+                                  <Phone className="h-3 w-3" />
+                                  <span>{supplier.phone}</span>
+                                </div>
+                              )}
+                              {supplier.email && (
+                                <div className="flex items-center space-x-1 text-sm text-gray-500">
+                                  <Mail className="h-3 w-3" />
+                                  <span>{supplier.email}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -805,9 +809,9 @@ const CashPayments = () => {
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   </div>
                   {customerSearchTerm && (
-                    <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
+                    <div className="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                       {(customers || []).filter(customer => {
-                        const displayName = customer.displayName || customer.businessName || customer.name ||
+                        const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
                           `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
                         return (
                           displayName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
@@ -815,20 +819,21 @@ const CashPayments = () => {
                           (customer.email || '').toLowerCase().includes(customerSearchTerm.toLowerCase())
                         );
                       }).map((customer, index) => {
-                        const receivables = customer.pendingBalance || 0;
-                        const advance = customer.advanceBalance || 0;
-                        const netBalance = receivables - advance;
-                        const isPayable = netBalance < 0;
-                        const isReceivable = netBalance > 0;
-                        const hasBalance = receivables > 0 || advance > 0;
-                        const displayName = customer.displayName || customer.businessName || customer.name ||
+                        const customerId = customer.id || customer._id;
+                        const currentBalance = customer.currentBalance !== undefined 
+                          ? customer.currentBalance 
+                          : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
+                        const isPayable = currentBalance < 0;
+                        const isReceivable = currentBalance > 0;
+                        const hasBalance = Math.abs(currentBalance) > 0.01;
+                        const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
                           `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || 'Unknown';
 
                         return (
                           <div
-                            key={customer._id}
+                            key={customerId}
                             onClick={() => {
-                              handleCustomerSelect(customer._id);
+                              handleCustomerSelect(customerId);
                               setCustomerSearchTerm(displayName);
                               setCustomerDropdownIndex(-1);
                             }}
@@ -843,8 +848,8 @@ const CashPayments = () => {
                               {hasBalance && (
                                 <div className="text-sm text-gray-600">
                                   <span className="text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>{' '}
-                                  <span className={`font-medium ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-                                    ${Math.abs(netBalance).toFixed(2)}
+                                  <span className={`font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'}`}>
+                                    ${Math.abs(currentBalance).toFixed(2)}
                                   </span>
                                 </div>
                               )}
@@ -868,32 +873,37 @@ const CashPayments = () => {
                         <User className="h-5 w-5 text-gray-400" />
                         <div className="flex-1">
                           <p className="font-medium">
-                            {selectedCustomer.displayName || selectedCustomer.businessName || selectedCustomer.name ||
+                            {selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name ||
                               `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim() ||
                               selectedCustomer.email || 'Unknown Customer'}
                           </p>
+                          {(selectedCustomer.businessName || selectedCustomer.business_name) && (selectedCustomer.displayName || selectedCustomer.name) && (
+                            <p className="text-xs text-gray-500">
+                              Contact: {selectedCustomer.displayName || selectedCustomer.name}
+                            </p>
+                          )}
                           <p className="text-sm text-gray-600 capitalize">
                             {selectedCustomer.businessType ? `${selectedCustomer.businessType} • ` : ''}
                             {selectedCustomer.phone || 'No phone'}
                           </p>
                           <div className="flex items-center space-x-4 mt-2">
                             {(() => {
-                              const receivables = selectedCustomer.pendingBalance || 0;
-                              const advance = selectedCustomer.advanceBalance || 0;
-                              const netBalance = receivables - advance;
-                              const isPayable = netBalance < 0;
-                              const isReceivable = netBalance > 0;
-                              const hasBalance = receivables > 0 || advance > 0;
+                          const currentBalance = selectedCustomer.currentBalance !== undefined 
+                            ? selectedCustomer.currentBalance 
+                            : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                          const isPayable = currentBalance < 0;
+                          const isReceivable = currentBalance > 0;
+                          const hasBalance = Math.abs(currentBalance) > 0.01;
 
-                              return hasBalance ? (
-                                <div className="flex items-center space-x-1">
-                                  <span className="text-xs text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>
-                                  <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
-                                    }`}>
-                                    ${Math.abs(netBalance).toFixed(2)}
-                                  </span>
-                                </div>
-                              ) : null;
+                          return hasBalance ? (
+                            <div className="flex items-center space-x-1">
+                              <span className="text-xs text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>
+                              <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
+                                }`}>
+                                ${Math.abs(currentBalance).toFixed(2)}
+                              </span>
+                            </div>
+                          ) : null;
                             })()}
                           </div>
                         </div>
@@ -923,14 +933,16 @@ const CashPayments = () => {
                   </div>
                   {expenseSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {expenseAccounts?.filter(account =>
-                        (account.accountName || '').toLowerCase().includes(expenseSearchTerm.toLowerCase()) ||
-                        (account.accountCode || '').includes(expenseSearchTerm)
-                      ).map((account, index) => (
+                    {expenseAccounts?.filter(account =>
+                      (account.accountName || '').toLowerCase().includes(expenseSearchTerm.toLowerCase()) ||
+                      (account.accountCode || '').includes(expenseSearchTerm)
+                    ).map((account, index) => {
+                      const accountId = account.id || account._id;
+                      return (
                         <div
-                          key={account._id}
+                          key={accountId}
                           onClick={() => {
-                            handleExpenseAccountSelect(account._id);
+                            handleExpenseAccountSelect(accountId);
                             setExpenseSearchTerm(account.accountName || '');
                             setExpenseDropdownIndex(-1);
                           }}
@@ -942,7 +954,8 @@ const CashPayments = () => {
                             <div className="text-sm text-gray-500">Code: {account.accountCode}</div>
                           )}
                         </div>
-                      ))}
+                      );
+                    })}
                     </div>
                   )}
                 </div>
@@ -957,42 +970,13 @@ const CashPayments = () => {
                   <div className="space-y-1">
                     {paymentType === 'supplier' && selectedSupplier && (
                       <>
-                        {selectedSupplier.pendingBalance > 0 && (
-                          <div className="flex items-center justify-between px-3 py-2 bg-red-50 border border-red-200 rounded">
-                            <span className="text-sm font-medium text-red-700">Payables:</span>
-                            <span className="text-sm font-bold text-red-700">{selectedSupplier.pendingBalance.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {selectedSupplier.advanceBalance > 0 && (
-                          <div className="flex items-center justify-between px-3 py-2 bg-green-50 border border-green-200 rounded">
-                            <span className="text-sm font-medium text-green-700">Advance:</span>
-                            <span className="text-sm font-bold text-green-700">{selectedSupplier.advanceBalance.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {selectedSupplier.pendingBalance === 0 && selectedSupplier.advanceBalance === 0 && (
-                          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600 text-center">
-                            No balance
-                          </div>
-                        )}
-                        {selectedSupplier.pendingBalance > 0 && selectedSupplier.advanceBalance > 0 && (
-                          <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border-2 border-blue-300 rounded">
-                            <span className="text-sm font-bold text-blue-700">Net Balance:</span>
-                            <span className={`text-sm font-bold ${(selectedSupplier.pendingBalance - selectedSupplier.advanceBalance) > 0 ? 'text-red-700' : 'text-green-700'}`}>
-                              {(selectedSupplier.pendingBalance - selectedSupplier.advanceBalance).toFixed(2)}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {paymentType === 'customer' && selectedCustomer && (
-                      <>
                         {(() => {
-                          const receivables = selectedCustomer.pendingBalance || 0;
-                          const advance = selectedCustomer.advanceBalance || 0;
-                          const netBalance = receivables - advance;
-                          const isPayable = netBalance < 0;
-                          const isReceivable = netBalance > 0;
-                          const hasBalance = receivables > 0 || advance > 0;
+                          const currentBalance = selectedSupplier.currentBalance !== undefined 
+                            ? selectedSupplier.currentBalance 
+                            : ((selectedSupplier.advanceBalance || 0) - (selectedSupplier.pendingBalance || 0));
+                          const isPayable = currentBalance < 0;
+                          const isReceivable = currentBalance > 0;
+                          const hasBalance = Math.abs(currentBalance) > 0.01;
 
                           return hasBalance ? (
                             <div className={`flex items-center justify-between px-3 py-2 rounded ${isPayable ? 'bg-red-50 border border-red-200' : isReceivable ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
@@ -1000,7 +984,34 @@ const CashPayments = () => {
                                 {isPayable ? 'Payables:' : isReceivable ? 'Receivables:' : 'Balance:'}
                               </span>
                               <span className={`text-sm font-bold ${isPayable ? 'text-red-700' : isReceivable ? 'text-green-700' : 'text-gray-700'}`}>
-                                {Math.abs(netBalance).toFixed(2)}
+                                {Math.abs(currentBalance).toFixed(2)}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600 text-center">
+                              No balance
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
+                    {paymentType === 'customer' && selectedCustomer && (
+                      <>
+                        {(() => {
+                          const currentBalance = selectedCustomer.currentBalance !== undefined 
+                            ? selectedCustomer.currentBalance 
+                            : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                          const isPayable = currentBalance < 0;
+                          const isReceivable = currentBalance > 0;
+                          const hasBalance = Math.abs(currentBalance) > 0.01;
+
+                          return hasBalance ? (
+                            <div className={`flex items-center justify-between px-3 py-2 rounded ${isPayable ? 'bg-red-50 border border-red-200' : isReceivable ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                              <span className={`text-sm font-medium ${isPayable ? 'text-red-700' : isReceivable ? 'text-green-700' : 'text-gray-700'}`}>
+                                {isPayable ? 'Payables:' : isReceivable ? 'Receivables:' : 'Balance:'}
+                              </span>
+                              <span className={`text-sm font-bold ${isPayable ? 'text-red-700' : isReceivable ? 'text-green-700' : 'text-gray-700'}`}>
+                                {Math.abs(currentBalance).toFixed(2)}
                               </span>
                             </div>
                           ) : (
@@ -1265,87 +1276,90 @@ const CashPayments = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {cashPayments.map((payment, index) => (
-                      <tr
-                        key={payment._id}
-                        className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(payment.date)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {payment.voucherCode}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {Math.round(payment.amount)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                          {payment.particular}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {payment.supplier ? (
-                            <div>
-                              <div className="font-medium">
-                                {payment.supplier.companyName || payment.supplier.displayName || payment.supplier.name || 'Unknown Supplier'}
+                    {cashPayments.map((payment, index) => {
+                      const paymentId = payment.id || payment._id;
+                      return (
+                        <tr
+                          key={paymentId}
+                          className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatDate(payment.date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {payment.voucherCode || payment.payment_number || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {Math.round(payment.amount)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                            {payment.particular}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {payment.supplier ? (
+                              <div>
+                                <div className="font-medium">
+                                  {payment.supplier.businessName || payment.supplier.business_name || payment.supplier.companyName || payment.supplier.displayName || payment.supplier.name || 'Unknown Supplier'}
+                                </div>
+                                <div className="text-gray-500 text-xs">Supplier</div>
                               </div>
-                              <div className="text-gray-500 text-xs">Supplier</div>
-                            </div>
-                          ) : payment.customer ? (
-                            <div>
-                              <div className="font-medium">
-                                {((payment.customer.businessName || payment.customer.displayName || payment.customer.name ||
-                                  `${payment.customer.firstName || ''} ${payment.customer.lastName || ''}`.trim() ||
-                                  payment.customer.email || 'Unknown Customer') || '').toUpperCase()}
+                            ) : payment.customer ? (
+                              <div>
+                                <div className="font-medium">
+                                  {((payment.customer.businessName || payment.customer.business_name || payment.customer.displayName || payment.customer.name ||
+                                    `${payment.customer.firstName || ''} ${payment.customer.lastName || ''}`.trim() ||
+                                    payment.customer.email || 'Unknown Customer') || '').toUpperCase()}
+                                </div>
+                                <div className="text-gray-500 text-xs">Customer</div>
                               </div>
-                              <div className="text-gray-500 text-xs">Customer</div>
-                            </div>
-                          ) : payment.paymentType === 'expense' ? (
-                            <div>
-                              <div className="font-medium text-orange-600">Expense</div>
-                              <div className="text-gray-500 text-xs">{payment.particular || 'N/A'}</div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handlePrint(payment)}
-                              className="text-green-600 hover:text-green-900"
-                              title="Print"
-                            >
-                              <Printer className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleView(payment)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="View"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            {formatDateForInput(payment.date) === today && (
-                              <>
-                                <button
-                                  onClick={() => handleEdit(payment)}
-                                  className="text-indigo-600 hover:text-indigo-900"
-                                  title="Edit"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(payment)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </>
+                            ) : payment.paymentType === 'expense' ? (
+                              <div>
+                                <div className="font-medium text-orange-600">Expense</div>
+                                <div className="text-gray-500 text-xs">{payment.particular || 'N/A'}</div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handlePrint(payment)}
+                                className="text-green-600 hover:text-green-900"
+                                title="Print"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleView(payment)}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="View"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              {formatDateForInput(payment.date) === today && (
+                                <>
+                                  <button
+                                    onClick={() => handleEdit(payment)}
+                                    className="text-indigo-600 hover:text-indigo-900"
+                                    title="Edit"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(payment)}
+                                    className="text-red-600 hover:text-red-900"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1445,16 +1459,22 @@ const CashPayments = () => {
                       }
                     </option>
                     {paymentType === 'supplier'
-                      ? suppliers?.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.displayName || s.companyName || s.name}
-                        </option>
-                      ))
-                      : customers?.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.displayName || c.businessName || c.name}
-                        </option>
-                      ))
+                      ? suppliers?.map((s) => {
+                        const supplierId = s.id || s._id;
+                        return (
+                          <option key={supplierId} value={supplierId}>
+                            {s.businessName || s.business_name || s.displayName || s.companyName || s.name}
+                          </option>
+                        );
+                      })
+                      : customers?.map((c) => {
+                        const customerId = c.id || c._id;
+                        return (
+                          <option key={customerId} value={customerId}>
+                            {c.businessName || c.business_name || c.displayName || c.name}
+                          </option>
+                        );
+                      })
                     }
                   </select>
                 </div>
@@ -1519,7 +1539,7 @@ const CashPayments = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Voucher Code
                   </label>
-                  <p className="text-sm text-gray-900">{selectedPayment.voucherCode}</p>
+                  <p className="text-sm text-gray-900">{selectedPayment.voucherCode || selectedPayment.payment_number || '-'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1552,7 +1572,7 @@ const CashPayments = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Customer
                     </label>
-                    <p className="text-sm text-gray-900">{(selectedPayment.customer.businessName || selectedPayment.customer.displayName || selectedPayment.customer.name || '').toUpperCase()}</p>
+                    <p className="text-sm text-gray-900">{(selectedPayment.customer.businessName || selectedPayment.customer.business_name || selectedPayment.customer.displayName || selectedPayment.customer.name || '').toUpperCase()}</p>
                   </div>
                 )}
                 <div>

@@ -35,7 +35,7 @@ import {
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { LoadingButton } from '../components/LoadingSpinner';
-import { useGetCustomersQuery } from '../store/services/customersApi';
+import { useGetCustomersQuery, useGetCustomerQuery } from '../store/services/customersApi';
 import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery } from '../store/services/productsApi';
 import { useGetVariantsQuery } from '../store/services/productVariantsApi';
 import { useGetSalesQuery, useLazyGetLastPricesQuery } from '../store/services/salesApi';
@@ -68,7 +68,7 @@ const safeRender = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string' || typeof value === 'number') return value;
   if (typeof value === 'object') {
-    return value.name || value.title || value.fullName || value.companyName || value.displayName || value.businessName || JSON.stringify(value);
+    return value.businessName || value.business_name || value.name || value.title || value.fullName || value.companyName || value.displayName || JSON.stringify(value);
   }
   return String(value);
 };
@@ -137,7 +137,7 @@ const SalesOrders = () => {
       const time = String(now.getTime()).slice(-4); // Last 4 digits of timestamp
 
       const customerInitials = customer
-        ? (customer.businessName || customer.name || customer.displayName || '')
+        ? (customer.businessName || customer.business_name || customer.name || customer.displayName || '')
           .split(' ')
           .map((word) => word.charAt(0).toUpperCase())
           .join('')
@@ -300,7 +300,7 @@ const SalesOrders = () => {
 
     let newTitle;
     if (selectedCustomer) {
-      newTitle = `SO - ${selectedCustomer.businessName || selectedCustomer.name || 'Unknown'}`;
+      newTitle = `SO - ${selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name || 'Unknown'}`;
     } else if (!showEditModal) {
       // Only reset to 'SO' if not in edit modal
       newTitle = 'SO';
@@ -336,6 +336,19 @@ const SalesOrders = () => {
   const customers = React.useMemo(() => {
     return customersData?.data?.customers || customersData?.customers || customersData?.data || customersData || [];
   }, [customersData]);
+
+  const selectedCustomerId = selectedCustomer?.id ?? selectedCustomer?._id ?? null;
+  const { data: selectedCustomerDetail } = useGetCustomerQuery(selectedCustomerId, {
+    skip: !selectedCustomerId,
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true // Refetch when window regains focus
+  });
+  const customerWithBalance = selectedCustomerDetail?.data?.customer ?? selectedCustomerDetail?.customer ?? selectedCustomerDetail ?? selectedCustomer;
+  // Prioritize balance from selectedCustomer (from list with bulk balances - already correct)
+  // Then fallback to detail query if available
+  // This ensures we use the balance that's already calculated correctly from the list
+  const displayBalance = selectedCustomer?.currentBalance ?? customerWithBalance?.currentBalance ?? 0;
+  const displayCreditLimit = selectedCustomer?.creditLimit ?? selectedCustomer?.credit_limit ?? customerWithBalance?.creditLimit ?? customerWithBalance?.credit_limit;
 
   // Fetch all active products for client-side fuzzy search
   const { data: allProductsData, isLoading: productsLoading, refetch: refetchProducts } = useGetProductsQuery(
@@ -1154,7 +1167,7 @@ const SalesOrders = () => {
   };
 
   const handleConfirm = (id) => {
-    if (window.confirm('Are you sure you want to confirm this sales order? This will automatically generate a sales invoice and update inventory.')) {
+    if (window.confirm('Confirm this sales order? This will create a Sales Invoice (it will appear under Sales Invoices) and update inventory.')) {
       confirmSalesOrderMutation(id)
         .unwrap()
         .then((response) => {
@@ -1619,8 +1632,8 @@ const SalesOrders = () => {
     }
   };
 
-  const salesOrders = salesOrdersData?.salesOrders || [];
-  const paginationInfo = salesOrdersData?.pagination || {};
+  const salesOrders = salesOrdersData?.data?.salesOrders ?? salesOrdersData?.salesOrders ?? [];
+  const paginationInfo = salesOrdersData?.data?.pagination ?? salesOrdersData?.pagination ?? {};
   const { subtotal, totalDiscount, totalTax, total } = calculateTotals();
 
   return (
@@ -1718,60 +1731,57 @@ const SalesOrders = () => {
               <div className="flex items-center space-x-3">
                 <User className="h-5 w-5 text-gray-400" />
                 <div className="flex-1">
-                  <p className="font-medium">{selectedCustomer.displayName || selectedCustomer.businessName || selectedCustomer.name || 'Unknown'}</p>
+                  <p className="font-medium">{selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name || 'Unknown'}</p>
                   <p className="text-sm text-gray-600 capitalize">
                     {selectedCustomer.businessType || 'Business'} • {selectedCustomer.phone || 'No phone'}
                   </p>
-                  <div className="flex items-center space-x-4 mt-2">
+                  <div className="flex items-center space-x-4 mt-2 flex-wrap gap-y-1">
                     {(() => {
-                      // Calculate total balance: currentBalance (which is net balance)
-                      const totalBalance = selectedCustomer.currentBalance !== undefined
-                        ? selectedCustomer.currentBalance
-                        : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
-                      const hasBalance = totalBalance !== 0;
+                      // Use displayBalance which prioritizes selectedCustomer.currentBalance (already correct from bulk query)
+                      const balanceNum = Number(displayBalance);
+                      const totalBalance = (isNaN(balanceNum) || balanceNum === null || balanceNum === undefined) ? 0 : balanceNum;
                       const isPayable = totalBalance < 0;
                       const isReceivable = totalBalance > 0;
-
-                      return hasBalance ? (
+                      return (
                         <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-500">Total Balance:</span>
-                          <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
-                            }`}>
-                            {isPayable ? '-' : '+'}{Math.abs(totalBalance).toFixed(2)}
+                          <span className="text-xs text-gray-500">Balance:</span>
+                          <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'}`}>
+                            {isPayable ? '-' : ''}{Math.abs(totalBalance).toFixed(2)}
                           </span>
                         </div>
-                      ) : null;
+                      );
                     })()}
-                    <div className="flex items-center space-x-1">
-                      <span className="text-xs text-gray-500">Credit Limit:</span>
-                      <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                        (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9
-                          ? 'text-red-600'
-                          : (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.7
-                            ? 'text-yellow-600'
-                            : 'text-blue-600'
-                      ) : 'text-gray-600'
-                        }`}>
-                        {(selectedCustomer.creditLimit || 0).toFixed(2)}
-                      </span>
-                      {selectedCustomer.creditLimit > 0 &&
-                        (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9 && (
-                          <span className="text-xs text-red-600 font-bold ml-1">⚠️</span>
-                        )}
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span className="text-xs text-gray-500">Available Credit:</span>
-                      <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                        (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.1
-                          ? 'text-red-600'
-                          : (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.3
-                            ? 'text-yellow-600'
-                            : 'text-green-600'
-                      ) : 'text-gray-600'
-                        }`}>
-                        {(selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)).toFixed(2)}
-                      </span>
-                    </div>
+                    {(() => {
+                      const creditLimitNum = Math.max(0, Number(displayCreditLimit) || 0);
+                      const currentBalanceNum = Number(displayBalance);
+                      const safeBalance = (isNaN(currentBalanceNum) || currentBalanceNum === null || currentBalanceNum === undefined) ? 0 : currentBalanceNum;
+                      const availableCreditNum = Math.max(0, creditLimitNum - safeBalance);
+                      return (
+                        <>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs text-gray-500">Credit Limit:</span>
+                            <span className={`text-sm font-medium ${creditLimitNum > 0 ? (
+                              safeBalance >= creditLimitNum * 0.9 ? 'text-red-600'
+                                : safeBalance >= creditLimitNum * 0.7 ? 'text-yellow-600' : 'text-blue-600'
+                            ) : 'text-gray-600'}`}>
+                              {creditLimitNum.toFixed(2)}
+                            </span>
+                            {creditLimitNum > 0 && safeBalance >= creditLimitNum * 0.9 && (
+                              <span className="text-xs text-red-600 font-bold ml-1">⚠️</span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs text-gray-500">Available Credit:</span>
+                            <span className={`text-sm font-medium ${creditLimitNum > 0 ? (
+                              availableCreditNum <= creditLimitNum * 0.1 ? 'text-red-600'
+                                : availableCreditNum <= creditLimitNum * 0.3 ? 'text-yellow-600' : 'text-green-600'
+                            ) : 'text-gray-600'}`}>
+                              {availableCreditNum.toFixed(2)}
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -3048,7 +3058,7 @@ const SalesOrders = () => {
             </h3>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500">
-                {paginationInfo.totalItems || 0} records
+                {paginationInfo.totalItems ?? paginationInfo.total ?? salesOrders.length} records
               </span>
               <button
                 onClick={() => refetch()}
@@ -3104,35 +3114,35 @@ const SalesOrders = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {salesOrders.map((order, index) => (
-                    <tr key={order._id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={order?.id ?? order?._id ?? `so-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(order.createdAt)}
+                        {formatDate(order?.order_date ?? order?.orderDate ?? order?.createdAt ?? order?.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {order.soNumber}
+                        {order?.so_number ?? order?.soNumber ?? order?.invoiceNumber ?? '—'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {order.customer?.displayName || order.customer?.businessName || order.customer?.name || 'Walk-in'}
+                        {order?.customer?.businessName ?? order?.customer?.business_name ?? order?.customer?.displayName ?? order?.customer?.name ?? 'Walk-in'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
-                        {order.orderType}
+                        {order?.order_type ?? order?.orderType ?? '—'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex items-center space-x-1">
-                          {getStatusIcon(order.status)}
+                          {getStatusIcon(order?.status)}
                           <span className="capitalize">
-                            {order.status === 'draft' ? 'Pending' : order.status.replace('_', ' ')}
+                            {order?.status === 'draft' ? 'Pending' : (order?.status ?? '').replace(/_/g, ' ')}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {Math.round(order.total || 0)}
+                        {Math.round(order?.total ?? order?.pricing?.total ?? 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           <button
                             onClick={() => {
-                              setNotesEntity({ type: 'SalesOrder', id: order._id, name: order.soNumber });
+                              setNotesEntity({ type: 'SalesOrder', id: order?.id ?? order?._id, name: order?.so_number ?? order?.soNumber });
                               setShowNotes(true);
                             }}
                             className="text-green-600 hover:text-green-900"
@@ -3164,16 +3174,16 @@ const SalesOrders = () => {
                                 <Edit className="h-4 w-4" />
                               </button>
                               <LoadingButton
-                                onClick={() => handleConfirm(order._id)}
+                                onClick={() => handleConfirm(order?.id ?? order?._id)}
                                 isLoading={confirming}
                                 className="text-green-600 hover:text-green-900"
-                                title="Confirm Order"
+                                title="Confirm & create sales invoice (this becomes a Sale)"
                                 disabled={confirming}
                               >
                                 <CheckCircle className="h-4 w-4" />
                               </LoadingButton>
                               <LoadingButton
-                                onClick={() => handleCancel(order._id)}
+                                onClick={() => handleCancel(order?.id ?? order?._id)}
                                 isLoading={cancelling}
                                 className="text-red-600 hover:text-red-900"
                                 title="Cancel Order"
@@ -3185,7 +3195,7 @@ const SalesOrders = () => {
                           )}
                           {order.status === 'draft' && (
                             <LoadingButton
-                              onClick={() => handleDelete(order._id)}
+                              onClick={() => handleDelete(order?.id ?? order?._id)}
                               isLoading={deleting}
                               className="text-red-600 hover:text-red-900"
                               title="Delete"
@@ -3264,7 +3274,7 @@ const SalesOrders = () => {
                 <div className="text-right">
                   <h5 className="font-semibold text-gray-900 mb-2">Customer Details</h5>
                   <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Customer:</span> {safeRender(selectedOrder.customer?.displayName || selectedOrder.customer?.businessName || selectedOrder.customer?.name) || 'Walk-in'}</p>
+                    <p><span className="font-medium">Customer:</span> {safeRender(selectedOrder.customer?.business_name ?? selectedOrder.customer?.businessName ?? selectedOrder.customer?.name ?? selectedOrder.customer?.displayName) ?? 'Walk-in'}</p>
                     {selectedOrder.customer?.email && (
                       <p><span className="font-medium">Email:</span> {safeRender(selectedOrder.customer.email)}</p>
                     )}

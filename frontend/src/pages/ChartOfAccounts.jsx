@@ -48,12 +48,14 @@ const AccountTypeBadge = ({ type }) => {
 
 const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, presetType, presetCategory, categories, categoryOptions }) => {
   const [autoGenerateCode, setAutoGenerateCode] = useState(!account); // Auto-generate for new accounts
+  const accountCategoryVal = account?.accountCategory;
+  const accountCategoryStr = typeof accountCategoryVal === 'string' ? accountCategoryVal : (accountCategoryVal?.name ?? accountCategoryVal?.value ?? presetCategory ?? 'current_assets');
   const [formData, setFormData] = useState({
     accountCode: account?.accountCode || '',
     accountName: account?.accountName || '',
     accountType: account?.accountType || presetType || 'asset',
-    accountCategory: account?.accountCategory || presetCategory || 'current_assets',
-    parentAccount: account?.parentAccount?._id || '',
+    accountCategory: accountCategoryStr,
+    parentAccount: account?.parentAccount?._id ?? account?.parentAccount?.id ?? '',
     level: account?.level || 0,
     normalBalance: account?.normalBalance || 'debit',
     openingBalance: account?.openingBalance || 0,
@@ -66,12 +68,14 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
 
   // Reset form data when account prop changes (for new accounts, account will be null)
   useEffect(() => {
+    const catVal = account?.accountCategory;
+    const catStr = typeof catVal === 'string' ? catVal : (catVal?.name ?? catVal?.value ?? presetCategory ?? 'current_assets');
     setFormData({
       accountCode: account?.accountCode || '',
       accountName: account?.accountName || '',
       accountType: account?.accountType || presetType || 'asset',
-      accountCategory: account?.accountCategory || presetCategory || 'current_assets',
-      parentAccount: account?.parentAccount?._id || '',
+      accountCategory: catStr,
+      parentAccount: account?.parentAccount?._id ?? account?.parentAccount?.id ?? '',
       level: account?.level || 0,
       normalBalance: account?.normalBalance || 'debit',
       openingBalance: account?.openingBalance || 0,
@@ -288,7 +292,7 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
                 Account Category *
               </label>
               <select
-                value={formData.accountCategory}
+                value={typeof formData.accountCategory === 'string' ? formData.accountCategory : (formData.accountCategory?.name ?? formData.accountCategory?.value ?? 'current_assets')}
                 onChange={(e) => setFormData({ ...formData, accountCategory: e.target.value })}
                 className="input"
                 required
@@ -770,10 +774,11 @@ export const ChartOfAccounts = () => {
       expense: {}
     };
 
-    // Group accounts by type and category
+    // Group accounts by type and category (category may be string or object { _id, id, name })
     accountList.forEach(account => {
       const type = account.accountType;
-      const category = account.accountCategory;
+      const rawCat = account.accountCategory;
+      const category = typeof rawCat === 'string' ? rawCat : (rawCat?.name ?? rawCat?.label ?? String(rawCat ?? ''));
       if (!hierarchy[type][category]) {
         hierarchy[type][category] = [];
       }
@@ -1198,7 +1203,10 @@ export const ChartOfAccounts = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <span className="text-sm text-gray-600 capitalize">
-                                    {account.accountCategory.replace(/_/g, ' ')}
+                                    {(typeof account.accountCategory === 'string'
+                                      ? account.accountCategory
+                                      : (account.accountCategory?.name ?? account.accountCategory?.label ?? '')
+                                    ).replace(/_/g, ' ')}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right">

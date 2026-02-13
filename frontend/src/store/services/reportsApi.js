@@ -34,6 +34,30 @@ export const reportsApi = api.injectEndpoints({
       }),
       providesTags: [{ type: 'Reports', id: 'INVENTORY_REPORT' }],
     }),
+    getSummaryCards: builder.query({
+      query: (params) => ({
+        url: 'reports/summary-cards',
+        method: 'get',
+        params,
+      }),
+      providesTags: [{ type: 'Reports', id: 'SUMMARY_CARDS' }],
+    }),
+    getPartyBalanceReport: builder.query({
+      query: (params) => ({
+        url: 'reports/party-balance',
+        method: 'get',
+        params,
+      }),
+      providesTags: [{ type: 'Reports', id: 'PARTY_BALANCE' }],
+    }),
+    getFinancialReport: builder.query({
+      query: (params) => ({
+        url: 'reports/financial',
+        method: 'get',
+        params,
+      }),
+      providesTags: [{ type: 'Reports', id: 'FINANCIAL_REPORT' }],
+    }),
     getBackdateReport: builder.query({
       query: () => ({
         url: 'backdate-report',
@@ -50,6 +74,9 @@ export const {
   useGetProductReportQuery,
   useGetCustomerReportQuery,
   useGetInventoryReportQuery,
+  useGetSummaryCardsQuery,
+  useGetPartyBalanceReportQuery,
+  useGetFinancialReportQuery,
   useGetBackdateReportQuery,
 } = reportsApi;
 

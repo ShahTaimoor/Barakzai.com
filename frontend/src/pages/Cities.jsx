@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
+import CityImportExport from '../components/CityImportExport';
 import {
   useGetCitiesQuery,
   useCreateCityMutation,
@@ -219,7 +220,7 @@ export const Cities = () => {
 
   const handleSave = (data) => {
     if (selectedCity) {
-      updateCity({ id: selectedCity._id, ...data })
+      updateCity({ id: selectedCity.id || selectedCity._id, ...data })
         .unwrap()
         .then(() => {
           toast.success('City updated successfully');
@@ -252,7 +253,7 @@ export const Cities = () => {
     const cityName = city.name || 'this city';
     confirmDelete(cityName, 'city', async () => {
       try {
-        await deleteCity(city._id).unwrap();
+        await deleteCity(city.id || city._id).unwrap();
         toast.success('City deleted successfully');
       } catch (err) {
         toast.error(err?.data?.message || 'Failed to delete city');
@@ -290,6 +291,12 @@ export const Cities = () => {
           </button>
         </div>
       </div>
+
+      {/* Import/Export Section */}
+      <CityImportExport 
+        onImportComplete={() => refetch()}
+        filters={queryParams}
+      />
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4">
@@ -382,7 +389,7 @@ export const Cities = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {cities.map((city) => (
-                  <tr key={city._id} className="hover:bg-gray-50">
+                  <tr key={city.id || city._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <MapPin className="h-5 w-5 text-gray-400 mr-2" />
@@ -397,11 +404,11 @@ export const Cities = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        city.isActive 
+                        city.is_active || city.isActive 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {city.isActive ? 'Active' : 'Inactive'}
+                        {(city.is_active || city.isActive) ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">

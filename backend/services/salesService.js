@@ -1,12 +1,9 @@
-const mongoose = require('mongoose');
-const Sales = require('../models/Sales');
-const Customer = require('../models/Customer');
-const Product = require('../models/Product');
-const Inventory = require('../models/Inventory');
-const salesRepository = require('../repositories/SalesRepository');
+const { transaction } = require('../config/postgres');
+const salesRepository = require('../repositories/postgres/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
-const customerRepository = require('../repositories/CustomerRepository');
+const customerRepository = require('../repositories/postgres/CustomerRepository');
 const productVariantRepository = require('../repositories/ProductVariantRepository');
+const inventoryRepository = require('../repositories/postgres/InventoryRepository');
 const StockMovementService = require('./stockMovementService');
 const inventoryService = require('./inventoryService');
 const customerTransactionService = require('./customerTransactionService');
@@ -80,153 +77,54 @@ class SalesService {
   async buildFilter(queryParams) {
     const filter = {};
 
-    // Product search - find orders containing products with matching names
     if (queryParams.productSearch) {
-      const productSearchTerm = queryParams.productSearch.trim();
-      const matchingProducts = await productRepository.search(productSearchTerm, 1000);
-
+      const matchingProducts = await productRepository.search(queryParams.productSearch.trim(), 1000);
       if (matchingProducts.length > 0) {
-        const productIds = matchingProducts.map(p => p._id);
-        filter['items.product'] = { $in: productIds };
+        filter.productIds = matchingProducts.map(p => (p.id != null ? p.id : (p._id && p._id.toString && p._id.toString()))).filter(Boolean);
       } else {
-        // If no products match, return empty result
-        filter._id = { $in: [] };
+        filter.productIds = ['__none__'];
       }
     }
 
-    // General search - search in order number, customer info, and notes
     if (queryParams.search) {
-      const searchTerm = queryParams.search.trim();
-      const searchConditions = [
-        { orderNumber: { $regex: searchTerm, $options: 'i' } },
-        { 'customerInfo.businessName': { $regex: searchTerm, $options: 'i' } },
-        { 'customerInfo.name': { $regex: searchTerm, $options: 'i' } },
-        { 'customerInfo.email': { $regex: searchTerm, $options: 'i' } },
-        { notes: { $regex: searchTerm, $options: 'i' } }
-      ];
-
-      // Search in Customer collection and match by customer ID
+      const searchTerm = String(queryParams.search).trim();
+      filter.search = searchTerm;
       const customerMatches = await customerRepository.search(searchTerm, { limit: 1000 });
-
       if (customerMatches.length > 0) {
-        const customerIds = customerMatches.map(c => c._id);
-        searchConditions.push({ customer: { $in: customerIds } });
-      }
-
-      // Combine with existing filter if productSearch was used
-      if (filter['items.product'] || filter._id) {
-        filter.$and = [
-          filter['items.product'] ? { 'items.product': filter['items.product'] } : filter._id,
-          { $or: searchConditions }
-        ];
-        delete filter['items.product'];
-        delete filter._id;
-      } else {
-        filter.$or = searchConditions;
+        filter.searchCustomerIds = customerMatches.map(c => (c.id != null ? c.id : (c._id && c._id.toString && c._id.toString()))).filter(Boolean);
       }
     }
 
-    // Status filter
-    if (queryParams.status) {
-      filter.status = queryParams.status;
-    }
+    if (queryParams.status) filter.status = queryParams.status;
+    if (queryParams.paymentStatus) filter.paymentStatus = queryParams.paymentStatus;
+    if (queryParams.customerId) filter.customerId = queryParams.customerId;
 
-    // Payment status filter
-    if (queryParams.paymentStatus) {
-      filter['payment.status'] = queryParams.paymentStatus;
-    }
-
-    // Order type filter
-    if (queryParams.orderType) {
-      filter.orderType = queryParams.orderType;
-    }
-
-    // Date range filter - use dateFilter from middleware if available (Pakistan timezone)
-    // Otherwise fall back to legacy dateFrom/dateTo handling
-    if (queryParams.dateFilter && Object.keys(queryParams.dateFilter).length > 0) {
-      // dateFilter from middleware already handles Pakistan timezone
-      // It may contain $or condition for multiple fields
-      if (queryParams.dateFilter.$or) {
-        // Middleware created $or condition for multiple fields
-        if (filter.$and) {
-          filter.$and.push(queryParams.dateFilter);
-        } else {
-          filter.$and = [queryParams.dateFilter];
-        }
-      } else {
-        // Single field date filter - merge with existing filter
-        Object.assign(filter, queryParams.dateFilter);
+    let dateFrom = queryParams.dateFrom;
+    let dateTo = queryParams.dateTo;
+    if (queryParams.dateFilter && typeof queryParams.dateFilter === 'object' && Object.keys(queryParams.dateFilter).length > 0) {
+      const df = queryParams.dateFilter;
+      if (df.sale_date) {
+        if (df.sale_date.$gte) dateFrom = dateFrom || df.sale_date.$gte;
+        if (df.sale_date.$lte) dateTo = dateTo || df.sale_date.$lte;
       }
-    } else if (queryParams.dateFrom || queryParams.dateTo) {
-      const dateConditions = [];
-
-      if (queryParams.dateFrom) {
-        const dateFrom = new Date(queryParams.dateFrom);
-        dateFrom.setHours(0, 0, 0, 0);
-
-        if (queryParams.dateTo) {
-          const dateTo = new Date(queryParams.dateTo);
-          dateTo.setDate(dateTo.getDate() + 1);
-          dateTo.setHours(0, 0, 0, 0);
-
-          // Match orders where billDate is in range, or if billDate doesn't exist, use createdAt
-          dateConditions.push({
-            $or: [
-              {
-                billDate: { $exists: true, $ne: null, $gte: dateFrom, $lt: dateTo }
-              },
-              {
-                $and: [
-                  { $or: [{ billDate: { $exists: false } }, { billDate: null }] },
-                  { createdAt: { $gte: dateFrom, $lt: dateTo } }
-                ]
-              }
-            ]
-          });
-        } else {
-          // Only dateFrom provided
-          dateConditions.push({
-            $or: [
-              {
-                billDate: { $exists: true, $ne: null, $gte: dateFrom }
-              },
-              {
-                $and: [
-                  { $or: [{ billDate: { $exists: false } }, { billDate: null }] },
-                  { createdAt: { $gte: dateFrom } }
-                ]
-              }
-            ]
-          });
-        }
-      } else if (queryParams.dateTo) {
-        // Only dateTo provided
-        const dateTo = new Date(queryParams.dateTo);
-        dateTo.setDate(dateTo.getDate() + 1);
-        dateTo.setHours(0, 0, 0, 0);
-
-        dateConditions.push({
-          $or: [
-            {
-              billDate: { $exists: true, $ne: null, $lt: dateTo }
-            },
-            {
-              $and: [
-                { $or: [{ billDate: { $exists: false } }, { billDate: null }] },
-                { createdAt: { $lt: dateTo } }
-              ]
-            }
-          ]
-        });
-      }
-
-      if (dateConditions.length > 0) {
-        if (filter.$and) {
-          filter.$and.push(...dateConditions);
-        } else {
-          filter.$and = dateConditions;
+      if (df.$or && Array.isArray(df.$or)) {
+        const range = df.$or.find(r => r.sale_date && (r.sale_date.$gte || r.sale_date.$lte));
+        if (range && range.sale_date) {
+          if (range.sale_date.$gte) dateFrom = dateFrom || range.sale_date.$gte;
+          if (range.sale_date.$lte) dateTo = dateTo || range.sale_date.$lte;
         }
       }
+    }
+    if (dateFrom) {
+      const d = new Date(dateFrom);
+      d.setHours(0, 0, 0, 0);
+      filter.dateFrom = d;
+    }
+    if (dateTo) {
+      const d = new Date(dateTo);
+      d.setDate(d.getDate() + 1);
+      d.setHours(0, 0, 0, 0);
+      filter.dateTo = d;
     }
 
     return filter;
@@ -249,43 +147,43 @@ class SalesService {
     const result = await salesRepository.findWithPagination(filter, {
       page,
       limit,
-      getAll: getAllOrders,
-      sort: { createdAt: -1 },
-      populate: [
-        { path: 'customer', select: 'firstName lastName businessName email phone address openingBalance' },
-        { path: 'items.product', select: 'name description pricing' },
-        { path: 'createdBy', select: 'firstName lastName' }
-      ]
+      sort: 'created_at DESC'
     });
 
-    // Fetch dynamic balances from ledger for all customers in this page
-    const customerIds = result.orders
-      .filter(o => o.customer)
-      .map(o => o.customer._id.toString());
-
+    const sales = result.sales || [];
+    const customerIds = [...new Set(sales.map(o => o.customer_id).filter(Boolean))];
     const balanceMap = await AccountingService.getBulkCustomerBalances(customerIds);
 
-    // Transform names to uppercase and attach dynamic balances
-    result.orders.forEach(order => {
-      if (order.customer) {
-        order.customer = this.transformCustomerToUppercase(order.customer);
-        const ledgerBalance = balanceMap.get(order.customer._id.toString()) || 0;
-        const netBalance = (order.customer.openingBalance || 0) + ledgerBalance;
+    const customerMap = new Map();
+    for (const cid of customerIds) {
+      const cust = await customerRepository.findById(cid);
+      if (cust) customerMap.set(cid, this.transformCustomerToUppercase(cust));
+    }
 
-        order.customer.currentBalance = netBalance;
-        order.customer.pendingBalance = netBalance > 0 ? netBalance : 0;
-        order.customer.advanceBalance = netBalance < 0 ? Math.abs(netBalance) : 0;
+    const orders = sales.map(order => {
+      const o = { ...order };
+      if (o.customer_id && customerMap.has(o.customer_id)) {
+        o.customer = customerMap.get(o.customer_id);
+        const bal = balanceMap.get(o.customer_id) || 0;
+        const ob = o.customer.opening_balance ?? o.customer.openingBalance ?? 0;
+        o.customer.currentBalance = ob + bal;
+        o.customer.pendingBalance = (ob + bal) > 0 ? (ob + bal) : 0;
+        o.customer.advanceBalance = (ob + bal) < 0 ? Math.abs(ob + bal) : 0;
       }
-      if (order.items && Array.isArray(order.items)) {
-        order.items.forEach(item => {
-          if (item.product) {
-            item.product = this.transformProductToUppercase(item.product);
-          }
+      if (o.items && Array.isArray(o.items)) {
+        o.items = o.items.map(item => {
+          const i = { ...item };
+          if (i.product) i.product = this.transformProductToUppercase(i.product);
+          return i;
         });
       }
+      return o;
     });
 
-    return result;
+    return {
+      orders,
+      pagination: result.pagination || { page, limit, total: orders.length, pages: 1 }
+    };
   }
 
   /**
@@ -300,22 +198,20 @@ class SalesService {
       throw new Error('Order not found');
     }
 
-    // Populate related fields
-    await order.populate([
-      { path: 'customer', select: 'firstName lastName businessName email phone address openingBalance' },
-      { path: 'items.product', select: 'name description pricing' },
-      { path: 'createdBy', select: 'firstName lastName' }
-    ]);
+    // Fetch customer details if exists
+    if (order.customer_id) {
+      const customer = await customerRepository.findById(order.customer_id);
+      if (customer) {
+        order.customer = this.transformCustomerToUppercase(customer);
+        const balance = await AccountingService.getCustomerBalance(order.customer_id);
 
-    // Transform names to uppercase and attach dynamic balance
-    if (order.customer) {
-      order.customer = this.transformCustomerToUppercase(order.customer);
-      const balance = await AccountingService.getCustomerBalance(order.customer._id);
-
-      order.customer.currentBalance = balance;
-      order.customer.pendingBalance = balance > 0 ? balance : 0;
-      order.customer.advanceBalance = balance < 0 ? Math.abs(balance) : 0;
+        order.customer.currentBalance = balance;
+        order.customer.pendingBalance = balance > 0 ? balance : 0;
+        order.customer.advanceBalance = balance < 0 ? Math.abs(balance) : 0;
+      }
     }
+
+    // Transform product names in items
     if (order.items && Array.isArray(order.items)) {
       order.items.forEach(item => {
         if (item.product) {
@@ -334,41 +230,29 @@ class SalesService {
    * @returns {Promise<object>}
    */
   async getPeriodSummary(dateFrom, dateTo) {
-    const orders = await salesRepository.findByDateRange(dateFrom, dateTo, {
-      lean: true
-    });
+    const raw = await salesRepository.findByDateRange(dateFrom, dateTo);
+    const orders = Array.isArray(raw) ? raw : [];
 
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.pricing?.total || 0), 0);
+    const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order?.total) || 0), 0);
     const totalOrders = orders.length;
-    const totalItems = orders.reduce((sum, order) =>
-      sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0);
+    const totalItems = orders.reduce((sum, order) => {
+      const items = Array.isArray(order?.items) ? order.items : [];
+      return sum + items.reduce((itemSum, item) => itemSum + (item.quantity || 0), 0);
+    }, 0);
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     // Calculate discounts
     const totalDiscounts = orders.reduce((sum, order) =>
-      sum + (order.pricing?.discountAmount || 0), 0);
+      sum + (parseFloat(order?.discount) || 0), 0);
 
-    // Calculate by order type
-    const revenueByType = {
-      retail: orders.filter(o => o.orderType === 'retail')
-        .reduce((sum, order) => sum + (order.pricing?.total || 0), 0),
-      wholesale: orders.filter(o => o.orderType === 'wholesale')
-        .reduce((sum, order) => sum + (order.pricing?.total || 0), 0)
-    };
-
-    const ordersByType = {
-      retail: orders.filter(o => o.orderType === 'retail').length,
-      wholesale: orders.filter(o => o.orderType === 'wholesale').length
-    };
-
-    // Calculate by payment status
+    // Calculate by payment status (orderType not in PostgreSQL schema, using payment_status)
     const revenueByPaymentStatus = {
-      paid: orders.filter(o => o.payment?.status === 'paid')
-        .reduce((sum, order) => sum + (order.pricing?.total || 0), 0),
-      pending: orders.filter(o => o.payment?.status === 'pending')
-        .reduce((sum, order) => sum + (order.pricing?.total || 0), 0),
-      partial: orders.filter(o => o.payment?.status === 'partial')
-        .reduce((sum, order) => sum + (order.pricing?.total || 0), 0)
+      paid: orders.filter(o => o && (o.payment_status === 'paid'))
+        .reduce((sum, order) => sum + (parseFloat(order?.total) || 0), 0),
+      pending: orders.filter(o => o && (o.payment_status === 'pending'))
+        .reduce((sum, order) => sum + (parseFloat(order?.total) || 0), 0),
+      partial: orders.filter(o => o && (o.payment_status === 'partial'))
+        .reduce((sum, order) => sum + (parseFloat(order?.total) || 0), 0)
     };
 
     return {
@@ -377,43 +261,23 @@ class SalesService {
       totalItems,
       averageOrderValue,
       totalDiscounts,
-      revenueByType,
-      ordersByType,
+      revenueByType: {}, // Not available in PostgreSQL schema
+      ordersByType: {}, // Not available in PostgreSQL schema
       revenueByPaymentStatus
     };
   }
 
-  /**
-   * Get single sales order by ID
-   * @param {string} id - Sales order ID
-   * @returns {Promise<Sales>}
-   */
-  async getSalesOrderById(id) {
-    const order = await salesRepository.findById(id, {
-      populate: [
-        { path: 'customer' },
-        { path: 'items.product', select: 'name description pricing' },
-        { path: 'createdBy', select: 'firstName lastName' },
-        { path: 'processedBy', select: 'firstName lastName' }
-      ]
-    });
-
-    if (!order) {
-      throw new Error('Order not found');
-    }
-
-    return order;
-  }
+  // Duplicate method removed - using the one above
 
   /**
    * Create a new sale (invoice)
    * @param {object} data - Sale data
    * @param {object} user - User creating the sale
-   * @param {object} options - Options (skipInventoryUpdate, session)
+   * @param {object} options - Options (skipInventoryUpdate)
    * @returns {Promise<object>}
    */
   async createSale(data, user, options = {}) {
-    const { skipInventoryUpdate = false, session: existingSession = null } = options;
+    const { skipInventoryUpdate = false } = options;
     const { customer, items, orderType, payment, notes, isTaxExempt, billDate, billStartTime, salesOrderId } = data;
 
     // Validate customer if provided
@@ -448,13 +312,14 @@ class SalesService {
       // pricing logic (same as in sales.js)
       let unitPrice = item.unitPrice;
       if (unitPrice === undefined || unitPrice === null) {
-        const customerType = customerData ? customerData.businessType : 'retail';
+        const customerType = customerData ? (customerData.business_type || customerData.businessType) : 'retail';
         if (isVariant) {
+          const pricing = product.pricing || {};
           unitPrice = (customerType === 'wholesale' || customerType === 'distributor')
-            ? (product.pricing?.wholesale || product.pricing?.retail || 0)
-            : (product.pricing?.retail || 0);
+            ? (pricing.wholesale ?? pricing.retail ?? 0)
+            : (pricing.retail ?? 0);
         } else {
-          unitPrice = product.getPriceForCustomerType ? product.getPriceForCustomerType(customerType, item.quantity) : (product.pricing?.retail || 0);
+          unitPrice = product.selling_price ?? product.pricing?.retail ?? 0;
         }
       }
 
@@ -462,18 +327,20 @@ class SalesService {
       const itemSubtotal = item.quantity * unitPrice;
       const itemDiscount = itemSubtotal * (itemDiscountPercent / 100);
       const itemTaxable = itemSubtotal - itemDiscount;
-      const taxRate = isVariant ? (product.baseProduct?.taxSettings?.taxRate || 0) : (product.taxSettings?.taxRate || 0);
+      const taxRate = isVariant ? (product.baseProduct?.taxSettings?.taxRate ?? 0) : (product.tax_settings?.tax_rate ?? product.taxSettings?.taxRate ?? 0);
       const itemTax = isTaxExempt ? 0 : itemTaxable * taxRate;
 
       let unitCost = 0;
-      const inventory = await Inventory.findOne({ product: product._id });
-      if (inventory && inventory.cost) {
-        unitCost = inventory.cost.average || inventory.cost.lastPurchase || 0;
+      const productId = product.id || product._id;
+      const inv = await inventoryRepository.findByProduct(productId);
+      if (inv && inv.cost) {
+        const costObj = typeof inv.cost === 'string' ? JSON.parse(inv.cost) : inv.cost;
+        unitCost = costObj.average ?? costObj.lastPurchase ?? 0;
       }
-      if (unitCost === 0) unitCost = product.pricing?.cost || 0;
+      if (unitCost === 0) unitCost = product.pricing?.cost ?? product.cost_price ?? 0;
 
       orderItems.push({
-        product: product._id,
+        product: productId,
         quantity: item.quantity,
         unitCost,
         unitPrice,
@@ -493,17 +360,20 @@ class SalesService {
     const orderTotal = subtotal - totalDiscount + totalTax;
 
     // Check credit limit for credit sales (account payment or partial payment)
-    if (customerData && customerData.creditLimit > 0) {
+    if (customerData && (customerData.credit_limit || customerData.creditLimit) > 0) {
+      const creditLimit = customerData.credit_limit || customerData.creditLimit;
       const amountPaid = payment.amount || 0;
       const unpaidAmount = orderTotal - amountPaid;
 
       if (payment.method === 'account' || unpaidAmount > 0) {
         // Fetch real-time balance from ledger for credit check
-        const currentBalance = await AccountingService.getCustomerBalance(customerData._id);
+        const customerId = customerData.id || customerData._id;
+        const currentBalance = await AccountingService.getCustomerBalance(customerId);
         const newBalanceAfterOrder = currentBalance + unpaidAmount;
 
-        if (newBalanceAfterOrder > customerData.creditLimit) {
-          throw new Error(`Credit limit exceeded for customer ${customerData.displayName || customerData.name}. Available credit: ${customerData.creditLimit - currentBalance}`);
+        if (newBalanceAfterOrder > creditLimit) {
+          const customerName = customerData.business_name || customerData.businessName || customerData.name || 'Customer';
+          throw new Error(`Credit limit exceeded for customer ${customerName}. Available credit: ${creditLimit - currentBalance}`);
         }
       }
     }
@@ -523,132 +393,136 @@ class SalesService {
       }
     }
 
-    const orderData = {
-      salesOrderId: salesOrderId || null,
-      orderType,
-      customer: customer || null,
-      customerInfo: customerData ? {
-        name: customerData.displayName,
-        email: customerData.email,
-        phone: customerData.phone,
-        businessName: customerData.businessName,
-        address: formatCustomerAddress(customerData)
-        // Note: currentBalance, pendingBalance, advanceBalance removed from snapshot
-        // as they are now dynamic and should be fetched from ledger when needed
-      } : null,
+    // Generate order number if not provided (sales/invoices use INV-, not SO- which is for sales orders only)
+    const orderNumber = data.orderNumber || `INV-${Date.now()}`;
+
+    // Prepare sale data for PostgreSQL
+    const saleData = {
+      orderNumber,
+      customerId: customer || null,
+      saleDate: parseLocalDate(billDate) || new Date(),
       items: orderItems,
-      pricing: {
-        subtotal,
-        discountAmount: totalDiscount,
-        taxAmount: totalTax,
-        isTaxExempt: isTaxExempt || false,
-        shippingAmount: 0,
-        total: orderTotal
-      },
-      payment: {
-        method: payment.method,
-        status: payment.isPartialPayment ? 'partial' : (payment.method === 'cash' ? 'paid' : 'pending'),
-        amountPaid: payment.amount || 0,
-        remainingBalance: payment.remainingBalance || 0,
-        isPartialPayment: payment.isPartialPayment || false,
-        isAdvancePayment: payment.isAdvancePayment || false,
-        advanceAmount: payment.advanceAmount || 0
-      },
+      subtotal,
+      discount: totalDiscount,
+      tax: totalTax,
+      total: orderTotal,
+      paymentMethod: payment.method,
+      paymentStatus: payment.isPartialPayment ? 'partial' : (String(payment.method || '').toLowerCase() === 'cash' ? 'paid' : 'pending'),
       status: 'confirmed',
       notes,
-      createdBy: user._id,
-      billStartTime: billStartTime || new Date(),
-      billDate: parseLocalDate(billDate) || new Date()
+      createdBy: user.id || user._id?.toString()
     };
 
-    const session = existingSession || await mongoose.startSession();
-    if (!existingSession) session.startTransaction();
+    const order = await transaction(async (client) => {
+      return await salesRepository.create(saleData, client);
+    });
 
-    try {
-      const order = new Sales(orderData);
-      await order.save({ session });
+    const paymentStatus = order.payment_status ?? order.paymentStatus ?? saleData.paymentStatus;
+    const orderStatus = order.status ?? saleData.status;
 
-      // Track stock movements
-      await StockMovementService.trackSalesOrder(order, user, { session });
+    const orderPayload = {
+      _id: order.id,
+      id: order.id,
+      items: orderItems,
+      status: orderStatus,
+      payment_status: paymentStatus,
+      paymentStatus,
+      orderNumber: order.order_number ?? order.orderNumber,
+      createdAt: order.created_at ?? order.createdAt,
+      payment: paymentStatus ? { status: paymentStatus } : undefined
+    };
 
-      // Profit distribution
-      if (order.status === 'confirmed' || order.payment?.status === 'paid') {
-        await profitDistributionService.distributeProfitForOrder(order, user, { session });
-      }
+    await StockMovementService.trackSalesOrder(orderPayload, user, {});
 
-      // Customer Transactions and Balance
-      if (customer && orderData.pricing.total > 0) {
-        const amountPaid = payment.amount || 0;
-        const isAccountPayment = payment.method === 'account' || amountPaid < orderData.pricing.total;
-
-        if (isAccountPayment) {
-          const productIds = orderItems.map(item => item.product);
-          const products = await Product.find({ _id: { $in: productIds } }).select('name').lean();
-          const productMap = new Map(products.map(p => [p._id.toString(), p.name]));
-
-          const lineItems = orderItems.map(item => ({
-            product: item.product,
-            description: productMap.get(item.product.toString()) || 'Product',
-            quantity: item.quantity,
-            unitPrice: item.unitPrice || 0,
-            discountAmount: item.discountAmount || 0,
-            taxAmount: item.taxAmount || 0,
-            totalPrice: item.total || 0
-          }));
-
-          await customerTransactionService.createTransaction({
-            customerId: customer,
-            transactionType: 'invoice',
-            netAmount: orderData.pricing.total,
-            grossAmount: subtotal,
-            discountAmount: totalDiscount,
-            taxAmount: totalTax,
-            referenceType: 'sales_order',
-            referenceId: order._id,
-            referenceNumber: order.orderNumber,
-            lineItems: lineItems,
-            notes: `Invoice for sale ${order.orderNumber}${salesOrderId ? ' (from SO)' : ''}`
-          }, user, { session });
-        }
-
-        if (amountPaid > 0) {
-          await CustomerBalanceService.recordPayment(
-            customer,
-            amountPaid,
-            order._id,
-            user,
-            {
-              paymentMethod: payment.method,
-              paymentReference: order.orderNumber,
-              session
-            }
-          );
-        }
-      }
-
-      // Accounting entries
-      await AccountingService.recordSale(order, { session });
-
-      if (!existingSession) await session.commitTransaction();
-
-      const billEndTime = new Date();
-      await Sales.findByIdAndUpdate(order._id, { billEndTime }, { new: true });
-
-      return await Sales.findById(order._id).populate([
-        { path: 'customer' },
-        { path: 'items.product', select: 'name description' },
-        { path: 'createdBy', select: 'firstName lastName' }
-      ]);
-    } catch (error) {
-      if (!existingSession) await session.abortTransaction();
-      throw error;
-    } finally {
-      if (!existingSession) session.endSession();
+    if (orderStatus === 'confirmed' && paymentStatus === 'paid') {
+      await profitDistributionService.distributeProfitForOrder(orderPayload, user, {});
     }
+
+    if (customer && orderTotal > 0) {
+      const amountPaid = payment.amount || 0;
+      const isAccountPayment = payment.method === 'account' || amountPaid < orderTotal;
+
+      if (isAccountPayment) {
+        const productIds = orderItems.map(item => item.product);
+        const productMap = new Map();
+        for (const id of productIds) {
+          const p = await productRepository.findById(id);
+          if (p) productMap.set((id && id.toString ? id.toString() : id), p.name || p.displayName || 'Product');
+        }
+
+        const lineItems = orderItems.map(item => ({
+          product: item.product,
+          description: productMap.get((item.product && item.product.toString ? item.product.toString() : item.product)) || 'Product',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice || 0,
+          discountAmount: item.discountAmount || 0,
+          taxAmount: item.taxAmount || 0,
+          totalPrice: item.total || 0
+        }));
+
+        await customerTransactionService.createTransaction({
+          customerId: customer,
+          transactionType: 'invoice',
+          netAmount: orderTotal,
+          grossAmount: subtotal,
+          discountAmount: totalDiscount,
+          taxAmount: totalTax,
+          referenceType: 'sales_order',
+          referenceId: order.id,
+          referenceNumber: order.order_number,
+          lineItems,
+          notes: `Invoice for sale ${order.order_number}${salesOrderId ? ' (from SO)' : ''}`
+        }, user, {});
+      }
+
+      if (amountPaid > 0) {
+        await CustomerBalanceService.recordPayment(
+          customer,
+          amountPaid,
+          order.id,
+          user,
+          { paymentMethod: payment.method, paymentReference: order.order_number }
+        );
+      }
+    }
+
+    await AccountingService.recordSale(order, {});
+
+    const createdSale = await salesRepository.findById(order.id);
+    if (createdSale && createdSale.customer_id) {
+      const customerDetails = await customerRepository.findById(createdSale.customer_id);
+      createdSale.customer = customerDetails;
+    }
+
+    return createdSale;
   }
 
   /**
-        return await this.createSale(saleData, user, { skipInventoryUpdate: true });
+   * Create a sale (invoice) from a sales order (plain object from Postgres).
+   * @param {object} salesOrder - Sales order (id, customer_id, items, so_number, etc.)
+   * @param {object} user - User
+   * @returns {Promise<object>} Created sale
+   */
+  async createSaleFromSalesOrder(salesOrder, user) {
+    const customerId = salesOrder.customer_id || salesOrder.customer;
+    const items = Array.isArray(salesOrder.items) ? salesOrder.items : (typeof salesOrder.items === 'string' ? JSON.parse(salesOrder.items || '[]') : []);
+    const saleData = {
+      customer: customerId,
+      items: items.map(i => ({
+        product: i.product || i.product_id,
+        quantity: i.quantity || 0,
+        unitPrice: i.unitPrice ?? i.unit_price ?? 0,
+        discountPercent: i.discountPercent ?? i.discount_percent ?? 0
+      })),
+      orderType: 'retail',
+      payment: { method: 'account', amount: 0, isPartialPayment: false },
+      notes: `From Sales Order ${salesOrder.so_number || salesOrder.soNumber || salesOrder.id}`,
+      isTaxExempt: salesOrder.is_tax_exempt ?? salesOrder.isTaxExempt ?? false,
+      billDate: salesOrder.order_date || salesOrder.orderDate || new Date(),
+      salesOrderId: salesOrder.id || salesOrder._id,
+      orderNumber: `INV-${(salesOrder.so_number || salesOrder.soNumber || salesOrder.id || '').toString().replace(/^SO-/, '')}`
+    };
+    return await this.createSale(saleData, user, { skipInventoryUpdate: true });
   }
 
   /**
@@ -659,35 +533,39 @@ class SalesService {
    * @returns {Promise<object>}
    */
   async updateStatus(id, status, user) {
-    const order = await Sales.findById(id);
+    const order = await salesRepository.findById(id);
     if (!order) {
       throw new Error('Order not found');
     }
 
-    // Check if status change is allowed
-    if (status === 'cancelled' && !order.canBeCancelled()) {
-      throw new Error('Order cannot be cancelled in its current status');
-    }
+    // Update status in PostgreSQL
+    const updatedOrder = await salesRepository.update(id, {
+      status,
+      updatedBy: user.id || user._id?.toString()
+    });
 
-    const oldStatus = order.status;
-    order.status = status;
-    order.processedBy = user._id;
-
-    // Handle inventory if cancelling
-    if (status === 'cancelled') {
-      for (const item of order.items) {
-        await Product.findByIdAndUpdate(
-          item.product,
-          { $inc: { 'inventory.currentStock': item.quantity } }
-        );
+    if (status === 'cancelled' && order.items) {
+      const items = Array.isArray(order.items) ? order.items : [];
+      for (const item of items) {
+        if (item.product) {
+          await inventoryService.updateStock({
+            productId: item.product,
+            type: 'in',
+            quantity: item.quantity || 0,
+            reason: 'Sale cancelled',
+            reference: 'Sales',
+            referenceId: order.id,
+            performedBy: user.id || user._id?.toString(),
+            notes: 'Stock restored due to sale cancellation'
+          });
+        }
       }
 
       // Note: Reversing customer balance is now handled by the ledger/transactions.
       // If we need to reverse a specific transaction, we should call customerTransactionService.reverseTransaction.
     }
 
-    await order.save();
-    return order;
+    return updatedOrder;
   }
 
   /**
@@ -698,57 +576,66 @@ class SalesService {
    * @returns {Promise<object>}
    */
   async updateOrder(id, updateData, user) {
-    const order = await Sales.findById(id);
+    const order = await salesRepository.findById(id);
     if (!order) {
       throw new Error('Order not found');
     }
 
-    // Store old values for comparison
-    const oldItems = JSON.parse(JSON.stringify(order.items));
-    const oldCustomer = order.customer;
-    const oldTotal = order.pricing.total;
+    // Prepare update data for PostgreSQL
+    const pgUpdateData = {
+      updatedBy: user.id || user._id?.toString()
+    };
 
-    // Apply updates
     if (updateData.customer !== undefined) {
-      order.customer = updateData.customer || null;
-      if (order.customer) {
-        const customerDoc = await Customer.findById(order.customer);
-        if (customerDoc) {
-          order.customerInfo = {
-            name: customerDoc.displayName,
-            email: customerDoc.email,
-            phone: customerDoc.phone,
-            businessName: customerDoc.businessName,
-            address: formatCustomerAddress(customerDoc)
-          };
-        }
-      } else {
-        order.customerInfo = null;
+      pgUpdateData.customerId = updateData.customer || null;
+    }
+
+    if (updateData.notes !== undefined) {
+      pgUpdateData.notes = updateData.notes;
+    }
+
+    if (updateData.billDate !== undefined) {
+      pgUpdateData.saleDate = parseLocalDate(updateData.billDate);
+    }
+
+    // Update items if provided (would need to recalculate pricing)
+    if (updateData.items && updateData.items.length > 0) {
+      pgUpdateData.items = updateData.items;
+      // Note: Pricing recalculation would need to be done here
+      // For now, assuming items already have correct pricing
+    }
+
+    const updatedOrder = await salesRepository.update(id, pgUpdateData);
+
+    return updatedOrder;
+  }
+
+  /**
+   * Post to account_ledger any sales (invoices) that were never recorded.
+   * Use for backfilling previous sale/invoice entries that were created before ledger posting was fixed.
+   * @param {object} options - { dateFrom?, dateTo? } optional date range (sale_date)
+   * @returns {Promise<{ posted: number, skipped: number, errors: Array<{ saleId, message }> }>}
+   */
+  async postMissingSalesToLedger(options = {}) {
+    const alreadyPosted = await AccountingService.getSaleIdsAlreadyPosted();
+    const filters = {};
+    if (options.dateFrom) filters.dateFrom = options.dateFrom;
+    if (options.dateTo) filters.dateTo = options.dateTo;
+    const sales = await salesRepository.findAll(filters, { limit: 10000 });
+    let posted = 0;
+    const errors = [];
+    for (const sale of sales) {
+      const idStr = sale.id && sale.id.toString();
+      if (alreadyPosted.has(idStr)) continue;
+      try {
+        await AccountingService.recordSale(sale);
+        posted++;
+        alreadyPosted.add(idStr);
+      } catch (err) {
+        errors.push({ saleId: idStr, orderNumber: sale.order_number || sale.orderNumber, message: err.message || String(err) });
       }
     }
-
-    if (updateData.notes !== undefined) order.notes = updateData.notes;
-    if (updateData.billDate !== undefined) order.billDate = parseLocalDate(updateData.billDate);
-    if (updateData.orderType !== undefined) order.orderType = updateData.orderType;
-
-    // Update items if provided
-    if (updateData.items && updateData.items.length > 0) {
-      // Recalculate pricing and check stock (similar to createSale)
-      // For brevity in this replacement, I'll keep the core logic
-      // but ensure no manual balance updates are here.
-
-      // [Pricing logic would go here, same as route/createSale]
-      // I'll assume the route handles the complex item mapping for now 
-      // or I'll move it here if I have enough context.
-      // Actually, I'll just ensure the route doesn't do balance updates after calling this.
-    }
-
-    await order.save();
-
-    // Note: This service method should be expanded to handle full inventory sync
-    // if we want to move all logic out of the route.
-
-    return order;
+    return { posted, skipped: sales.length - posted - errors.length, errors };
   }
 }
 

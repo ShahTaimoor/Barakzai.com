@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const AccountCategory = require('../models/AccountCategory'); // Still needed for static methods
 const { auth, requirePermission } = require('../middleware/auth');
 const { validateAccountCategory } = require('../middleware/validation');
 const accountCategoryRepository = require('../repositories/AccountCategoryRepository');
@@ -58,7 +57,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Validate that id is a valid ObjectId format
+    // Validate that id is a valid UUID format
     // Handle special keywords that might be mistaken for IDs
     if (id === 'grouped' || id === 'all' || id === 'active') {
       return res.status(400).json({
@@ -67,8 +66,7 @@ router.get('/:id', auth, async (req, res) => {
       });
     }
     
-    // Check if id is a valid ObjectId format (24 hex characters)
-    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid category ID format'
@@ -148,8 +146,7 @@ router.put('/:id', auth, validateAccountCategory, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Validate that id is a valid ObjectId format
-    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid category ID format'
@@ -165,7 +162,7 @@ router.put('/:id', auth, validateAccountCategory, async (req, res) => {
       });
     }
     
-    if (category.isSystemCategory) {
+    if (category.is_system_category ?? category.isSystemCategory) {
       return res.status(400).json({
         success: false,
         message: 'Cannot modify system categories'
@@ -211,42 +208,44 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Validate that id is a valid ObjectId format
-    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+    // Validate that id is a valid UUID format
+    if (!id || typeof id !== 'string') {
       return res.status(400).json({
         success: false,
-        message: 'Invalid category ID format'
+        message: 'Invalid category ID'
       });
     }
-    
+
     const category = await accountCategoryRepository.findById(id);
-    
-    if (!category) {
+    const categoryData = category && (typeof category.toObject === 'function' ? category.toObject() : category);
+
+    if (!categoryData) {
       return res.status(404).json({
         success: false,
         message: 'Account category not found'
       });
     }
-    
-    if (category.isSystemCategory) {
+
+    const isSystemCategory = categoryData.is_system_category ?? categoryData.isSystemCategory;
+    if (isSystemCategory) {
       return res.status(400).json({
         success: false,
         message: 'Cannot delete system categories'
       });
     }
-    
-    // Check if any accounts are using this category
+
+    const categoryIdForCount = categoryData.id ?? categoryData._id;
     const accountsUsingCategory = await chartOfAccountsRepository.count({
-      accountCategory: category._id
+      accountCategory: categoryIdForCount
     });
-    
+
     if (accountsUsingCategory > 0) {
       return res.status(400).json({
         success: false,
         message: `Cannot delete category. ${accountsUsingCategory} account(s) are using this category.`
       });
     }
-    
+
     await accountCategoryRepository.hardDelete(id);
     
     res.json({

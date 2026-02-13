@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery, useGetLastPurchasePricesMutation } from '../store/services/productsApi';
 import { useGetVariantsQuery, useGetVariantsByBaseProductQuery } from '../store/services/productVariantsApi';
-import { useGetCustomersQuery, useLazySearchCustomersQuery } from '../store/services/customersApi';
+import { useGetCustomersQuery, useGetCustomerQuery, useLazySearchCustomersQuery } from '../store/services/customersApi';
 import { useCreateSaleMutation, useUpdateOrderMutation, useLazyGetLastPricesQuery } from '../store/services/salesApi';
 import { useGetBanksQuery } from '../store/services/banksApi';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
@@ -259,11 +259,12 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
       const unitPrice = parseInt(customRate) || Math.round(calculatedRate);
 
       // Check if sale price is less than cost price (always check, regardless of showCostPrice)
-      if (lastPurchasePrice !== null && unitPrice < lastPurchasePrice) {
-        const loss = lastPurchasePrice - unitPrice;
-        const lossPercent = ((loss / lastPurchasePrice) * 100).toFixed(1);
+      const costPrice = lastPurchasePrice !== null ? lastPurchasePrice : selectedProduct?.pricing?.cost;
+      if (costPrice !== undefined && costPrice !== null && unitPrice < costPrice) {
+        const loss = costPrice - unitPrice;
+        const lossPercent = ((loss / costPrice) * 100).toFixed(1);
         const shouldProceed = window.confirm(
-          `⚠️ WARNING: Sale price (${unitPrice}) is below cost price (${Math.round(lastPurchasePrice)}).\n\n` +
+          `⚠️ WARNING: Sale price (${unitPrice}) is below cost price (${Math.round(costPrice)}).\n\n` +
           `Loss per unit: ${Math.round(loss)} (${lossPercent}%)\n` +
           `Total loss for ${quantity} unit(s): ${Math.round(loss * quantity)}\n\n` +
           `Do you want to proceed?`
@@ -367,7 +368,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
           <div className={`text-sm ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-orange-600' : 'text-gray-600'}`}>
             Stock: {inventory.currentStock || 0}
           </div>
-          {showCostPrice && hasCostPricePermission && purchasePrice > 0 && (
+          {showCostPrice && hasCostPricePermission && (purchasePrice !== undefined && purchasePrice !== null) && (
             <div className="text-sm text-red-600 font-medium">Cost: {Math.round(purchasePrice)}</div>
           )}
           <div className="text-sm text-gray-600">Price: {Math.round(unitPrice)}</div>
@@ -484,7 +485,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
                 <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-2 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Cost Price">
                   {lastPurchasePrice !== null
                     ? `${Math.round(lastPurchasePrice)}`
-                    : selectedProduct?.pricing?.cost
+                    : (selectedProduct?.pricing?.cost !== undefined && selectedProduct?.pricing?.cost !== null)
                       ? `${Math.round(selectedProduct.pricing.cost)}`
                       : selectedProduct ? 'N/A' : '0'}
                 </span>
@@ -580,7 +581,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-10 flex items-center justify-center" title="Cost Price">
                 {lastPurchasePrice !== null
                   ? `${Math.round(lastPurchasePrice)}`
-                  : selectedProduct?.pricing?.cost
+                  : (selectedProduct?.pricing?.cost !== undefined && selectedProduct?.pricing?.cost !== null)
                     ? `${Math.round(selectedProduct.pricing.cost)}`
                     : selectedProduct ? 'N/A' : '0'}
               </span>
@@ -677,6 +678,7 @@ export const Sales = ({ tabId, editData }) => {
   const [isAdvancePayment, setIsAdvancePayment] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [autoGenerateInvoice, setAutoGenerateInvoice] = useState(true);
+  const [autoPrint, setAutoPrint] = useState(false); // Default to false as requested
   const [billDate, setBillDate] = useState(getLocalDateString()); // Default to current date for backdating invoices
   const [notes, setNotes] = useState('');
   const [isLoadingLastPrices, setIsLoadingLastPrices] = useState(false);
@@ -759,12 +761,13 @@ export const Sales = ({ tabId, editData }) => {
     const day = String(now.getDate()).padStart(2, '0');
     const time = String(now.getTime()).slice(-4); // Last 4 digits of timestamp
 
-    // Format: CUSTOMER-INITIALS-YYYYMMDD-XXXX
-    const customerInitials = customer.displayName
+    // Format: CUSTOMER-INITIALS-YYYYMMDD-XXXX (displayName may be missing from API; use businessName/name fallback)
+    const nameStr = customer.displayName ?? customer.businessName ?? customer.name ?? 'CUST';
+    const customerInitials = String(nameStr)
       .split(' ')
       .map(word => word.charAt(0).toUpperCase())
       .join('')
-      .substring(0, 3);
+      .substring(0, 3) || 'CUS';
 
     return `INV-${customerInitials}-${year}${month}${day}-${time}`;
   };
@@ -862,6 +865,14 @@ export const Sales = ({ tabId, editData }) => {
     return customersData?.data?.customers || customersData?.customers || customersData?.data || customersData || [];
   }, [customersData]);
 
+  const selectedCustomerId = selectedCustomer?.id ?? selectedCustomer?._id ?? null;
+  const { data: selectedCustomerDetail } = useGetCustomerQuery(selectedCustomerId, {
+    skip: !selectedCustomerId,
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true // Refetch when window regains focus
+  });
+  const customerWithBalance = selectedCustomerDetail?.data?.customer ?? selectedCustomerDetail?.customer ?? selectedCustomerDetail ?? selectedCustomer;
+
   const activeBanks = useMemo(
     () => {
       const banks = banksData?.data?.banks || banksData?.banks || [];
@@ -954,7 +965,8 @@ export const Sales = ({ tabId, editData }) => {
     // Update tab title to show customer name
     const activeTab = getActiveTab();
     if (activeTab && customer) {
-      updateTabTitle(activeTab.id, `Sales - ${customer.displayName}`);
+      const customerLabel = customer.displayName ?? customer.businessName ?? customer.name ?? 'Customer';
+      updateTabTitle(activeTab.id, `Sales - ${customerLabel}`);
     }
   };
 
@@ -1079,8 +1091,10 @@ export const Sales = ({ tabId, editData }) => {
     // Check if sale price is less than cost price (always check, regardless of showCostPrice)
     const cartItem = cart.find(item => item.product._id === productId);
     if (cartItem) {
-      const costPrice = lastPurchasePrices[productId];
-      if (costPrice !== undefined && newPrice < costPrice) {
+      const costPrice = lastPurchasePrices[productId] !== undefined
+        ? lastPurchasePrices[productId]
+        : cartItem.product.pricing?.cost;
+      if (costPrice !== undefined && costPrice !== null && newPrice < costPrice) {
         const loss = costPrice - newPrice;
         const lossPercent = ((loss / costPrice) * 100).toFixed(1);
         toast.error(
@@ -1644,10 +1658,12 @@ export const Sales = ({ tabId, editData }) => {
       setIsLastPricesApplied(false);
       setPriceStatus({});
 
-      // Show print modal if order was created
+      // Show print modal if order was created and autoPrint is enabled
       if (result?.order) {
-        setCurrentOrder(result.order);
-        setShowPrintModal(true);
+        if (autoPrint) {
+          setCurrentOrder(result.order);
+          setShowPrintModal(true);
+        }
       }
       resetSubmittingState();
     } catch (error) {
@@ -1706,10 +1722,12 @@ export const Sales = ({ tabId, editData }) => {
       setIsLastPricesApplied(false);
       setPriceStatus({});
 
-      // Show print modal if order was updated
+      // Show print modal if order was updated and autoPrint is enabled
       if (result?.order) {
-        setCurrentOrder(result.order);
-        setShowPrintModal(true);
+        if (autoPrint) {
+          setCurrentOrder(result.order);
+          setShowPrintModal(true);
+        }
       }
       resetSubmittingState();
     } catch (error) {
@@ -1757,32 +1775,30 @@ export const Sales = ({ tabId, editData }) => {
     }
 
     // Check credit limit before proceeding
-    if (selectedCustomer && selectedCustomer.creditLimit > 0) {
+    const custCreditLimit = Number(selectedCustomer?.creditLimit ?? selectedCustomer?.credit_limit ?? 0) || 0;
+    if (selectedCustomer && custCreditLimit > 0) {
       const currentPaymentMethod = paymentMethod || 'cash';
       const currentAmountPaid = amountPaid || 0;
       const unpaidAmount = total - currentAmountPaid;
 
       // For account payments or partial payments, check credit limit
       if (currentPaymentMethod === 'account' || unpaidAmount > 0) {
-        const currentBalance = selectedCustomer.currentBalance || 0;
-        const pendingBalance = selectedCustomer.pendingBalance || 0;
+        const currentBalance = Number(selectedCustomer.currentBalance ?? selectedCustomer.current_balance ?? 0) || 0;
         const totalOutstanding = currentBalance;
         const newBalanceAfterOrder = totalOutstanding + unpaidAmount;
-        const availableCredit = selectedCustomer.creditLimit - totalOutstanding;
+        const availableCredit = Math.max(0, custCreditLimit - totalOutstanding);
 
-        if (newBalanceAfterOrder > selectedCustomer.creditLimit) {
-          // Show simple and clear message when credit limit is exceeded
-          toast.error(`Your credit limit is full. Credit limit: ${selectedCustomer.creditLimit.toFixed(2)}. Please collect payment or reduce the order amount.`, {
+        if (newBalanceAfterOrder > custCreditLimit) {
+          toast.error(`Your credit limit is full. Credit limit: ${custCreditLimit.toFixed(2)}. Please collect payment or reduce the order amount.`, {
             duration: 8000,
             position: 'top-center',
             icon: '⚠️'
           });
           return;
-        } else if (availableCredit - unpaidAmount < (selectedCustomer.creditLimit * 0.1)) {
-          // Warning when credit limit is almost reached (within 10%)
-          const warningMessage = `Warning: ${selectedCustomer.displayName || selectedCustomer.name} is near credit limit. ` +
+        } else if (availableCredit - unpaidAmount < (custCreditLimit * 0.1)) {
+          const warningMessage = `Warning: ${selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name} is near credit limit. ` +
             `Available credit: ${availableCredit.toFixed(2)}, ` +
-            `After this order: ${(availableCredit - unpaidAmount).toFixed(2)} remaining.`;
+            `After this order: ${(Math.max(0, availableCredit - unpaidAmount)).toFixed(2)} remaining.`;
 
           toast.warning(warningMessage, {
             duration: 6000,
@@ -1979,17 +1995,17 @@ export const Sales = ({ tabId, editData }) => {
               selectedItem={selectedCustomer}
               rightContentKey="city"
               displayKey={(customer) => {
-                // Calculate total balance: currentBalance (which is net balance)
-                const totalBalance = customer.currentBalance !== undefined
-                  ? customer.currentBalance
-                  : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
-                const hasBalance = totalBalance !== 0;
+                const name = customer?.displayName ?? customer?.display_name ?? customer?.businessName ?? customer?.business_name ?? customer?.name ?? 'Customer';
+                const totalBalance = customer?.currentBalance !== undefined && customer?.currentBalance !== null
+                  ? Number(customer.currentBalance)
+                  : (Number(customer?.pendingBalance ?? 0) - Number(customer?.advanceBalance ?? 0));
+                const hasBalance = totalBalance !== 0 && !Number.isNaN(totalBalance);
                 const isPayable = totalBalance < 0;
                 const isReceivable = totalBalance > 0;
 
                 return (
                   <div>
-                    <div className="font-medium">{customer.displayName}</div>
+                    <div className="font-medium">{name}</div>
                     {hasBalance ? (
                       <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
                         Total Balance: {isPayable ? '-' : '+'}{Math.abs(totalBalance).toFixed(2)}
@@ -2005,70 +2021,76 @@ export const Sales = ({ tabId, editData }) => {
 
           {/* Customer Information - Right Side */}
           <div className={`${isMobile ? 'w-full' : 'flex-1'}`}>
-            {selectedCustomer ? (
+            {selectedCustomer ? (() => {
+              // Prioritize balance from selectedCustomer (from list with bulk balances - already correct)
+              // Then fallback to customerWithBalance (from detail query) if needed
+              const balanceSource = selectedCustomer ?? customerWithBalance;
+              const creditLimitNum = Math.max(0, Number(selectedCustomer?.creditLimit ?? selectedCustomer?.credit_limit ?? balanceSource?.creditLimit ?? balanceSource?.credit_limit ?? 0) || 0);
+              // Use currentBalance from selectedCustomer first (already correct from bulk query)
+              const rawBalance = selectedCustomer?.currentBalance !== undefined && selectedCustomer?.currentBalance !== null
+                ? Number(selectedCustomer.currentBalance)
+                : (balanceSource?.currentBalance !== undefined && balanceSource?.currentBalance !== null
+                  ? Number(balanceSource.currentBalance)
+                  : (Number(balanceSource?.pendingBalance ?? 0) - Number(balanceSource?.advanceBalance ?? 0)));
+              const currentBalanceNum = (isNaN(rawBalance) || rawBalance === null || rawBalance === undefined) ? 0 : rawBalance;
+              const availableCreditNum = Math.max(0, creditLimitNum - currentBalanceNum);
+              return (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                 <div className="flex items-center space-x-3">
                   <User className="h-5 w-5 text-gray-400" />
                   <div className="flex-1">
-                    <p className="font-medium">{selectedCustomer.displayName}</p>
+                    <p className="font-medium">{selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name}</p>
                     <p className="text-sm text-gray-600 capitalize">
-                      {selectedCustomer.businessType} • {selectedCustomer.phone || 'No phone'}
+                      {selectedCustomer.businessType ?? '—'} • {selectedCustomer.phone || 'No phone'}
                     </p>
-                    <div className="flex items-center space-x-4 mt-2">
+                    <div className="flex items-center space-x-4 mt-2 flex-wrap gap-y-1">
                       {(() => {
-                        // Calculate total balance: currentBalance (which is the net total balance)
-                        const totalBalance = selectedCustomer.currentBalance !== undefined
-                          ? selectedCustomer.currentBalance
-                          : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
-                        const hasBalance = totalBalance !== 0;
-                        const isPayable = totalBalance < 0;
-                        const isReceivable = totalBalance > 0;
-
-                        return hasBalance ? (
+                        const isPayable = currentBalanceNum < 0;
+                        const isReceivable = currentBalanceNum > 0;
+                        return (
                           <div className="flex items-center space-x-1">
-                            <span className="text-xs text-gray-500">Total Balance:</span>
-                            <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
-                              }`}>
-                              {isPayable ? '-' : '+'}{Math.abs(totalBalance).toFixed(2)}
+                            <span className="text-xs text-gray-500">Balance:</span>
+                            <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'}`}>
+                              {isPayable ? '-' : ''}{Math.abs(currentBalanceNum).toFixed(2)}
                             </span>
                           </div>
-                        ) : null;
+                        );
                       })()}
                       <div className="flex items-center space-x-1">
                         <span className="text-xs text-gray-500">Credit Limit:</span>
-                        <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                          (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9
+                        <span className={`text-sm font-medium ${(creditLimitNum > 0) ? (
+                          currentBalanceNum >= creditLimitNum * 0.9
                             ? 'text-red-600'
-                            : (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.7
+                            : currentBalanceNum >= creditLimitNum * 0.7
                               ? 'text-yellow-600'
                               : 'text-blue-600'
                         ) : 'text-gray-600'
                           }`}>
-                          {(selectedCustomer.creditLimit || 0).toFixed(2)}
+                          {creditLimitNum.toFixed(2)}
                         </span>
-                        {selectedCustomer.creditLimit > 0 &&
-                          (selectedCustomer.currentBalance || 0) >= selectedCustomer.creditLimit * 0.9 && (
+                        {creditLimitNum > 0 && currentBalanceNum >= creditLimitNum * 0.9 && (
                             <span className="text-xs text-red-600 font-bold ml-1">⚠️</span>
                           )}
                       </div>
                       <div className="flex items-center space-x-1">
                         <span className="text-xs text-gray-500">Available Credit:</span>
-                        <span className={`text-sm font-medium ${selectedCustomer.creditLimit > 0 ? (
-                          (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.1
+                        <span className={`text-sm font-medium ${creditLimitNum > 0 ? (
+                          availableCreditNum <= creditLimitNum * 0.1
                             ? 'text-red-600'
-                            : (selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)) <= selectedCustomer.creditLimit * 0.3
+                            : availableCreditNum <= creditLimitNum * 0.3
                               ? 'text-yellow-600'
                               : 'text-green-600'
                         ) : 'text-gray-600'
                           }`}>
-                          {(selectedCustomer.creditLimit - (selectedCustomer.currentBalance || 0)).toFixed(2)}
+                          {availableCreditNum.toFixed(2)}
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            ) : (
+              );
+            })() : (
               <div className="hidden lg:block">
                 {/* Empty space to maintain layout consistency */}
               </div>
@@ -2431,42 +2453,51 @@ export const Sales = ({ tabId, editData }) => {
                           {/* Purchase Price (Cost) - 1 column (conditional) - Between Quantity and Rate */}
                           {showCostPrice && hasPermission('view_cost_prices') && (
                             <div className="col-span-1">
-                              <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-8 flex items-center justify-center" title="Last Purchase Price">
+                              <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-8 flex items-center justify-center" title="Cost Price">
                                 {lastPurchasePrices[item.product._id] !== undefined
                                   ? `${Math.round(lastPurchasePrices[item.product._id])}`
-                                  : 'N/A'}
+                                  : item.product.pricing?.cost !== undefined
+                                    ? `${Math.round(item.product.pricing.cost)}`
+                                    : 'N/A'}
                               </span>
                             </div>
                           )}
 
                           {/* Rate - 1 column */}
                           <div className="col-span-1 relative">
-                            <input
-                              type="number"
-                              step="1"
-                              value={Math.round(item.unitPrice)}
-                              onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
-                              className={`input text-center h-8 ${
-                                // Check if sale price is less than cost price - highest priority styling (always check)
-                                (lastPurchasePrices[item.product._id] !== undefined &&
-                                  item.unitPrice < lastPurchasePrices[item.product._id])
-                                  ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
-                                  : priceStatus[item.product._id] === 'updated'
-                                    ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
-                                    : priceStatus[item.product._id] === 'not-found'
-                                      ? 'bg-yellow-50 border-yellow-300 ring-1 ring-yellow-200'
-                                      : priceStatus[item.product._id] === 'unchanged'
-                                        ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
-                                        : ''
-                                }`}
-                              min="0"
-                              title={
-                                (lastPurchasePrices[item.product._id] !== undefined &&
-                                  item.unitPrice < lastPurchasePrices[item.product._id])
-                                  ? `⚠️ WARNING: Sale price ($${Math.round(item.unitPrice)}) is below cost price ($${Math.round(lastPurchasePrices[item.product._id])})`
-                                  : ''
-                              }
-                            />
+                            {(() => {
+                              const effectiveCost = lastPurchasePrices[item.product._id] !== undefined
+                                ? lastPurchasePrices[item.product._id]
+                                : item.product.pricing?.cost;
+                              const isBelowCost = effectiveCost !== undefined && effectiveCost !== null && item.unitPrice < effectiveCost;
+                              
+                              return (
+                                <input
+                                  type="number"
+                                  step="1"
+                                  value={Math.round(item.unitPrice)}
+                                  onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
+                                  className={`input text-center h-8 ${
+                                    // Check if sale price is less than cost price - highest priority styling (always check)
+                                    isBelowCost
+                                      ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
+                                      : priceStatus[item.product._id] === 'updated'
+                                        ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
+                                        : priceStatus[item.product._id] === 'not-found'
+                                          ? 'bg-yellow-50 border-yellow-300 ring-1 ring-yellow-200'
+                                          : priceStatus[item.product._id] === 'unchanged'
+                                            ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
+                                            : ''
+                                    }`}
+                                  min="0"
+                                  title={
+                                    isBelowCost
+                                      ? `⚠️ WARNING: Sale price ($${Math.round(item.unitPrice)}) is below cost price ($${Math.round(effectiveCost)})`
+                                      : ''
+                                  }
+                                />
+                              );
+                            })()}
                             {isLastPricesApplied && priceStatus[item.product._id] && (
                               <div
                                 className="absolute -right-7 top-1/2 transform -translate-y-1/2 flex items-center z-10"
@@ -3054,6 +3085,18 @@ export const Sales = ({ tabId, editData }) => {
                     Print Preview
                   </button>
                 )}
+                <div className="flex items-center space-x-2 px-2">
+                  <input
+                    type="checkbox"
+                    id="autoPrint"
+                    checked={autoPrint}
+                    onChange={(e) => setAutoPrint(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="autoPrint" className="text-sm font-medium text-gray-700 cursor-pointer">
+                    Print after sale
+                  </label>
+                </div>
                 <LoadingButton
                   onClick={handleCheckout}
                   isLoading={isSubmitting || isCreatingSale || isUpdatingOrder}

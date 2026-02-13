@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { auth, requirePermission } = require('../middleware/auth');
 const { sanitizeRequest, handleValidationErrors } = require('../middleware/validation');
-const productService = require('../services/productService');
+const productService = require('../services/productServicePostgres');
 const auditLogService = require('../services/auditLogService');
 const expiryManagementService = require('../services/expiryManagementService');
 const costingService = require('../services/costingService');
@@ -56,7 +56,7 @@ router.get('/', [
   query('limit').optional({ checkFalsy: true }).isInt({ min: 1, max: 999999 }),
   query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional({ checkFalsy: true }).trim(),
-  query('category').optional({ checkFalsy: true }).isMongoId(),
+  query('category').optional({ checkFalsy: true }).isUUID().withMessage('Category must be a valid UUID'),
   query('categories').optional({ checkFalsy: true }).custom((value) => {
     if (typeof value === 'string') {
       try {
@@ -195,7 +195,7 @@ router.post('/', [
     }
     
     // Call service to create product (pass req for audit logging)
-    const result = await productService.createProduct(req.body, req.user._id, req);
+    const result = await productService.createProduct(req.body, req.user?.id || req.user?._id, req);
     
     res.status(201).json(result);
   } catch (error) {
@@ -243,7 +243,7 @@ router.put('/:id', [
     }
     
     // Call service to update product (pass req for audit logging and optimistic locking)
-    const result = await productService.updateProduct(req.params.id, req.body, req.user._id, req);
+    const result = await productService.updateProduct(req.params.id, req.body, req.user?.id || req.user?._id, req);
     
     res.json(result);
   } catch (error) {
@@ -285,15 +285,12 @@ router.post('/:id/restore', [
   requirePermission('delete_products')
 ], async (req, res) => {
   try {
-    const productRepository = require('../repositories/ProductRepository');
-    const product = await productRepository.findDeletedById(req.params.id);
-    if (!product) {
+    const result = await productService.restoreProduct(req.params.id);
+    res.json(result);
+  } catch (error) {
+    if (error.message === 'Deleted product not found') {
       return res.status(404).json({ message: 'Deleted product not found' });
     }
-    
-    await productRepository.restore(req.params.id);
-    res.json({ message: 'Product restored successfully' });
-  } catch (error) {
     console.error('Restore product error:', error);
     res.status(500).json({ message: 'Server error' });
   }
@@ -307,11 +304,7 @@ router.get('/deleted', [
   requirePermission('view_products')
 ], async (req, res) => {
   try {
-    const productRepository = require('../repositories/ProductRepository');
-    const deletedProducts = await productRepository.findDeleted({}, {
-      sort: { deletedAt: -1 },
-      populate: [{ path: 'category', select: 'name' }]
-    });
+    const deletedProducts = await productService.getDeletedProducts();
     res.json(deletedProducts);
   } catch (error) {
     console.error('Get deleted products error:', error);
@@ -843,7 +836,7 @@ router.post('/import/csv', [
               status: mapped.status?.toString().toLowerCase() === 'inactive' ? 'inactive' : 'active'
             };
             
-            await productService.createProduct(productData, req.user._id);
+            await productService.createProduct(productData, req.user?.id || req.user?._id);
             results.success++;
             
           } catch (error) {
@@ -1005,7 +998,7 @@ router.post('/import/excel', [
           status: productData.status?.toString().toLowerCase() === 'inactive' ? 'inactive' : 'active'
         };
         
-        await productService.createProduct(productPayload, req.user._id);
+        await productService.createProduct(productPayload, req.user?.id || req.user?._id);
         results.success++;
         
       } catch (error) {
@@ -1101,7 +1094,7 @@ router.post('/:id/investors', [
   auth,
   requirePermission('edit_products'),
   body('investors').isArray().withMessage('Investors must be an array'),
-  body('investors.*.investor').isMongoId().withMessage('Invalid investor ID'),
+  body('investors.*.investor').isUUID(4).withMessage('Invalid investor ID'),
   body('investors.*.sharePercentage').optional().isFloat({ min: 0, max: 100 })
 ], async (req, res) => {
   try {
@@ -1255,7 +1248,7 @@ router.post('/:id/write-off-expired', [
 ], async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await expiryManagementService.writeOffExpired(id, req.user._id, req);
+    const result = await expiryManagementService.writeOffExpired(id, req.user?.id ?? req.user?._id, req);
     
     res.json({
       success: true,

@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../contexts/AuthContext';
-import { Package, MessageCircle, Mail, Globe, Lock, User, ArrowRight, MapPin } from 'lucide-react';
+import { Package, MessageCircle, Mail, Globe, Lock, User, ArrowRight, MapPin, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { LoadingButton } from '../components/LoadingSpinner';
 
 export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const { register, handleSubmit, formState: { errors } } = useForm();
 
@@ -172,6 +173,28 @@ export const Login = () => {
                 </LoadingButton>
               </div>
             </form>
+
+            {/* First time setup - default credentials */}
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setShowSetup(!showSetup)}
+                className="flex items-center gap-2 w-full text-left text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <HelpCircle className="w-4 h-4 shrink-0" />
+                <span>First time setup?</span>
+                {showSetup ? <ChevronUp className="w-4 h-4 ml-auto" /> : <ChevronDown className="w-4 h-4 ml-auto" />}
+              </button>
+              {showSetup && (
+                <div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-gray-700 space-y-2">
+                  <p className="font-medium text-amber-800">Default admin credentials (after seeding):</p>
+                  <p><span className="font-mono text-amber-900">admin@example.com</span> / <span className="font-mono text-amber-900">Admin123!</span></p>
+                  <p className="text-xs text-amber-700 pt-1">
+                    Run <code className="bg-amber-100 px-1 rounded">npm run seed:admin</code> in backend, then <code className="bg-amber-100 px-1 rounded">npm run seed:data</code> for sample data.
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Support Section */}
             <div className="mt-8 pt-6 border-t border-gray-200">

@@ -143,14 +143,31 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
 
   useEffect(() => {
     if (customer) {
+      // Parse address if it's a string (Postgres JSONB)
+      let parsedAddress = customer.address;
+      if (typeof parsedAddress === 'string') {
+        try {
+          parsedAddress = JSON.parse(parsedAddress);
+        } catch (e) {
+          parsedAddress = null;
+        }
+      }
+
+      // Convert to array format for the form
+      const formAddresses = Array.isArray(parsedAddress) 
+        ? parsedAddress 
+        : (parsedAddress ? [parsedAddress] : (customer.addresses || defaultCustomerValues.addresses));
+
       reset({
         ...defaultCustomerValues,
         ...customer,
+        businessName: customer.businessName || customer.business_name || '',
         openingBalance: typeof customer.openingBalance === 'number'
           ? customer.openingBalance
-          : (customer.pendingBalance || 0),
-        ledgerAccount: customer.ledgerAccount?._id || customer.ledgerAccount || '',
-        addresses: customer.addresses?.length ? customer.addresses : defaultCustomerValues.addresses
+          : (customer.opening_balance || customer.pendingBalance || 0),
+        ledgerAccount: customer.ledgerAccount?._id || customer.ledgerAccount || customer.ledger_account_id || '',
+        addresses: formAddresses,
+        isActive: customer.isActive !== undefined ? customer.isActive : (customer.is_active !== undefined ? customer.is_active : true)
       });
       setEmailExists(false);
       setBusinessNameExists(false);

@@ -48,7 +48,10 @@ export const CustomerList = ({
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Tier</h3>
             </div>
             <div className="col-span-1">
-              <h3 className="text-sm lg:text-base font-medium text-gray-700">Credit</h3>
+              <h3 className="text-sm lg:text-base font-medium text-gray-700">Opening</h3>
+            </div>
+            <div className="col-span-1">
+              <h3 className="text-sm lg:text-base font-medium text-gray-700">Balance</h3>
             </div>
             <div className="col-span-1">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Actions</h3>
@@ -58,7 +61,7 @@ export const CustomerList = ({
 
         <div className="divide-y divide-gray-200">
           {customers.map((customer) => (
-            <div key={customer._id} className="px-4 py-4 lg:px-8 lg:py-6 hover:bg-gray-50">
+            <div key={customer.id || customer._id} className="px-4 py-4 lg:px-8 lg:py-6 hover:bg-gray-50">
               {/* Mobile Card Layout */}
               <div className="md:hidden space-y-4">
                 <div className="flex items-start justify-between">
@@ -70,7 +73,7 @@ export const CustomerList = ({
                     )}
                     <div className="min-w-0 flex-1">
                       <h3 className="text-sm font-medium text-gray-900 truncate">
-                        {customer.businessName || customer.displayName}
+                        {customer.businessName || customer.business_name || customer.displayName}
                       </h3>
                       <p className="text-xs text-gray-500 truncate">
                         {customer.name}
@@ -103,7 +106,7 @@ export const CustomerList = ({
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <p className="text-gray-500 mb-1">ID</p>
-                    <p className="text-gray-700 font-mono">{customer._id.slice(-6)}</p>
+                    <p className="text-gray-700 font-mono">{(customer.id || customer._id).slice(-6)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500 mb-1">Email</p>
@@ -139,8 +142,14 @@ export const CustomerList = ({
                     </span>
                   </div>
                   <div>
-                    <p className="text-gray-500 mb-1">Credit</p>
-                    <p className="text-gray-700">{Math.round(customer.creditLimit)}</p>
+                    <p className="text-gray-500 mb-1">Opening</p>
+                    <p className="text-gray-700">{Math.round(customer.openingBalance || customer.opening_balance || 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-1">Balance</p>
+                    <p className={`font-semibold ${customer.currentBalance > 0 ? 'text-red-600' : customer.currentBalance < 0 ? 'text-green-600' : 'text-gray-700'}`}>
+                      {Math.round(customer.currentBalance || 0)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -150,9 +159,9 @@ export const CustomerList = ({
                 <div className="col-span-1">
                   <p 
                     className="text-xs text-gray-500 font-mono cursor-help" 
-                    title={customer._id}
+                    title={customer.id || customer._id}
                   >
-                    {customer._id.slice(-6)}
+                    {(customer.id || customer._id).slice(-6)}
                   </p>
                 </div>
 
@@ -165,7 +174,7 @@ export const CustomerList = ({
                     )}
                     <div className="min-w-0">
                       <h3 className="text-sm lg:text-base font-medium text-gray-900 truncate">
-                        {customer.businessName || customer.displayName}
+                        {customer.businessName || customer.business_name || customer.displayName}
                       </h3>
                       <p className="text-xs lg:text-sm text-gray-500 truncate">
                         {customer.name}
@@ -208,7 +217,13 @@ export const CustomerList = ({
                 </div>
 
                 <div className="col-span-1">
-                  <p className="text-xs lg:text-sm text-gray-600">{Math.round(customer.creditLimit)}</p>
+                  <p className="text-xs lg:text-sm text-gray-600">{Math.round(customer.openingBalance || customer.opening_balance || 0)}</p>
+                </div>
+
+                <div className="col-span-1">
+                  <p className={`text-xs lg:text-sm font-semibold ${customer.currentBalance > 0 ? 'text-red-600' : customer.currentBalance < 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                    {Math.round(customer.currentBalance || 0)}
+                  </p>
                 </div>
 
                 <div className="col-span-1">
