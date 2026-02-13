@@ -13,7 +13,7 @@ const poolConfig = {
   port: process.env.POSTGRES_PORT,
   database: process.env.POSTGRES_DB,
   user: process.env.POSTGRES_USER,
-  password: String(process.env.POSTGRES_PASSWORD || ''),
+  password: process.env.POSTGRES_PASSWORD,
   
   // 1. Connection Limits
   // A safe limit for most PostgreSQL installations. 
