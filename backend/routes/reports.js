@@ -14,26 +14,11 @@ router.get('/sales', [
   auth,
   requirePermission('view_reports'),
   ...validateDateParams,
-  query('groupBy').optional().isIn(['day', 'week', 'month', 'year']),
-  query('orderType').optional().isIn(['retail', 'wholesale', 'return', 'exchange']),
+  query('groupBy').optional().isIn(['daily', 'monthly', 'product', 'category', 'city', 'invoice']),
   handleValidationErrors,
-  processDateFilter(['billDate', 'createdAt']),
 ], async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    
-    // Merge date filter from middleware if present (for Pakistan timezone)
-    const queryParams = { ...req.query };
-    if (req.dateRange) {
-      queryParams.dateFrom = req.dateRange.startDate || undefined;
-      queryParams.dateTo = req.dateRange.endDate || undefined;
-    }
-    
-    const report = await reportsService.getSalesReport(queryParams);
-    
+    const report = await reportsService.getSalesReport(req.query);
     res.json(report);
   } catch (error) {
     console.error('Sales report error:', error);
@@ -115,19 +100,75 @@ router.get('/inventory', [
   auth,
   requirePermission('view_reports'),
   query('lowStock').optional().isBoolean(),
-  query('category').optional().isMongoId()
+  query('category').optional().isUUID(4),
+  handleValidationErrors,
 ], async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    
     const report = await reportsService.getInventoryReport(req.query);
-    
     res.json(report);
   } catch (error) {
     console.error('Inventory report error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/reports/summary-cards
+// @desc    Get summary cards for dashboard
+// @access  Private
+router.get('/summary-cards', [
+  auth,
+  requirePermission('view_reports'),
+  ...validateDateParams,
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const filters = {
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo,
+      city: req.query.city
+    };
+    const summary = await reportsService.getSummaryCards(filters);
+    res.json(summary);
+  } catch (error) {
+    console.error('Summary cards error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/reports/party-balance
+// @desc    Get party balance report
+// @access  Private
+router.get('/party-balance', [
+  auth,
+  requirePermission('view_reports'),
+  query('partyType').optional().isIn(['customer', 'supplier']),
+  query('city').optional().isString(),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const report = await reportsService.getPartyBalanceReport(req.query);
+    res.json(report);
+  } catch (error) {
+    console.error('Party balance report error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/reports/financial
+// @desc    Get financial report (Trial Balance, P&L, Balance Sheet)
+// @access  Private
+router.get('/financial', [
+  auth,
+  requirePermission('view_reports'),
+  ...validateDateParams,
+  query('type').optional().isIn(['trial-balance', 'pl-statement', 'balance-sheet']),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const report = await reportsService.getFinancialReport(req.query);
+    res.json(report);
+  } catch (error) {
+    console.error('Financial report error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

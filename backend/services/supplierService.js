@@ -1,5 +1,6 @@
 const supplierRepository = require('../repositories/SupplierRepository');
-const ledgerAccountService = require('../services/ledgerAccountService');
+// ledgerAccountService removed - using PostgreSQL Chart of Accounts directly
+const SupplierBalanceService = require('./supplierBalanceService');
 
 class SupplierService {
   /**
@@ -12,7 +13,9 @@ class SupplierService {
     if (supplier.toObject) supplier = supplier.toObject();
     if (supplier.companyName) supplier.companyName = supplier.companyName.toUpperCase();
     if (supplier.contactPerson && supplier.contactPerson.name) {
-      supplier.contactPerson.name = supplier.contactPerson.name.toUpperCase();
+      if (typeof supplier.contactPerson.name === 'string') {
+        supplier.contactPerson.name = supplier.contactPerson.name.toUpperCase();
+      }
     }
     return supplier;
   }
@@ -29,21 +32,12 @@ class SupplierService {
   }
 
   /**
-   * Apply opening balance to supplier
-   * @param {Supplier} supplier - Supplier object
-   * @param {number} openingBalance - Opening balance
+   * Apply opening balance to supplier (Note: Balances are now mostly ledger-derived)
    */
   applyOpeningBalance(supplier, openingBalance) {
     if (openingBalance === null || openingBalance === undefined) return;
     supplier.openingBalance = openingBalance;
-    if (openingBalance >= 0) {
-      supplier.pendingBalance = openingBalance;
-      supplier.advanceBalance = 0;
-    } else {
-      supplier.pendingBalance = 0;
-      supplier.advanceBalance = Math.abs(openingBalance);
-    }
-    supplier.currentBalance = supplier.pendingBalance - (supplier.advanceBalance || 0);
+    // Note: pendingBalance, advanceBalance, and currentBalance are deprecated in favour of ledger aggregation
   }
 
   /**
@@ -129,7 +123,7 @@ class SupplierService {
    */
   async getSuppliers(queryParams) {
     const getAllSuppliers = queryParams.all === 'true' || queryParams.all === true ||
-                           (queryParams.limit && parseInt(queryParams.limit) >= 999999);
+      (queryParams.limit && parseInt(queryParams.limit) >= 999999);
 
     const page = getAllSuppliers ? 1 : (parseInt(queryParams.page) || 1);
     const limit = getAllSuppliers ? 999999 : (parseInt(queryParams.limit) || 20);
@@ -140,14 +134,25 @@ class SupplierService {
       page,
       limit,
       getAll: getAllSuppliers,
-      sort: { createdAt: -1 },
-      populate: [
-        { path: 'ledgerAccount', select: 'accountCode accountName' }
-      ]
+      sort: { createdAt: -1 }
     });
 
-    // Transform supplier names to uppercase
-    result.suppliers = result.suppliers.map(s => this.transformSupplierToUppercase(s));
+    const supplierIds = result.suppliers.map(s => s.id);
+    const balanceMap = await AccountingService.getBulkSupplierBalances(supplierIds);
+
+    // Transform supplier names to uppercase and attach balances
+    result.suppliers = result.suppliers.map(s => {
+      const transformed = this.transformSupplierToUppercase(s);
+      const balance = balanceMap.get(s.id) || 0;
+      const netBalance = (s.opening_balance || 0) + balance;
+
+      return {
+        ...transformed,
+        currentBalance: netBalance,
+        pendingBalance: netBalance > 0 ? netBalance : 0,
+        advanceBalance: netBalance < 0 ? Math.abs(netBalance) : 0
+      };
+    });
 
     return result;
   }
@@ -158,15 +163,22 @@ class SupplierService {
    * @returns {Promise<Supplier>}
    */
   async getSupplierById(id) {
-    const supplier = await supplierRepository.findById(id, [
-      { path: 'ledgerAccount', select: 'accountCode accountName' }
-    ]);
+    const supplier = await supplierRepository.findById(id);
 
     if (!supplier) {
       throw new Error('Supplier not found');
     }
 
-    return this.transformSupplierToUppercase(supplier);
+    const transformed = this.transformSupplierToUppercase(supplier);
+    const summary = await SupplierBalanceService.getBalanceSummary(id);
+    const balance = summary.currentBalance || 0;
+
+    return {
+      ...transformed,
+      currentBalance: balance,
+      pendingBalance: balance > 0 ? balance : 0,
+      advanceBalance: balance < 0 ? Math.abs(balance) : 0
+    };
   }
 
   /**
@@ -177,13 +189,26 @@ class SupplierService {
    */
   async searchSuppliers(searchTerm, limit = 10) {
     const suppliers = await supplierRepository.search(searchTerm, {
-      select: 'companyName contactPerson email phone businessType paymentTerms currentBalance pendingBalance creditLimit',
       limit,
       sort: { companyName: 1 },
       lean: true
     });
 
-    return suppliers.map(supplier => this.transformSupplierToUppercase(supplier));
+    const supplierIds = suppliers.map(s => s.id);
+    const balanceMap = await AccountingService.getBulkSupplierBalances(supplierIds);
+
+    return suppliers.map(supplier => {
+      const transformed = this.transformSupplierToUppercase(supplier);
+      const balance = balanceMap.get(supplier.id) || 0;
+      const netBalance = (supplier.opening_balance || 0) + balance;
+
+      return {
+        ...transformed,
+        currentBalance: netBalance,
+        pendingBalance: netBalance > 0 ? netBalance : 0,
+        advanceBalance: netBalance < 0 ? Math.abs(netBalance) : 0
+      };
+    });
   }
 
   /**
@@ -252,11 +277,25 @@ class SupplierService {
    * @returns {Promise<Array>}
    */
   async getAllSuppliers(filter = {}, options = {}) {
-    const { select = 'companyName contactPerson email phone businessType paymentTerms rating pendingBalance advanceBalance', sort = { companyName: 1 } } = options;
-    
-    return await supplierRepository.findAll(filter, { select, sort });
+    const { select = 'companyName contactPerson email phone businessType paymentTerms rating pendingBalance advanceBalance openingBalance', sort = { companyName: 1 } } = options;
+
+    const suppliers = await supplierRepository.findAll(filter, { select, sort });
+    const supplierIds = suppliers.map(s => s._id.toString());
+    const balanceMap = await AccountingService.getBulkSupplierBalances(supplierIds);
+
+    return suppliers.map(s => {
+      const transformed = this.transformSupplierToUppercase(s);
+      const ledgerBalance = balanceMap.get(s._id.toString()) || 0;
+      const netBalance = (s.openingBalance || 0) + ledgerBalance;
+
+      return {
+        ...transformed,
+        currentBalance: netBalance,
+        pendingBalance: netBalance > 0 ? netBalance : 0,
+        advanceBalance: netBalance < 0 ? Math.abs(netBalance) : 0
+      };
+    });
   }
 }
 
 module.exports = new SupplierService();
-

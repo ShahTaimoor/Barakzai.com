@@ -389,7 +389,7 @@ const SalesPerformanceDetailModal = ({ isOpen, onClose, report, onDelete, onExpo
                               </div>
                               <div>
                                 <h4 className="text-sm font-medium text-gray-900">{product.product.name}</h4>
-                                <p className="text-sm text-gray-500">Category: {product.product.category || 'N/A'}</p>
+                                <p className="text-sm text-gray-500">Category: {typeof product.product?.category === 'object' ? (product.product?.category?.name ?? 'N/A') : (product.product?.category || 'N/A')}</p>
                               </div>
                             </div>
                             <div className="text-right">

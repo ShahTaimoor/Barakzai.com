@@ -1170,7 +1170,11 @@ export const Purchase = ({ tabId, editData }) => {
         email: selectedSupplier.email,
         phone: selectedSupplier.phone,
         companyName: selectedSupplier.companyName,
-        address: selectedSupplier.address
+        address: typeof selectedSupplier.address === 'string' 
+          ? selectedSupplier.address 
+          : selectedSupplier.address 
+            ? [selectedSupplier.address.street, selectedSupplier.address.city, selectedSupplier.address.province || selectedSupplier.address.state, selectedSupplier.address.country].filter(Boolean).join(', ')
+            : null
       },
       items: purchaseItems.map(item => ({
         product: item.product?._id,
@@ -1305,7 +1309,7 @@ export const Purchase = ({ tabId, editData }) => {
                 <div className="flex items-start sm:items-center space-x-3">
                   <Building className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0 mt-1 sm:mt-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm sm:text-base truncate">{selectedSupplier.displayName || selectedSupplier.name || selectedSupplier.companyName || 'Unknown Supplier'}</p>
+                    <p className="font-medium text-sm sm:text-base truncate">{selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name || selectedSupplier.companyName || 'Unknown Supplier'}</p>
                     <p className="text-xs sm:text-sm text-gray-600 capitalize mt-1">
                       {selectedSupplier.businessType && selectedSupplier.reliability
                         ? `${selectedSupplier.businessType} • ${selectedSupplier.reliability}`
@@ -1335,7 +1339,13 @@ export const Purchase = ({ tabId, editData }) => {
                     {selectedSupplier.address && (
                       <div className="flex items-start space-x-1 mt-1">
                         <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 mt-0.5" />
-                        <span className="text-xs text-gray-500 break-words">{selectedSupplier.address}</span>
+                        <span className="text-xs text-gray-500 break-words">
+                          {(() => {
+                            const addr = selectedSupplier.address;
+                            if (typeof addr === 'string') return addr;
+                            return [addr.street, addr.city, addr.province || addr.state, addr.country].filter(Boolean).join(', ');
+                          })()}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1653,8 +1663,13 @@ export const Purchase = ({ tabId, editData }) => {
                         name: selectedSupplier.displayName,
                         email: selectedSupplier.email,
                         phone: selectedSupplier.phone,
-                        address: selectedSupplier.address || selectedSupplier.companyAddress || selectedSupplier.location,
-                        businessName: selectedSupplier.companyName
+                        address: (() => {
+                          const addr = selectedSupplier.address || selectedSupplier.companyAddress || selectedSupplier.location;
+                          if (!addr) return null;
+                          if (typeof addr === 'string') return addr;
+                          return [addr.street, addr.city, addr.province || addr.state, addr.country].filter(Boolean).join(', ');
+                        })(),
+                        businessName: selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.companyName
                       } : null,
                       items: purchaseItems.map(item => {
                         const product = item.product || {};

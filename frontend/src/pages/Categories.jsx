@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage } from '../components/LoadingSpinner';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
+import CategoryImportExport from '../components/CategoryImportExport';
 import {
   useGetCategoriesQuery,
   useCreateCategoryMutation,
@@ -298,7 +299,7 @@ export const Categories = () => {
   }, [searchParams]);
 
   const { data, isLoading, error, refetch } = useGetCategoriesQuery(
-    { search: searchTerm },
+    { search: searchTerm, limit: 999999 },
     { refetchOnMountOrArgChange: true }
   );
 
@@ -425,6 +426,12 @@ export const Categories = () => {
           </div>
         </div>
       </div>
+
+      {/* Import/Export Section */}
+      <CategoryImportExport 
+        onImportComplete={() => refetch()}
+        filters={{ search: searchTerm }}
+      />
 
       {/* Search */}
       <div className="flex items-center space-x-4">

@@ -10,12 +10,14 @@ import {
   XCircle,
   Trash2,
   Edit,
-  Printer
+  Printer,
+  BookOpen
 } from 'lucide-react';
 import {
   useGetOrdersQuery,
   useUpdateOrderMutation,
   useDeleteOrderMutation,
+  usePostMissingSalesToLedgerMutation,
 } from '../store/services/salesApi';
 import { useGetProductsQuery } from '../store/services/productsApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
@@ -32,6 +34,15 @@ const getLocalDateString = (date = new Date()) => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+// Safe date display: avoid "Invalid Date" when value is missing or invalid (PostgreSQL may send sale_date, created_at)
+const formatOrderDate = (order) => {
+  const raw = order?.sale_date ?? order?.billDate ?? order?.order_date ?? order?.created_at ?? order?.createdAt;
+  if (raw == null) return '—';
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString();
 };
 
 const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
@@ -69,32 +80,32 @@ const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h3 className="text-lg font-medium text-gray-900">
-              Order #{order.orderNumber}
+              Order #{order.order_number ?? order.orderNumber ?? '—'}
             </h3>
             <p className="text-sm text-gray-600">
-              {order.customerInfo?.name || 'Walk-in Customer'}
+              {order.customer?.business_name ?? order.customer?.businessName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}
             </p>
             <p className="text-sm text-gray-600">
-              {order.billDate ? new Date(order.billDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}
+              {formatOrderDate(order)}
             </p>
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold text-gray-900">
-              {Math.round(order.pricing.total)}
+              {Math.round(order.pricing?.total ?? order.total ?? 0)}
             </p>
             <p className="text-sm text-gray-600">
-              {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+              {order.items?.length ?? 0} item{(order.items?.length ?? 0) !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className={`badge ${getStatusColor(order.status)}`}>
-              {order.status}
+            <span className={`badge ${getStatusColor(order?.status ?? '')}`}>
+              {order?.status ?? '—'}
             </span>
-            <span className={`badge ${getPaymentStatusColor(order.payment.status)}`}>
-              {order.payment.status}
+            <span className={`badge ${getPaymentStatusColor(order.payment?.status ?? order.payment_status ?? order.paymentStatus ?? 'pending')}`}>
+              {order.payment?.status ?? order.payment_status ?? order.paymentStatus ?? 'pending'}
             </span>
             <span className="badge badge-info">
               {order.orderType}
@@ -174,6 +185,7 @@ export const Orders = () => {
   // Mutations
   const [updateOrder] = useUpdateOrderMutation();
   const [deleteOrder] = useDeleteOrderMutation();
+  const [postMissingSalesToLedger, { isLoading: isPostingToLedger }] = usePostMissingSalesToLedgerMutation();
 
   // Fetch orders
   const { data: ordersResponse, isLoading, error, refetch: refetchOrders } = useGetOrdersQuery(
@@ -295,20 +307,22 @@ export const Orders = () => {
 
     // Format billDate for input (YYYY-MM-DD format)
     const formatDateForInput = (date) => {
-      if (!date) return '';
+      if (date == null) return '';
       const d = new Date(date);
+      if (Number.isNaN(d.getTime())) return '';
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
 
+    const orderDate = order.sale_date ?? order.billDate ?? order.order_date ?? order.created_at ?? order.createdAt;
     setEditFormData({
       notes: order.notes || '',
       items: formattedItems,
       customer: customerId,
-      orderType: order.orderType || 'retail',
-      billDate: formatDateForInput(order.billDate || order.createdAt)
+      orderType: order.orderType ?? order.order_type ?? 'retail',
+      billDate: formatDateForInput(orderDate)
     });
 
     // Reset product selection fields
@@ -316,7 +330,7 @@ export const Orders = () => {
     setNewProductQuantity(1);
     setNewProductRate(0);
     setProductSearchTerm('');
-    setCustomerSearchTerm(order.customerInfo?.name || '');
+    setCustomerSearchTerm(order.customer?.business_name ?? order.customer?.businessName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.name ?? '');
 
     // Open edit modal
     setShowEditModal(true);
@@ -328,7 +342,7 @@ export const Orders = () => {
   };
 
   const handleDelete = (order) => {
-    if (window.confirm(`Are you sure you want to delete invoice ${order.orderNumber}?`)) {
+    if (window.confirm(`Are you sure you want to delete invoice ${order.order_number ?? order.orderNumber ?? order.id ?? 'this'}?`)) {
       handleDeleteOrder(order._id);
     }
   };
@@ -336,6 +350,25 @@ export const Orders = () => {
   const handleView = (order) => {
     setSelectedOrder(order);
     setShowViewModal(true);
+  };
+
+  const handlePostMissingToLedger = async () => {
+    if (!window.confirm('Post all sales invoices that are not yet in the account ledger? This will add AR, Revenue, and COGS/Inventory entries for each missing sale.')) return;
+    try {
+      const result = await postMissingSalesToLedger({}).unwrap();
+      const posted = Number(result?.posted) || 0;
+      const errList = Array.isArray(result?.errors) ? result.errors : [];
+      const msg = result?.message
+        || (posted > 0
+          ? `Posted ${posted} sale(s) to the ledger.${errList.length ? ` ${errList.length} failed.` : ''}`
+          : errList.length
+            ? `No new sales posted. ${errList.length} failed.`
+            : 'All sales were already in the ledger.');
+      showSuccessToast(msg);
+      refetchOrders();
+    } catch (error) {
+      handleApiError(error, 'Post to ledger');
+    }
   };
 
   const handleAddNewProduct = () => {
@@ -403,15 +436,24 @@ export const Orders = () => {
           <p className="text-sm sm:text-base text-gray-600">View and manage sales invoices</p>
         </div>
 
-        {/* Date Filter using DateFilter component */}
-        <div className="w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={handlePostMissingToLedger}
+            disabled={isPostingToLedger}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Post any past sales/invoices that were never recorded to the account ledger"
+          >
+            <BookOpen className="h-4 w-4" />
+            {isPostingToLedger ? 'Posting…' : 'Post missing to ledger'}
+          </button>
           <DateFilter
             startDate={fromDate}
             endDate={toDate}
             onDateChange={handleDateChange}
             compact={true}
             showPresets={true}
-            className="w-full"
+            className="flex-1 min-w-[200px]"
           />
         </div>
       </div>
@@ -483,66 +525,66 @@ export const Orders = () => {
 
           {/* Table Body / Cards */}
           <div className="divide-y divide-gray-200">
-            {orders.map((order) => (
-              <div key={order._id}>
+            {orders.map((order, idx) => (
+              <div key={order?.id ?? order?._id ?? order?.order_number ?? order?.orderNumber ?? `order-${idx}`}>
                 {/* Desktop Table Row */}
                 <div className="hidden lg:block px-4 xl:px-6 py-3 xl:py-4 hover:bg-gray-50 transition-colors">
                   <div className="grid grid-cols-12 gap-3 xl:gap-4 items-center">
                     {/* Order Number */}
                     <div className="col-span-2 min-w-0">
                       <div className="font-medium text-gray-900 truncate text-sm">
-                        #{order.orderNumber}
+                        #{order.order_number ?? order.orderNumber ?? '—'}
                       </div>
                     </div>
 
                     {/* Customer */}
                     <div className="col-span-2 min-w-0">
                       <div className="text-sm text-gray-900 truncate">
-                        {order.customerInfo?.name || 'Walk-in Customer'}
+                        {order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}
                       </div>
                     </div>
 
                     {/* Date */}
                     <div className="col-span-1">
                       <span className="text-xs xl:text-sm text-gray-600">
-                        {order.billDate ? new Date(order.billDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}
+                        {formatOrderDate(order)}
                       </span>
                     </div>
 
                     {/* Items */}
                     <div className="col-span-1">
                       <span className="text-xs xl:text-sm text-gray-600">
-                        {order.items.length}
+                        {order.items?.length ?? 0}
                       </span>
                     </div>
 
                     {/* Total */}
                     <div className="col-span-1">
                       <span className="font-semibold text-gray-900 text-sm xl:text-base">
-                        {Math.round(order.pricing.total)}
+                        {Math.round(order.pricing?.total ?? order.total ?? 0)}
                       </span>
                     </div>
 
                     {/* Status */}
                     <div className="col-span-2">
                       <div className="flex flex-wrap gap-1">
-                        <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${order.status === 'completed' || order.status === 'delivered'
+                        <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${(order?.status === 'completed' || order?.status === 'delivered')
                             ? 'bg-green-100 text-green-800'
-                            : order.status === 'pending' || order.status === 'processing'
+                            : (order?.status === 'pending' || order?.status === 'processing')
                               ? 'bg-yellow-100 text-yellow-800'
-                              : order.status === 'cancelled'
+                              : order?.status === 'cancelled'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-gray-100 text-gray-800'
                           } `}>
-                          {order.status}
+                          {order?.status ?? '—'}
                         </span>
-                        <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${order.payment.status === 'paid'
+                        <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${(order.payment?.status ?? order.payment_status ?? order.paymentStatus) === 'paid'
                             ? 'bg-green-100 text-green-800'
-                            : order.payment.status === 'partial'
+                            : (order.payment?.status ?? order.payment_status ?? order.paymentStatus) === 'partial'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-gray-100 text-gray-800'
                           } `}>
-                          {order.payment.status}
+                          {order.payment?.status ?? order.payment_status ?? order.paymentStatus ?? 'pending'}
                         </span>
                       </div>
                     </div>
@@ -550,7 +592,7 @@ export const Orders = () => {
                     {/* Type */}
                     <div className="col-span-1">
                       <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                        {order.orderType}
+                        {order.orderType ?? order.order_type ?? '—'}
                       </span>
                     </div>
 
@@ -607,18 +649,18 @@ export const Orders = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-semibold text-gray-900 truncate">
-                          #{order.orderNumber}
+                          #{order.order_number ?? order.orderNumber ?? '—'}
                         </h3>
                         <p className="text-sm text-gray-600 mt-1 truncate">
-                          {order.customerInfo?.name || 'Walk-in Customer'}
+                          {order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-lg font-semibold text-gray-900">
-                          {Math.round(order.pricing.total)}
+                          {Math.round(order.pricing?.total ?? order.total ?? 0)}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                          {order.items?.length ?? 0} item{(order.items?.length ?? 0) !== 1 ? 's' : ''}
                         </p>
                       </div>
                     </div>
@@ -628,36 +670,36 @@ export const Orders = () => {
                       <div>
                         <p className="text-xs text-gray-500">Date</p>
                         <p className="text-sm font-medium text-gray-900">
-                          {order.billDate ? new Date(order.billDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString()}
+                          {formatOrderDate(order)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Type</p>
                         <span className="inline-flex text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                          {order.orderType}
+                          {order.orderType ?? order.order_type ?? '—'}
                         </span>
                       </div>
                     </div>
 
                     {/* Status Badges */}
                     <div className="flex flex-wrap gap-2">
-                      <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${order.status === 'completed' || order.status === 'delivered'
+                      <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${(order?.status === 'completed' || order?.status === 'delivered')
                           ? 'bg-green-100 text-green-800'
-                          : order.status === 'pending' || order.status === 'processing'
+                          : (order?.status === 'pending' || order?.status === 'processing')
                             ? 'bg-yellow-100 text-yellow-800'
-                            : order.status === 'cancelled'
+                            : order?.status === 'cancelled'
                               ? 'bg-red-100 text-red-800'
                               : 'bg-gray-100 text-gray-800'
                         } `}>
-                        {order.status}
+                        {order?.status ?? '—'}
                       </span>
-                      <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${order.payment.status === 'paid'
+                      <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${(order.payment?.status ?? order.payment_status ?? order.paymentStatus) === 'paid'
                           ? 'bg-green-100 text-green-800'
-                          : order.payment.status === 'partial'
+                          : (order.payment?.status ?? order.payment_status ?? order.paymentStatus) === 'partial'
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-gray-100 text-gray-800'
                         } `}>
-                        {order.payment.status}
+                        {order.payment?.status ?? order.payment_status ?? order.paymentStatus ?? 'pending'}
                       </span>
                     </div>
 
@@ -759,7 +801,7 @@ export const Orders = () => {
                 <div>
                   <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Bill To:</h3>
                   <div className="space-y-1">
-                    <p className="font-medium">{selectedOrder.customerInfo?.name || 'Walk-in Customer'}</p>
+                    <p className="font-medium">{selectedOrder.customer?.business_name ?? selectedOrder.customer?.businessName ?? selectedOrder.customer?.name ?? selectedOrder.customerInfo?.businessName ?? selectedOrder.customerInfo?.business_name ?? selectedOrder.customerInfo?.name ?? 'Walk-in Customer'}</p>
                     <p className="text-gray-600">{selectedOrder.customerInfo?.email || ''}</p>
                     <p className="text-gray-600">{selectedOrder.customerInfo?.phone || ''}</p>
                     <p className="text-gray-600">{selectedOrder.customerInfo?.address || ''}</p>
@@ -775,13 +817,13 @@ export const Orders = () => {
                 <div className="text-right">
                   <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Invoice Details:</h3>
                   <div className="space-y-1">
-                    <p><span className="font-medium">Invoice #:</span> {selectedOrder.orderNumber}</p>
-                    <p><span className="font-medium">Date:</span> {selectedOrder.billDate ? new Date(selectedOrder.billDate).toLocaleDateString() : new Date(selectedOrder.createdAt).toLocaleDateString()}</p>
-                    {selectedOrder.billDate && new Date(selectedOrder.billDate).getTime() !== new Date(selectedOrder.createdAt).getTime() && (
-                      <p className="text-xs text-gray-500">(Original: {new Date(selectedOrder.createdAt).toLocaleDateString()})</p>
+                    <p><span className="font-medium">Invoice #:</span> {selectedOrder.order_number ?? selectedOrder.orderNumber ?? '—'}</p>
+                    <p><span className="font-medium">Date:</span> {formatOrderDate(selectedOrder)}</p>
+                    {(selectedOrder.sale_date ?? selectedOrder.billDate) && (selectedOrder.created_at ?? selectedOrder.createdAt) && new Date(selectedOrder.sale_date ?? selectedOrder.billDate).getTime() !== new Date(selectedOrder.created_at ?? selectedOrder.createdAt).getTime() && (
+                      <p className="text-xs text-gray-500">(Original: {formatOrderDate({ created_at: selectedOrder.created_at, createdAt: selectedOrder.createdAt })})</p>
                     )}
-                    <p><span className="font-medium">Status:</span> {selectedOrder.status}</p>
-                    <p><span className="font-medium">Type:</span> {selectedOrder.orderType}</p>
+                    <p><span className="font-medium">Status:</span> {selectedOrder.status ?? selectedOrder.Status ?? '—'}</p>
+                    <p><span className="font-medium">Type:</span> {selectedOrder.order_type ?? selectedOrder.orderType ?? '—'}</p>
                   </div>
                 </div>
 
@@ -789,9 +831,9 @@ export const Orders = () => {
                 <div className="text-right">
                   <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Payment:</h3>
                   <div className="space-y-1">
-                    <p><span className="font-medium">Status:</span> {selectedOrder.payment?.status}</p>
-                    <p><span className="font-medium">Method:</span> {selectedOrder.payment?.method}</p>
-                    <p><span className="font-medium">Amount:</span> {Math.round(selectedOrder.pricing?.total || 0)}</p>
+                    <p><span className="font-medium">Status:</span> {selectedOrder.payment?.status ?? selectedOrder.payment_status ?? selectedOrder.paymentStatus ?? '—'}</p>
+                    <p><span className="font-medium">Method:</span> {selectedOrder.payment?.method ?? selectedOrder.payment_method ?? '—'}</p>
+                    <p><span className="font-medium">Amount:</span> {Math.round(selectedOrder.pricing?.total ?? selectedOrder.total ?? 0)}</p>
                   </div>
                 </div>
               </div>
@@ -1020,7 +1062,7 @@ export const Orders = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
-                    <p className="text-gray-900">{selectedOrder.orderNumber}</p>
+                    <p className="text-gray-900">{selectedOrder.order_number ?? selectedOrder.orderNumber ?? '—'}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1033,7 +1075,7 @@ export const Orders = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Original date: {new Date(selectedOrder.createdAt).toLocaleDateString()}
+                      Original date: {formatOrderDate(selectedOrder)}
                     </p>
                     {selectedOrder.billStartTime && editFormData.billDate &&
                       new Date(editFormData.billDate).toDateString() !== new Date(selectedOrder.billStartTime).toDateString() && (

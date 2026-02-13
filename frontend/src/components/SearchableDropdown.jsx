@@ -50,11 +50,14 @@ export const SearchableDropdown = forwardRef(({
       }
 
       const candidateFields = [
+        'businessName',
+        'business_name',
         'label',
         'name',
         'displayName',
-        'businessName',
+        'display_name',
         'companyName',
+        'company_name',
         'accountName',
         'bankName',
         'type',
@@ -87,16 +90,19 @@ export const SearchableDropdown = forwardRef(({
       const result = displayKey(item);
       if (React.isValidElement(result)) {
         const alternateFields = [
-          item.displayName,
-          item.name,
           item.businessName,
+          item.business_name,
+          item.displayName,
+          item.display_name,
+          item.name,
           item.companyName,
+          item.company_name,
           item.accountName,
           item.bankName,
           item.code,
           item.id,
           item._id
-        ].find((field) => typeof field === 'string' && field.trim().length > 0);
+        ].find((field) => field != null && String(field).trim().length > 0);
         return alternateFields || 'Selected item';
       }
       return valueToDisplayString(result);
@@ -132,16 +138,19 @@ export const SearchableDropdown = forwardRef(({
         // If displayKey is a function, try to filter by common searchable fields
         if (typeof currentDisplayKey === 'function') {
           const searchableFields = [
-            item.displayName,
-            item.name,
             item.businessName,
+            item.business_name,
+            item.displayName,
+            item.display_name,
+            item.name,
             item.companyName,
+            item.company_name,
             item.email,
             item.phone
           ].filter(Boolean); // Remove null/undefined values
           
-          return searchableFields.some(field => 
-            field.toLowerCase().includes(currentSearchTerm.toLowerCase())
+          return searchableFields.some(field =>
+            String(field).toLowerCase().includes(currentSearchTerm.toLowerCase())
           );
         }
         

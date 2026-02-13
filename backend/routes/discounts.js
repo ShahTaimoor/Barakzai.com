@@ -95,7 +95,7 @@ router.get('/:discountId', [
   auth,
   requirePermission('view_discounts'),
   sanitizeRequest,
-  param('discountId').isMongoId().withMessage('Valid Discount ID is required'),
+  param('discountId').isUUID(4).withMessage('Valid Discount ID is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -120,7 +120,7 @@ router.put('/:discountId', [
   auth,
   requirePermission('manage_discounts'),
   sanitizeRequest,
-  param('discountId').isMongoId().withMessage('Valid Discount ID is required'),
+  param('discountId').isUUID(4).withMessage('Valid Discount ID is required'),
   body('name').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be 1-100 characters'),
   body('code').optional().trim().isLength({ min: 1, max: 20 }).matches(/^[A-Z0-9-_]+$/).withMessage('Valid code is required'),
   body('type').optional().isIn(['percentage', 'fixed_amount']).withMessage('Type must be percentage or fixed_amount'),
@@ -155,7 +155,7 @@ router.delete('/:discountId', [
   auth,
   requirePermission('manage_discounts'),
   sanitizeRequest,
-  param('discountId').isMongoId().withMessage('Valid Discount ID is required'),
+  param('discountId').isUUID(4).withMessage('Valid Discount ID is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -180,7 +180,7 @@ router.put('/:discountId/toggle-status', [
   auth,
   requirePermission('manage_discounts'),
   sanitizeRequest,
-  param('discountId').isMongoId().withMessage('Valid Discount ID is required'),
+  param('discountId').isUUID(4).withMessage('Valid Discount ID is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -209,9 +209,9 @@ router.post('/apply', [
   auth,
   requirePermission('view_discounts'),
   sanitizeRequest,
-  body('orderId').isMongoId().withMessage('Valid Order ID is required'),
+  body('orderId').isUUID(4).withMessage('Valid Order ID is required'),
   body('discountCode').trim().isLength({ min: 1 }).withMessage('Discount code is required'),
-  body('customerId').optional().isMongoId().withMessage('Valid Customer ID is required'),
+  body('customerId').optional().isUUID(4).withMessage('Valid Customer ID is required'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -236,7 +236,7 @@ router.post('/remove', [
   auth,
   requirePermission('view_discounts'),
   sanitizeRequest,
-  body('orderId').isMongoId().withMessage('Valid Order ID is required'),
+  body('orderId').isUUID(4).withMessage('Valid Order ID is required'),
   body('discountCode').trim().isLength({ min: 1 }).withMessage('Discount code is required'),
   handleValidationErrors,
 ], async (req, res) => {

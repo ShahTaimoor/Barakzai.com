@@ -185,7 +185,7 @@ const ProductRecommendationCard = ({
           <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-1">
             {product.name}
           </h3>
-          <p className="text-xs text-gray-500">Category: {product.category || 'N/A'}</p>
+          <p className="text-xs text-gray-500">Category: {typeof product.category === 'object' ? (product.category?.name ?? 'N/A') : (product.category || 'N/A')}</p>
         </div>
 
         {/* Price */}

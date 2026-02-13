@@ -15,7 +15,7 @@ import { handleApiError } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { formatCurrency } from '../utils/formatters';
 import DateFilter from '../components/DateFilter';
-import { getCurrentDatePakistan, getStartOfMonth } from '../utils/dateUtils';
+import { getCurrentDatePakistan, getStartOfMonth, formatDatePakistan } from '../utils/dateUtils';
 
 // Helper function to format date for display (using Pakistan timezone utilities)
 const formatDate = (dateString) => {
@@ -47,8 +47,8 @@ export const PLStatements = () => {
   const [searchToDate, setSearchToDate] = useState(today);
   const [showData, setShowData] = useState(false);
 
-  // Fetch P&L summary when search is clicked
-  const { data: summaryData, isLoading, isFetching, error, refetch } = useGetSummaryQuery(
+  // Fetch P&L summary when search is clicked (skip until showData is true)
+  const { data: summaryData, isLoading, isFetching, error } = useGetSummaryQuery(
     {
       startDate: searchFromDate,
       endDate: searchToDate,
@@ -58,8 +58,7 @@ export const PLStatements = () => {
       onError: (error) => handleApiError(error, 'Profit & Loss Statement'),
     }
   );
-  
-  // Use isFetching to show loading state on every refetch, not just initial load
+
   const isButtonLoading = isLoading || isFetching;
 
   const handleSearch = () => {
@@ -67,16 +66,14 @@ export const PLStatements = () => {
       alert('Please select both From Date and To Date');
       return;
     }
-    
     if (new Date(fromDate) > new Date(toDate)) {
       alert('From Date cannot be after To Date');
       return;
     }
-    
     setSearchFromDate(fromDate);
     setSearchToDate(toDate);
     setShowData(true);
-    refetch();
+    // Query runs automatically when showData becomes true; when dates change, new args trigger a refetch
   };
 
   const handleExportPDF = () => {
@@ -357,28 +354,24 @@ export const PLStatements = () => {
   const summary = summaryData?.data || summaryData;
   
   // Extract values from summary - handle both direct values and nested structure
-  // The backend might return a full statement object or just summary values
-  const totalRevenue = summary?.revenue?.totalRevenue?.amount || 
-                      summary?.statement?.revenue?.totalRevenue?.amount ||
-                      summary?.totalRevenue || 0;
-  const grossProfit = summary?.grossProfit?.amount || 
-                     summary?.statement?.grossProfit?.amount ||
-                     summary?.grossProfit || 0;
-  const operatingIncome = summary?.operatingIncome?.amount || 
-                         summary?.statement?.operatingIncome?.amount ||
-                         summary?.operatingIncome || 0;
-  const netIncome = summary?.netIncome?.amount || 
-                   summary?.statement?.netIncome?.amount ||
-                   summary?.netIncome || 0;
-  const grossMargin = summary?.grossProfit?.margin || 
-                     summary?.statement?.grossProfit?.margin ||
-                     summary?.grossMargin;
-  const operatingMargin = summary?.operatingIncome?.margin || 
-                         summary?.statement?.operatingIncome?.margin ||
-                         summary?.operatingMargin;
-  const netMargin = summary?.netIncome?.margin || 
-                   summary?.statement?.netIncome?.margin ||
-                   summary?.netMargin;
+  // Backend pl-statements/summary returns: revenue.total, grossProfit, operatingExpenses.total, netIncome
+  const totalRevenue = (summary?.revenue?.totalRevenue?.amount ?? summary?.revenue?.total) ?? (summary?.statement?.revenue?.totalRevenue?.amount ?? summary?.totalRevenue) ?? 0;
+  const grossProfit = (summary?.grossProfit?.amount ?? summary?.grossProfit) ?? summary?.statement?.grossProfit?.amount ?? 0;
+  const operatingExpensesTotal = (summary?.operatingExpenses?.total ?? summary?.operatingExpenses) ?? 0;
+  const operatingIncome = (summary?.operatingIncome?.amount ?? (typeof summary?.operatingIncome === 'number' ? summary.operatingIncome : (grossProfit - operatingExpensesTotal))) ?? summary?.statement?.operatingIncome?.amount ?? (grossProfit - operatingExpensesTotal);
+  const netIncome = (summary?.netIncome?.amount ?? summary?.netIncome) ?? summary?.statement?.netIncome?.amount ?? 0;
+  // Margins: use API when provided, else compute from amounts (backend may not return margin %)
+  const rev = Number(totalRevenue) || 0;
+  const grossMargin =
+    summary?.grossProfit?.margin ?? summary?.statement?.grossProfit?.margin ?? summary?.grossMargin ??
+    (rev > 0 ? (Number(grossProfit) / rev) * 100 : 0);
+  const operatingMargin =
+    summary?.operatingIncome?.margin ?? summary?.statement?.operatingIncome?.margin ?? summary?.operatingMargin ??
+    (rev > 0 ? (Number(operatingIncome) / rev) * 100 : 0);
+  const netMargin =
+    summary?.netIncome?.margin ?? summary?.statement?.netIncome?.margin ?? summary?.netMargin ??
+    (rev > 0 ? (Number(netIncome) / rev) * 100 : 0);
+  const profitPerDollar = rev > 0 ? Number(netIncome) / rev : 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-4 md:p-8 bg-gray-50/30 min-h-screen">
@@ -663,7 +656,7 @@ export const PLStatements = () => {
                   </div>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                  The net profit margin indicates that for every dollar of revenue, the company retains ${((netMargin || 0) / 100).toFixed(2)} as profit.
+                  The net profit margin indicates that for every dollar of revenue, the company retains ${profitPerDollar.toFixed(2)} as profit.
                 </p>
               </div>
             </div>

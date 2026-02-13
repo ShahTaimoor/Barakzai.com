@@ -91,8 +91,8 @@ const BankReceipts = () => {
 
   // Fetch customers for dropdown
   const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
-    { search: '', limit: 100 },
-    { skip: false }
+    { search: '', limit: 999999 },
+    { refetchOnMountOrArgChange: true }
   );
   const customers = React.useMemo(() => {
     return customersData?.data?.customers || customersData?.customers || [];
@@ -145,9 +145,10 @@ const BankReceipts = () => {
   };
 
   const handleCustomerSelect = (customerId) => {
-    const customer = customers?.find(c => c._id === customerId);
+    const customer = customers?.find(c => (c.id || c._id) === customerId);
     setSelectedCustomer(customer);
     setFormData(prev => ({ ...prev, customer: customerId }));
+    setCustomerSearchTerm(customer?.businessName || customer?.business_name || customer?.displayName || customer?.name || '');
   };
 
   const handleCustomerSearch = (searchTerm) => {
@@ -491,9 +492,9 @@ const BankReceipts = () => {
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   </div>
                   {customerSearchTerm && (
-                    <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
+                    <div className="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                       {customers?.filter(customer =>
-                        (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+                        (customer.businessName || customer.business_name || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                         (customer.phone || '').includes(customerSearchTerm)
                       ).map((customer) => {
                         const receivables = customer.pendingBalance || 0;
@@ -505,14 +506,16 @@ const BankReceipts = () => {
 
                         return (
                           <div
-                            key={customer._id}
+                            key={customer.id || customer._id}
                             onClick={() => {
-                              handleCustomerSelect(customer._id);
-                              setCustomerSearchTerm(customer.businessName || customer.name || '');
+                              handleCustomerSelect(customer.id || customer._id);
                             }}
                             className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                           >
-                            <div className="font-medium text-gray-900">{customer.businessName || customer.name || 'Unknown'}</div>
+                            <div className="font-medium text-gray-900">{customer.businessName || customer.business_name || customer.name || 'Unknown'}</div>
+                            {(customer.businessName || customer.business_name) && customer.name && (
+                              <div className="text-xs text-gray-500">Contact: {customer.name}</div>
+                            )}
                             {hasBalance && (
                               <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
                                 {isPayable ? 'Payables:' : 'Receivables:'} ${Math.abs(netBalance).toFixed(2)}
@@ -960,7 +963,7 @@ const BankReceipts = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {receipt.customer ? (
                             <div>
-                              <div className="font-medium">{(receipt.customer.businessName || receipt.customer.name || '').toUpperCase()}</div>
+                              <div className="font-medium">{(receipt.customer.businessName || receipt.customer.business_name || receipt.customer.name || '').toUpperCase()}</div>
                               <div className="text-gray-500 text-xs">{receipt.customer.email}</div>
                             </div>
                           ) : (
@@ -1060,9 +1063,9 @@ const BankReceipts = () => {
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   </div>
                   {customerSearchTerm && (
-                    <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
+                    <div className="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                       {customers?.filter(customer =>
-                        (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+                        (customer.businessName || customer.business_name || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                         (customer.phone || '').includes(customerSearchTerm)
                       ).map((customer) => {
                         const receivables = customer.pendingBalance || 0;
@@ -1074,14 +1077,16 @@ const BankReceipts = () => {
 
                         return (
                           <div
-                            key={customer._id}
+                            key={customer.id || customer._id}
                             onClick={() => {
-                              handleCustomerSelect(customer._id);
-                              setCustomerSearchTerm(customer.businessName || customer.name || '');
+                              handleCustomerSelect(customer.id || customer._id);
                             }}
                             className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                           >
-                            <div className="font-medium text-gray-900">{customer.businessName || customer.name || 'Unknown'}</div>
+                            <div className="font-medium text-gray-900">{customer.businessName || customer.business_name || customer.name || 'Unknown'}</div>
+                            {(customer.businessName || customer.business_name) && customer.name && (
+                              <div className="text-xs text-gray-500">Contact: {customer.name}</div>
+                            )}
                             {hasBalance && (
                               <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
                                 {isPayable ? 'Payables:' : 'Receivables:'} ${Math.abs(netBalance).toFixed(2)}
@@ -1413,7 +1418,7 @@ const BankReceipts = () => {
                 {selectedReceipt.customer && (
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <span className="font-medium text-gray-500">Customer:</span>
-                    <span className="text-gray-900">{selectedReceipt.customer.displayName || selectedReceipt.customer.businessName || selectedReceipt.customer.name}</span>
+                    <span className="text-gray-900">{selectedReceipt.customer.businessName || selectedReceipt.customer.business_name || selectedReceipt.customer.displayName || selectedReceipt.customer.name}</span>
                   </div>
                 )}
                 {selectedReceipt.supplier && (

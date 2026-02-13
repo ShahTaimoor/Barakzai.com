@@ -111,7 +111,7 @@ const BankPayments = () => {
 
   // Fetch customers for dropdown
   const { data: customersData, isLoading: customersLoading, error: customersError, refetch: refetchCustomers } = useGetCustomersQuery(
-    { search: '', limit: 100 },
+    { search: '', limit: 999999 },
     { refetchOnMountOrArgChange: true }
   );
   const customers = React.useMemo(() => {
@@ -209,11 +209,12 @@ const BankPayments = () => {
   };
 
   const handleCustomerSelect = (customerId) => {
-    const customer = customers.find(c => c._id === customerId);
+    const customer = customers.find(c => (c.id || c._id) === customerId);
     setSelectedCustomer(customer);
     setFormData(prev => ({ ...prev, customer: customerId, supplier: '' }));
     setSelectedSupplier(null);
     setSupplierSearchTerm('');
+    setCustomerSearchTerm(customer?.businessName || customer?.business_name || customer?.displayName || customer?.name || '');
   };
 
   const handleSupplierSearch = (searchTerm) => {
@@ -338,7 +339,7 @@ const BankPayments = () => {
 
   const handleCustomerKeyDown = (e) => {
     const filteredCustomers = (customers || []).filter(customer => {
-      const displayName = customer.displayName || customer.businessName || customer.name ||
+      const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
         `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
       return (
         displayName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
@@ -370,9 +371,9 @@ const BankPayments = () => {
         e.preventDefault();
         if (customerDropdownIndex >= 0 && customerDropdownIndex < filteredCustomers.length) {
           const customer = filteredCustomers[customerDropdownIndex];
-          const displayName = customer.displayName || customer.businessName || customer.name ||
+          const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
             `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
-          handleCustomerSelect(customer._id);
+          handleCustomerSelect(customer.id || customer._id);
           setCustomerSearchTerm(displayName);
           setCustomerDropdownIndex(-1);
         }
@@ -541,7 +542,7 @@ const BankPayments = () => {
     } else if (payment.customer) {
       setPaymentType('customer');
       setSelectedCustomer(payment.customer);
-      setCustomerSearchTerm(payment.customer.displayName || payment.customer.businessName || payment.customer.name || '');
+      setCustomerSearchTerm(payment.customer.businessName || payment.customer.business_name || payment.customer.displayName || payment.customer.name || '');
       setSelectedSupplier(null);
       setSupplierSearchTerm('');
     } else if (payment.expenseAccount) {
@@ -729,20 +730,25 @@ const BankPayments = () => {
                         (supplier.phone || '').includes(supplierSearchTerm) ||
                         (supplier.email || '').toLowerCase().includes(supplierSearchTerm.toLowerCase())
                       ).map((supplier, index) => (
-                        <div
-                          key={supplier._id}
-                          onClick={() => {
-                            handleSupplierSelect(supplier._id);
-                            setSupplierSearchTerm(supplier.displayName || supplier.companyName || supplier.name || '');
-                            setSupplierDropdownIndex(-1);
-                          }}
-                          className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${supplierDropdownIndex === index ? 'bg-blue-50' : ''
-                            }`}
-                        >
-                          <div className="font-medium text-gray-900">
-                            {supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}
-                          </div>
-                          <div className="text-sm text-gray-600 capitalize mt-0.5">
+                          <div
+                            key={supplier._id}
+                            onClick={() => {
+                              handleSupplierSelect(supplier._id);
+                              setSupplierSearchTerm(supplier.displayName || supplier.companyName || supplier.name || '');
+                              setSupplierDropdownIndex(-1);
+                            }}
+                            className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${supplierDropdownIndex === index ? 'bg-blue-50' : ''
+                              }`}
+                          >
+                            <div className="font-medium text-gray-900">
+                              {supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}
+                            </div>
+                            {supplier.companyName && (
+                              <div className="text-xs text-gray-600">
+                                {supplier.companyName}
+                              </div>
+                            )}
+                            <div className="text-sm text-gray-600 capitalize mt-0.5">
                             {supplier.businessType && supplier.reliability
                               ? `${supplier.businessType} • ${supplier.reliability}`
                               : supplier.businessType || supplier.reliability || ''
@@ -835,8 +841,8 @@ const BankPayments = () => {
                   {customerSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                       {(customers || []).filter(customer => {
-                        const displayName = customer.displayName || customer.businessName || customer.name ||
-                          `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
+          const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
+            `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
                         return (
                           displayName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                           (customer.phone || '').includes(customerSearchTerm) ||
@@ -854,16 +860,20 @@ const BankPayments = () => {
 
                         return (
                           <div
-                            key={customer._id}
+                            key={customer.id || customer._id}
                             onClick={() => {
-                              handleCustomerSelect(customer._id);
-                              setCustomerSearchTerm(displayName);
-                              setCustomerDropdownIndex(-1);
+                              handleCustomerSelect(customer.id || customer._id);
                             }}
                             className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${customerDropdownIndex === index ? 'bg-blue-50' : ''
                               }`}
                           >
                             <div className="font-medium text-gray-900">{displayName}</div>
+                            <div className="text-xs text-gray-600">
+                              {customer.businessName || customer.business_name || 'No Business Name'}
+                            </div>
+                            {(customer.businessName || customer.business_name) && customer.name && (
+                              <div className="text-xs text-gray-500">Contact: {customer.name}</div>
+                            )}
                             <div className="text-sm text-gray-600 capitalize mt-0.5">
                               {customer.businessType || ''}
                             </div>
@@ -896,10 +906,15 @@ const BankPayments = () => {
                         <User className="h-5 w-5 text-gray-400" />
                         <div className="flex-1">
                           <p className="font-medium">
-                            {selectedCustomer.displayName || selectedCustomer.businessName || selectedCustomer.name ||
+                            {selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name ||
                               `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim() ||
                               selectedCustomer.email || 'Unknown Customer'}
                           </p>
+                          {(selectedCustomer.businessName || selectedCustomer.business_name) && (selectedCustomer.displayName || selectedCustomer.name) && (
+                            <p className="text-xs text-gray-500">
+                              Contact: {selectedCustomer.displayName || selectedCustomer.name}
+                            </p>
+                          )}
                           <p className="text-sm text-gray-600 capitalize">
                             {selectedCustomer.businessType ? `${selectedCustomer.businessType} • ` : ''}
                             {selectedCustomer.phone || 'No phone'}
@@ -1367,14 +1382,14 @@ const BankPayments = () => {
                           {payment.supplier ? (
                             <div>
                               <div className="font-medium">
-                                {payment.supplier.companyName || payment.supplier.displayName || payment.supplier.name || 'Unknown Supplier'}
+                                {payment.supplier.businessName || payment.supplier.business_name || payment.supplier.companyName || payment.supplier.displayName || payment.supplier.name || 'Unknown Supplier'}
                               </div>
                               <div className="text-gray-500 text-xs">Supplier</div>
                             </div>
                           ) : payment.customer ? (
                             <div>
                               <div className="font-medium">
-                                {((payment.customer.businessName || payment.customer.displayName || payment.customer.name ||
+                                {((payment.customer.businessName || payment.customer.business_name || payment.customer.displayName || payment.customer.name ||
                                   `${payment.customer.firstName || ''} ${payment.customer.lastName || ''}`.trim() ||
                                   payment.customer.email || 'Unknown Customer') || '').toUpperCase()}
                               </div>
@@ -1564,20 +1579,22 @@ const BankPayments = () => {
                       <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
                     {customerSearchTerm && (
-                      <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
+                      <div className="mt-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                         {(customers || []).filter(customer =>
-                          (customer.businessName || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+                          (customer.businessName || customer.business_name || customer.name || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                           (customer.phone || '').includes(customerSearchTerm)
                         ).map((customer) => (
                           <div
-                            key={customer._id}
+                            key={customer.id || customer._id}
                             onClick={() => {
-                              handleCustomerSelect(customer._id);
-                              setCustomerSearchTerm(customer.businessName || customer.name || '');
+                              handleCustomerSelect(customer.id || customer._id);
                             }}
                             className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
                           >
-                            <div className="font-medium text-gray-900">{customer.businessName || customer.name || 'Unknown'}</div>
+                            <div className="font-medium text-gray-900">{customer.businessName || customer.business_name || customer.name || 'Unknown'}</div>
+                            {(customer.businessName || customer.business_name) && customer.name && (
+                              <div className="text-xs text-gray-500">Contact: {customer.name}</div>
+                            )}
                             {customer.phone && (
                               <div className="text-sm text-gray-500">Phone: {customer.phone}</div>
                             )}
@@ -2013,7 +2030,7 @@ const BankPayments = () => {
                 {selectedPayment.customer && (
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <span className="font-medium text-gray-500">Customer:</span>
-                    <span className="text-gray-900">{selectedPayment.customer.businessName || selectedPayment.customer.displayName || selectedPayment.customer.name}</span>
+                    <span className="text-gray-900">{selectedPayment.customer.businessName || selectedPayment.customer.business_name || selectedPayment.customer.displayName || selectedPayment.customer.name}</span>
                   </div>
                 )}
                 {selectedPayment.expenseAccount && (

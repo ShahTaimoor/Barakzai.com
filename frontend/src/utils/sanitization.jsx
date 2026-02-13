@@ -6,7 +6,7 @@ import { sanitizeObject, sanitizeInput, escapeHtml } from './validation';
 export const sanitizeRequestData = (data) => {
   if (!data) return data;
   
-  // Don't sanitize databaseUrl field - it's a MongoDB connection string that needs to stay intact
+  // Don't sanitize databaseUrl field - connection string that needs to stay intact
   if (data.databaseUrl && typeof data.databaseUrl === 'string') {
     const databaseUrl = data.databaseUrl;
     const sanitized = sanitizeObject(data);
@@ -23,7 +23,30 @@ export const sanitizeResponseData = (data) => {
   if (!data) return data;
   
   // Use a lighter sanitization for API responses
-  return sanitizeObjectLight(data);
+  const sanitized = sanitizeObjectLight(data);
+  // Normalize entities: add _id from id for PostgreSQL compatibility (frontend expects _id)
+  return normalizeIdsForPostgres(sanitized);
+};
+
+// Ensure entities have _id for Postgres (backend returns id, frontend uses _id)
+const normalizeIdsForPostgres = (obj) => {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => normalizeIdsForPostgres(item));
+  }
+  if (typeof obj === 'object') {
+    const result = { ...obj };
+    if (result.id !== undefined && result._id === undefined) {
+      result._id = result.id;
+    }
+    for (const key in result) {
+      if (result.hasOwnProperty(key) && typeof result[key] === 'object') {
+        result[key] = normalizeIdsForPostgres(result[key]);
+      }
+    }
+    return result;
+  }
+  return obj;
 };
 
 // Light sanitization that doesn't HTML-encode everything

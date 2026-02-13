@@ -6,7 +6,7 @@ const { validateDateParams, processDateFilter } = require('../middleware/dateFil
 const inventoryService = require('../services/inventoryService');
 const purchaseOrderService = require('../services/purchaseOrderService');
 const supplierRepository = require('../repositories/SupplierRepository');
-const PurchaseOrder = require('../models/PurchaseOrder'); // Still needed for generatePONumber static method
+const purchaseOrderRepository = require('../repositories/postgres/PurchaseRepository');
 
 const router = express.Router();
 
@@ -46,7 +46,7 @@ router.get('/', [
   query('all').optional({ checkFalsy: true }).isBoolean(),
   query('search').optional().trim(),
   query('status').optional().isIn(['draft', 'confirmed', 'partially_received', 'fully_received', 'cancelled', 'closed']),
-  query('supplier').optional().isMongoId(),
+  query('supplier').optional().isUUID(4),
   ...validateDateParams,
   handleValidationErrors,
   processDateFilter('createdAt'),
@@ -98,9 +98,9 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', [
   auth,
   requirePermission('create_purchase_orders'),
-  body('supplier').isMongoId().withMessage('Valid supplier is required'),
+  body('supplier').isUUID(4).withMessage('Valid supplier is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
-  body('items.*.product').isMongoId().withMessage('Valid product is required'),
+  body('items.*.product').isUUID(4).withMessage('Valid product is required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('items.*.costPerUnit').isFloat({ min: 0 }).withMessage('Cost per unit must be positive'),
   body('expectedDelivery').optional().isISO8601().withMessage('Valid delivery date required'),
@@ -113,7 +113,7 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const purchaseOrder = await purchaseOrderService.createPurchaseOrder(req.body, req.user._id);
+    const purchaseOrder = await purchaseOrderService.createPurchaseOrder(req.body, req.user?.id || req.user?._id);
 
     // Transform names to uppercase
     if (purchaseOrder.supplier) {
@@ -151,9 +151,9 @@ router.post('/', [
 router.put('/:id', [
   auth,
   requirePermission('edit_purchase_orders'),
-  body('supplier').optional().isMongoId().withMessage('Valid supplier is required'),
+  body('supplier').optional().isUUID(4).withMessage('Valid supplier is required'),
   body('items').optional().isArray({ min: 1 }).withMessage('At least one item is required'),
-  body('items.*.product').optional().isMongoId().withMessage('Valid product is required'),
+  body('items.*.product').optional().isUUID(4).withMessage('Valid product is required'),
   body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('items.*.costPerUnit').optional().isFloat({ min: 0 }).withMessage('Cost per unit must be positive'),
   body('expectedDelivery').optional().isISO8601().withMessage('Valid delivery date required'),
@@ -170,7 +170,7 @@ router.put('/:id', [
     const updatedPO = await purchaseOrderService.updatePurchaseOrder(
       req.params.id,
       req.body,
-      req.user._id
+      req.user?.id || req.user?._id
     );
 
     // Store old items for comparison (for inventory updates)
@@ -202,7 +202,7 @@ router.put('/:id', [
                 reference: 'Purchase Order',
                 referenceId: updatedPO._id,
                 referenceModel: 'PurchaseOrder',
-                performedBy: req.user._id,
+                performedBy: req.user?.id || req.user?._id,
                 notes: `Inventory increased due to purchase order ${updatedPO.poNumber} update - quantity increased by ${quantityChange}`
               });
             } else {
@@ -215,7 +215,7 @@ router.put('/:id', [
                 reference: 'Purchase Order',
                 referenceId: updatedPO._id,
                 referenceModel: 'PurchaseOrder',
-                performedBy: req.user._id,
+                performedBy: req.user?.id || req.user?._id,
                 notes: `Inventory reduced due to purchase order ${updatedPO.poNumber} update - quantity decreased by ${Math.abs(quantityChange)}`
               });
             }
@@ -240,7 +240,7 @@ router.put('/:id', [
               reference: 'Purchase Order',
               referenceId: updatedPO._id,
               referenceModel: 'PurchaseOrder',
-              performedBy: req.user._id,
+              performedBy: req.user?.id || req.user?._id,
               notes: `Inventory reduced due to purchase order ${updatedPO.poNumber} update - item removed`
             });
           }
@@ -286,7 +286,7 @@ router.put('/:id/confirm', [
           reference: 'Purchase Order',
           referenceId: purchaseOrder._id,
           referenceModel: 'PurchaseOrder',
-          performedBy: req.user._id,
+          performedBy: req.user?.id || req.user?._id,
           notes: `Stock increased due to purchase order confirmation - PO: ${purchaseOrder.poNumber}`
         });
 
@@ -337,19 +337,19 @@ router.put('/:id/confirm', [
     // Update purchase order status only after successful inventory updates
     purchaseOrder.status = 'confirmed';
     purchaseOrder.confirmedDate = new Date();
-    purchaseOrder.lastModifiedBy = req.user._id;
+    purchaseOrder.lastModifiedBy = req.user?.id || req.user?._id;
 
     await purchaseOrder.save();
 
     // Automatically create a Purchase Invoice from this confirmed order
     try {
-      const invoice = await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, req.user._id);
+      const invoice = await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, req.user?.id || req.user?._id);
 
       // Track conversion in purchase order
       purchaseOrder.conversions = purchaseOrder.conversions || [];
       purchaseOrder.conversions.push({
         invoiceId: invoice._id,
-        convertedBy: req.user._id,
+        convertedBy: req.user?.id || req.user?._id,
         convertedAt: new Date(),
         items: (purchaseOrder.items || []).map(item => ({
           product: item.product,
@@ -368,14 +368,6 @@ router.put('/:id/confirm', [
       // Don't fail the confirmation if invoice creation fails
     }
 
-    // Create accounting entries for confirmed purchase order
-    try {
-      const AccountingService = require('../services/accountingService');
-      await AccountingService.recordPurchase(purchaseOrder);
-    } catch (error) {
-      console.error('Error creating accounting entries for purchase order:', error);
-      // Don't fail the confirmation if accounting fails
-    }
 
     await purchaseOrder.populate([
       { path: 'supplier', select: 'companyName contactPerson email phone businessType' },
@@ -419,7 +411,7 @@ router.put('/:id/cancel', [
     const purchaseOrderBeforeCancel = await purchaseOrderService.getPurchaseOrderById(req.params.id);
     const wasConfirmed = purchaseOrderBeforeCancel.status === 'confirmed';
 
-    const purchaseOrder = await purchaseOrderService.cancelPurchaseOrder(req.params.id, req.user._id);
+    const purchaseOrder = await purchaseOrderService.cancelPurchaseOrder(req.params.id, req.user?.id || req.user?._id);
 
     // If the purchase order was confirmed, reduce inventory
     const inventoryUpdates = [];
@@ -434,7 +426,7 @@ router.put('/:id/cancel', [
             reference: 'Purchase Order',
             referenceId: purchaseOrder._id,
             referenceModel: 'PurchaseOrder',
-            performedBy: req.user._id,
+            performedBy: req.user?.id || req.user?._id,
             notes: `Stock reduced due to purchase order cancellation - PO: ${purchaseOrder.poNumber}`
           });
 
@@ -489,7 +481,7 @@ router.put('/:id/cancel', [
     }
 
     purchaseOrder.status = 'cancelled';
-    purchaseOrder.lastModifiedBy = req.user._id;
+    purchaseOrder.lastModifiedBy = req.user?.id || req.user?._id;
 
     await purchaseOrder.save();
 
@@ -514,7 +506,7 @@ router.put('/:id/close', [
   requirePermission('close_purchase_orders')
 ], async (req, res) => {
   try {
-    const purchaseOrder = await purchaseOrderService.closePurchaseOrder(req.params.id, req.user._id);
+    const purchaseOrder = await purchaseOrderService.closePurchaseOrder(req.params.id, req.user?.id || req.user?._id);
 
     res.json({
       message: 'Purchase order closed successfully',
@@ -559,7 +551,7 @@ router.delete('/:id', [
               reference: 'Purchase Order',
               referenceId: purchaseOrder._id,
               referenceModel: 'PurchaseOrder',
-              performedBy: req.user._id,
+              performedBy: req.user?.id || req.user?._id,
               notes: `Inventory rolled back due to deletion of purchase order ${purchaseOrder.poNumber}`
             });
           } catch (error) {
@@ -601,7 +593,7 @@ router.post('/:id/convert', [
   auth,
   requirePermission('manage_inventory'),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
-  body('items.*.product').isMongoId().withMessage('Valid product is required'),
+  body('items.*.product').isUUID(4).withMessage('Valid product is required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('items.*.costPerUnit').isFloat({ min: 0 }).withMessage('Cost per unit must be positive')
 ], async (req, res) => {
@@ -617,37 +609,33 @@ router.post('/:id/convert', [
       return res.status(400).json({ message: 'Cannot convert cancelled or closed purchase order' });
     }
 
-    const Inventory = require('../models/Inventory');
+    const poNumber = purchaseOrder.purchase_order_number || purchaseOrder.poNumber;
+    const poId = purchaseOrder.id || purchaseOrder._id;
+    const userId = req.user?.id || req.user?._id;
     const { items } = req.body;
     const conversionResults = [];
 
-    // Process each item
     for (const item of items) {
       try {
-        // Update inventory stock with cost
-        await Inventory.updateStock(
-          item.product,
-          {
-            type: 'in',
-            quantity: item.quantity,
-            cost: item.costPerUnit, // Pass cost price from purchase order
-            reason: `Purchase from PO: ${purchaseOrder.poNumber}`,
-            reference: 'Purchase Order',
-            referenceId: purchaseOrder._id,
-            referenceModel: 'PurchaseOrder',
-            performedBy: req.user._id,
-            notes: `Stock increased from purchase order: ${purchaseOrder.poNumber}`
-          }
-        );
+        await inventoryService.updateStock({
+          productId: item.product,
+          type: 'in',
+          quantity: item.quantity,
+          cost: item.costPerUnit,
+          reason: `Purchase from PO: ${poNumber}`,
+          reference: 'Purchase Order',
+          referenceId: poId,
+          referenceModel: 'PurchaseOrder',
+          performedBy: userId,
+          notes: `Stock increased from purchase order: ${poNumber}`
+        });
 
-        // Update purchase order item received quantity
-        const poItem = purchaseOrder.items.find(poItem =>
-          poItem.product.toString() === item.product
+        const poItem = purchaseOrder.items.find(pi =>
+          (pi.product_id || pi.product || '').toString() === (item.product || '').toString()
         );
-
         if (poItem) {
-          poItem.receivedQuantity += item.quantity;
-          poItem.remainingQuantity = Math.max(0, poItem.quantity - poItem.receivedQuantity);
+          poItem.receivedQuantity = (poItem.receivedQuantity || 0) + item.quantity;
+          poItem.remainingQuantity = Math.max(0, (poItem.quantity || 0) - (poItem.receivedQuantity || 0));
         }
 
         conversionResults.push({
@@ -656,7 +644,6 @@ router.post('/:id/convert', [
           costPerUnit: item.costPerUnit,
           status: 'success'
         });
-
       } catch (itemError) {
         console.error(`Error processing item ${item.product}:`, itemError);
         conversionResults.push({
@@ -669,49 +656,30 @@ router.post('/:id/convert', [
       }
     }
 
-    // Update purchase order status
-    const allItemsReceived = purchaseOrder.items.every(item => item.remainingQuantity === 0);
-    if (allItemsReceived) {
-      purchaseOrder.status = 'fully_received';
-      purchaseOrder.lastReceivedDate = new Date();
-    } else {
-      purchaseOrder.status = 'partially_received';
-      purchaseOrder.lastReceivedDate = new Date();
-    }
+    const allItemsReceived = purchaseOrder.items.every(it => (it.remainingQuantity || 0) === 0);
+    const newStatus = allItemsReceived ? 'fully_received' : 'partially_received';
 
-    // Add conversion record
-    purchaseOrder.conversions = purchaseOrder.conversions || [];
-    purchaseOrder.conversions.push({
-      convertedBy: req.user._id,
-      convertedAt: new Date(),
-      items: conversionResults,
-      notes: req.body.notes || `Converted ${items.length} items to purchase`
-    });
-
-    // Automatically create a Purchase Invoice for the converted items
     try {
-      const invoice = await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, req.user._id, items);
-
-      // Update conversion record with invoiceId
-      const lastConversion = purchaseOrder.conversions[purchaseOrder.conversions.length - 1];
-      if (lastConversion) {
-        lastConversion.invoiceId = invoice._id;
-        lastConversion.notes = lastConversion.notes || ``;
-        lastConversion.notes += ` - Created Invoice PI: ${invoice.invoiceNumber}`;
-      }
+      await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, userId, items);
     } catch (createInvoiceError) {
       console.error('Failed to create purchase invoice during conversion:', createInvoiceError);
     }
 
-    await purchaseOrder.save();
+    await purchaseOrderRepository.update(req.params.id, {
+      items: purchaseOrder.items,
+      status: newStatus,
+      updatedBy: userId
+    });
 
     res.json({
       message: 'Purchase order converted successfully',
       conversionResults,
       purchaseOrder: {
-        _id: purchaseOrder._id,
-        poNumber: purchaseOrder.poNumber,
-        status: purchaseOrder.status
+        id: poId,
+        _id: poId,
+        purchase_order_number: poNumber,
+        poNumber,
+        status: newStatus
       }
     });
 

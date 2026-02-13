@@ -10,7 +10,10 @@ import {
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatCurrency } from '../utils/formatters';
-import { useCitiesQuery, useLazyGetCustomersQuery } from '../store/services/customersApi';
+import { 
+  useCitiesQuery, 
+  useLazyGetCustomersByCitiesQuery 
+} from '../store/services/customersApi';
 import { useGetAccountsQuery } from '../store/services/chartOfAccountsApi';
 import { useCreateBatchCashReceiptsMutation } from '../store/services/cashReceiptsApi';
 import { useCompanyInfo } from '../hooks/useCompanyInfo';
@@ -50,7 +53,7 @@ const CashReceiving = () => {
   const [customers, setCustomers] = useState([]);
   const [customerEntries, setCustomerEntries] = useState([]);
   const [fetchCustomersByCities, { data: customersResponse, isFetching: customersLoading }] =
-    useLazyGetCustomersQuery();
+    useLazyGetCustomersByCitiesQuery();
 
   // Print modal state
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -115,8 +118,8 @@ const CashReceiving = () => {
     }
 
     const citiesParam = selectedCities.join(',');
-    // Always fetch all customers, filtering is done on frontend
-    fetchCustomersByCities({ cities: citiesParam, showZeroBalance: true })
+    // Increase limit to 1000 to ensure all customers are loaded
+    fetchCustomersByCities({ cities: citiesParam, showZeroBalance: true, limit: 1000 })
       .unwrap()
       .then((response) => {
         const loadedCustomers = response?.data?.customers || response?.customers || response?.data || response || [];
@@ -132,20 +135,35 @@ const CashReceiving = () => {
           
           // Extract city from customer data - check multiple possible locations
           let customerCity = customer.city || '';
-          if (!customerCity && customer.addresses && customer.addresses.length > 0) {
-            const defaultAddress = customer.addresses.find(addr => addr.isDefault) || customer.addresses[0];
-            customerCity = defaultAddress?.city || '';
+          if (!customerCity) {
+            // Check address field which can be a string or object in Postgres
+            const rawAddr = customer.address || customer.addresses;
+            let addr = rawAddr;
+            if (typeof rawAddr === 'string') {
+              try {
+                addr = JSON.parse(rawAddr);
+              } catch (e) {
+                addr = null;
+              }
+            }
+            
+            if (Array.isArray(addr) && addr.length > 0) {
+              const defaultAddr = addr.find(a => a.isDefault) || addr[0];
+              customerCity = defaultAddr?.city || '';
+            } else if (addr && typeof addr === 'object') {
+              customerCity = addr.city || '';
+            }
           }
           
           return {
-            customerId: customer._id,
-            accountName: customer.accountName || customer.businessName || customer.name,
+            customerId: customer.id || customer._id,
+            accountName: customer.accountName || customer.businessName || customer.business_name || customer.name,
             balance: netBalance, // Use net balance to match account ledger
             particular: '',
             amount: '',
             city: customerCity, // Store city for printing
             phone: customer.phone || '', // Store phone for printing
-            name: customer.businessName || customer.name || '', // Store name for printing
+            name: customer.businessName || customer.business_name || customer.name || '', // Store name for printing
           };
         });
 
@@ -218,6 +236,7 @@ const CashReceiving = () => {
       voucherDate: voucherData.voucherDate,
       cashAccount: voucherData.cashAccount,
       paymentType: voucherData.paymentType,
+      voucherNo: voucherData.voucherNo,
       receipts
     };
 
@@ -599,7 +618,7 @@ const CashReceiving = () => {
               >
                 <option value="CASH IN HAND">CASH IN HAND</option>
                 {cashAccounts.map(account => (
-                  <option key={account._id} value={account.accountName}>
+                  <option key={account.id || account._id} value={account.accountName}>
                     {account.accountName}
                   </option>
                 ))}

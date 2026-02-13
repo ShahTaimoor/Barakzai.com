@@ -55,7 +55,7 @@ const safeRender = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string' || typeof value === 'number') return value;
   if (typeof value === 'object') {
-    return value.name || value.title || value.fullName || value.companyName || JSON.stringify(value);
+    return value.businessName || value.business_name || value.name || value.title || value.fullName || value.companyName || JSON.stringify(value);
   }
   return String(value);
 };
@@ -94,7 +94,7 @@ const PurchaseOrderCard = ({ po, onEdit, onDelete, onConfirm, onCancel, onClose,
           <div className="space-y-2">
             <div className="flex items-center text-sm text-gray-600">
               <Building className="h-4 w-4 mr-2" />
-              {po.supplier?.companyName || (typeof po.supplier === 'string' ? `Supplier ID: ${po.supplier}` : 'Unknown Supplier')}
+              {po.supplier?.businessName || po.supplier?.business_name || po.supplier?.companyName || (typeof po.supplier === 'string' ? `Supplier ID: ${po.supplier}` : 'Unknown Supplier')}
             </div>
 
             <div className="flex items-center text-sm text-gray-600">
@@ -1209,7 +1209,7 @@ export const PurchaseOrders = ({ tabId }) => {
               <div className="flex items-center space-x-3">
                 <Building className="h-5 w-5 text-gray-400" />
                 <div className="flex-1">
-                  <p className="font-medium">{selectedSupplier.companyName || selectedSupplier.name || 'Unknown'}</p>
+                  <p className="font-medium">{selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.companyName || selectedSupplier.name || 'Unknown'}</p>
                   <p className="text-sm text-gray-600 capitalize">
                     {selectedSupplier.businessType || 'Business'} • {selectedSupplier.reliability || 'Standard'}
                   </p>

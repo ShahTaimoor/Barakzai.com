@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
-import { Search, Filter, X, Calendar, FileText } from 'lucide-react';
-import DateFilter from './DateFilter';
+import React from 'react';
+import { Search, X } from 'lucide-react';
 
 const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
   const handleFilterChange = (field, value) => {
     onFilterChange({ [field]: value });
   };
@@ -27,27 +24,46 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
       <div className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Filters</h3>
-          <div className="flex space-x-2">
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Clear all
-              </button>
-            )}
+          {hasActiveFilters && (
             <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+              onClick={clearFilters}
+              className="text-sm text-gray-500 hover:text-gray-700 flex items-center"
             >
-              <Filter className="h-4 w-4 mr-1" />
-              {showAdvanced ? 'Hide' : 'Show'} advanced
+              <X className="h-4 w-4 mr-1" />
+              Clear all
             </button>
-          </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Date range: From */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              From date
+            </label>
+            <input
+              type="date"
+              value={filters.startDate || ''}
+              onChange={(e) => handleFilterChange('startDate', e.target.value || '')}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              disabled={isLoading}
+            />
+          </div>
+
+          {/* Date range: To */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              To date
+            </label>
+            <input
+              type="date"
+              value={filters.endDate || ''}
+              onChange={(e) => handleFilterChange('endDate', e.target.value || '')}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              disabled={isLoading}
+            />
+          </div>
+
           {/* Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -105,8 +121,8 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
             </select>
           </div>
 
-          {/* Results per page */}
-          <div>
+          {/* Results per page - move to second row on small screens via full width */}
+          <div className="col-span-2 md:col-span-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Per Page
             </label>
@@ -123,25 +139,6 @@ const BalanceSheetFilters = ({ filters, onFilterChange, isLoading }) => {
             </select>
           </div>
         </div>
-
-        {/* Advanced Filters */}
-        {showAdvanced && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Date Range</h4>
-            <div className="col-span-2">
-              <DateFilter
-                startDate={filters.startDate}
-                endDate={filters.endDate}
-                onDateChange={(start, end) => {
-                  handleFilterChange('startDate', start || '');
-                  handleFilterChange('endDate', end || '');
-                }}
-                compact={true}
-                showPresets={true}
-              />
-            </div>
-          </div>
-        )}
 
         {/* Active Filters Summary */}
         {hasActiveFilters && (

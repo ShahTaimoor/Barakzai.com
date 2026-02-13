@@ -16,7 +16,12 @@ class ProfitDistributionService {
    */
   async distributeProfitForOrder(order, user) {
     try {
-      if (!order || order.status !== 'confirmed' && order.payment?.status !== 'paid') {
+      if (!order) throw new Error('Order must be confirmed and paid to distribute profit');
+      const status = order.status ?? order.Status;
+      const paymentStatus = order.payment_status ?? order.paymentStatus ?? order.payment?.status;
+      const isPaid = paymentStatus === 'paid';
+      const isConfirmed = status === 'confirmed' || status === 'completed';
+      if (!isConfirmed || !isPaid) {
         throw new Error('Order must be confirmed and paid to distribute profit');
       }
 
@@ -32,7 +37,8 @@ class ProfitDistributionService {
       };
 
       // Process each item in the order
-      for (const item of order.items) {
+      const items = Array.isArray(order?.items) ? order.items : [];
+      for (const item of items) {
         try {
           // Get product with investors
           const product = await ProductRepository.findById(item.product, {
@@ -53,8 +59,8 @@ class ProfitDistributionService {
           }
 
           // Calculate profit for this item
-          const saleAmount = item.total || (item.unitPrice * item.quantity);
-          const totalCost = product.pricing.cost * item.quantity;
+          const saleAmount = item?.total ?? (item?.unitPrice * item?.quantity) ?? 0;
+          const totalCost = (product?.pricing?.cost ?? 0) * (item?.quantity ?? 0);
           const totalProfit = saleAmount - totalCost;
 
           // Skip if no profit or negative profit

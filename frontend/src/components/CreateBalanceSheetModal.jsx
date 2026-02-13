@@ -12,15 +12,24 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
   const [errors, setErrors] = useState({});
   const [generateBalanceSheet, { isLoading }] = useGenerateBalanceSheetMutation();
 
+  // Compare calendar days in local time (so "today" is allowed, not treated as future)
+  const toLocalDateOnly = (dateStr) => {
+    if (!dateStr) return null;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date(dateStr);
+    return new Date(y, m - 1, d);
+  };
+
   const validateForm = () => {
     const newErrors = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     if (!formData.startDate) {
       newErrors.startDate = 'Start date is required';
     } else {
-      const selectedDate = new Date(formData.startDate);
-      const today = new Date();
-      if (selectedDate > today) {
+      const selectedDay = toLocalDateOnly(formData.startDate);
+      if (selectedDay > today) {
         newErrors.startDate = 'Start date cannot be in the future';
       }
     }
@@ -28,15 +37,13 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
     if (!formData.endDate) {
       newErrors.endDate = 'End date is required';
     } else {
-      const selectedDate = new Date(formData.endDate);
-      const today = new Date();
-      if (selectedDate > today) {
+      const selectedDay = toLocalDateOnly(formData.endDate);
+      if (selectedDay > today) {
         newErrors.endDate = 'End date cannot be in the future';
       }
-      
-      // Check if end date is after start date
-      if (formData.startDate && selectedDate < new Date(formData.startDate)) {
-        newErrors.endDate = 'End date must be after start date';
+      // Check if end date is before start date
+      if (formData.startDate && selectedDay < toLocalDateOnly(formData.startDate)) {
+        newErrors.endDate = 'End date must be on or after start date';
       }
     }
 

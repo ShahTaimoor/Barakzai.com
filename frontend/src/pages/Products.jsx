@@ -65,7 +65,7 @@ const Products = () => {
     refetchOnMountOrArgChange: true,
   });
 
-  const { data: categoriesDataRaw } = useGetCategoriesQuery(undefined, {
+  const { data: categoriesDataRaw } = useGetCategoriesQuery({ limit: 999999 }, {
     refetchOnMountOrArgChange: true,
   });
 

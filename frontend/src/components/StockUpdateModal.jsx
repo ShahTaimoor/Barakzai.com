@@ -190,7 +190,7 @@ const StockUpdateModal = ({ isOpen, onClose, product, onSuccess }) => {
                         {product?.product?.name || product?.name || 'Unknown Product'}
                       </div>
                       <div className="text-sm text-gray-500">
-                        Category: {product?.product?.category || product?.category || 'N/A'}
+                        Category: {typeof (product?.product?.category ?? product?.category) === 'object' ? ((product?.product?.category ?? product?.category)?.name ?? 'N/A') : (product?.product?.category || product?.category || 'N/A')}
                       </div>
                     </div>
                   </div>

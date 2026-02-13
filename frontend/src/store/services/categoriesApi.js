@@ -49,6 +49,45 @@ export const categoriesApi = api.injectEndpoints({
         { type: 'Categories', id: 'TREE' },
       ],
     }),
+    exportCategories: builder.mutation({
+      query: (filters) => ({
+        url: 'categories/export/excel',
+        method: 'post',
+        data: { filters },
+      }),
+    }),
+    importCategories: builder.mutation({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return {
+          url: 'categories/import/excel',
+          method: 'post',
+          data: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        };
+      },
+      invalidatesTags: [
+        { type: 'Categories', id: 'LIST' },
+        { type: 'Categories', id: 'TREE' },
+      ],
+    }),
+    downloadCategoryTemplate: builder.query({
+      query: () => ({
+        url: 'categories/template/excel',
+        method: 'get',
+        responseType: 'blob',
+      }),
+    }),
+    downloadCategoryExportFile: builder.query({
+      query: (filename) => ({
+        url: `categories/download/${filename}`,
+        method: 'get',
+        responseType: 'blob',
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -59,5 +98,9 @@ export const {
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
+  useExportCategoriesMutation,
+  useImportCategoriesMutation,
+  useDownloadCategoryTemplateQuery,
+  useLazyDownloadCategoryExportFileQuery,
 } = categoriesApi;
 

@@ -1,5 +1,4 @@
-const userRepository = require('../repositories/UserRepository');
-const User = require('../models/User');
+const userRepository = require('../repositories/postgres/UserRepository');
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 
@@ -35,7 +34,7 @@ class AuthService {
     // Track permission change
     if (createdBy) {
       await userRepository.trackPermissionChange(
-        user._id,
+        user.id,
         createdBy,
         'created',
         {},
@@ -73,17 +72,17 @@ class AuthService {
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      await userRepository.incrementLoginAttempts(user._id);
+      await userRepository.incrementLoginAttempts(user.id);
       throw new Error('Invalid credentials');
     }
 
     // Reset login attempts on successful login
     if (user.loginAttempts > 0) {
-      await userRepository.resetLoginAttempts(user._id);
+      await userRepository.resetLoginAttempts(user.id);
     }
 
     // Track login activity
-    await userRepository.trackLogin(user._id, ipAddress, userAgent);
+    await userRepository.trackLogin(user.id, ipAddress, userAgent);
 
     // Create JWT token
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === '') {
@@ -127,17 +126,12 @@ class AuthService {
    * @returns {Promise<{user: User, message: string}>}
    */
   async updateProfile(userId, updateData) {
-    const { firstName, lastName, phone, department, preferences } = updateData;
+    const { firstName, lastName, phone } = updateData;
 
     const updateFields = {};
     if (firstName) updateFields.firstName = firstName;
     if (lastName) updateFields.lastName = lastName;
     if (phone !== undefined) updateFields.phone = phone;
-    if (department !== undefined) updateFields.department = department;
-    if (preferences) {
-      const currentUser = await userRepository.findById(userId);
-      updateFields.preferences = { ...(currentUser?.preferences || {}), ...preferences };
-    }
 
     const user = await userRepository.updateProfile(userId, updateFields);
     if (!user) {

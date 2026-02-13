@@ -141,7 +141,7 @@ export const Inventory = () => {
           </div>
           <div>
             <div className="font-medium text-gray-900">{item.product?.name || 'N/A'}</div>
-            <div className="text-sm text-gray-500">Category: {item.product?.category || 'N/A'}</div>
+            <div className="text-sm text-gray-500">Category: {typeof item.product?.category === 'object' ? (item.product?.category?.name ?? 'N/A') : (item.product?.category || 'N/A')}</div>
           </div>
         </div>
       ),
@@ -242,7 +242,7 @@ export const Inventory = () => {
           </div>
           <div>
             <h3 className="font-medium text-gray-900">{item.product?.name || 'N/A'}</h3>
-            <p className="text-sm text-gray-500">Category: {item.product?.category || 'N/A'}</p>
+            <p className="text-sm text-gray-500">Category: {typeof item.product?.category === 'object' ? (item.product?.category?.name ?? 'N/A') : (item.product?.category || 'N/A')}</p>
           </div>
         </div>
         <div className="text-right">
