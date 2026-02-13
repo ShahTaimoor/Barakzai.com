@@ -124,7 +124,14 @@ class ProductServicePostgres {
     }
 
     const inv = productData.inventory || {};
-    const categoryId = await resolveCategoryId(productData.category || productData.categoryId);
+    const categoryInput = productData.category || productData.categoryId;
+    let categoryId = null;
+    
+    if (categoryInput && typeof categoryInput === 'object') {
+      categoryId = categoryInput.id || categoryInput._id;
+    } else {
+      categoryId = await resolveCategoryId(categoryInput);
+    }
 
     const product = await productRepository.create({
       name: productData.name,
@@ -171,7 +178,13 @@ class ProductServicePostgres {
     if (updateData.barcode !== undefined) data.barcode = updateData.barcode;
     if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.category !== undefined || updateData.categoryId !== undefined) {
-      data.categoryId = updateData.category ?? updateData.categoryId;
+      const catId = updateData.category ?? updateData.categoryId;
+      // If catId is an object (like from frontend), extract the ID
+      if (catId && typeof catId === 'object') {
+        data.categoryId = catId.id || catId._id || null;
+      } else {
+        data.categoryId = catId;
+      }
     }
     if (updateData.unit !== undefined) data.unit = updateData.unit;
     if (updateData.status !== undefined) data.isActive = updateData.status !== 'inactive';
