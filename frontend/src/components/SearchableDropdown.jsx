@@ -26,7 +26,7 @@ export const SearchableDropdown = forwardRef(({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [filteredItems, setFilteredItems] = useState(items);
-  
+
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -132,7 +132,7 @@ export const SearchableDropdown = forwardRef(({
   useEffect(() => {
     const currentSearchTerm = value !== null ? value : searchTerm;
     const currentDisplayKey = displayKeyRef.current;
-    
+
     if (currentSearchTerm) {
       const filtered = items.filter(item => {
         // If displayKey is a function, try to filter by common searchable fields
@@ -148,12 +148,12 @@ export const SearchableDropdown = forwardRef(({
             item.email,
             item.phone
           ].filter(Boolean); // Remove null/undefined values
-          
+
           return searchableFields.some(field =>
             String(field).toLowerCase().includes(currentSearchTerm.toLowerCase())
           );
         }
-        
+
         // If displayKey is a string, filter normally
         const displayValue = valueToDisplayString(item[currentDisplayKey]);
         if (!displayValue) {
@@ -201,12 +201,12 @@ export const SearchableDropdown = forwardRef(({
     if (onKeyDown) {
       onKeyDown(e);
     }
-    
+
     // If external handler prevented default, don't process further
     if (e.defaultPrevented) {
       return;
     }
-    
+
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         e.preventDefault();
@@ -225,31 +225,31 @@ export const SearchableDropdown = forwardRef(({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => 
+        setSelectedIndex(prev =>
           prev < filteredItems.length - 1 ? prev + 1 : 0
         );
         break;
-      
+
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(prev => 
+        setSelectedIndex(prev =>
           prev > 0 ? prev - 1 : filteredItems.length - 1
         );
         break;
-      
+
       case 'Enter':
         e.preventDefault();
         if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
           handleSelect(filteredItems[selectedIndex]);
         }
         break;
-      
+
       case 'Tab':
         if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
           handleSelect(filteredItems[selectedIndex]);
         }
         break;
-      
+
       case 'Escape':
         e.preventDefault();
         setIsOpen(false);
@@ -278,7 +278,7 @@ export const SearchableDropdown = forwardRef(({
       const target = event.target;
       const isClickInDropdown = dropdownRef.current?.contains(target);
       const isClickInInput = inputRef.current?.contains(target);
-      
+
       if (!isClickInDropdown && !isClickInInput) {
         setIsOpen(false);
         setSelectedIndex(-1);
@@ -311,11 +311,11 @@ export const SearchableDropdown = forwardRef(({
       };
 
       updatePosition();
-      
+
       // Update position on scroll or resize
       window.addEventListener('scroll', updatePosition, true);
       window.addEventListener('resize', updatePosition);
-      
+
       return () => {
         window.removeEventListener('scroll', updatePosition, true);
         window.removeEventListener('resize', updatePosition);
@@ -342,11 +342,11 @@ export const SearchableDropdown = forwardRef(({
   // Get right-side content (e.g., city for customers)
   const getRightContent = (item) => {
     if (!item || !rightContentKey) return null;
-    
+
     if (typeof rightContentKey === 'function') {
       return rightContentKey(item);
     }
-    
+
     // If rightContentKey is a string, try to get the value
     if (typeof rightContentKey === 'string') {
       // Special handling for customer city
@@ -356,7 +356,7 @@ export const SearchableDropdown = forwardRef(({
       }
       return valueToDisplayString(item[rightContentKey]) || '';
     }
-    
+
     return null;
   };
 
@@ -365,7 +365,7 @@ export const SearchableDropdown = forwardRef(({
     if (value !== null) {
       return value;
     }
-    
+
     if (isOpen) {
       return searchTerm;
     }
@@ -377,7 +377,7 @@ export const SearchableDropdown = forwardRef(({
 
   // Extract padding classes from className prop
   const hasCustomPadding = className.includes('pr-');
-  
+
   const handleInputClick = () => {
     // Open dropdown when clicking on input (if there are items or a search term)
     if (items.length > 0 || searchTerm || value) {
@@ -408,6 +408,7 @@ export const SearchableDropdown = forwardRef(({
           }}
           type="text"
           placeholder={placeholder}
+          autoComplete="off"
           value={getInputValue()}
           onChange={(e) => handleSearch(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -421,16 +422,15 @@ export const SearchableDropdown = forwardRef(({
           disabled={disabled}
           className={`input pl-10 ${hasCustomPadding ? className.match(/pr-\d+/)?.[0] || 'pr-10' : 'pr-10'} w-full`}
         />
-        <ChevronDown 
+        <ChevronDown
           onClick={handleChevronClick}
-          className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 transition-transform z-10 cursor-pointer ${
-            isOpen ? 'rotate-180' : ''
-          }`} 
+          className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 transition-transform z-10 cursor-pointer ${isOpen ? 'rotate-180' : ''
+            }`}
         />
       </div>
 
       {isOpen && createPortal(
-        <div 
+        <div
           ref={dropdownRef}
           className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto"
           style={{
@@ -449,16 +449,15 @@ export const SearchableDropdown = forwardRef(({
               {filteredItems.map((item, index) => {
                 const isSelected = selectedIndex === index;
                 const isItemSelected = selectedItem && selectedItem[valueKey] === item[valueKey];
-                
+
                 return (
                   <button
                     key={item[valueKey]}
                     ref={el => itemRefs.current[index] = el}
                     type="button"
                     onClick={() => handleSelect(item)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 focus:bg-gray-50 focus:outline-none flex items-center justify-between ${
-                      isSelected ? 'bg-primary-50 text-primary-700' : 'text-gray-900'
-                    }`}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 focus:bg-gray-50 focus:outline-none flex items-center justify-between ${isSelected ? 'bg-primary-50 text-primary-700' : 'text-gray-900'
+                      }`}
                   >
                     <span className="flex-1">{getDisplayValue(item)}</span>
                     <span className="flex items-center gap-2">

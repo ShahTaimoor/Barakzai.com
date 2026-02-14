@@ -154,8 +154,8 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
       }
 
       // Convert to array format for the form
-      const formAddresses = Array.isArray(parsedAddress) 
-        ? parsedAddress 
+      const formAddresses = Array.isArray(parsedAddress)
+        ? parsedAddress
         : (parsedAddress ? [parsedAddress] : (customer.addresses || defaultCustomerValues.addresses));
 
       reset({
@@ -336,6 +336,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                 <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   {...register('businessName', { required: 'Business name is required' })}
+                  autoComplete="off"
                   className={`input pl-10 ${businessNameExists ? 'border-red-500' : ''}`}
                   placeholder="Enter business name"
                 />
@@ -359,6 +360,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
               </label>
               <input
                 {...register('name', { required: 'Contact person is required' })}
+                autoComplete="off"
                 className="input"
                 placeholder="Enter contact person name"
               />
@@ -382,6 +384,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                       }
                     })}
                     type="text"
+                    autoComplete="off"
                     className={`input pl-10 ${emailExists ? 'border-red-500' : ''}`}
                     placeholder="Enter email address (optional)"
                   />
@@ -408,6 +411,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   <input
                     {...register('phone')}
                     type="tel"
+                    autoComplete="off"
                     className="input pl-10"
                     placeholder="Enter phone number"
                   />
@@ -453,6 +457,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   })}
                   type="number"
                   step="0.01"
+                  autoComplete="off"
                   className="input"
                   placeholder="0.00"
                 />
@@ -469,6 +474,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   {...register('openingBalance', { valueAsNumber: true })}
                   type="number"
                   step="0.01"
+                  autoComplete="off"
                   className="input"
                   placeholder="0.00"
                 />
@@ -501,6 +507,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                         </label>
                         <input
                           type="text"
+                          autoComplete="off"
                           value={address.street || ''}
                           onChange={(e) => handleAddressChange(index, 'street', e.target.value)}
                           className="input"
@@ -541,6 +548,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                         <input
                           type="text"
                           value={address.state || ''}
+                          autoComplete="off"
                           onChange={(e) => handleAddressChange(index, 'state', e.target.value)}
                           className="input"
                           placeholder="State"
@@ -553,6 +561,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                         <input
                           type="text"
                           value={address.zipCode || ''}
+                          autoComplete="off"
                           onChange={(e) => handleAddressChange(index, 'zipCode', e.target.value)}
                           className="input"
                           placeholder="12345"
@@ -590,6 +599,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                     <input
                       type="text"
                       value={displayValue}
+                      autoComplete="off"
                       className="input bg-gray-50 text-gray-700 cursor-not-allowed"
                       readOnly
                       disabled
@@ -660,6 +670,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   <input
                     type="text"
                     value={cityFormData.name}
+                    autoComplete="off"
                     onChange={(e) => setCityFormData({ ...cityFormData, name: e.target.value })}
                     className="input"
                     placeholder="Enter city name"
@@ -674,6 +685,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   <input
                     type="text"
                     value={cityFormData.state}
+                    autoComplete="off"
                     onChange={(e) => setCityFormData({ ...cityFormData, state: e.target.value })}
                     className="input"
                     placeholder="Enter state"
@@ -687,6 +699,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   <input
                     type="text"
                     value={cityFormData.country}
+                    autoComplete="off"
                     onChange={(e) => setCityFormData({ ...cityFormData, country: e.target.value })}
                     className="input"
                     placeholder="Enter country"

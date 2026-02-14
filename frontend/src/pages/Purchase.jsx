@@ -96,6 +96,7 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
             <label className="block text-xs text-gray-500 mb-1">Quantity</label>
             <input
               type="number"
+              autoComplete="off"
               value={item.quantity}
               onChange={(e) => onUpdateQuantity(item.product?._id, parseInt(e.target.value) || 1)}
               className="input text-center text-sm h-8"
@@ -107,6 +108,7 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
             <input
               type="number"
               step="0.01"
+              autoComplete="off"
               value={item.costPerUnit}
               onChange={(e) => onUpdateCost(item.product?._id, parseFloat(e.target.value) || 0)}
               className="input text-center text-sm h-8"
@@ -151,6 +153,7 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
         <div className="col-span-1">
           <input
             type="number"
+            autoComplete="off"
             value={item.quantity}
             onChange={(e) => onUpdateQuantity(item.product?._id, parseInt(e.target.value) || 1)}
             className="input text-center text-xs sm:text-sm h-8"
@@ -163,6 +166,7 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
           <input
             type="number"
             step="0.01"
+            autoComplete="off"
             value={item.costPerUnit}
             onChange={(e) => onUpdateCost(item.product?._id, parseFloat(e.target.value) || 0)}
             className="input text-center text-xs sm:text-sm h-8"
@@ -406,6 +410,7 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
           <input
             type="number"
             min="1"
+            autoComplete="off"
             value={quantity}
             onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
             onKeyDown={(e) => {
@@ -427,6 +432,7 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
           <input
             type="number"
             step="1"
+            autoComplete="off"
             value={costPerUnit}
             onChange={(e) => setCostPerUnit(e.target.value)}
             onKeyDown={(e) => {
@@ -448,6 +454,7 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
           </label>
           <input
             type="text"
+            autoComplete="off"
             value={selectedProduct ? Math.round(quantity * parseFloat(costPerUnit || 0)) : ''}
             className="input text-center font-medium text-sm sm:text-base"
             disabled
@@ -1423,6 +1430,7 @@ export const Purchase = ({ tabId, editData }) => {
                   </label>
                   <input
                     type="text"
+                    autoComplete="off"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
                     className="input h-8 sm:h-8 text-sm"
@@ -1438,6 +1446,7 @@ export const Purchase = ({ tabId, editData }) => {
                   </label>
                   <input
                     type="date"
+                    autoComplete="off"
                     value={expectedDelivery}
                     onChange={(e) => setExpectedDelivery(e.target.value)}
                     className="input h-8 sm:h-8 text-sm"
@@ -1451,6 +1460,7 @@ export const Purchase = ({ tabId, editData }) => {
                   </label>
                   <input
                     type="date"
+                    autoComplete="off"
                     value={invoiceDate}
                     onChange={(e) => setInvoiceDate(e.target.value)}
                     className="input h-8 sm:h-8 text-sm"
@@ -1502,6 +1512,7 @@ export const Purchase = ({ tabId, editData }) => {
                   </label>
                   <input
                     type="text"
+                    autoComplete="off"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="input h-8 sm:h-8 text-sm"
@@ -1563,6 +1574,7 @@ export const Purchase = ({ tabId, editData }) => {
                       </select>
                       <input
                         type="number"
+                        autoComplete="off"
                         placeholder={directDiscount.type === 'amount' ? 'Enter amount...' : 'Enter percentage...'}
                         value={directDiscount.value || ''}
                         onChange={(e) => {
@@ -1609,6 +1621,7 @@ export const Purchase = ({ tabId, editData }) => {
                     <input
                       type="number"
                       step="0.01"
+                      autoComplete="off"
                       value={amountPaid}
                       onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
                       onFocus={(e) => e.target.select()}
@@ -1842,6 +1855,7 @@ export const Purchase = ({ tabId, editData }) => {
                         <label className="block text-xs text-gray-600 mb-1">From Date</label>
                         <input
                           type="date"
+                          autoComplete="off"
                           value={exportDateFrom}
                           onChange={(e) => setExportDateFrom(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -1851,6 +1865,7 @@ export const Purchase = ({ tabId, editData }) => {
                         <label className="block text-xs text-gray-600 mb-1">To Date</label>
                         <input
                           type="date"
+                          autoComplete="off"
                           value={exportDateTo}
                           onChange={(e) => setExportDateTo(e.target.value)}
                           min={exportDateFrom}

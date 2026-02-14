@@ -1833,6 +1833,7 @@ export const PurchaseOrders = ({ tabId }) => {
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   className="input h-8 text-sm"
@@ -1979,6 +1980,7 @@ export const PurchaseOrders = ({ tabId }) => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Supplier Selection</label>
                       <input
                         type="text"
+                        autoComplete="off"
                         placeholder="Search suppliers..."
                         value={supplierSearchTerm}
                         onChange={(e) => setSupplierSearchTerm(e.target.value)}
@@ -2047,6 +2049,7 @@ export const PurchaseOrders = ({ tabId }) => {
                       </label>
                       <input
                         type="date"
+                        autoComplete="off"
                         value={formData.expectedDelivery}
                         onChange={(e) => setFormData(prev => ({ ...prev, expectedDelivery: e.target.value }))}
                         className="input h-8 text-sm"
@@ -2119,6 +2122,7 @@ export const PurchaseOrders = ({ tabId }) => {
                         </label>
                         <input
                           type="text"
+                          autoComplete="off"
                           placeholder="Search or type product name..."
                           value={modalProductSearchTerm}
                           onChange={(e) => {
@@ -2239,6 +2243,7 @@ export const PurchaseOrders = ({ tabId }) => {
                         <input
                           type="number"
                           min="1"
+                          autoComplete="off"
                           value={editProductQuantity}
                           onChange={(e) => setEditProductQuantity(parseInt(e.target.value) || 1)}
                           className="modal-quantity-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2254,6 +2259,7 @@ export const PurchaseOrders = ({ tabId }) => {
                         <input
                           type="number"
                           step="0.01"
+                          autoComplete="off"
                           value={editProductCost}
                           onChange={(e) => setEditProductCost(parseFloat(e.target.value) || 0)}
                           className="modal-cost-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2317,6 +2323,7 @@ export const PurchaseOrders = ({ tabId }) => {
                               <input
                                 type="number"
                                 min="1"
+                                autoComplete="off"
                                 value={item.quantity}
                                 onChange={(e) => {
                                   const newItems = [...formData.items];
@@ -2336,6 +2343,7 @@ export const PurchaseOrders = ({ tabId }) => {
                                 type="number"
                                 step="0.01"
                                 min="0"
+                                autoComplete="off"
                                 value={item.costPerUnit}
                                 onChange={(e) => {
                                   const newItems = [...formData.items];
@@ -2475,6 +2483,7 @@ export const PurchaseOrders = ({ tabId }) => {
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 placeholder="Contains..."
                 value={filters.poNumber}
                 onChange={(e) => handleFilterChange('poNumber', e.target.value)}

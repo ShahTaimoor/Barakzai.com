@@ -1917,6 +1917,7 @@ const SalesOrders = () => {
                     <input
                       type="number"
                       min="1"
+                      autoComplete="off"
                       max={selectedProduct?.inventory?.currentStock}
                       value={quantity}
                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
@@ -1946,6 +1947,7 @@ const SalesOrders = () => {
                     <input
                       type="number"
                       step="1"
+                      autoComplete="off"
                       value={customRate}
                       onChange={(e) => setCustomRate(e.target.value)}
                       onKeyDown={handleInputKeyDown}
@@ -2088,6 +2090,7 @@ const SalesOrders = () => {
                       <div className="col-span-1">
                         <input
                           type="number"
+                          autoComplete="off"
                           value={item.quantity}
                           onChange={(e) => {
                             const newQuantity = parseInt(e.target.value) || 1;
@@ -2245,6 +2248,7 @@ const SalesOrders = () => {
                           <input
                             type="number"
                             step="0.01"
+                            autoComplete="off"
                             value={item.unitPrice}
                             onChange={(e) => {
                               const newPrice = parseFloat(e.target.value) || 0;
@@ -2388,6 +2392,7 @@ const SalesOrders = () => {
                 <div className="relative">
                   <input
                     type="text"
+                    autoComplete="off"
                     value={formData.orderNumber}
                     onChange={(e) => setFormData((prev) => ({ ...prev, orderNumber: e.target.value }))}
                     className="w-full input pr-16 h-8 text-sm"
@@ -2416,6 +2421,7 @@ const SalesOrders = () => {
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   className="input h-8 text-sm"

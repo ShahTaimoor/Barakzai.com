@@ -107,11 +107,11 @@ export const JournalVouchers = () => {
       // Use RTK Query's lazy query or fetch directly
       // For now, we'll use the existing query data and filter
       const accounts = extractAccounts(accountsResponse);
-      const filteredAccounts = searchQuery 
-        ? accounts.filter(acc => 
-            acc.accountCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            acc.accountName?.toLowerCase().includes(searchQuery.toLowerCase())
-          )
+      const filteredAccounts = searchQuery
+        ? accounts.filter(acc =>
+          acc.accountCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          acc.accountName?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
         : accounts;
       updateAccountMap(filteredAccounts);
       const groups = filteredAccounts.reduce((acc, account) => {
@@ -312,6 +312,7 @@ export const JournalVouchers = () => {
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="date"
+                  autoComplete="off"
                   value={formState.voucherDate}
                   onChange={(e) => setFormState((prev) => ({ ...prev, voucherDate: e.target.value }))}
                   className="input pl-10"
@@ -326,6 +327,7 @@ export const JournalVouchers = () => {
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={formState.reference}
                 onChange={(e) => setFormState((prev) => ({ ...prev, reference: e.target.value }))}
                 className="input"
@@ -340,6 +342,7 @@ export const JournalVouchers = () => {
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={formState.description}
                 onChange={(e) => setFormState((prev) => ({ ...prev, description: e.target.value }))}
                 className="input"
@@ -387,9 +390,9 @@ export const JournalVouchers = () => {
                           value={
                             entry.accountId && accountMap.has(entry.accountId)
                               ? {
-                                  value: entry.accountId,
-                                  label: `${accountMap.get(entry.accountId).accountCode} — ${accountMap.get(entry.accountId).accountName}`
-                                }
+                                value: entry.accountId,
+                                label: `${accountMap.get(entry.accountId).accountCode} — ${accountMap.get(entry.accountId).accountName}`
+                              }
                               : null
                           }
                           onChange={(option) => handleEntryChange(index, 'accountId', option ? option.value : '')}
@@ -412,6 +415,7 @@ export const JournalVouchers = () => {
                     <td className="px-2 sm:px-4 py-3">
                       <input
                         type="text"
+                        autoComplete="off"
                         value={entry.particulars}
                         onChange={(e) => handleEntryChange(index, 'particulars', e.target.value)}
                         className="input w-full min-w-[150px] sm:min-w-[220px]"
@@ -424,6 +428,7 @@ export const JournalVouchers = () => {
                         type="number"
                         min="0"
                         step="0.01"
+                        autoComplete="off"
                         value={entry.debit}
                         onChange={(e) => handleEntryChange(index, 'debit', e.target.value)}
                         className="input text-right w-full min-w-[70px] sm:min-w-[90px]"
@@ -435,6 +440,7 @@ export const JournalVouchers = () => {
                         type="number"
                         min="0"
                         step="0.01"
+                        autoComplete="off"
                         value={entry.credit}
                         onChange={(e) => handleEntryChange(index, 'credit', e.target.value)}
                         className="input text-right w-full min-w-[70px] sm:min-w-[90px]"
@@ -478,9 +484,8 @@ export const JournalVouchers = () => {
                 <tr>
                   <td colSpan="5" className="px-2 sm:px-4 pb-3 text-right">
                     <span
-                      className={`text-sm font-medium ${
-                        Math.abs(totals.difference) < 0.01 ? 'text-green-600' : 'text-red-600'
-                      }`}
+                      className={`text-sm font-medium ${Math.abs(totals.difference) < 0.01 ? 'text-green-600' : 'text-red-600'
+                        }`}
                     >
                       Difference: {totals.difference.toFixed(2)}
                     </span>
@@ -498,6 +503,7 @@ export const JournalVouchers = () => {
               value={formState.notes}
               onChange={(e) => setFormState((prev) => ({ ...prev, notes: e.target.value }))}
               className="input"
+              autoComplete="off"
               rows={3}
               placeholder="Optional notes or supporting details"
             />
@@ -548,6 +554,7 @@ export const JournalVouchers = () => {
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
                   className="input"

@@ -497,7 +497,7 @@ const CashPayments = () => {
     setSelectedPayment(payment);
     const supplierId = payment.supplier?.id || payment.supplier?._id;
     const customerId = payment.customer?.id || payment.customer?._id;
-    
+
     setFormData({
       date: payment.date ? payment.date.split('T')[0] : today,
       amount: payment.amount || '',
@@ -687,6 +687,7 @@ const CashPayments = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={supplierSearchTerm}
                       onChange={(e) => handleSupplierSearch(e.target.value)}
                       onKeyDown={handleSupplierKeyDown}
@@ -800,6 +801,7 @@ const CashPayments = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={customerSearchTerm}
                       onChange={(e) => handleCustomerSearch(e.target.value)}
                       onKeyDown={handleCustomerKeyDown}
@@ -820,8 +822,8 @@ const CashPayments = () => {
                         );
                       }).map((customer, index) => {
                         const customerId = customer.id || customer._id;
-                        const currentBalance = customer.currentBalance !== undefined 
-                          ? customer.currentBalance 
+                        const currentBalance = customer.currentBalance !== undefined
+                          ? customer.currentBalance
                           : ((customer.pendingBalance || 0) - (customer.advanceBalance || 0));
                         const isPayable = currentBalance < 0;
                         const isReceivable = currentBalance > 0;
@@ -888,22 +890,22 @@ const CashPayments = () => {
                           </p>
                           <div className="flex items-center space-x-4 mt-2">
                             {(() => {
-                          const currentBalance = selectedCustomer.currentBalance !== undefined 
-                            ? selectedCustomer.currentBalance 
-                            : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
-                          const isPayable = currentBalance < 0;
-                          const isReceivable = currentBalance > 0;
-                          const hasBalance = Math.abs(currentBalance) > 0.01;
+                              const currentBalance = selectedCustomer.currentBalance !== undefined
+                                ? selectedCustomer.currentBalance
+                                : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                              const isPayable = currentBalance < 0;
+                              const isReceivable = currentBalance > 0;
+                              const hasBalance = Math.abs(currentBalance) > 0.01;
 
-                          return hasBalance ? (
-                            <div className="flex items-center space-x-1">
-                              <span className="text-xs text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>
-                              <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
-                                }`}>
-                                ${Math.abs(currentBalance).toFixed(2)}
-                              </span>
-                            </div>
-                          ) : null;
+                              return hasBalance ? (
+                                <div className="flex items-center space-x-1">
+                                  <span className="text-xs text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>
+                                  <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
+                                    }`}>
+                                    ${Math.abs(currentBalance).toFixed(2)}
+                                  </span>
+                                </div>
+                              ) : null;
                             })()}
                           </div>
                         </div>
@@ -922,6 +924,7 @@ const CashPayments = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={expenseSearchTerm}
                       onChange={(e) => handleExpenseSearch(e.target.value)}
                       onKeyDown={handleExpenseKeyDown}
@@ -933,29 +936,29 @@ const CashPayments = () => {
                   </div>
                   {expenseSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                    {expenseAccounts?.filter(account =>
-                      (account.accountName || '').toLowerCase().includes(expenseSearchTerm.toLowerCase()) ||
-                      (account.accountCode || '').includes(expenseSearchTerm)
-                    ).map((account, index) => {
-                      const accountId = account.id || account._id;
-                      return (
-                        <div
-                          key={accountId}
-                          onClick={() => {
-                            handleExpenseAccountSelect(accountId);
-                            setExpenseSearchTerm(account.accountName || '');
-                            setExpenseDropdownIndex(-1);
-                          }}
-                          className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${expenseDropdownIndex === index ? 'bg-blue-50' : ''
-                            }`}
-                        >
-                          <div className="font-medium text-gray-900">{account.accountName || 'Unknown'}</div>
-                          {account.accountCode && (
-                            <div className="text-sm text-gray-500">Code: {account.accountCode}</div>
-                          )}
-                        </div>
-                      );
-                    })}
+                      {expenseAccounts?.filter(account =>
+                        (account.accountName || '').toLowerCase().includes(expenseSearchTerm.toLowerCase()) ||
+                        (account.accountCode || '').includes(expenseSearchTerm)
+                      ).map((account, index) => {
+                        const accountId = account.id || account._id;
+                        return (
+                          <div
+                            key={accountId}
+                            onClick={() => {
+                              handleExpenseAccountSelect(accountId);
+                              setExpenseSearchTerm(account.accountName || '');
+                              setExpenseDropdownIndex(-1);
+                            }}
+                            className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${expenseDropdownIndex === index ? 'bg-blue-50' : ''
+                              }`}
+                          >
+                            <div className="font-medium text-gray-900">{account.accountName || 'Unknown'}</div>
+                            {account.accountCode && (
+                              <div className="text-sm text-gray-500">Code: {account.accountCode}</div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -971,8 +974,8 @@ const CashPayments = () => {
                     {paymentType === 'supplier' && selectedSupplier && (
                       <>
                         {(() => {
-                          const currentBalance = selectedSupplier.currentBalance !== undefined 
-                            ? selectedSupplier.currentBalance 
+                          const currentBalance = selectedSupplier.currentBalance !== undefined
+                            ? selectedSupplier.currentBalance
                             : ((selectedSupplier.advanceBalance || 0) - (selectedSupplier.pendingBalance || 0));
                           const isPayable = currentBalance < 0;
                           const isReceivable = currentBalance > 0;
@@ -998,8 +1001,8 @@ const CashPayments = () => {
                     {paymentType === 'customer' && selectedCustomer && (
                       <>
                         {(() => {
-                          const currentBalance = selectedCustomer.currentBalance !== undefined 
-                            ? selectedCustomer.currentBalance 
+                          const currentBalance = selectedCustomer.currentBalance !== undefined
+                            ? selectedCustomer.currentBalance
                             : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
                           const isPayable = currentBalance < 0;
                           const isReceivable = currentBalance > 0;
@@ -1033,6 +1036,7 @@ const CashPayments = () => {
                 </label>
                 <input
                   type="number"
+                  autoComplete="off"
                   step="0.01"
                   min="0"
                   value={formData.amount}
@@ -1057,6 +1061,7 @@ const CashPayments = () => {
                 <div className="relative">
                   <input
                     type="date"
+                    autoComplete="off"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                     className="input w-full pr-10"
@@ -1072,6 +1077,7 @@ const CashPayments = () => {
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={formData.particular}
                   onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
                   className="input w-full"
@@ -1146,6 +1152,7 @@ const CashPayments = () => {
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 placeholder="Contains..."
                 value={filters.voucherCode}
                 onChange={(e) => handleFilterChange('voucherCode', e.target.value)}
@@ -1160,6 +1167,7 @@ const CashPayments = () => {
               </label>
               <input
                 type="number"
+                autoComplete="off"
                 placeholder="Equals..."
                 value={filters.amount}
                 onChange={(e) => handleFilterChange('amount', e.target.value)}
@@ -1174,6 +1182,7 @@ const CashPayments = () => {
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 placeholder="Contains..."
                 value={filters.particular}
                 onChange={(e) => handleFilterChange('particular', e.target.value)}
@@ -1406,6 +1415,7 @@ const CashPayments = () => {
                   </label>
                   <input
                     type="date"
+                    autoComplete="off"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                     className="input w-full"
@@ -1417,6 +1427,7 @@ const CashPayments = () => {
                   </label>
                   <input
                     type="number"
+                    autoComplete="off"
                     step="0.01"
                     min="0"
                     value={formData.amount}

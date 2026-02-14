@@ -241,7 +241,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
     return () => clearTimeout(timeoutId);
   }, [formData.companyName, supplier]);
 
-    // Contact name validation effect
+  // Contact name validation effect
   useEffect(() => {
     // Skip validation if contact name is empty
     if (!formData.contactPerson?.name || typeof formData.contactPerson.name !== 'string' || formData.contactPerson.name.trim() === '') {
@@ -352,6 +352,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     <input
                       type="text"
                       required
+                      autoComplete="off"
                       value={formData.companyName}
                       onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                       className={`input ${companyNameExists ? 'border-red-500' : ''}`}
@@ -409,6 +410,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         <input
                           type="text"
                           value={displayValue}
+                          autoComplete="off"
                           className="input bg-gray-50 text-gray-700 cursor-not-allowed"
                           readOnly
                           disabled
@@ -439,6 +441,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     <input
                       type="text"
                       required
+                      autoComplete="off"
                       value={formData.contactPerson?.name || ''}
                       onChange={(e) => setFormData({
                         ...formData,
@@ -463,6 +466,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   </label>
                   <input
                     type="text"
+                    autoComplete="off"
                     value={formData.contactPerson?.title || ''}
                     onChange={(e) => setFormData({
                       ...formData,
@@ -486,6 +490,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <div className="relative">
                     <input
                       type="email"
+                      autoComplete="off"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className={`input ${emailExists ? 'border-red-500' : ''}`}
@@ -507,6 +512,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   </label>
                   <input
                     type="tel"
+                    autoComplete="off"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="input"
@@ -519,6 +525,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   </label>
                   <input
                     type="url"
+                    autoComplete="off"
                     value={formData.website}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                     className="input"
@@ -556,6 +563,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <input
                     type="number"
                     min="0"
+                    autoComplete="off"
                     value={formData.creditLimit}
                     onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
                     className="input"
@@ -569,6 +577,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <input
                     type="number"
                     step="0.01"
+                    autoComplete="off"
                     value={formData.openingBalance}
                     onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
                     className="input"
@@ -585,6 +594,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <input
                     type="number"
                     min="0"
+                    autoComplete="off"
                     value={formData.leadTime}
                     onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
                     className="input"
@@ -598,6 +608,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <input
                     type="number"
                     min="0"
+                    autoComplete="off"
                     value={formData.minOrderAmount}
                     onChange={(e) => setFormData({ ...formData, minOrderAmount: parseFloat(e.target.value) || 0 })}
                     className="input"
@@ -651,6 +662,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         </label>
                         <input
                           type="text"
+                          autoComplete="off"
                           value={address.street}
                           onChange={(e) => handleAddressChange(index, 'street', e.target.value)}
                           className="input"
@@ -690,6 +702,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         </label>
                         <input
                           type="text"
+                          autoComplete="off"
                           value={address.state}
                           onChange={(e) => handleAddressChange(index, 'state', e.target.value)}
                           className="input"
@@ -702,6 +715,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         </label>
                         <input
                           type="text"
+                          autoComplete="off"
                           value={address.zipCode}
                           onChange={(e) => handleAddressChange(index, 'zipCode', e.target.value)}
                           className="input"
@@ -739,6 +753,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   </label>
                   <textarea
                     value={formData.notes}
+                    autoComplete="off"
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="input"
                     rows="3"
@@ -1051,8 +1066,8 @@ export const Suppliers = () => {
                       <div>
                         <p className="text-gray-500 mb-1">Status</p>
                         <span className={`badge ${supplier.status === 'active' ? 'badge-success' :
-                            supplier.status === 'inactive' ? 'badge-gray' :
-                              supplier.status === 'suspended' ? 'badge-danger' : 'badge-gray'
+                          supplier.status === 'inactive' ? 'badge-gray' :
+                            supplier.status === 'suspended' ? 'badge-danger' : 'badge-gray'
                           }`}>
                           {supplier.status}
                         </span>
@@ -1114,8 +1129,8 @@ export const Suppliers = () => {
                     {/* Status */}
                     <div className="col-span-1">
                       <span className={`badge ${supplier.status === 'active' ? 'badge-success' :
-                          supplier.status === 'inactive' ? 'badge-gray' :
-                            supplier.status === 'suspended' ? 'badge-danger' : 'badge-gray'
+                        supplier.status === 'inactive' ? 'badge-gray' :
+                          supplier.status === 'suspended' ? 'badge-danger' : 'badge-gray'
                         }`}>
                         {supplier.status}
                       </span>
@@ -1150,17 +1165,17 @@ export const Suppliers = () => {
 
                     {/* Actions */}
                     <div className="col-span-1">
-                    <div className="flex items-center space-x-2 lg:space-x-3">
-                      <button
-                        onClick={() => {
-                          setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName || supplier.company_name || supplier.businessName || 'Supplier' });
-                          setShowNotes(true);
-                        }}
-                        className="text-green-600 hover:text-green-800 p-1"
-                        title="Notes"
-                      >
-                        <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
+                      <div className="flex items-center space-x-2 lg:space-x-3">
+                        <button
+                          onClick={() => {
+                            setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName || supplier.company_name || supplier.businessName || 'Supplier' });
+                            setShowNotes(true);
+                          }}
+                          className="text-green-600 hover:text-green-800 p-1"
+                          title="Notes"
+                        >
+                          <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
                         <button
                           onClick={() => handleEdit(supplier)}
                           className="text-primary-600 hover:text-primary-800 p-1"

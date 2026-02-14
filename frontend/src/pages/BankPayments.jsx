@@ -715,6 +715,7 @@ const BankPayments = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={supplierSearchTerm}
                       onChange={(e) => handleSupplierSearch(e.target.value)}
                       onKeyDown={handleSupplierKeyDown}
@@ -730,25 +731,25 @@ const BankPayments = () => {
                         (supplier.phone || '').includes(supplierSearchTerm) ||
                         (supplier.email || '').toLowerCase().includes(supplierSearchTerm.toLowerCase())
                       ).map((supplier, index) => (
-                          <div
-                            key={supplier._id}
-                            onClick={() => {
-                              handleSupplierSelect(supplier._id);
-                              setSupplierSearchTerm(supplier.displayName || supplier.companyName || supplier.name || '');
-                              setSupplierDropdownIndex(-1);
-                            }}
-                            className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${supplierDropdownIndex === index ? 'bg-blue-50' : ''
-                              }`}
-                          >
-                            <div className="font-medium text-gray-900">
-                              {supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}
+                        <div
+                          key={supplier._id}
+                          onClick={() => {
+                            handleSupplierSelect(supplier._id);
+                            setSupplierSearchTerm(supplier.displayName || supplier.companyName || supplier.name || '');
+                            setSupplierDropdownIndex(-1);
+                          }}
+                          className={`px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 ${supplierDropdownIndex === index ? 'bg-blue-50' : ''
+                            }`}
+                        >
+                          <div className="font-medium text-gray-900">
+                            {supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}
+                          </div>
+                          {supplier.companyName && (
+                            <div className="text-xs text-gray-600">
+                              {supplier.companyName}
                             </div>
-                            {supplier.companyName && (
-                              <div className="text-xs text-gray-600">
-                                {supplier.companyName}
-                              </div>
-                            )}
-                            <div className="text-sm text-gray-600 capitalize mt-0.5">
+                          )}
+                          <div className="text-sm text-gray-600 capitalize mt-0.5">
                             {supplier.businessType && supplier.reliability
                               ? `${supplier.businessType} • ${supplier.reliability}`
                               : supplier.businessType || supplier.reliability || ''
@@ -830,6 +831,7 @@ const BankPayments = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={customerSearchTerm}
                       onChange={(e) => handleCustomerSearch(e.target.value)}
                       onKeyDown={handleCustomerKeyDown}
@@ -841,8 +843,8 @@ const BankPayments = () => {
                   {customerSearchTerm && (
                     <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
                       {(customers || []).filter(customer => {
-          const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
-            `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
+                        const displayName = customer.businessName || customer.business_name || customer.displayName || customer.name ||
+                          `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || '';
                         return (
                           displayName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
                           (customer.phone || '').includes(customerSearchTerm) ||
@@ -955,6 +957,7 @@ const BankPayments = () => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={expenseSearchTerm}
                       onChange={(e) => handleExpenseSearch(e.target.value)}
                       onKeyDown={handleExpenseKeyDown}
@@ -1065,6 +1068,7 @@ const BankPayments = () => {
                 </label>
                 <input
                   type="number"
+                  autoComplete="off"
                   step="0.01"
                   min="0"
                   value={formData.amount}
@@ -1089,6 +1093,7 @@ const BankPayments = () => {
                 <div className="relative">
                   <input
                     type="date"
+                    autoComplete="off"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                     className="input w-full pr-10"
@@ -1130,6 +1135,7 @@ const BankPayments = () => {
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={formData.transactionReference}
                   onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
                   className="input w-full"
@@ -1144,6 +1150,7 @@ const BankPayments = () => {
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={formData.particular}
                   onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
                   className="input w-full"
@@ -1218,6 +1225,7 @@ const BankPayments = () => {
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 placeholder="Contains..."
                 value={filters.voucherCode}
                 onChange={(e) => handleFilterChange('voucherCode', e.target.value)}
@@ -1232,6 +1240,7 @@ const BankPayments = () => {
               </label>
               <input
                 type="number"
+                autoComplete="off"
                 placeholder="Equals..."
                 value={filters.amount}
                 onChange={(e) => handleFilterChange('amount', e.target.value)}
@@ -1246,6 +1255,7 @@ const BankPayments = () => {
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 placeholder="Contains..."
                 value={filters.particular}
                 onChange={(e) => handleFilterChange('particular', e.target.value)}
@@ -1875,6 +1885,7 @@ const BankPayments = () => {
                   </label>
                   <input
                     type="date"
+                    autoComplete="off"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                     className="input w-full"
@@ -1903,6 +1914,7 @@ const BankPayments = () => {
                   </label>
                   <input
                     type="number"
+                    autoComplete="off"
                     step="0.01"
                     min="0"
                     value={formData.amount}
@@ -1921,6 +1933,7 @@ const BankPayments = () => {
                   </label>
                   <input
                     type="text"
+                    autoComplete="off"
                     value={formData.transactionReference}
                     onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
                     className="input w-full"

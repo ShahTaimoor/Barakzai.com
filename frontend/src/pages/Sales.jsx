@@ -447,6 +447,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               <input
                 type="number"
                 min="1"
+                autoComplete="off"
                 max={selectedProduct?.inventory.currentStock}
                 value={quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
@@ -466,6 +467,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               <input
                 type="number"
                 step="1"
+                autoComplete="off"
                 value={customRate}
                 onChange={(e) => setCustomRate(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -561,6 +563,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
             <input
               type="number"
               min="1"
+              autoComplete="off"
               max={selectedProduct?.inventory.currentStock}
               value={quantity}
               onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
@@ -596,6 +599,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
             <input
               type="number"
               step="1"
+              autoComplete="off"
               value={customRate}
               onChange={(e) => setCustomRate(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -2342,6 +2346,7 @@ export const Sales = ({ tabId, editData }) => {
                             <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
                             <input
                               type="number"
+                              autoComplete="off"
                               value={item.quantity}
                               onChange={(e) => updateQuantity(item.product._id, parseInt(e.target.value) || 1)}
                               className="input text-center h-8 w-full"
@@ -2354,6 +2359,7 @@ export const Sales = ({ tabId, editData }) => {
                             <input
                               type="number"
                               step="1"
+                              autoComplete="off"
                               value={Math.round(item.unitPrice)}
                               onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
                               className={`input text-center h-8 w-full ${(lastPurchasePrices[item.product._id] !== undefined &&
@@ -2441,6 +2447,7 @@ export const Sales = ({ tabId, editData }) => {
                           <div className="col-span-1">
                             <input
                               type="number"
+                              autoComplete="off"
                               value={item.quantity}
                               onChange={(e) => updateQuantity(item.product._id, parseInt(e.target.value) || 1)}
                               className="input text-center h-8"
@@ -2475,6 +2482,7 @@ export const Sales = ({ tabId, editData }) => {
                                 <input
                                   type="number"
                                   step="1"
+                                  autoComplete="off"
                                   value={Math.round(item.unitPrice)}
                                   onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
                                   className={`input text-center h-8 ${
@@ -2629,6 +2637,7 @@ export const Sales = ({ tabId, editData }) => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={invoiceNumber}
                       onChange={(e) => setInvoiceNumber(e.target.value)}
                       className="w-full input pr-20 h-10 text-sm"
@@ -2658,6 +2667,7 @@ export const Sales = ({ tabId, editData }) => {
                   </label>
                   <input
                     type="date"
+                    autoComplete="off"
                     value={billDate}
                     onChange={(e) => setBillDate(e.target.value)}
                     className="input h-10 text-sm w-full"
@@ -2677,6 +2687,7 @@ export const Sales = ({ tabId, editData }) => {
                   </label>
                   <input
                     type="text"
+                    autoComplete="off"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="input h-10 text-sm w-full"
@@ -2758,6 +2769,7 @@ export const Sales = ({ tabId, editData }) => {
                   <div className="relative">
                     <input
                       type="text"
+                      autoComplete="off"
                       value={invoiceNumber}
                       onChange={(e) => setInvoiceNumber(e.target.value)}
                       className="w-full input pr-16 h-8 text-sm"
@@ -2787,6 +2799,7 @@ export const Sales = ({ tabId, editData }) => {
                   </label>
                   <input
                     type="date"
+                    autoComplete="off"
                     value={billDate}
                     onChange={(e) => setBillDate(e.target.value)}
                     className="input h-8 text-sm"
