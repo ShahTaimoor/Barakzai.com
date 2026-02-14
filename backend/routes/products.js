@@ -773,7 +773,7 @@ router.post('/import/csv', [
               // Update existing product instead of skipping
               const updateData = {
                 description: mapped.description?.toString().trim() || existingProduct.description,
-                category: mapped.category?.toString().trim() || existingProduct.category?.name,
+                category: mapped.category?.toString().trim() || (existingProduct.category?.name || existingProduct.category),
                 brand: mapped.brand?.toString().trim() || existingProduct.brand,
                 barcode: mapped.barcode?.toString().trim() || existingProduct.barcode,
                 sku: mapped.sku?.toString().trim() || existingProduct.sku,
@@ -952,7 +952,7 @@ router.post('/import/excel', [
           // Update existing product instead of skipping
           const updatePayload = {
             description: productData.description?.toString().trim() || existingProduct.description,
-            category: productData.category?.toString().trim() || existingProduct.category?.name,
+            category: productData.category?.toString().trim() || (existingProduct.category?.name || existingProduct.category),
             brand: productData.brand?.toString().trim() || existingProduct.brand,
             barcode: productData.barcode?.toString().trim() || existingProduct.barcode,
             sku: productData.sku?.toString().trim() || existingProduct.sku,

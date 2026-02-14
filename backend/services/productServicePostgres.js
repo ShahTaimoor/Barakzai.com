@@ -182,6 +182,9 @@ class ProductServicePostgres {
       // If catId is an object (like from frontend), extract the ID
       if (catId && typeof catId === 'object') {
         data.categoryId = catId.id || catId._id || null;
+      } else if (catId && !UUID_REGEX.test(catId)) {
+        // If it's a name instead of a UUID, resolve it
+        data.categoryId = await resolveCategoryId(catId);
       } else {
         data.categoryId = catId;
       }
