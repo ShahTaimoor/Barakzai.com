@@ -17,26 +17,35 @@ class InventoryAlertService {
         warehouse = null
       } = options;
 
-      // Get all products with their inventory
+      // Get all active products (Postgres uses isActive, not status)
       const products = await ProductRepository.findAll(
-        { status: 'active' },
-        {
-          populate: [{ path: 'category', select: 'name' }],
-          lean: true
-        }
+        { isActive: true },
+        { limit: 10000 }
       );
 
       const alerts = [];
 
       for (const product of products) {
-        // Get inventory record
-        const inventory = await InventoryRepository.findOne({ product: product._id });
-        
-        if (!inventory) continue;
+        const productId = product.id || product._id;
+        const inventory = await InventoryRepository.findOne({ product: productId, productId });
 
-        const currentStock = inventory.currentStock || 0;
-        const reorderPoint = inventory.reorderPoint || product.inventory?.reorderPoint || 10;
-        const minStock = product.inventory?.minStock || 0;
+        // Use inventory table when available; fallback to products table (stock_quantity, min_stock_level)
+        const currentStock = parseFloat(
+          inventory
+            ? (inventory.current_stock ?? inventory.currentStock ?? 0)
+            : (product.stock_quantity ?? product.stockQuantity ?? 0)
+        ) || 0;
+        const defaultReorder = 10;
+        const reorderPoint = parseFloat(
+          inventory
+            ? (inventory.reorder_point ?? inventory.reorderPoint ?? defaultReorder)
+            : (product.min_stock_level ?? product.minStockLevel ?? product.inventory?.reorderPoint ?? defaultReorder)
+        ) || defaultReorder;
+        const minStock = parseFloat(
+          inventory
+            ? (inventory.reorder_point ?? inventory.reorderPoint ?? 0)
+            : (product.min_stock_level ?? product.minStockLevel ?? product.inventory?.minStock ?? 0)
+        ) || 0;
 
         // Determine alert level
         let alertLevel = null;
@@ -54,25 +63,32 @@ class InventoryAlertService {
         }
 
         if (alertLevel) {
-          // Calculate days until out of stock (based on average daily sales)
+          const reorderQty = inventory
+            ? (inventory.reorder_quantity ?? inventory.reorderQuantity ?? 50)
+            : 50;
+          const maxStockVal = inventory
+            ? (inventory.max_stock ?? inventory.maxStock ?? null)
+            : (product.inventory?.maxStock ?? null);
+
           const daysUntilOutOfStock = await this.calculateDaysUntilOutOfStock(
-            product._id,
+            productId,
             currentStock
           );
 
           alerts.push({
             product: {
-              _id: product._id,
+              _id: productId,
+              id: productId,
               name: product.name,
               sku: product.sku,
-              category: product.category
+              category: product.category || product.category_id
             },
             inventory: {
               currentStock,
               reorderPoint,
               minStock,
-              reorderQuantity: inventory.reorderQuantity || 50,
-              maxStock: inventory.maxStock || product.inventory?.maxStock
+              reorderQuantity: reorderQty,
+              maxStock: maxStockVal
             },
             alertLevel,
             stockStatus,
@@ -80,8 +96,8 @@ class InventoryAlertService {
             suggestedReorderQuantity: this.calculateSuggestedReorderQuantity(
               currentStock,
               reorderPoint,
-              inventory.reorderQuantity || 50,
-              inventory.maxStock || product.inventory?.maxStock
+              reorderQty,
+              maxStockVal
             ),
             urgency: this.calculateUrgency(currentStock, reorderPoint, daysUntilOutOfStock)
           });
