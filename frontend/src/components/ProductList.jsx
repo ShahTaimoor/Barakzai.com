@@ -3,8 +3,8 @@ import { Package, Edit, Trash2, Barcode, TrendingUp } from 'lucide-react';
 import { Checkbox } from './Checkbox';
 import { isLowStock, getExpiryStatus } from '../utils/productHelpers';
 
-export const ProductList = ({ 
-  products, 
+export const ProductList = ({
+  products,
   searchTerm,
   bulkOps,
   onEdit,
@@ -37,9 +37,8 @@ export const ProductList = ({
                   onChange={() => bulkOps.toggleSelectAll(products)}
                 />
               </div>
-              <div className="col-span-5 xl:col-span-5">
+              <div className="col-span-5 xl:col-span-3">
                 <h3 className="text-xs xl:text-sm font-medium text-gray-700">Product Name</h3>
-                <p className="text-xs text-gray-500">Description</p>
               </div>
               <div className="col-span-1">
                 <h3 className="text-xs xl:text-sm font-medium text-gray-700">Stock</h3>
@@ -59,7 +58,7 @@ export const ProductList = ({
               <div className="col-span-1">
                 <h3 className="text-xs xl:text-sm font-medium text-gray-700">Status</h3>
               </div>
-              <div className="col-span-1">
+              <div className="col-span-1 xl:col-span-2">
                 <h3 className="text-xs xl:text-sm font-medium text-gray-700">Actions</h3>
               </div>
             </div>
@@ -90,7 +89,7 @@ export const ProductList = ({
                       onChange={() => bulkOps.toggleSelection(product._id)}
                     />
                   </div>
-                  <div className="col-span-5 xl:col-span-5 min-w-0">
+                  <div className="col-span-5 xl:col-span-3 min-w-0">
                     <div className="flex items-center space-x-2 xl:space-x-3">
                       <Package className="h-4 w-4 xl:h-5 xl:w-5 text-gray-400 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -116,20 +115,14 @@ export const ProductList = ({
                             return null;
                           })()}
                         </div>
-                        <p className="text-xs text-gray-400 font-mono truncate">
-                          {product._id.substring(0, 8)}...
-                        </p>
-                        <p className="text-xs text-gray-500 line-clamp-1">
-                          {product.description || 'No description'}
-                        </p>
+
                       </div>
                     </div>
                   </div>
 
                   <div className="col-span-1">
-                    <p className={`text-xs xl:text-sm font-medium ${
-                      isLowStock(product) ? 'text-danger-600' : 'text-gray-600'
-                    }`}>
+                    <p className={`text-xs xl:text-sm font-medium ${isLowStock(product) ? 'text-danger-600' : 'text-gray-600'
+                      }`}>
                       {product.inventory?.currentStock || 0}
                     </p>
                     {isLowStock(product) && (
@@ -154,15 +147,14 @@ export const ProductList = ({
                   </div>
 
                   <div className="col-span-1">
-                    <span className={`badge badge-sm text-xs ${
-                      product.status === 'active' ? 'badge-success' : 'badge-gray'
-                    }`}>
+                    <span className={`badge badge-sm text-xs ${product.status === 'active' ? 'badge-success' : 'badge-gray'
+                      }`}>
                       {product.status}
                     </span>
                   </div>
 
-                  <div className="col-span-1">
-                    <div className="flex items-center space-x-1.5 xl:space-x-2 flex-wrap">
+                  <div className="col-span-1 xl:col-span-2">
+                    <div className="flex items-center space-x-1.5 xl:space-x-2">
                       <button
                         onClick={() => onGenerateBarcode(product)}
                         className="text-green-600 hover:text-green-800 p-1"
@@ -220,29 +212,23 @@ export const ProductList = ({
                             <h3 className="text-base font-medium text-gray-900 truncate">
                               {product.name}
                             </h3>
-                            <p className="text-xs text-gray-400 font-mono truncate mt-0.5">
-                              ID: {product._id.substring(0, 12)}...
-                            </p>
+
                           </div>
-                          <span className={`badge badge-sm flex-shrink-0 ${
-                            product.status === 'active' ? 'badge-success' : 'badge-gray'
-                          }`}>
+                          <span className={`badge badge-sm flex-shrink-0 ${product.status === 'active' ? 'badge-success' : 'badge-gray'
+                            }`}>
                             {product.status}
                           </span>
                         </div>
 
                         {/* Description */}
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                          {product.description || 'No description'}
-                        </p>
-                        
+
+
                         {/* Product Details Grid */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                           <div>
                             <p className="text-xs text-gray-500 mb-0.5">Stock</p>
-                            <p className={`text-sm font-semibold ${
-                              isLowStock(product) ? 'text-danger-600' : 'text-gray-900'
-                            }`}>
+                            <p className={`text-sm font-semibold ${isLowStock(product) ? 'text-danger-600' : 'text-gray-900'
+                              }`}>
                               {product.inventory?.currentStock || 0}
                               {isLowStock(product) && (
                                 <span className="text-xs font-normal text-danger-600 ml-1">(Low)</span>

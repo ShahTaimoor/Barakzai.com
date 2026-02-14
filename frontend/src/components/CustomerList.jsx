@@ -1,8 +1,8 @@
 import React from 'react';
 import { Users, Building, User, Edit, Trash2, MessageSquare } from 'lucide-react';
 
-export const CustomerList = ({ 
-  customers, 
+export const CustomerList = ({
+  customers,
   searchTerm,
   onEdit,
   onDelete,
@@ -25,10 +25,8 @@ export const CustomerList = ({
       <div className="card-content p-0 w-full">
         <div className="hidden md:block bg-gray-50 px-4 lg:px-8 py-4 lg:py-6 border-b border-gray-200">
           <div className="grid grid-cols-12 gap-3 lg:gap-4 items-center">
-            <div className="col-span-1">
-              <h3 className="text-sm lg:text-base font-medium text-gray-700">ID</h3>
-            </div>
-            <div className="col-span-3">
+
+            <div className="col-span-2">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Business Name</h3>
               <p className="text-xs lg:text-sm text-gray-500">Contact Person</p>
             </div>
@@ -53,7 +51,7 @@ export const CustomerList = ({
             <div className="col-span-1">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Balance</h3>
             </div>
-            <div className="col-span-1">
+            <div className="col-span-2">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Actions</h3>
             </div>
           </div>
@@ -102,12 +100,9 @@ export const CustomerList = ({
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <p className="text-gray-500 mb-1">ID</p>
-                    <p className="text-gray-700 font-mono">{(customer.id || customer._id || '').slice(-6)}</p>
-                  </div>
+
                   <div>
                     <p className="text-gray-500 mb-1">Email</p>
                     <p className="text-gray-700 truncate">{customer.email || '-'}</p>
@@ -118,26 +113,23 @@ export const CustomerList = ({
                   </div>
                   <div>
                     <p className="text-gray-500 mb-1">Status</p>
-                    <span className={`badge ${
-                      customer.status === 'active' ? 'badge-success' : 'badge-gray'
-                    }`}>
+                    <span className={`badge ${customer.status === 'active' ? 'badge-success' : 'badge-gray'
+                      }`}>
                       {customer.status}
                     </span>
                   </div>
                   <div>
                     <p className="text-gray-500 mb-1">Type</p>
-                    <span className={`badge ${
-                      customer.businessType === 'wholesale' ? 'badge-info' : 'badge-gray'
-                    }`}>
+                    <span className={`badge ${customer.businessType === 'wholesale' ? 'badge-info' : 'badge-gray'
+                      }`}>
                       {customer.businessType}
                     </span>
                   </div>
                   <div>
                     <p className="text-gray-500 mb-1">Tier</p>
-                    <span className={`badge ${
-                      customer.customerTier === 'gold' ? 'badge-warning' :
+                    <span className={`badge ${customer.customerTier === 'gold' ? 'badge-warning' :
                       customer.customerTier === 'platinum' ? 'badge-info' : 'badge-gray'
-                    }`}>
+                      }`}>
                       {customer.customerTier}
                     </span>
                   </div>
@@ -156,16 +148,9 @@ export const CustomerList = ({
 
               {/* Desktop Table Layout */}
               <div className="hidden md:grid grid-cols-12 gap-3 lg:gap-4 items-center">
-                <div className="col-span-1">
-                  <p 
-                    className="text-xs text-gray-500 font-mono cursor-help" 
-                    title={customer.id || customer._id}
-                  >
-                    {(customer.id || customer._id || '').slice(-6)}
-                  </p>
-                </div>
 
-                <div className="col-span-3">
+
+                <div className="col-span-2">
                   <div className="flex items-center space-x-3 lg:space-x-4">
                     {customer.businessType === 'individual' ? (
                       <User className="h-5 w-5 lg:h-6 lg:w-6 text-gray-400 flex-shrink-0" />
@@ -192,26 +177,23 @@ export const CustomerList = ({
                 </div>
 
                 <div className="col-span-1">
-                  <span className={`badge ${
-                    customer.status === 'active' ? 'badge-success' : 'badge-gray'
-                  }`}>
+                  <span className={`badge ${customer.status === 'active' ? 'badge-success' : 'badge-gray'
+                    }`}>
                     {customer.status}
                   </span>
                 </div>
 
                 <div className="col-span-1">
-                  <span className={`badge ${
-                    customer.businessType === 'wholesale' ? 'badge-info' : 'badge-gray'
-                  }`}>
+                  <span className={`badge ${customer.businessType === 'wholesale' ? 'badge-info' : 'badge-gray'
+                    }`}>
                     {customer.businessType}
                   </span>
                 </div>
 
                 <div className="col-span-1">
-                  <span className={`badge ${
-                    customer.customerTier === 'gold' ? 'badge-warning' :
+                  <span className={`badge ${customer.customerTier === 'gold' ? 'badge-warning' :
                     customer.customerTier === 'platinum' ? 'badge-info' : 'badge-gray'
-                  }`}>
+                    }`}>
                     {customer.customerTier}
                   </span>
                 </div>
@@ -226,7 +208,7 @@ export const CustomerList = ({
                   </p>
                 </div>
 
-                <div className="col-span-1">
+                <div className="col-span-2">
                   <div className="flex items-center space-x-2 lg:space-x-3">
                     <button
                       onClick={() => onShowNotes(customer)}
