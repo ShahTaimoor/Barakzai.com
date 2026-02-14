@@ -764,6 +764,11 @@ router.post('/import/csv', [
             // Check if product already exists
             const existingProduct = await productService.getProductByName(mapped.name.toString().trim());
             
+            // Validate and parse pricing
+            const cost = parseFloat(mapped.cost);
+            const retail = parseFloat(mapped.retail);
+            const wholesale = parseFloat(mapped.wholesale);
+
             if (existingProduct) {
               // Update existing product instead of skipping
               const updateData = {
@@ -773,9 +778,9 @@ router.post('/import/csv', [
                 barcode: mapped.barcode?.toString().trim() || existingProduct.barcode,
                 sku: mapped.sku?.toString().trim() || existingProduct.sku,
                 pricing: {
-                  cost: cost,
-                  retail: retail,
-                  wholesale: wholesale
+                  cost: isNaN(cost) ? existingProduct.pricing?.cost || 0 : cost,
+                  retail: isNaN(retail) ? existingProduct.pricing?.retail || 0 : retail,
+                  wholesale: isNaN(wholesale) ? existingProduct.pricing?.wholesale || 0 : wholesale
                 },
                 inventory: {
                   currentStock: parseInt(mapped.currentStock) || existingProduct.inventory?.currentStock || 0,
@@ -788,11 +793,6 @@ router.post('/import/csv', [
               results.success++;
               continue;
             }
-            
-            // Validate and parse pricing
-            const cost = parseFloat(mapped.cost);
-            const retail = parseFloat(mapped.retail);
-            const wholesale = parseFloat(mapped.wholesale);
             
             if (isNaN(cost) || cost < 0) {
               results.errors.push({
@@ -943,6 +943,11 @@ router.post('/import/excel', [
         // Check if product already exists
         const existingProduct = await productService.getProductByName(productData.name.toString().trim());
         
+        // Validate and parse pricing
+        const cost = parseFloat(productData.cost);
+        const retail = parseFloat(productData.retail);
+        const wholesale = parseFloat(productData.wholesale);
+
         if (existingProduct) {
           // Update existing product instead of skipping
           const updatePayload = {
@@ -952,9 +957,9 @@ router.post('/import/excel', [
             barcode: productData.barcode?.toString().trim() || existingProduct.barcode,
             sku: productData.sku?.toString().trim() || existingProduct.sku,
             pricing: {
-              cost: cost,
-              retail: retail,
-              wholesale: wholesale
+              cost: isNaN(cost) ? existingProduct.pricing?.cost || 0 : cost,
+              retail: isNaN(retail) ? existingProduct.pricing?.retail || 0 : retail,
+              wholesale: isNaN(wholesale) ? existingProduct.pricing?.wholesale || 0 : wholesale
             },
             inventory: {
               currentStock: parseInt(productData.currentStock) || existingProduct.inventory?.currentStock || 0,
@@ -967,11 +972,6 @@ router.post('/import/excel', [
           results.success++;
           continue;
         }
-        
-        // Validate and parse pricing
-        const cost = parseFloat(productData.cost);
-        const retail = parseFloat(productData.retail);
-        const wholesale = parseFloat(productData.wholesale);
         
         if (isNaN(cost) || cost < 0) {
           results.errors.push({
