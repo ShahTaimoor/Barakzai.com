@@ -104,8 +104,8 @@ class CustomerRepository {
       `INSERT INTO customers (
         name, business_name, email, phone, address,
         opening_balance, credit_limit, payment_terms, tax_id, notes,
-        is_active, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        business_type, customer_tier, is_active, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *`,
       [
         customerData.name || null,
@@ -118,6 +118,8 @@ class CustomerRepository {
         customerData.paymentTerms || null,
         customerData.taxId || null,
         customerData.notes || null,
+        customerData.businessType || customerData.business_type || 'wholesale',
+        customerData.customerTier || customerData.customer_tier || 'bronze',
         customerData.isActive !== false,
         customerData.createdBy || null
       ]
@@ -166,6 +168,14 @@ class CustomerRepository {
     if (customerData.creditLimit !== undefined) {
       updates.push(`credit_limit = $${paramCount++}`);
       params.push(customerData.creditLimit);
+    }
+    if (customerData.businessType !== undefined) {
+      updates.push(`business_type = $${paramCount++}`);
+      params.push(customerData.businessType);
+    }
+    if (customerData.customerTier !== undefined) {
+      updates.push(`customer_tier = $${paramCount++}`);
+      params.push(customerData.customerTier);
     }
     if (customerData.currentBalance !== undefined) {
       updates.push(`current_balance = $${paramCount++}`);

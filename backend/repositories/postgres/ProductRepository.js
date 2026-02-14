@@ -7,6 +7,7 @@ function rowToProduct(row) {
     _id: row.id,
     costPrice: parseFloat(row.cost_price) || 0,
     sellingPrice: parseFloat(row.selling_price) || 0,
+    wholesalePrice: row.wholesale_price != null ? parseFloat(row.wholesale_price) : parseFloat(row.selling_price) || 0,
     stockQuantity: parseFloat(row.stock_quantity) || 0,
     minStockLevel: parseFloat(row.min_stock_level) || 0,
     categoryId: row.category_id,
@@ -77,9 +78,9 @@ class ProductRepository {
 
   async create(data) {
     const result = await query(
-      `INSERT INTO products (name, sku, barcode, description, category_id, cost_price, selling_price,
+      `INSERT INTO products (name, sku, barcode, description, category_id, cost_price, selling_price, wholesale_price,
        stock_quantity, min_stock_level, unit, is_active, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         data.name,
@@ -89,6 +90,7 @@ class ProductRepository {
         data.categoryId || data.category_id || null,
         data.costPrice ?? data.cost_price ?? 0,
         data.sellingPrice ?? data.selling_price ?? 0,
+        data.wholesalePrice ?? data.wholesale_price ?? data.sellingPrice ?? data.selling_price ?? 0,
         data.stockQuantity ?? data.stock_quantity ?? 0,
         data.minStockLevel ?? data.min_stock_level ?? 0,
         data.unit || null,
@@ -111,6 +113,7 @@ class ProductRepository {
       categoryId: 'category_id',
       costPrice: 'cost_price',
       sellingPrice: 'selling_price',
+      wholesalePrice: 'wholesale_price',
       stockQuantity: 'stock_quantity',
       minStockLevel: 'min_stock_level',
       unit: 'unit',

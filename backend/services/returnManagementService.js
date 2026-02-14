@@ -229,7 +229,7 @@ class ReturnManagementService {
       if (returnRequestForDownstream.returnType === 'return') {
         await this.processRefund(returnRequestForDownstream, client);
       } else if (returnRequestForDownstream.returnType === 'exchange') {
-        await this.processExchange(returnRequestForDownstream);
+        await this.processExchange(returnRequestForDownstream, client);
       }
 
       const refundDetails = {
@@ -288,7 +288,7 @@ class ReturnManagementService {
       if (returnRequest.returnType === 'return') {
         await this.processRefund(returnRequest, client);
       } else if (returnRequest.returnType === 'exchange') {
-        await this.processExchange(returnRequest);
+        await this.processExchange(returnRequest, client);
       }
       const refundDetails = {
         refundDate: new Date(),
@@ -1084,10 +1084,10 @@ class ReturnManagementService {
     }
   }
 
-  // Process exchange
-  async processExchange(returnRequest) {
+  // Process exchange (pass client when inside return transaction so exchange order commits with return)
+  async processExchange(returnRequest, client = null) {
     try {
-      const customerId = returnRequest.customer_id || (returnRequest.customer && (returnRequest.customer.id || returnRequest.customer._id));
+      const customerId = toUuid(returnRequest.customer_id ?? returnRequest.customer);
       const exchangeItems = returnRequest.exchangeDetails?.exchangeItems || [];
       const subtotal = exchangeItems.reduce((s, i) => s + (i.quantity || 0) * (i.unitPrice || i.unit_price || 0), 0);
       const exchangeOrder = await SalesRepository.create({
@@ -1100,8 +1100,8 @@ class ReturnManagementService {
         status: 'completed',
         paymentStatus: 'completed',
         notes: `Exchange for return ${returnRequest.return_number || returnRequest.returnNumber}`,
-        createdBy: returnRequest.created_by || returnRequest.createdBy
-      });
+        createdBy: toUuid(returnRequest.created_by ?? returnRequest.createdBy)
+      }, client);
       if (returnRequest.exchangeDetails) returnRequest.exchangeDetails.exchangeOrder = exchangeOrder.id || exchangeOrder._id;
       return exchangeOrder;
     } catch (error) {
@@ -1266,6 +1266,8 @@ class ReturnManagementService {
     const filter = {};
     if (queryParams.status) filter.status = queryParams.status;
     if (queryParams.returnType) filter.returnType = queryParams.returnType;
+    if (queryParams.origin === 'purchase') filter.returnType = 'purchase_return';
+    if (queryParams.origin === 'sales') filter.returnType = 'sale_return';
     if (queryParams.customer) filter.customerId = queryParams.customer;
     if (queryParams.search) filter.returnNumber = queryParams.search;
 
@@ -1330,10 +1332,18 @@ class ReturnManagementService {
       returnObj.customer = customer;
     }
 
-    // Populate Supplier
+    // Populate Supplier (normalize snake_case to camelCase for frontend)
     if (returnObj.supplierId) {
-      const supplier = await SupplierRepository.findById(returnObj.supplierId);
-      returnObj.supplier = supplier;
+      const supplierRow = await SupplierRepository.findById(returnObj.supplierId);
+      if (supplierRow) {
+        returnObj.supplier = {
+          id: supplierRow.id,
+          _id: supplierRow.id,
+          companyName: supplierRow.company_name || supplierRow.companyName,
+          businessName: supplierRow.business_name || supplierRow.businessName,
+          name: supplierRow.name
+        };
+      }
     }
 
     // Populate Original Order
@@ -1349,12 +1359,24 @@ class ReturnManagementService {
           createdAt: originalOrder.createdAt,
           orderDate: originalOrder.orderDate,
           invoiceNumber: originalOrder.orderNumber,
-          poNumber: originalOrder.orderNumber,
-          customer: originalOrder.customer
+          poNumber: originalOrder.poNumber || originalOrder.orderNumber,
+          customer: originalOrder.customer,
+          supplier: originalOrder.supplier
         };
         // Fallback: If return has no customer attached but order has one, use it
         if (!returnObj.customer && originalOrder.customer) {
           returnObj.customer = originalOrder.customer;
+        }
+        // Fallback: If return has no supplier (purchase return) but original order has one, use it
+        if (!returnObj.supplier && isPurchase && originalOrder.supplier) {
+          const sup = originalOrder.supplier;
+          returnObj.supplier = {
+            id: sup.id || sup._id,
+            _id: sup.id || sup._id,
+            companyName: sup.company_name || sup.companyName,
+            businessName: sup.business_name || sup.businessName,
+            name: sup.name
+          };
         }
       }
     }

@@ -1,6 +1,16 @@
 const customerRepository = require('../repositories/postgres/CustomerRepository');
 const AccountingService = require('./accountingService');
 
+/** Normalize customer row: add camelCase aliases for businessType, customerTier (frontend expects these) */
+function normalizeCustomer(c) {
+  if (!c) return c;
+  return {
+    ...c,
+    businessType: c.business_type ?? c.businessType ?? 'wholesale',
+    customerTier: c.customer_tier ?? c.customerTier ?? 'bronze'
+  };
+}
+
 /**
  * Customer Service - PostgreSQL Implementation
  */
@@ -44,17 +54,17 @@ class CustomerService {
     const customerIds = result.customers.map(c => c.id);
     const balanceMap = await AccountingService.getBulkCustomerBalances(customerIds);
 
-    // Attach balances
+    // Attach balances and normalize for frontend
     result.customers = result.customers.map(customer => {
       const customerId = String(customer.id);
       const balance = balanceMap.get(customerId) || balanceMap.get(customer.id) || 0;
-      return {
+      return normalizeCustomer({
         ...customer,
-        id: customer.id, // Ensure id is present
+        id: customer.id,
         currentBalance: balance,
         pendingBalance: balance > 0 ? balance : 0,
         advanceBalance: balance < 0 ? Math.abs(balance) : 0
-      };
+      });
     });
 
     return result;
@@ -71,13 +81,13 @@ class CustomerService {
 
     const balance = await AccountingService.getCustomerBalance(id);
 
-    return {
+    return normalizeCustomer({
       ...customer,
-      id: customer.id, // Ensure id is present
+      id: customer.id,
       currentBalance: balance,
       pendingBalance: balance > 0 ? balance : 0,
       advanceBalance: balance < 0 ? Math.abs(balance) : 0
-    };
+    });
   }
 
   async createCustomer(customerData, userId, options = {}) {
@@ -93,7 +103,8 @@ class CustomerService {
     if (options.openingBalance != null) data.openingBalance = options.openingBalance;
     const customer = await customerRepository.update(id, data);
     if (!customer) throw new Error('Customer not found');
-    return this.getCustomerById(id);
+    const updated = await this.getCustomerById(id);
+    return { customer: updated, message: 'Customer updated successfully' };
   }
 
   async deleteCustomer(id, userId, reason = 'Customer deleted') {
@@ -214,13 +225,13 @@ class CustomerService {
     return customers.map(c => {
       const customerId = String(c.id);
       const balance = balanceMap.get(customerId) || balanceMap.get(c.id) || 0;
-      return {
+      return normalizeCustomer({
         ...c,
         id: c.id,
         currentBalance: balance,
         pendingBalance: balance > 0 ? balance : 0,
         advanceBalance: balance < 0 ? Math.abs(balance) : 0
-      };
+      });
     });
   }
 
@@ -239,13 +250,13 @@ class CustomerService {
     return customers.map(customer => {
       const customerId = String(customer.id);
       const balance = balanceMap.get(customerId) || balanceMap.get(customer.id) || 0;
-      return {
+      return normalizeCustomer({
         ...customer,
         id: customer.id,
         currentBalance: balance,
         pendingBalance: balance > 0 ? balance : 0,
         advanceBalance: balance < 0 ? Math.abs(balance) : 0
-      };
+      });
     });
   }
 }

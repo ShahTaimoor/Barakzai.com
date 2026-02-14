@@ -162,9 +162,12 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
         ...defaultCustomerValues,
         ...customer,
         businessName: customer.businessName || customer.business_name || '',
+        businessType: customer.businessType || customer.business_type || 'wholesale',
+        customerTier: customer.customerTier || customer.customer_tier || 'bronze',
         openingBalance: typeof customer.openingBalance === 'number'
           ? customer.openingBalance
           : (customer.opening_balance || customer.pendingBalance || 0),
+        creditLimit: customer.creditLimit ?? customer.credit_limit ?? 0,
         ledgerAccount: customer.ledgerAccount?._id || customer.ledgerAccount || customer.ledger_account_id || '',
         addresses: formAddresses,
         isActive: customer.isActive !== undefined ? customer.isActive : (customer.is_active !== undefined ? customer.is_active : true)

@@ -27,7 +27,7 @@ function toApiProduct(row, categoryMap = null) {
     category: cat ? { _id: categoryId, id: categoryId, name: cat.name } : (categoryId ? { _id: categoryId, id: categoryId, name: null } : null),
     pricing: {
       cost: parseFloat(row.cost_price) || 0,
-      wholesale: parseFloat(row.selling_price) || 0,
+      wholesale: row.wholesale_price != null ? parseFloat(row.wholesale_price) : (parseFloat(row.selling_price) || 0),
       retail: parseFloat(row.selling_price) || 0
     },
     inventory: {
@@ -195,6 +195,7 @@ class ProductServicePostgres {
       categoryId,
       costPrice: cost,
       sellingPrice: retail,
+      wholesalePrice: wholesale,
       stockQuantity: inv.currentStock ?? inv.stockQuantity ?? 0,
       minStockLevel: inv.reorderPoint ?? inv.minStock ?? inv.minStockLevel ?? 0,
       unit: productData.unit,
@@ -251,11 +252,13 @@ class ProductServicePostgres {
     if (pricing) {
       const cost = pricing.cost !== undefined && pricing.cost !== null ? Number(pricing.cost) : current.cost_price;
       const retail = pricing.retail !== undefined && pricing.retail !== null ? Number(pricing.retail) : current.selling_price;
-      const wholesale = pricing.wholesale !== undefined && pricing.wholesale !== null ? Number(pricing.wholesale) : retail;
+      const currentWholesale = current.wholesale_price ?? current.wholesalePrice ?? current.selling_price;
+      const wholesale = pricing.wholesale !== undefined && pricing.wholesale !== null ? Number(pricing.wholesale) : currentWholesale;
       if (cost > wholesale) throw new Error('Cost price cannot be greater than wholesale price');
       if (wholesale > retail) throw new Error('Wholesale price cannot be greater than retail price');
       data.costPrice = cost;
       data.sellingPrice = retail;
+      data.wholesalePrice = wholesale;
     }
 
     const inv = updateData.inventory;

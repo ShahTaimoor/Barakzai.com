@@ -170,10 +170,13 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
       }
     }
     
+    const categoryId = typeof newData.category === 'object'
+      ? (newData.category?.id || newData.category?._id)
+      : (newData.categoryId || newData.category || '');
     setFormData({
       name: newData.name || '',
       description: newData.description || '',
-      category: newData.category || '',
+      category: categoryId || '',
       status: newData.status || 'active',
       expiryDate: expiryDateValue,
       barcode: newData.barcode || '',
@@ -348,11 +351,14 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   >
                     <option value="">Select a category</option>
-                    {categories?.map((category) => (
-                      <option key={category._id} value={category._id}>
-                        {category.name}
-                      </option>
-                    ))}
+                    {categories?.map((category) => {
+                      const catId = category.id || category._id;
+                      return (
+                        <option key={catId} value={catId}>
+                          {category.name}
+                        </option>
+                      );
+                    })}
                   </select>
                   <p className="mt-1 text-sm text-gray-500">
                     Optional product category

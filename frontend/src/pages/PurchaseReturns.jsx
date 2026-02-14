@@ -367,6 +367,7 @@ const PurchaseReturns = () => {
       processing: { bg: 'bg-purple-100', text: 'text-purple-800', icon: Package },
       received: { bg: 'bg-indigo-100', text: 'text-indigo-800', icon: Package },
       completed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
+      processed: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
       cancelled: { bg: 'bg-gray-100', text: 'text-gray-800', icon: XCircle },
     };
 
@@ -648,7 +649,13 @@ const PurchaseReturns = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                         {returnItem.supplier?.companyName || returnItem.supplier?.businessName ||
-                          returnItem.supplier?.name || 'N/A'}
+                          returnItem.supplier?.name ||
+                          returnItem.originalOrder?.supplier?.companyName ||
+                          returnItem.originalOrder?.supplier?.businessName ||
+                          returnItem.originalOrder?.supplier?.name ||
+                          returnItem.originalOrder?.supplier?.company_name ||
+                          returnItem.originalOrder?.supplier?.name ||
+                          'N/A'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                         {returnItem.originalOrder?.invoiceNumber ||

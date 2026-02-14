@@ -24,7 +24,9 @@ const MIGRATIONS = [
   '019_add_supplier_to_receipts.sql',
   '020_add_business_name_to_suppliers.sql',
   '021_stock_movement_return_quarantine_inventory_balance.sql',
-  '022_returns_status_workflow.sql'
+  '022_returns_status_workflow.sql',
+  '023_add_wholesale_price_to_products.sql',
+  '024_add_business_type_customer_tier_to_customers.sql'
 ];
 
 async function ensureMigrationsTable() {
