@@ -174,8 +174,8 @@ class ProductServicePostgres {
 
     const data = {};
     if (updateData.name !== undefined) data.name = updateData.name;
-    if (updateData.sku !== undefined) data.sku = updateData.sku;
-    if (updateData.barcode !== undefined) data.barcode = updateData.barcode;
+    if (updateData.sku !== undefined) data.sku = updateData.sku === '' ? null : updateData.sku;
+    if (updateData.barcode !== undefined) data.barcode = updateData.barcode === '' ? null : updateData.barcode;
     if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.category !== undefined || updateData.categoryId !== undefined) {
       const catId = updateData.category ?? updateData.categoryId;

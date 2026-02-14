@@ -303,10 +303,9 @@ export const Investors = ({ tabId }) => {
     keepPreviousData: true,
   });
 
-  // Backend returns: { success: true, data: [investors] }
   const investors = useMemo(() => {
-    const investorsList = data?.data?.investors || data?.data || data?.investors || data || [];
-    return Array.isArray(investorsList) ? investorsList : [];
+    const list = data?.data?.investors || data?.data || data?.investors || data || [];
+    return Array.isArray(list) ? list : [];
   }, [data]);
 
   const [createInvestor, { isLoading: creating }] = useCreateInvestorMutation();

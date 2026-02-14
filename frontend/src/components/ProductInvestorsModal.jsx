@@ -15,7 +15,8 @@ export const ProductInvestorsModal = ({ product, isOpen, onClose, onSave }) => {
     }
   );
   const investors = useMemo(() => {
-    return investorsData?.data?.investors || investorsData?.investors || investorsData || [];
+    const list = investorsData?.data?.investors || investorsData?.investors || investorsData || [];
+    return Array.isArray(list) ? list : [];
   }, [investorsData]);
 
   useEffect(() => {
