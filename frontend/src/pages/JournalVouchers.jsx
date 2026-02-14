@@ -536,6 +536,9 @@ export const JournalVouchers = () => {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full">
               <div className="sm:col-span-2 md:col-span-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Date Range
+                </label>
                 <DateFilter
                   startDate={filters.fromDate}
                   endDate={filters.toDate}

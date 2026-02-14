@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, X } from 'lucide-react';
-import { 
-  formatDateForInput, 
-  getCurrentDatePakistan, 
+import {
+  formatDateForInput,
+  getCurrentDatePakistan,
   getDateDaysAgo,
   getStartOfMonth,
   getEndOfMonth,
-  getDatePresets 
+  getDatePresets
 } from '../utils/dateUtils';
 
 /**
@@ -55,7 +55,7 @@ const DateFilter = ({
   const handleStartDateChange = (e) => {
     const newStartDate = e.target.value;
     setStartDate(newStartDate);
-    
+
     // Ensure end date is not before start date
     if (endDate && newStartDate > endDate) {
       setEndDate(newStartDate);
@@ -68,7 +68,7 @@ const DateFilter = ({
   const handleEndDateChange = (e) => {
     const newEndDate = e.target.value;
     setEndDate(newEndDate);
-    
+
     // Ensure start date is not after end date
     if (startDate && newEndDate < startDate) {
       setStartDate(newEndDate);
@@ -96,29 +96,34 @@ const DateFilter = ({
   if (compact) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        <div className="flex items-center gap-1">
-          <Calendar className="h-4 w-4 text-gray-500" />
-          <input
-            type="date"
-            value={startDate}
-            onChange={handleStartDateChange}
-            className="input text-sm py-1.5 px-2"
-            max={endDate || undefined}
-          />
-          <span className="text-gray-500 text-sm">to</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={handleEndDateChange}
-            className="input text-sm py-1.5 px-2"
-            min={startDate || undefined}
-          />
+        <div className="flex items-center h-10 w-full bg-white border border-gray-300 rounded-md px-3 gap-2 focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500 transition-all">
+          <Calendar className="h-4 w-4 text-gray-400 shrink-0" />
+          <div className="flex items-center gap-1 w-full translate-y-[1px]">
+            <input
+              type="date"
+              autoComplete="off"
+              value={startDate}
+              onChange={handleStartDateChange}
+              className="bg-transparent border-none p-0 text-sm focus:ring-0 w-full cursor-pointer min-w-[110px]"
+              max={endDate || undefined}
+            />
+            <span className="text-gray-400 text-xs font-semibold uppercase px-1">to</span>
+            <input
+              type="date"
+              autoComplete="off"
+              value={endDate}
+              onChange={handleEndDateChange}
+              className="bg-transparent border-none p-0 text-sm focus:ring-0 w-full cursor-pointer min-w-[110px]"
+              min={startDate || undefined}
+            />
+          </div>
         </div>
         {showClear && (startDate || endDate) && (
           <button
             onClick={handleClear}
-            className="p-1 text-gray-500 hover:text-gray-700"
+            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all shrink-0"
             title="Clear dates"
+            type="button"
           >
             <X className="h-4 w-4" />
           </button>
