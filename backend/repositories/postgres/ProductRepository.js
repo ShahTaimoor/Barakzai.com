@@ -233,6 +233,14 @@ class ProductRepository {
     return result.rows.length > 0;
   }
 
+  async findByName(name) {
+    const result = await query(
+      'SELECT * FROM products WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND (is_deleted = FALSE OR is_deleted IS NULL)',
+      [name]
+    );
+    return result.rows[0] || null;
+  }
+
   async skuExists(sku, excludeId = null) {
     if (!sku) return false;
     let sql = 'SELECT 1 FROM products WHERE LOWER(TRIM(sku)) = LOWER(TRIM($1)) AND (is_deleted = FALSE OR is_deleted IS NULL)';

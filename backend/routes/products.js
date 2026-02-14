@@ -762,13 +762,30 @@ router.post('/import/csv', [
             }
             
             // Check if product already exists
-            const productExists = await productService.productExistsByName(mapped.name.toString().trim());
+            const existingProduct = await productService.getProductByName(mapped.name.toString().trim());
             
-            if (productExists) {
-              results.errors.push({
-                row: i + 2,
-                error: `Product already exists with name: ${mapped.name}`
-              });
+            if (existingProduct) {
+              // Update existing product instead of skipping
+              const updateData = {
+                description: mapped.description?.toString().trim() || existingProduct.description,
+                category: mapped.category?.toString().trim() || existingProduct.category?.name,
+                brand: mapped.brand?.toString().trim() || existingProduct.brand,
+                barcode: mapped.barcode?.toString().trim() || existingProduct.barcode,
+                sku: mapped.sku?.toString().trim() || existingProduct.sku,
+                pricing: {
+                  cost: cost,
+                  retail: retail,
+                  wholesale: wholesale
+                },
+                inventory: {
+                  currentStock: parseInt(mapped.currentStock) || existingProduct.inventory?.currentStock || 0,
+                  reorderPoint: parseInt(mapped.reorderPoint) || existingProduct.inventory?.reorderPoint || 0
+                },
+                status: mapped.status?.toString().toLowerCase() === 'inactive' ? 'inactive' : 'active'
+              };
+
+              await productService.updateProduct(existingProduct._id, updateData, req.user?.id || req.user?._id);
+              results.success++;
               continue;
             }
             
@@ -924,13 +941,30 @@ router.post('/import/excel', [
         }
         
         // Check if product already exists
-        const productExists = await productService.productExistsByName(productData.name.toString().trim());
+        const existingProduct = await productService.getProductByName(productData.name.toString().trim());
         
-        if (productExists) {
-          results.errors.push({
-            row: i + 2,
-            error: `Product already exists with name: ${productData.name}`
-          });
+        if (existingProduct) {
+          // Update existing product instead of skipping
+          const updatePayload = {
+            description: productData.description?.toString().trim() || existingProduct.description,
+            category: productData.category?.toString().trim() || existingProduct.category?.name,
+            brand: productData.brand?.toString().trim() || existingProduct.brand,
+            barcode: productData.barcode?.toString().trim() || existingProduct.barcode,
+            sku: productData.sku?.toString().trim() || existingProduct.sku,
+            pricing: {
+              cost: cost,
+              retail: retail,
+              wholesale: wholesale
+            },
+            inventory: {
+              currentStock: parseInt(productData.currentStock) || existingProduct.inventory?.currentStock || 0,
+              reorderPoint: parseInt(productData.reorderPoint) || existingProduct.inventory?.reorderPoint || 0
+            },
+            status: productData.status?.toString().toLowerCase() === 'inactive' ? 'inactive' : 'active'
+          };
+
+          await productService.updateProduct(existingProduct._id, updatePayload, req.user?.id || req.user?._id);
+          results.success++;
           continue;
         }
         

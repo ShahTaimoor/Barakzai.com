@@ -237,6 +237,13 @@ class ProductServicePostgres {
     return productRepository.nameExists(name);
   }
 
+  async getProductByName(name) {
+    const row = await productRepository.findByName(name);
+    if (!row) return null;
+    const categoryMap = row.category_id ? await getCategoryMap([row.category_id]) : null;
+    return toApiProduct(row, categoryMap);
+  }
+
   async getLowStockProducts() {
     const rows = await productRepository.findAll({ lowStock: true, isActive: true }, { limit: 500 });
     const categoryIds = [...new Set(rows.map(p => p.category_id).filter(Boolean))];
