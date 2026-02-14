@@ -241,16 +241,16 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
     return () => clearTimeout(timeoutId);
   }, [formData.companyName, supplier]);
 
-  // Contact name validation effect
+    // Contact name validation effect
   useEffect(() => {
     // Skip validation if contact name is empty
-    if (!formData.contactPerson?.name || formData.contactPerson.name.trim() === '') {
+    if (!formData.contactPerson?.name || typeof formData.contactPerson.name !== 'string' || formData.contactPerson.name.trim() === '') {
       setContactNameExists(false);
       return;
     }
 
     // Skip check if editing and contact name hasn't changed
-    if (supplier && supplier.contactPerson?.name && supplier.contactPerson.name.trim().toLowerCase() === formData.contactPerson.name.trim().toLowerCase()) {
+    if (supplier && supplier.contactPerson?.name && supplier.contactPerson.name.trim().toLowerCase() === (formData.contactPerson?.name || '').trim().toLowerCase()) {
       setContactNameExists(false);
       return;
     }
@@ -439,10 +439,10 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     <input
                       type="text"
                       required
-                      value={formData.contactPerson.name}
+                      value={formData.contactPerson?.name || ''}
                       onChange={(e) => setFormData({
                         ...formData,
-                        contactPerson: { ...formData.contactPerson, name: e.target.value }
+                        contactPerson: { ...(formData.contactPerson || {}), name: e.target.value }
                       })}
                       className={`input ${contactNameExists ? 'border-red-500' : ''}`}
                       placeholder="Enter full name"
@@ -463,10 +463,10 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   </label>
                   <input
                     type="text"
-                    value={formData.contactPerson.title}
+                    value={formData.contactPerson?.title || ''}
                     onChange={(e) => setFormData({
                       ...formData,
-                      contactPerson: { ...formData.contactPerson, title: e.target.value }
+                      contactPerson: { ...(formData.contactPerson || {}), title: e.target.value }
                     })}
                     className="input"
                     placeholder="Job title"
@@ -1006,17 +1006,17 @@ export const Suppliers = () => {
                         <Building className="h-5 w-5 text-gray-400 flex-shrink-0" />
                         <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-medium text-gray-900 truncate">
-                            {supplier.companyName}
+                            {supplier.companyName || supplier.company_name || supplier.businessName || '-'}
                           </h3>
                           <p className="text-xs text-gray-500 truncate">
-                            {supplier.contactPerson.name}
+                            {supplier.contactPerson?.name || '-'}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2 ml-2">
                         <button
                           onClick={() => {
-                            setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName });
+                            setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName || supplier.company_name || supplier.businessName || 'Supplier' });
                             setShowNotes(true);
                           }}
                           className="text-green-600 hover:text-green-800 p-1"
@@ -1092,10 +1092,10 @@ export const Suppliers = () => {
                         <Building className="h-5 w-5 lg:h-6 lg:w-6 text-gray-400 flex-shrink-0" />
                         <div className="min-w-0">
                           <h3 className="text-sm lg:text-base font-medium text-gray-900 truncate">
-                            {supplier.companyName}
+                            {supplier.companyName || supplier.company_name || supplier.businessName || '-'}
                           </h3>
                           <p className="text-xs lg:text-sm text-gray-500 truncate">
-                            {supplier.contactPerson.name}
+                            {supplier.contactPerson?.name || '-'}
                           </p>
                         </div>
                       </div>
@@ -1150,17 +1150,17 @@ export const Suppliers = () => {
 
                     {/* Actions */}
                     <div className="col-span-1">
-                      <div className="flex items-center space-x-2 lg:space-x-3">
-                        <button
-                          onClick={() => {
-                            setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName });
-                            setShowNotes(true);
-                          }}
-                          className="text-green-600 hover:text-green-800 p-1"
-                          title="Notes"
-                        >
-                          <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
-                        </button>
+                    <div className="flex items-center space-x-2 lg:space-x-3">
+                      <button
+                        onClick={() => {
+                          setNotesEntity({ type: 'Supplier', id: supplier._id, name: supplier.companyName || supplier.company_name || supplier.businessName || 'Supplier' });
+                          setShowNotes(true);
+                        }}
+                        className="text-green-600 hover:text-green-800 p-1"
+                        title="Notes"
+                      >
+                        <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5" />
+                      </button>
                         <button
                           onClick={() => handleEdit(supplier)}
                           className="text-primary-600 hover:text-primary-800 p-1"

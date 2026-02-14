@@ -697,7 +697,10 @@ export const Purchase = ({ tabId, editData }) => {
   const supplierDisplayKey = (supplier) => {
     return (
       <div>
-        <div className="font-medium">{supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}</div>
+        <div className="font-medium">{supplier.companyName || supplier.company_name || supplier.businessName || supplier.business_name || supplier.displayName || supplier.name || 'Unknown'}</div>
+        {supplier.name && supplier.name !== (supplier.companyName || supplier.company_name || supplier.businessName || supplier.displayName) && (
+          <div className="text-xs text-gray-500">{supplier.name}</div>
+        )}
         <div className="text-sm text-gray-600">
           Outstanding Balance: {(supplier.pendingBalance || 0).toFixed(2)}
         </div>
@@ -717,7 +720,7 @@ export const Purchase = ({ tabId, editData }) => {
     // Update tab title to show supplier name
     const activeTab = getActiveTab();
     if (activeTab && supplier) {
-      updateTabTitle(activeTab.id, `Purchase - ${supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}`);
+      updateTabTitle(activeTab.id, `Purchase - ${supplier.companyName || supplier.company_name || supplier.businessName || supplier.displayName || supplier.name || 'Unknown'}`);
     }
 
     // Clear cart when supplier changes (only in new purchase mode, not in edit mode)
@@ -1309,7 +1312,7 @@ export const Purchase = ({ tabId, editData }) => {
                 <div className="flex items-start sm:items-center space-x-3">
                   <Building className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0 mt-1 sm:mt-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm sm:text-base truncate">{selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name || selectedSupplier.companyName || 'Unknown Supplier'}</p>
+                    <p className="font-medium text-sm sm:text-base truncate">{selectedSupplier.companyName || selectedSupplier.company_name || selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name || 'Unknown Supplier'}</p>
                     <p className="text-xs sm:text-sm text-gray-600 capitalize mt-1">
                       {selectedSupplier.businessType && selectedSupplier.reliability
                         ? `${selectedSupplier.businessType} • ${selectedSupplier.reliability}`

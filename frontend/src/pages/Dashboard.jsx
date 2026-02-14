@@ -489,7 +489,9 @@ export const Dashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm sm:text-base text-gray-600">Welcome back! Here's what's happening today.</p>
+          {!dashboardHidden && (
+            <p className="text-sm sm:text-base text-gray-600">Welcome back! Here's what's happening today.</p>
+          )}
         </div>
 
         {/* Hide Data Button - Mobile only (no date filter here to save space) */}
@@ -516,14 +518,16 @@ export const Dashboard = () => {
 
         {/* Date Filter and Hide Data Button - Desktop only */}
         <div className="hidden lg:flex items-center gap-3 w-full sm:w-auto">
-          <DateFilter
-            startDate={startDate}
-            endDate={endDate}
-            onDateChange={handleDateChange}
-            compact={true}
-            showPresets={true}
-            className="w-full"
-          />
+          {!dashboardHidden && (
+            <DateFilter
+              startDate={startDate}
+              endDate={endDate}
+              onDateChange={handleDateChange}
+              compact={true}
+              showPresets={true}
+              className="w-full"
+            />
+          )}
           <button
             type="button"
             onClick={toggleDashboardVisibility}
@@ -533,7 +537,7 @@ export const Dashboard = () => {
             {dashboardHidden ? (
               <>
                 <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                <span>Unhide data</span>
+                <span>Show data</span>
               </>
             ) : (
               <>
@@ -546,21 +550,21 @@ export const Dashboard = () => {
       </div>
 
       {dashboardHidden ? (
-        <div className="min-h-[60vh] flex flex-col items-center justify-center bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-          <div className="flex flex-col items-center gap-6 max-w-md text-center">
+        <div className="min-h-[70vh] flex flex-col items-center justify-center bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+          <div className="flex flex-col items-center gap-8 w-full text-center">
             {companyLogo ? (
               <img
                 src={companyLogo}
                 alt={companyName || 'Company logo'}
-                className="max-h-48 w-auto max-w-full object-contain"
+                className="max-h-[400px] md:max-h-[500px] w-auto max-w-full object-contain transition-all duration-500 hover:scale-105"
               />
             ) : (
-              <div className="w-40 h-40 rounded-xl bg-gray-100 flex items-center justify-center">
-                <Building className="h-20 w-20 text-gray-400" />
+              <div className="w-60 h-60 rounded-2xl bg-gray-100 flex items-center justify-center">
+                <Building className="h-32 w-32 text-gray-400" />
               </div>
             )}
             {companyName ? (
-              <h2 className="text-xl font-semibold text-gray-800">{companyName}</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">{companyName}</h2>
             ) : null}
           </div>
         </div>

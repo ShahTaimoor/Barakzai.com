@@ -505,7 +505,10 @@ const SalesOrders = () => {
 
     return (
       <div>
-        <div className="font-medium">{customer.displayName || customer.businessName || customer.name || 'Unknown'}</div>
+        <div className="font-medium">{customer.businessName || customer.business_name || customer.displayName || customer.name || 'Unknown'}</div>
+        {customer.name && customer.name !== (customer.businessName || customer.business_name || customer.displayName) && (
+          <div className="text-xs text-gray-500">{customer.name}</div>
+        )}
         {hasBalance ? (
           <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
             Total Balance: {isPayable ? '-' : '+'}{Math.abs(totalBalance).toFixed(2)}
@@ -526,7 +529,7 @@ const SalesOrders = () => {
       customer: customerId,
       orderNumber: autoGenerateOrderNumber ? generateOrderNumber(customerObj) : prev.orderNumber
     }));
-    setCustomerSearchTerm(customerObj?.displayName || customerObj?.businessName || customerObj?.name || '');
+    setCustomerSearchTerm(customerObj?.businessName || customerObj?.business_name || customerObj?.displayName || customerObj?.name || '');
 
     // Auto-set price type based on customer business type
     if (customerObj?.businessType) {

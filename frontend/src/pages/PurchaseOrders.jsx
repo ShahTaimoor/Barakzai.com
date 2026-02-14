@@ -549,7 +549,10 @@ export const PurchaseOrders = ({ tabId }) => {
   const supplierDisplayKey = (supplier) => {
     return (
       <div>
-        <div className="font-medium">{supplier.displayName || supplier.companyName || supplier.name || 'Unknown'}</div>
+        <div className="font-medium">{supplier.companyName || supplier.company_name || supplier.businessName || supplier.displayName || supplier.name || 'Unknown'}</div>
+        {supplier.name && supplier.name !== (supplier.companyName || supplier.company_name || supplier.businessName || supplier.displayName) && (
+          <div className="text-xs text-gray-500">{supplier.name}</div>
+        )}
         <div className="text-sm text-gray-600">
           Outstanding Balance: {(supplier.pendingBalance || 0).toFixed(2)}
         </div>
@@ -564,13 +567,13 @@ export const PurchaseOrders = ({ tabId }) => {
 
     setSelectedSupplier(supplierObj);
     setFormData(prev => ({ ...prev, supplier: supplierId }));
-    setSupplierSearchTerm(supplierObj?.companyName || supplierObj?.name || '');
+    setSupplierSearchTerm(supplierObj?.companyName || supplierObj?.company_name || supplierObj?.businessName || supplierObj?.name || '');
 
     // Update tab title to show supplier name
     if (updateTabTitle && getActiveTab && supplierObj) {
       const activeTab = getActiveTab();
       if (activeTab) {
-        updateTabTitle(activeTab.id, `PO - ${supplierObj.companyName || supplierObj.name || 'Unknown'}`);
+        updateTabTitle(activeTab.id, `PO - ${supplierObj.companyName || supplierObj.company_name || supplierObj.businessName || supplierObj.name || 'Unknown'}`);
       }
     }
   };
@@ -1209,15 +1212,15 @@ export const PurchaseOrders = ({ tabId }) => {
               <div className="flex items-center space-x-3">
                 <Building className="h-5 w-5 text-gray-400" />
                 <div className="flex-1">
-                  <p className="font-medium">{selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.companyName || selectedSupplier.name || 'Unknown'}</p>
+                  <p className="font-medium">{selectedSupplier.companyName || selectedSupplier.company_name || selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name || 'Unknown'}</p>
                   <p className="text-sm text-gray-600 capitalize">
                     {selectedSupplier.businessType || 'Business'} • {selectedSupplier.reliability || 'Standard'}
                   </p>
                   <div className="flex items-center space-x-4 mt-2">
                     <div className="flex items-center space-x-1">
                       <span className="text-xs text-gray-500">Outstanding Balance:</span>
-                      <span className={`text-sm font-medium ${(selectedSupplier.outstandingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {Math.round(selectedSupplier.outstandingBalance || 0)}
+                      <span className={`text-sm font-medium ${(selectedSupplier.pendingBalance || selectedSupplier.outstandingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {(selectedSupplier.pendingBalance || selectedSupplier.outstandingBalance || 0).toFixed(2)}
                       </span>
                     </div>
                     {selectedSupplier.phone && (
