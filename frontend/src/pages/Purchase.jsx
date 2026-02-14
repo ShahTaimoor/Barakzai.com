@@ -1173,9 +1173,9 @@ export const Purchase = ({ tabId, editData }) => {
         email: selectedSupplier.email,
         phone: selectedSupplier.phone,
         companyName: selectedSupplier.companyName,
-        address: typeof selectedSupplier.address === 'string' 
-          ? selectedSupplier.address 
-          : selectedSupplier.address 
+        address: typeof selectedSupplier.address === 'string'
+          ? selectedSupplier.address
+          : selectedSupplier.address
             ? [selectedSupplier.address.street, selectedSupplier.address.city, selectedSupplier.address.province || selectedSupplier.address.state, selectedSupplier.address.country].filter(Boolean).join(', ')
             : null
       },
@@ -1257,9 +1257,9 @@ export const Purchase = ({ tabId, editData }) => {
         </div>
 
         {/* Supplier Selection and Information Row */}
-        <div className="flex flex-col lg:flex-row items-start gap-4 lg:space-x-4">
+        <div className="flex flex-col lg:flex-row items-start lg:gap-12 gap-4">
           {/* Supplier Selection */}
-          <div className="w-full lg:w-[500px] lg:flex-shrink-0">
+          <div className="w-full lg:w-[750px] lg:flex-shrink-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-2">
               <label className="block text-xs sm:text-sm font-medium text-gray-700">
                 Select Supplier

@@ -1950,9 +1950,9 @@ export const Sales = ({ tabId, editData }) => {
         </div>
 
         {/* Customer Selection and Information Row */}
-        <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'items-start space-x-4'}`}>
+        <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'items-start space-x-12'}`}>
           {/* Customer Selection */}
-          <div className={`${isMobile ? 'w-full' : 'w-[500px] flex-shrink-0'}`}>
+          <div className={`${isMobile ? 'w-full' : 'w-[750px] flex-shrink-0'}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <label className="block text-sm font-medium text-gray-700">
@@ -2035,60 +2035,60 @@ export const Sales = ({ tabId, editData }) => {
               const currentBalanceNum = (isNaN(rawBalance) || rawBalance === null || rawBalance === undefined) ? 0 : rawBalance;
               const availableCreditNum = Math.max(0, creditLimitNum - currentBalanceNum);
               return (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center space-x-3">
-                  <User className="h-5 w-5 text-gray-400" />
-                  <div className="flex-1">
-                    <p className="font-medium">{selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name}</p>
-                    <p className="text-sm text-gray-600 capitalize">
-                      {selectedCustomer.businessType ?? '—'} • {selectedCustomer.phone || 'No phone'}
-                    </p>
-                    <div className="flex items-center space-x-4 mt-2 flex-wrap gap-y-1">
-                      {(() => {
-                        const isPayable = currentBalanceNum < 0;
-                        const isReceivable = currentBalanceNum > 0;
-                        return (
-                          <div className="flex items-center space-x-1">
-                            <span className="text-xs text-gray-500">Balance:</span>
-                            <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'}`}>
-                              {isPayable ? '-' : ''}{Math.abs(currentBalanceNum).toFixed(2)}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                      <div className="flex items-center space-x-1">
-                        <span className="text-xs text-gray-500">Credit Limit:</span>
-                        <span className={`text-sm font-medium ${(creditLimitNum > 0) ? (
-                          currentBalanceNum >= creditLimitNum * 0.9
-                            ? 'text-red-600'
-                            : currentBalanceNum >= creditLimitNum * 0.7
-                              ? 'text-yellow-600'
-                              : 'text-blue-600'
-                        ) : 'text-gray-600'
-                          }`}>
-                          {creditLimitNum.toFixed(2)}
-                        </span>
-                        {creditLimitNum > 0 && currentBalanceNum >= creditLimitNum * 0.9 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center space-x-3">
+                    <User className="h-5 w-5 text-gray-400" />
+                    <div className="flex-1">
+                      <p className="font-medium">{selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name}</p>
+                      <p className="text-sm text-gray-600 capitalize">
+                        {selectedCustomer.businessType ?? '—'} • {selectedCustomer.phone || 'No phone'}
+                      </p>
+                      <div className="flex items-center space-x-4 mt-2 flex-wrap gap-y-1">
+                        {(() => {
+                          const isPayable = currentBalanceNum < 0;
+                          const isReceivable = currentBalanceNum > 0;
+                          return (
+                            <div className="flex items-center space-x-1">
+                              <span className="text-xs text-gray-500">Balance:</span>
+                              <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'}`}>
+                                {isPayable ? '-' : ''}{Math.abs(currentBalanceNum).toFixed(2)}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        <div className="flex items-center space-x-1">
+                          <span className="text-xs text-gray-500">Credit Limit:</span>
+                          <span className={`text-sm font-medium ${(creditLimitNum > 0) ? (
+                            currentBalanceNum >= creditLimitNum * 0.9
+                              ? 'text-red-600'
+                              : currentBalanceNum >= creditLimitNum * 0.7
+                                ? 'text-yellow-600'
+                                : 'text-blue-600'
+                          ) : 'text-gray-600'
+                            }`}>
+                            {creditLimitNum.toFixed(2)}
+                          </span>
+                          {creditLimitNum > 0 && currentBalanceNum >= creditLimitNum * 0.9 && (
                             <span className="text-xs text-red-600 font-bold ml-1">⚠️</span>
                           )}
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <span className="text-xs text-gray-500">Available Credit:</span>
-                        <span className={`text-sm font-medium ${creditLimitNum > 0 ? (
-                          availableCreditNum <= creditLimitNum * 0.1
-                            ? 'text-red-600'
-                            : availableCreditNum <= creditLimitNum * 0.3
-                              ? 'text-yellow-600'
-                              : 'text-green-600'
-                        ) : 'text-gray-600'
-                          }`}>
-                          {availableCreditNum.toFixed(2)}
-                        </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <span className="text-xs text-gray-500">Available Credit:</span>
+                          <span className={`text-sm font-medium ${creditLimitNum > 0 ? (
+                            availableCreditNum <= creditLimitNum * 0.1
+                              ? 'text-red-600'
+                              : availableCreditNum <= creditLimitNum * 0.3
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                          ) : 'text-gray-600'
+                            }`}>
+                            {availableCreditNum.toFixed(2)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
               );
             })() : (
               <div className="hidden lg:block">
@@ -2470,7 +2470,7 @@ export const Sales = ({ tabId, editData }) => {
                                 ? lastPurchasePrices[item.product._id]
                                 : item.product.pricing?.cost;
                               const isBelowCost = effectiveCost !== undefined && effectiveCost !== null && item.unitPrice < effectiveCost;
-                              
+
                               return (
                                 <input
                                   type="number"
