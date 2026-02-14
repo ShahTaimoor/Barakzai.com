@@ -38,7 +38,7 @@ router.post('/', [
   body('originalOrder').isUUID(4).withMessage('Valid original order ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one return item is required'),
   body('items.*.product').isUUID(4).withMessage('Valid product ID is required'),
-  body('items.*.originalOrderItem').isUUID(4).withMessage('Valid order item ID is required'),
+  body('items.*.originalOrderItem').notEmpty().withMessage('Valid order item ID is required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Valid quantity is required'),
   body('items.*.returnReason').isIn([
     'defective', 'wrong_item', 'not_as_described', 'damaged_shipping',
@@ -49,6 +49,7 @@ router.post('/', [
   body('items.*.action').isIn(['refund', 'exchange', 'store_credit', 'repair', 'replace']).withMessage('Valid action is required'),
   body('refundMethod').optional().isIn(['original_payment', 'store_credit', 'cash', 'check', 'bank_transfer']),
   body('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
+  body('deferProcess').optional().isBoolean().withMessage('deferProcess must be boolean'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -99,7 +100,7 @@ router.get('/', [
   auth,
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
-  query('status').optional().isIn(['pending', 'approved', 'rejected', 'processing', 'received', 'completed', 'cancelled']),
+  query('status').optional().isIn(['pending', 'inspected', 'approved', 'rejected', 'processing', 'received', 'completed', 'processed', 'cancelled']),
   query('returnType').optional().isIn(['return', 'exchange', 'warranty', 'recall']),
   query('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
   ...validateDateParams,
@@ -111,7 +112,7 @@ router.get('/', [
       ...req.query,
       origin: 'sales' // Filter only sale returns
     };
-    
+
     // Merge date filter from middleware if present (for Pakistan timezone)
     if (req.dateFilter && Object.keys(req.dateFilter).length > 0) {
       queryParams.dateFilter = req.dateFilter;
@@ -140,7 +141,7 @@ router.get('/:id', [
 ], async (req, res) => {
   try {
     const returnRequest = await returnManagementService.getReturnById(req.params.id);
-    
+
     if (returnRequest.origin !== 'sales') {
       return res.status(404).json({ message: 'Sale return not found' });
     }
@@ -227,7 +228,7 @@ router.get('/customer/:customerId/products', [
           const matchesName = productName.toLowerCase().includes(searchLower);
           const matchesSku = productSku.toLowerCase().includes(searchLower);
           const matchesBarcode = productBarcode.toLowerCase().includes(searchLower);
-          
+
           if (!matchesName && !matchesSku && !matchesBarcode) {
             continue;
           }
@@ -407,7 +408,7 @@ router.get('/stats/summary', [
     if (req.query.endDate) period.endDate = new Date(req.query.endDate);
 
     const stats = await returnManagementService.getReturnStats(period);
-    
+
     // Filter to only sale returns
     const saleReturnStats = {
       ...stats,

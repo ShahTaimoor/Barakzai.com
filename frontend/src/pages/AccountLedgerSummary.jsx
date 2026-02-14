@@ -7,6 +7,7 @@ import { useLazyGetOrderByIdQuery } from '../store/services/salesApi';
 import { useLazyGetCashReceiptByIdQuery } from '../store/services/cashReceiptsApi';
 import { useLazyGetBankReceiptByIdQuery } from '../store/services/bankReceiptsApi';
 import { useLazyGetPurchaseInvoiceQuery } from '../store/services/purchaseInvoicesApi';
+import { useLazyGetSaleReturnQuery } from '../store/services/saleReturnsApi';
 
 import PrintModal from '../components/PrintModal';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
@@ -57,6 +58,7 @@ const AccountLedgerSummary = () => {
   const [getCashReceiptById] = useLazyGetCashReceiptByIdQuery();
   const [getBankReceiptById] = useLazyGetBankReceiptByIdQuery();
   const [getPurchaseInvoiceById] = useLazyGetPurchaseInvoiceQuery();
+  const [getSaleReturnById] = useLazyGetSaleReturnQuery();
 
 
   const [filters, setFilters] = useState({
@@ -367,6 +369,17 @@ const AccountLedgerSummary = () => {
         }
       } else if (entry.source === 'Cash Payment' || entry.source === 'Bank Payment') {
         toast('Print this payment from Cash Payments or Bank Payments page.');
+      } else if (entry.source === 'Sale Return') {
+        const result = await getSaleReturnById(entry.referenceId).unwrap();
+        const saleReturn = result?.data || result;
+        if (saleReturn) {
+          setPrintDocumentTitle('Sale Return');
+          setPrintPartyLabel('Customer');
+          setPrintData(saleReturn);
+          setShowPrintModal(true);
+        } else {
+          toast.error('Could not load sale return for printing.');
+        }
       } else {
         toast('Print this document from the relevant module (e.g. Bank Receipts, Cash Payments, Sale Returns).');
       }

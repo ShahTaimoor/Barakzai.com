@@ -53,16 +53,16 @@ const SaleReturns = () => {
   const suggestionsRef = useRef(null);
 
   // Date filter states using Pakistan timezone
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   const [filters, setFilters] = useState({
     page: 1,
     limit: 10,
     status: '',
     search: '',
-    startDate: today,
-    endDate: today
+    startDate: null,
+    endDate: null
   });
 
   // Handle date change from DateFilter component

@@ -1,3 +1,4 @@
+const { transaction } = require('../config/postgres');
 const CustomerBalanceService = require('../services/customerBalanceService');
 const AccountingService = require('../services/accountingService');
 const ReturnRepository = require('../repositories/postgres/ReturnRepository');
@@ -9,7 +10,21 @@ const ProductRepository = require('../repositories/postgres/ProductRepository');
 const CustomerRepository = require('../repositories/postgres/CustomerRepository');
 const SupplierRepository = require('../repositories/postgres/SupplierRepository');
 const InventoryRepository = require('../repositories/postgres/InventoryRepository');
+const InventoryBalanceRepository = require('../repositories/postgres/InventoryBalanceRepository');
 const StockMovementRepository = require('../repositories/StockMovementRepository');
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Extract a UUID string from a value that may be an object (with id/_id) or a string. Prevents passing full entity to UUID columns. */
+function toUuid(value) {
+  if (value == null) return null;
+  if (typeof value === 'object') {
+    const id = value.id ?? value._id;
+    return toUuid(id);
+  }
+  const s = String(value).trim();
+  return UUID_REGEX.test(s) ? s : null;
+}
 
 class ReturnManagementService {
   constructor() {
@@ -117,15 +132,10 @@ class ReturnManagementService {
     returnRequest.totalRestockingFee = totalRestockingFee;
     returnRequest.netRefundAmount = netRefundAmount;
 
-    const returnNumber = await ReturnRepository.getNextReturnNumber();
-
     const referenceId = originalOrder.id ? String(originalOrder.id) : String(originalOrder._id);
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const custId = originalOrder.customer?._id || originalOrder.customer;
-    const suppId = originalOrder.supplier?._id || originalOrder.supplier;
-    const customerId = custId && uuidRegex.test(String(custId)) ? String(custId) : null;
-    const supplierId = suppId && uuidRegex.test(String(suppId)) ? String(suppId) : null;
-    const createdBy = requestedBy?.id || requestedBy?._id || requestedBy;
+    const customerId = toUuid(originalOrder.customer);
+    const supplierId = toUuid(originalOrder.supplier);
+    const createdBy = toUuid(requestedBy?.id ?? requestedBy?._id ?? requestedBy);
 
     const itemsForPostgres = returnRequest.items.map(item => ({
       product: item.product?._id ? String(item.product._id) : String(item.product),
@@ -141,29 +151,109 @@ class ReturnManagementService {
       generalNotes: item.generalNotes
     }));
 
-    const created = await ReturnRepository.create({
-      returnNumber,
-      returnType: isPurchaseReturn ? 'purchase_return' : 'sale_return',
-      referenceId,
-      customerId: customerId || null,
-      supplierId: supplierId || null,
-      returnDate: today,
-      items: itemsForPostgres,
-      totalAmount: netRefundAmount,
-      reason: null,
-      status: 'completed',
-      createdBy
+    const deferProcess = returnData.deferProcess === true;
+
+    const refundDetailsOnCreate = { refundMethod: returnData.refundMethod || 'original_payment' };
+
+    if (deferProcess) {
+      // Workflow mode: create return with status pending only (no inventory/ledger). Call processReturn later.
+      return await transaction(async (client) => {
+        const returnNumber = await ReturnRepository.getNextReturnNumber(client);
+        const created = await ReturnRepository.create({
+          returnNumber,
+          returnType: isPurchaseReturn ? 'purchase_return' : 'sale_return',
+          referenceId,
+          customerId: customerId || null,
+          supplierId: supplierId || null,
+          returnDate: today,
+          items: itemsForPostgres,
+          totalAmount: netRefundAmount,
+          reason: null,
+          status: 'pending',
+          createdBy,
+          refundDetails: refundDetailsOnCreate
+        }, client);
+        const createdReturn = created && (typeof created.items === 'string' ? { ...created, items: JSON.parse(created.items) } : created);
+        return this.buildReturnRequestFromRow(createdReturn, returnRequest, originalOrder, netRefundAmount, totalRefundAmount, totalRestockingFee, returnData);
+      });
+    }
+
+    // Single DB transaction: createReturn + createStockMovement + updateInventory + postLedger (COMMIT/ROLLBACK)
+    return await transaction(async (client) => {
+      const returnNumber = await ReturnRepository.getNextReturnNumber(client);
+      const created = await ReturnRepository.create({
+        returnNumber,
+        returnType: isPurchaseReturn ? 'purchase_return' : 'sale_return',
+        referenceId,
+        customerId: customerId || null,
+        supplierId: supplierId || null,
+        returnDate: today,
+        items: itemsForPostgres,
+        totalAmount: netRefundAmount,
+        reason: null,
+        status: 'pending',
+        createdBy,
+        refundDetails: refundDetailsOnCreate
+      }, client);
+
+      const createdReturn = created && (typeof created.items === 'string' ? { ...created, items: JSON.parse(created.items) } : created);
+      const returnRequestForDownstream = {
+        _id: createdReturn.id,
+        id: createdReturn.id,
+        returnNumber: createdReturn.return_number,
+        origin: isPurchaseReturn ? 'purchase' : 'sales',
+        returnType: returnData.returnType || 'return',
+        status: 'pending',
+        items: returnRequest.items.map(item => {
+          const orderItem = originalOrder.items?.find(oi => String(oi._id || oi.id) === String(item.originalOrderItem));
+          const product = item.product?.name ? item.product : (orderItem?.product || item.product);
+          const productIdVal = product && (product.id || product._id) || product || item.productId;
+          return {
+            ...item,
+            product,
+            productId: productIdVal ? String(productIdVal) : undefined
+          };
+        }),
+        originalOrder: originalOrder.id || originalOrder._id,
+        customer: originalOrder.customer,
+        supplier: originalOrder.supplier,
+        netRefundAmount,
+        totalRefundAmount,
+        totalRestockingFee,
+        refundMethod: returnData.refundMethod || 'original_payment',
+        inspection: returnData.inspection || null
+      };
+
+      await this.updateInventoryForReturn(returnRequestForDownstream, requestedBy, client);
+
+      if (returnRequestForDownstream.returnType === 'return') {
+        await this.processRefund(returnRequestForDownstream, client);
+      } else if (returnRequestForDownstream.returnType === 'exchange') {
+        await this.processExchange(returnRequestForDownstream);
+      }
+
+      const refundDetails = {
+        refundDate: new Date(),
+        refundReference: returnRequestForDownstream.return_number || returnRequestForDownstream.returnNumber
+      };
+      await ReturnRepository.update(createdReturn.id, { status: 'processed', refundDetails }, client);
+      returnRequestForDownstream.status = 'processed';
+      returnRequestForDownstream.refundDetails = refundDetails;
+
+      await this.notifyCustomer(returnRequestForDownstream, 'return_completed');
+      return returnRequestForDownstream;
     });
+  }
 
-    const createdReturn = created && (typeof created.items === 'string' ? { ...created, items: JSON.parse(created.items) } : created);
-
-    const returnRequestForDownstream = {
+  /** Build return request shape from DB row (for deferProcess response and processReturn). */
+  buildReturnRequestFromRow(createdReturn, returnRequest, originalOrder, netRefundAmount, totalRefundAmount, totalRestockingFee, returnData) {
+    return {
       _id: createdReturn.id,
       id: createdReturn.id,
       returnNumber: createdReturn.return_number,
-      origin: isPurchaseReturn ? 'purchase' : 'sales',
+      origin: returnData.origin === 'purchase' ? 'purchase' : 'sales',
       returnType: returnData.returnType || 'return',
-      status: 'completed',
+      status: 'pending',
       items: returnRequest.items.map(item => ({
         ...item,
         product: item.product?.name ? item.product : (originalOrder.items?.find(oi => oi.product?._id?.toString() === String(item.product))?.product || item.product)
@@ -175,20 +265,41 @@ class ReturnManagementService {
       totalRefundAmount,
       totalRestockingFee,
       refundMethod: returnData.refundMethod || 'original_payment',
-      inspection: null
+      inspection: returnData.inspection || null
     };
+  }
 
-    await this.updateInventoryForReturn(returnRequestForDownstream);
-
-    if (returnRequestForDownstream.returnType === 'return') {
-      await this.processRefund(returnRequestForDownstream);
-    } else if (returnRequestForDownstream.returnType === 'exchange') {
-      await this.processExchange(returnRequestForDownstream);
+  /**
+   * Process a return (inventory + ledger) in one transaction. Use after create with deferProcess: true.
+   * Status must be pending, inspected, or approved.
+   */
+  async processReturn(returnId, userId) {
+    const returnRow = await ReturnRepository.findById(returnId);
+    if (!returnRow) throw new Error('Return not found');
+    const allowed = ['pending', 'inspected', 'approved'];
+    if (!allowed.includes(returnRow.status)) {
+      throw new Error(`Return cannot be processed from status ${returnRow.status}. Allowed: ${allowed.join(', ')}`);
     }
 
-    await this.notifyCustomer(returnRequestForDownstream, 'return_completed');
+    const returnRequest = await this.buildReturnRequestForDownstream(returnRow);
 
-    return returnRequestForDownstream;
+    return await transaction(async (client) => {
+      await this.updateInventoryForReturn(returnRequest, userId, client);
+      if (returnRequest.returnType === 'return') {
+        await this.processRefund(returnRequest, client);
+      } else if (returnRequest.returnType === 'exchange') {
+        await this.processExchange(returnRequest);
+      }
+      const refundDetails = {
+        refundDate: new Date(),
+        refundReference: returnRequest.return_number || returnRequest.returnNumber
+      };
+      await ReturnRepository.update(returnId, { status: 'processed', refundDetails }, client);
+      returnRequest.status = 'processed';
+      returnRequest.refundDetails = refundDetails;
+      await this.notifyCustomer(returnRequest, 'return_completed');
+      return returnRequest;
+    });
   }
 
   // Check if order is eligible for return
@@ -408,54 +519,34 @@ class ReturnManagementService {
     }
   }
 
-  // Process received return with full accounting integration
+  // Process received return: save inspection then run processReturn (one transaction for inventory + ledger).
   async processReceivedReturn(returnId, receivedBy, inspectionData = {}) {
-    try {
-      const returnRequest = await ReturnRepository.findById(returnId);
+    const returnRow = await ReturnRepository.findById(returnId);
+    if (!returnRow) throw new Error('Return request not found');
 
-      if (!returnRequest) {
-        throw new Error('Return request not found');
-      }
-
-      const status = returnRequest.status;
-      if (!['approved', 'processing', 'received'].includes(status)) {
-        throw new Error('Return cannot be processed in current status');
-      }
-
-      await ReturnRepository.update(returnId, { status: 'received' });
-
-      if (inspectionData && Object.keys(inspectionData).length > 0) {
-        const inspection = {
-          ...inspectionData,
-          inspectedBy: receivedBy,
-          inspectionDate: new Date()
-        };
-        await ReturnRepository.update(returnId, { inspection, updatedBy: receivedBy });
-      }
-
-      const returnForInventory = await this.buildReturnRequestForDownstream(returnRequest);
-      await this.updateInventoryForReturn(returnForInventory);
-
-      if ((returnRequest.return_type || returnRequest.returnType) === 'sale_return' || (returnRequest.return_type || returnRequest.returnType) === 'return') {
-        await this.processRefund(returnForInventory);
-      } else if ((returnRequest.return_type || returnRequest.returnType) === 'exchange') {
-        await this.processExchange(returnForInventory);
-      }
-
-      await ReturnRepository.update(returnId, { status: 'completed', updatedBy: receivedBy });
-
-      const updated = await ReturnRepository.findById(returnId);
-      await this.notifyCustomer(updated || returnRequest, 'return_completed');
-
-      return updated || returnRequest;
-    } catch (error) {
-      console.error('Error processing return:', error);
-      throw error;
+    const status = returnRow.status;
+    const allowed = ['pending', 'inspected', 'approved', 'processing', 'received'];
+    if (!allowed.includes(status)) {
+      throw new Error(`Return cannot be processed from status ${status}. Allowed: ${allowed.join(', ')}`);
     }
+
+    if (inspectionData && Object.keys(inspectionData).length > 0) {
+      const inspection = {
+        ...inspectionData,
+        inspectedBy: receivedBy,
+        inspectionDate: new Date()
+      };
+      const updatePayload = { inspection, updatedBy: receivedBy };
+      if (status === 'pending') updatePayload.status = 'inspected';
+      await ReturnRepository.update(returnId, updatePayload);
+    }
+
+    return await this.processReturn(returnId, receivedBy);
   }
 
   async buildReturnRequestForDownstream(returnRow) {
     const items = typeof returnRow.items === 'string' ? JSON.parse(returnRow.items) : (returnRow.items || []);
+    const inspection = returnRow.inspection || null;
     return {
       _id: returnRow.id,
       id: returnRow.id,
@@ -469,18 +560,23 @@ class ReturnManagementService {
       supplier: returnRow.supplier_id,
       netRefundAmount: parseFloat(returnRow.total_amount) || 0,
       totalRefundAmount: parseFloat(returnRow.total_amount) || 0,
-      refundMethod: 'original_payment',
-      inspection: null
+      refundMethod: returnRow.refund_details?.refundMethod || 'original_payment',
+      inspection
     };
   }
 
-  // Update inventory for returned items with proper cost tracking
-  async updateInventoryForReturn(returnRequest) {
+  // Update inventory for returned items with proper cost tracking. Pass client when inside a transaction.
+  async updateInventoryForReturn(returnRequest, userId, client = null) {
     const isPurchaseReturn = returnRequest.origin === 'purchase';
 
     for (const item of returnRequest.items) {
-      const productId = item.product && (item.product.id || item.product._id) || item.product;
-      let inventory = await InventoryRepository.findOne({ product: productId, productId });
+      const rawProductId = item.product && (item.product.id || item.product._id) || item.product;
+      const productId = rawProductId ? String(rawProductId).trim() : null;
+      if (!productId) {
+        console.warn('updateInventoryForReturn: skipping item with no product id', item);
+        continue;
+      }
+      let inventory = await InventoryRepository.findOne({ product: productId, productId }, client);
 
       if (!inventory) {
         inventory = await InventoryRepository.create({
@@ -490,7 +586,7 @@ class ReturnManagementService {
           reservedStock: 0,
           reorderPoint: 0,
           reorderQuantity: 0
-        });
+        }, client);
       }
 
       const originalOrder = await this.getOriginalOrder(returnRequest.originalOrder || returnRequest.reference_id, isPurchaseReturn);
@@ -512,19 +608,24 @@ class ReturnManagementService {
           item.quantity,
           returnCost,
           returnRequest.returnNumber || returnRequest.return_number,
-          returnRequest.id || returnRequest._id
+          returnRequest.id || returnRequest._id,
+          userId,
+          client
         );
       } else {
-        if (!returnRequest.inspection || returnRequest.inspection.resellable !== false) {
-          await this.logInventoryMovement(
-            item,
-            'return',
-            item.quantity,
-            returnCost,
-            returnRequest.returnNumber || returnRequest.return_number,
-            returnRequest.id || returnRequest._id
-          );
-        }
+        // Sale return: resellable = true → inventory++; resellable = false → quarantine/scrap (no sellable inventory increase)
+        const resellable = returnRequest.inspection == null || returnRequest.inspection.resellable !== false;
+        await this.logInventoryMovement(
+          item,
+          'return',
+          item.quantity,
+          returnCost,
+          returnRequest.returnNumber || returnRequest.return_number,
+          returnRequest.id || returnRequest._id,
+          userId,
+          client,
+          { resellable }
+        );
       }
     }
   }
@@ -534,67 +635,111 @@ class ReturnManagementService {
     return this.fetchAndNormalizeOrder(orderId, isPurchaseReturn);
   }
 
-  // Log inventory movement with proper cost tracking (Postgres)
-  async logInventoryMovement(item, type, quantity, cost, reference, returnId = null) {
-    try {
-      const productId = item.product && (item.product.id || item.product._id) || item.product;
-      const inventory = await InventoryRepository.findOne({ product: productId, productId });
-      if (!inventory) return;
-
-      let movementType = type === 'return' ? (quantity > 0 ? 'return' : 'out') : type;
-      const qty = Math.abs(quantity);
-      const currentStock = Number(inventory.current_stock ?? inventory.currentStock ?? 0);
-      const newStock = movementType === 'return' ? currentStock + qty : Math.max(0, currentStock - qty);
-
-      if (movementType !== 'return' && currentStock < qty) {
-        return; // Don't throw - inventory update is more critical
-      }
-
-      const product = await ProductRepository.findById(productId);
-      await StockMovementRepository.create({
+  // Log inventory movement with proper cost tracking (Postgres). resellable: true = return_in + inventory++; false = return_quarantine, no sellable increase.
+  async logInventoryMovement(item, type, quantity, cost, reference, returnId = null, userId = null, client = null, options = {}) {
+    const rawProductId = item.product && (item.product.id || item.product._id) || item.product || item.productId;
+    const productId = rawProductId ? String(rawProductId).trim() : null;
+    if (!productId) {
+      console.warn('logInventoryMovement: skipping item with no product id', item);
+      return;
+    }
+    let inventory = await InventoryRepository.findOne({ product: productId, productId }, client);
+    if (!inventory) {
+      inventory = await InventoryRepository.create({
+        product: productId,
         productId,
-        productName: product?.name,
-        productSku: product?.sku,
-        movementType: movementType,
-        quantity: qty,
-        unitCost: cost / qty || 0,
-        totalValue: cost || 0,
-        previousStock: currentStock,
-        newStock,
-        referenceType: 'Return',
-        referenceId: returnId,
-        referenceNumber: reference || 'Return',
-        status: 'completed'
-      });
+        currentStock: 0,
+        reservedStock: 0,
+        reorderPoint: 0,
+        reorderQuantity: 0
+      }, client);
+    }
 
+    const qty = Math.abs(quantity);
+    const currentStock = Number(inventory.current_stock ?? inventory.currentStock ?? 0);
+
+    let movementType;
+    let newStock = currentStock;
+    let quantityDelta = 0;
+    let quarantineDelta = 0;
+
+    if (type === 'return') {
+      const resellable = options.resellable !== false;
+      if (resellable) {
+        movementType = 'return_in';
+        newStock = Math.max(0, currentStock + qty);
+        quantityDelta = qty;
+      } else {
+        movementType = 'return_quarantine';
+        quarantineDelta = qty;
+        // Do not increase current_stock for non-resellable (scrap/quarantine)
+      }
+    } else {
+      movementType = quantity > 0 ? 'return_in' : 'return_out';
+      if (movementType === 'return_out') {
+        if (currentStock < qty) return;
+        newStock = Math.max(0, currentStock - qty);
+        quantityDelta = -qty;
+      }
+    }
+
+    const product = await ProductRepository.findById(productId);
+    const movementRow = await StockMovementRepository.create({
+      productId,
+      productName: product?.name,
+      productSku: product?.sku,
+      movementType,
+      quantity: qty,
+      unitCost: cost / qty || 0,
+      totalValue: cost || 0,
+      previousStock: currentStock,
+      newStock,
+      referenceType: 'return',
+      referenceId: returnId,
+      referenceNumber: reference || 'Return',
+      userId,
+      userName: (userId && typeof userId === 'object' && userId.name) ? userId.name : (userId ? String(userId) : 'System'),
+      status: 'completed'
+    }, client);
+
+    if (movementType === 'return_in') {
+      const reserved = Number(inventory.reserved_stock ?? inventory.reservedStock ?? 0);
       await InventoryRepository.updateById(inventory.id, {
         currentStock: newStock,
-        availableStock: Math.max(0, newStock - (inventory.reserved_stock ?? inventory.reservedStock ?? 0))
-      });
-    } catch (error) {
-      console.error('Error logging inventory movement:', error);
+        availableStock: Math.max(0, newStock - reserved)
+      }, client);
+    }
+
+    try {
+      await InventoryBalanceRepository.upsertDelta(
+        productId,
+        quantityDelta,
+        quarantineDelta,
+        movementRow?.id || null,
+        client
+      );
+    } catch (balanceErr) {
+      console.warn('inventory_balance upsert skipped (table may be missing):', balanceErr.message);
     }
   }
 
-  // Process refund with proper accounting entries
-  async processRefund(returnRequest) {
+  // Process refund with proper accounting entries. Pass client when inside a transaction.
+  async processRefund(returnRequest, client = null) {
     try {
       const isPurchaseReturn = returnRequest.origin === 'purchase';
       const netAmount = returnRequest.netRefundAmount || 0;
 
       if (isPurchaseReturn) {
-        // Purchase Return: Process supplier refund/credit
-        await this.processPurchaseReturnRefund(returnRequest, netAmount);
+        await this.processPurchaseReturnRefund(returnRequest, netAmount, client);
       } else {
-        // Sale Return: Process customer refund
-        await this.processSaleReturnRefund(returnRequest, netAmount);
+        await this.processSaleReturnRefund(returnRequest, netAmount, client);
       }
 
       const refundDetails = {
         refundDate: new Date(),
         refundReference: returnRequest.return_number || returnRequest.returnNumber
       };
-      await ReturnRepository.update(returnRequest.id || returnRequest._id, { refundDetails });
+      await ReturnRepository.update(returnRequest.id || returnRequest._id, { refundDetails }, client);
       returnRequest.refund_details = refundDetails;
       returnRequest.refundDetails = refundDetails;
 
@@ -606,9 +751,12 @@ class ReturnManagementService {
   }
 
   // Process Sale Return refund with accounting entries
-  async processSaleReturnRefund(returnRequest, refundAmount) {
+  async processSaleReturnRefund(returnRequest, refundAmount, client = null) {
     try {
       const accountCodes = await AccountingService.getDefaultAccountCodes();
+      const customerId = toUuid(returnRequest.customer_id ?? returnRequest.customer);
+      const salesReturnAccount = await AccountingService.getAccountCode('Sales Returns', 'revenue', 'sales_revenue').catch(() => accountCodes.salesRevenue);
+      const arAccount = accountCodes.accountsReceivable || '1100';
 
       const originalSale = await this.getOriginalOrder(
         returnRequest.originalOrder || returnRequest.reference_id,
@@ -621,19 +769,44 @@ class ReturnManagementService {
       // Calculate COGS adjustment (reverse COGS for returned items)
       const cogsAdjustment = await this.calculateCOGSAdjustment(returnRequest, originalSale);
 
-      // Create accounting entries based on refund method
-      const refundMethod = returnRequest.refundMethod || 'original_payment';
+      // 1) Always post Sale Return to AR (1100) with customerId so it shows in Account Ledger and reduces receivable
+      await this.createDoubleEntry(
+        {
+          accountCode: salesReturnAccount,
+          debitAmount: refundAmount,
+          creditAmount: 0,
+          description: `Sale Return ${returnRequest.returnNumber}`,
+          reference: returnRequest.returnNumber,
+          returnId: returnRequest._id,
+          referenceType: 'Sale Return',
+          customerId: customerId || null
+        },
+        {
+          accountCode: arAccount,
+          debitAmount: 0,
+          creditAmount: refundAmount,
+          description: `Sale Return ${returnRequest.returnNumber}`,
+          reference: returnRequest.returnNumber,
+          returnId: returnRequest._id,
+          referenceType: 'Sale Return',
+          customerId: customerId || null
+        },
+        client
+      );
 
+      // 2) For cash/bank refund: record the payment out (Dr AR, Cr Cash/Bank)
+      const refundMethod = returnRequest.refundMethod || 'original_payment';
       if (refundMethod === 'cash' || refundMethod === 'original_payment') {
-        // Cash refund: Dr Sales Return, Cr Cash
         await this.createDoubleEntry(
           {
-            accountCode: await AccountingService.getAccountCode('Sales Returns', 'revenue', 'sales_revenue').catch(() => accountCodes.salesRevenue),
+            accountCode: arAccount,
             debitAmount: refundAmount,
             creditAmount: 0,
-            description: `Sale Return ${returnRequest.returnNumber}`,
+            description: `Cash Refund for Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
+            returnId: returnRequest._id,
+            referenceType: 'Sale Return',
+            customerId: customerId || null
           },
           {
             accountCode: accountCodes.cash,
@@ -641,48 +814,22 @@ class ReturnManagementService {
             creditAmount: refundAmount,
             description: `Cash Refund for Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
-          }
-        );
-      } else if (refundMethod === 'store_credit') {
-        // Store credit: Dr Sales Return, Cr Accounts Receivable
-        await this.createDoubleEntry(
-          {
-            accountCode: await AccountingService.getAccountCode('Sales Returns', 'revenue', 'sales_revenue').catch(() => accountCodes.salesRevenue),
-            debitAmount: refundAmount,
-            creditAmount: 0,
-            description: `Sale Return ${returnRequest.returnNumber}`,
-            reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
+            returnId: returnRequest._id,
+            referenceType: 'Sale Return'
           },
-          {
-            accountCode: accountCodes.accountsReceivable || '1100',
-            debitAmount: 0,
-            creditAmount: refundAmount,
-            description: `Store Credit - Return ${returnRequest.returnNumber}`,
-            reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
-          }
+          client
         );
-
-        // Adjust customer balance (credit)
-        await CustomerBalanceService.recordRefund(
-          returnRequest.customer,
-          refundAmount,
-          returnRequest.originalOrder,
-          null,
-          { returnId: returnRequest._id, returnNumber: returnRequest.returnNumber }
-        );
-      } else {
-        // Bank transfer or other: Dr Sales Return, Cr Bank
+      } else if (refundMethod === 'bank_transfer' || refundMethod === 'check') {
         await this.createDoubleEntry(
           {
-            accountCode: await AccountingService.getAccountCode('Sales Returns', 'revenue', 'sales_revenue').catch(() => accountCodes.salesRevenue),
+            accountCode: arAccount,
             debitAmount: refundAmount,
             creditAmount: 0,
-            description: `Sale Return ${returnRequest.returnNumber}`,
+            description: `Bank Refund for Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
+            returnId: returnRequest._id,
+            referenceType: 'Sale Return',
+            customerId: customerId || null
           },
           {
             accountCode: accountCodes.bank,
@@ -690,8 +837,18 @@ class ReturnManagementService {
             creditAmount: refundAmount,
             description: `Bank Refund for Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
-          }
+            returnId: returnRequest._id,
+            referenceType: 'Sale Return'
+          },
+          client
+        );
+      } else if (refundMethod === 'store_credit') {
+        await CustomerBalanceService.recordRefund(
+          returnRequest.customer,
+          refundAmount,
+          returnRequest.originalOrder,
+          null,
+          { returnId: returnRequest._id, returnNumber: returnRequest.returnNumber }
         );
       }
 
@@ -735,7 +892,7 @@ class ReturnManagementService {
   }
 
   // Process Purchase Return refund with accounting entries
-  async processPurchaseReturnRefund(returnRequest, refundAmount) {
+  async processPurchaseReturnRefund(returnRequest, refundAmount, client = null) {
     try {
       const accountCodes = await AccountingService.getDefaultAccountCodes();
 
@@ -751,6 +908,7 @@ class ReturnManagementService {
       const cogsAdjustment = await this.calculatePurchaseCOGSAdjustment(returnRequest, originalInvoice);
 
       // Accounting Entry: Dr Supplier Accounts Payable, Cr Purchase Returns
+      const supplierId = toUuid(returnRequest.supplier_id ?? returnRequest.supplier);
       await this.createDoubleEntry(
         {
           accountCode: accountCodes.accountsPayable,
@@ -759,7 +917,7 @@ class ReturnManagementService {
           description: `Purchase Return ${returnRequest.returnNumber} - Supplier Credit`,
           reference: returnRequest.returnNumber,
           returnId: returnRequest._id,
-          supplierId: returnRequest.supplier
+          supplierId
         },
         {
           accountCode: await AccountingService.getAccountCode('Purchase Returns', 'expense', 'cost_of_goods_sold').catch(() => accountCodes.costOfGoodsSold),
@@ -768,7 +926,8 @@ class ReturnManagementService {
           description: `Purchase Return ${returnRequest.returnNumber}`,
           reference: returnRequest.returnNumber,
           returnId: returnRequest._id
-        }
+        },
+        client
       );
 
       // COGS Adjustment: Dr COGS, Cr Inventory (reverse inventory increase)
@@ -815,12 +974,15 @@ class ReturnManagementService {
             description: `Supplier Payable Reduced - Purchase Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
             returnId: returnRequest._id
-          }
+          },
+          client
         );
       }
 
       // Update supplier balance
-      await this.updateSupplierBalance(returnRequest.supplier, refundAmount, returnRequest.originalOrder);
+      if (supplierId) {
+        await this.updateSupplierBalance(supplierId, refundAmount, returnRequest.originalOrder);
+      }
 
     } catch (error) {
       console.error('Error processing purchase return refund:', error);
@@ -830,9 +992,9 @@ class ReturnManagementService {
 
   /**
    * Create double-entry accounting (PostgreSQL) for returns.
-   * Replaces the old single-entry createAccountingEntry - call once per pair.
+   * Pass client when inside a transaction so ledger is committed with return/inventory.
    */
-  async createDoubleEntry(entry1Data, entry2Data) {
+  async createDoubleEntry(entry1Data, entry2Data, client = null) {
     try {
       const entry1 = {
         accountCode: entry1Data.accountCode,
@@ -847,13 +1009,13 @@ class ReturnManagementService {
         description: entry2Data.description
       };
       const metadata = {
-        referenceType: 'return',
+        referenceType: entry1Data.referenceType || entry2Data.referenceType || 'return',
         referenceId: entry1Data.returnId || entry2Data.returnId,
         referenceNumber: entry1Data.reference || entry2Data.reference,
         customerId: entry1Data.customerId || entry2Data.customerId,
         supplierId: entry1Data.supplierId || entry2Data.supplierId
       };
-      return await AccountingService.createTransaction(entry1, entry2, metadata);
+      return await AccountingService.createTransaction(entry1, entry2, metadata, client);
     } catch (error) {
       console.error('Error creating accounting entry:', error);
       throw error;
@@ -1126,44 +1288,96 @@ class ReturnManagementService {
       sort: 'return_date DESC'
     });
 
-    // Populate originalOrder for all returns (reference_id points to sales/sales_orders/purchase_invoices/purchase_orders)
-    const populatedReturns = await Promise.all(result.returns.map(async (returnItem) => {
-      const returnObj = returnItem.toObject ? returnItem.toObject() : { ...returnItem };
-      let orderId = returnObj.reference_id || returnObj.referenceId;
-      if (returnObj.originalOrder) {
-        if (typeof returnObj.originalOrder === 'string' || returnObj.originalOrder._id) {
-          orderId = returnObj.originalOrder._id || returnObj.originalOrder;
-        } else if (returnObj.originalOrder.orderNumber || returnObj.originalOrder.invoiceNumber || returnObj.originalOrder.poNumber) {
-          return returnObj;
-        } else {
-          orderId = returnObj.originalOrder._id || returnObj.originalOrder.id || returnObj.originalOrder.toString();
-        }
-      }
-      
-      if (orderId) {
-        const isPurchase = returnObj.origin === 'purchase' || returnObj.return_type === 'purchase_return';
-        const originalOrder = await this.fetchAndNormalizeOrder(orderId, isPurchase);
-        if (originalOrder) {
-          returnObj.originalOrder = {
-            _id: originalOrder.id,
-            id: originalOrder.id,
-            orderNumber: originalOrder.orderNumber,
-            soNumber: originalOrder.orderNumber,
-            createdAt: originalOrder.createdAt,
-            orderDate: originalOrder.orderDate,
-            invoiceNumber: originalOrder.orderNumber,
-            poNumber: originalOrder.orderNumber
-          };
-        }
-      }
-      
-      return returnObj;
-    }));
+    const populatePromises = result.returns.map(async (returnItem) => {
+      return await this.populateReturnData(returnItem);
+    });
+
+    const populatedReturns = await Promise.all(populatePromises);
 
     return {
       returns: populatedReturns,
       pagination: result.pagination
     };
+  }
+
+  /**
+   * Helper to populate return data with customer, original order, and products
+   */
+  async populateReturnData(returnRow) {
+    if (!returnRow) return null;
+
+    // Transform snake_case to camelCase and ensure essential fields
+    const returnObj = {
+      ...returnRow,
+      _id: returnRow.id,
+      id: returnRow.id,
+      returnNumber: returnRow.return_number || returnRow.returnNumber,
+      returnDate: returnRow.return_date || returnRow.returnDate,
+      customerId: returnRow.customer_id || returnRow.customerId,
+      supplierId: returnRow.supplier_id || returnRow.supplierId,
+      referenceId: returnRow.reference_id || returnRow.referenceId,
+      returnType: returnRow.return_type || returnRow.returnType,
+      netRefundAmount: typeof returnRow.total_amount !== 'undefined' ? returnRow.total_amount : (returnRow.netRefundAmount || 0),
+      totalAmount: typeof returnRow.total_amount !== 'undefined' ? returnRow.total_amount : (returnRow.totalAmount || 0),
+      status: returnRow.status,
+      reason: returnRow.reason,
+      items: returnRow.items // Already parsed by repository
+    };
+
+    // Populate Customer
+    if (returnObj.customerId) {
+      const customer = await CustomerRepository.findById(returnObj.customerId);
+      returnObj.customer = customer;
+    }
+
+    // Populate Supplier
+    if (returnObj.supplierId) {
+      const supplier = await SupplierRepository.findById(returnObj.supplierId);
+      returnObj.supplier = supplier;
+    }
+
+    // Populate Original Order
+    if (returnObj.referenceId) {
+      const isPurchase = returnObj.origin === 'purchase' || returnObj.returnType === 'purchase_return';
+      const originalOrder = await this.fetchAndNormalizeOrder(returnObj.referenceId, isPurchase);
+      if (originalOrder) {
+        returnObj.originalOrder = {
+          _id: originalOrder.id,
+          id: originalOrder.id,
+          orderNumber: originalOrder.orderNumber,
+          soNumber: originalOrder.orderNumber,
+          createdAt: originalOrder.createdAt,
+          orderDate: originalOrder.orderDate,
+          invoiceNumber: originalOrder.orderNumber,
+          poNumber: originalOrder.orderNumber,
+          customer: originalOrder.customer
+        };
+        // Fallback: If return has no customer attached but order has one, use it
+        if (!returnObj.customer && originalOrder.customer) {
+          returnObj.customer = originalOrder.customer;
+        }
+      }
+    }
+
+    // Populate Items with Product Details
+    if (returnObj.items && Array.isArray(returnObj.items)) {
+      const populatedItems = [];
+      for (const item of returnObj.items) {
+        const productId = item.product || item.product_id;
+        let product = null;
+        if (productId) {
+          const pId = typeof productId === 'object' ? (productId.id || productId._id) : productId;
+          product = await ProductRepository.findById(pId);
+        }
+        populatedItems.push({
+          ...item,
+          product: product || { name: 'Unknown Product', _id: productId } // Ensure product object exists
+        });
+      }
+      returnObj.items = populatedItems;
+    }
+
+    return returnObj;
   }
 
   // Get single return by ID
@@ -1172,8 +1386,9 @@ class ReturnManagementService {
     if (!returnRequest) {
       throw new Error('Return request not found');
     }
-    return returnRequest;
+    return await this.populateReturnData(returnRequest);
   }
+
 
   // Update return inspection details (persisted to Postgres)
   async updateInspection(returnId, inspectionData, userId) {

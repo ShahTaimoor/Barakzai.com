@@ -77,18 +77,16 @@ const query = async (text, params) => {
 
 /**
  * Transaction Helper
- * Best practice for Accounting: Ensures BEGIN/COMMIT/ROLLBACK are handled correctly.
- * Uses SERIALIZABLE isolation to prevent data anomalies in the ledger.
+ * Ensures BEGIN/COMMIT/ROLLBACK are handled correctly.
+ * Uses READ COMMITTED (default) to avoid "could not serialize access due to read/write
+ * dependencies" errors when concurrent transactions touch the same rows (inventory, ledger).
+ * Atomicity and durability are preserved; only isolation is relaxed so the return/sale
+ * flow does not conflict with other concurrent operations.
  */
 const transaction = async (callback) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
-    // Set isolation level for accounting integrity
-    // Prevents "Phantom Reads" and "Non-repeatable Reads"
-    await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
-    
     const result = await callback(client);
     
     await client.query('COMMIT');

@@ -1,4 +1,4 @@
-const { query, transaction } = require('../../config/postgres');
+const { query } = require('../../config/postgres');
 
 class ReturnRepository {
   /**
@@ -157,10 +157,12 @@ class ReturnRepository {
 
   /**
    * Generate next return number: RET-YYYYMMDD-NNNN
+   * @param {Object} [client] - Optional pg client for use inside a transaction
    */
-  async getNextReturnNumber() {
+  async getNextReturnNumber(client = null) {
+    const q = client ? client.query.bind(client) : query;
     const prefix = `RET-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-`;
-    const result = await query(
+    const result = await q(
       `SELECT return_number FROM returns WHERE return_number LIKE $1 ORDER BY return_number DESC LIMIT 1`,
       [`${prefix}%`]
     );
@@ -175,8 +177,10 @@ class ReturnRepository {
 
   /**
    * Create a new return
+   * @param {Object} returnData - Return payload
+   * @param {Object} [client] - Optional pg client for use inside a transaction
    */
-  async create(returnData) {
+  async create(returnData, client = null) {
     const {
       returnNumber,
       returnType,
@@ -188,14 +192,16 @@ class ReturnRepository {
       totalAmount,
       reason,
       status,
-      createdBy
+      createdBy,
+      refundDetails
     } = returnData;
 
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `INSERT INTO returns (
         return_number, return_type, reference_id, customer_id, supplier_id, return_date, items,
-        total_amount, reason, status, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        total_amount, reason, status, created_by, refund_details
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [
         returnNumber,
@@ -208,7 +214,8 @@ class ReturnRepository {
         totalAmount || 0,
         reason || null,
         status || 'pending',
-        createdBy
+        createdBy,
+        refundDetails ? JSON.stringify(refundDetails) : null
       ]
     );
 
@@ -222,8 +229,11 @@ class ReturnRepository {
 
   /**
    * Update a return
+   * @param {string} id - Return id
+   * @param {Object} updateData - Fields to update
+   * @param {Object} [client] - Optional pg client for use inside a transaction
    */
-  async update(id, updateData) {
+  async update(id, updateData, client = null) {
     const fields = [];
     const values = [];
     let paramCount = 1;
@@ -290,7 +300,8 @@ class ReturnRepository {
       RETURNING *
     `;
 
-    const result = await query(sql, values);
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(sql, values);
     const returnRecord = result.rows[0];
     if (returnRecord && returnRecord.items && typeof returnRecord.items === 'string') {
       returnRecord.items = JSON.parse(returnRecord.items);

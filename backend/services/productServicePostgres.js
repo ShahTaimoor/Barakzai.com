@@ -1,5 +1,6 @@
 const productRepository = require('../repositories/postgres/ProductRepository');
 const categoryRepository = require('../repositories/postgres/CategoryRepository');
+const inventoryRepository = require('../repositories/postgres/InventoryRepository');
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -84,7 +85,40 @@ class ProductServicePostgres {
     const categoryIds = [...new Set(result.products.map(p => p.category_id).filter(Boolean))];
     const categoryMap = await getCategoryMap(categoryIds);
 
-    const products = result.products.map(p => toApiProduct(p, categoryMap));
+    let products = result.products.map(p => toApiProduct(p, categoryMap));
+
+    // Use inventory table as source of truth for stock (POS and returns update inventory, not products.stock_quantity)
+    const productIds = products.map(p => p.id).filter(Boolean);
+    if (productIds.length > 0) {
+      const inventoryRows = await inventoryRepository.findByProductIds(productIds);
+      const stockByProduct = new Map();
+      (inventoryRows || []).forEach(inv => {
+        const pid = inv.product_id || inv.productId;
+        if (pid) stockByProduct.set(String(pid), inv);
+      });
+      products = products.map(p => {
+        const inv = stockByProduct.get(String(p.id));
+        if (inv) {
+          const cur = Number(inv.current_stock ?? inv.currentStock ?? 0);
+          const reserved = Number(inv.reserved_stock ?? inv.reservedStock ?? 0);
+          const available = Number(inv.available_stock ?? inv.availableStock ?? cur - reserved);
+          const reorder = Number(inv.reorder_point ?? inv.reorderPoint ?? p.inventory?.reorderPoint ?? 0);
+          return {
+            ...p,
+            inventory: {
+              ...p.inventory,
+              currentStock: cur,
+              availableStock: available,
+              reservedStock: reserved,
+              reorderPoint: reorder,
+              minStock: reorder
+            }
+          };
+        }
+        return p;
+      });
+    }
+
     return {
       products,
       pagination: result.pagination
@@ -95,7 +129,27 @@ class ProductServicePostgres {
     const row = await productRepository.findById(id);
     if (!row) throw new Error('Product not found');
     const categoryMap = row.category_id ? await getCategoryMap([row.category_id]) : null;
-    return toApiProduct(row, categoryMap);
+    let product = toApiProduct(row, categoryMap);
+    // Use inventory table as source of truth for stock (sale returns update inventory.current_stock)
+    const inv = await inventoryRepository.findOne({ productId: id, product: id });
+    if (inv) {
+      const cur = Number(inv.current_stock ?? inv.currentStock ?? 0);
+      const reserved = Number(inv.reserved_stock ?? inv.reservedStock ?? 0);
+      const available = Number(inv.available_stock ?? inv.availableStock ?? cur - reserved);
+      const reorder = Number(inv.reorder_point ?? inv.reorderPoint ?? product.inventory?.reorderPoint ?? 0);
+      product = {
+        ...product,
+        inventory: {
+          ...product.inventory,
+          currentStock: cur,
+          availableStock: available,
+          reservedStock: reserved,
+          reorderPoint: reorder,
+          minStock: reorder
+        }
+      };
+    }
+    return product;
   }
 
   async createProduct(productData, userId, req = null) {

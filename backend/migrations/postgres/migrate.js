@@ -22,7 +22,9 @@ const MIGRATIONS = [
   '017_optional_audit_tables.sql',
   '018_account_ledger_reference_id_not_null.sql',
   '019_add_supplier_to_receipts.sql',
-  '020_add_business_name_to_suppliers.sql'
+  '020_add_business_name_to_suppliers.sql',
+  '021_stock_movement_return_quarantine_inventory_balance.sql',
+  '022_returns_status_workflow.sql'
 ];
 
 async function ensureMigrationsTable() {

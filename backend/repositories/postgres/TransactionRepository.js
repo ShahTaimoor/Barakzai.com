@@ -128,7 +128,7 @@ class TransactionRepository {
       for (const orClause of filter.$or) {
         const key = Object.keys(orClause)[0];
         const val = orClause[key];
-        if (val && val.$regex) {
+        if (val && typeof val === 'object' && val.$regex) {
           const pattern = typeof val.$regex === 'string' ? val.$regex : val.$regex.source;
           const like = `%${pattern.replace(/^\^|\$$/g, '')}%`;
           if (key === 'description') {
@@ -141,6 +141,12 @@ class TransactionRepository {
             orParts.push(`transaction_id ILIKE $${paramCount++}`);
             params.push(like);
           }
+        } else if (key === 'accountCode' && val != null) {
+          orParts.push(`account_code = $${paramCount++}`);
+          params.push(val);
+        } else if (key === 'referenceType' && val != null) {
+          orParts.push(`reference_type = $${paramCount++}`);
+          params.push(val);
         }
       }
       if (orParts.length) conditions.push(`(${orParts.join(' OR ')})`);

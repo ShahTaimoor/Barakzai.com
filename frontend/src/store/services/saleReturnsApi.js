@@ -149,4 +149,5 @@ export const {
   useRejectSaleReturnMutation,
   useProcessSaleReturnMutation,
   useGetSaleReturnStatsQuery,
+  useLazyGetSaleReturnQuery,
 } = saleReturnsApi;

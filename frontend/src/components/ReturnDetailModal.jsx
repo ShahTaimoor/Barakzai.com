@@ -262,11 +262,11 @@ const ReturnDetailModal = ({
               <tr>
                 <td>${item.product?.name || 'N/A'}</td>
                 <td>${item.quantity || 0}</td>
-                <td>$${(item.originalPrice || 0).toFixed(2)}</td>
+                <td>$${(Number(item.originalPrice) || 0).toFixed(2)}</td>
                 <td>${item.returnReason?.replace('_', ' ').toUpperCase() || 'N/A'}</td>
                 <td>${item.condition?.toUpperCase() || 'N/A'}</td>
-                <td>$${(item.refundAmount || 0).toFixed(2)}</td>
-                <td>$${(item.restockingFee || 0).toFixed(2)}</td>
+                <td>$${(Number(item.refundAmount) || 0).toFixed(2)}</td>
+                <td>$${(Number(item.restockingFee) || 0).toFixed(2)}</td>
               </tr>
             `).join('') || '<tr><td colspan="7">No items found</td></tr>'}
           </tbody>
@@ -275,19 +275,16 @@ const ReturnDetailModal = ({
         <div class="totals">
           <div class="total-row">
             <span class="total-label">Total Refund Amount:</span>
-            <span class="total-value">$${returnData.totalRefundAmount ? returnData.totalRefundAmount.toFixed(2) : 
-              returnData.items ? returnData.items.reduce((sum, item) => sum + (item.refundAmount || 0), 0).toFixed(2) : '0.00'}</span>
+            <span class="total-value">$${(Number(returnData.totalRefundAmount) || (returnData.items ? returnData.items.reduce((sum, item) => sum + (Number(item.refundAmount) || 0), 0) : 0)).toFixed(2)}</span>
           </div>
           <div class="total-row">
             <span class="total-label">Total Restocking Fee:</span>
-            <span class="total-value">$${returnData.totalRestockingFee ? returnData.totalRestockingFee.toFixed(2) : 
-              returnData.items ? returnData.items.reduce((sum, item) => sum + (item.restockingFee || 0), 0).toFixed(2) : '0.00'}</span>
+            <span class="total-value">$${(Number(returnData.totalRestockingFee) || (returnData.items ? returnData.items.reduce((sum, item) => sum + (Number(item.restockingFee) || 0), 0) : 0)).toFixed(2)}</span>
           </div>
           <div class="total-row">
             <span class="total-label">Net Refund Amount:</span>
-            <span class="total-value">$${returnData.netRefundAmount ? returnData.netRefundAmount.toFixed(2) : 
-              returnData.items ? (returnData.items.reduce((sum, item) => sum + (item.refundAmount || 0), 0) - 
-                returnData.items.reduce((sum, item) => sum + (item.restockingFee || 0), 0)).toFixed(2) : '0.00'}</span>
+            <span class="total-value">$${(Number(returnData.netRefundAmount) || (returnData.items ? returnData.items.reduce((sum, item) => sum + (Number(item.refundAmount) || 0), 0) - 
+                returnData.items.reduce((sum, item) => sum + (Number(item.restockingFee) || 0), 0) : 0)).toFixed(2)}</span>
           </div>
         </div>
         
@@ -521,7 +518,7 @@ const ReturnDetailModal = ({
                           <div className="flex items-center">
                             <TrendingUp className="h-5 w-5 text-gray-400 mr-3" />
                             <span>
-                              ${returnInfo.originalOrder.total.toFixed(2)}
+                              ${(Number(returnInfo.originalOrder?.total ?? returnInfo.originalOrder?.pricing?.total) || 0).toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -551,7 +548,7 @@ const ReturnDetailModal = ({
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Total Refund</label>
                       <p className="mt-1 text-lg font-semibold text-gray-900">
-                        ${returnInfo.netRefundAmount?.toFixed(2) || '0.00'}
+                        ${(Number(returnInfo.netRefundAmount) || 0).toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -626,7 +623,7 @@ const ReturnDetailModal = ({
                       <div>
                         <label className="block text-sm font-medium text-gray-700">Refund Amount</label>
                         <p className="mt-1 text-sm font-semibold text-gray-900">
-                          ${item.refundAmount?.toFixed(2) || '0.00'}
+                          ${(Number(item.refundAmount) || 0).toFixed(2)}
                         </p>
                       </div>
                     </div>

@@ -291,11 +291,11 @@ const Returns = () => {
               <tr>
                 <td>${item.product?.name || 'N/A'}</td>
                 <td>${item.quantity || 0}</td>
-                <td>$${(item.originalPrice || 0).toFixed(2)}</td>
+                <td>$${(Number(item.originalPrice) || 0).toFixed(2)}</td>
                 <td>${item.returnReason?.replace('_', ' ').toUpperCase() || 'N/A'}</td>
                 <td>${item.condition?.toUpperCase() || 'N/A'}</td>
-                <td>$${(item.refundAmount || 0).toFixed(2)}</td>
-                <td>$${(item.restockingFee || 0).toFixed(2)}</td>
+                <td>$${(Number(item.refundAmount) || 0).toFixed(2)}</td>
+                <td>$${(Number(item.restockingFee) || 0).toFixed(2)}</td>
               </tr>
             `).join('') || '<tr><td colspan="7">No items found</td></tr>'}
           </tbody>
@@ -304,19 +304,16 @@ const Returns = () => {
         <div class="totals">
           <div class="total-row">
             <span class="total-label">Total Refund Amount:</span>
-            <span class="total-value">$${returnData.totalRefundAmount ? returnData.totalRefundAmount.toFixed(2) : 
-              returnData.items ? returnData.items.reduce((sum, item) => sum + (item.refundAmount || 0), 0).toFixed(2) : '0.00'}</span>
+            <span class="total-value">$${(Number(returnData.totalRefundAmount) || (returnData.items ? returnData.items.reduce((sum, item) => sum + (Number(item.refundAmount) || 0), 0) : 0)).toFixed(2)}</span>
           </div>
           <div class="total-row">
             <span class="total-label">Total Restocking Fee:</span>
-            <span class="total-value">$${returnData.totalRestockingFee ? returnData.totalRestockingFee.toFixed(2) : 
-              returnData.items ? returnData.items.reduce((sum, item) => sum + (item.restockingFee || 0), 0).toFixed(2) : '0.00'}</span>
+            <span class="total-value">$${(Number(returnData.totalRestockingFee) || (returnData.items ? returnData.items.reduce((sum, item) => sum + (Number(item.restockingFee) || 0), 0) : 0)).toFixed(2)}</span>
           </div>
           <div class="total-row">
             <span class="total-label">Net Refund Amount:</span>
-            <span class="total-value">$${returnData.netRefundAmount ? returnData.netRefundAmount.toFixed(2) : 
-              returnData.items ? (returnData.items.reduce((sum, item) => sum + (item.refundAmount || 0), 0) - 
-                returnData.items.reduce((sum, item) => sum + (item.restockingFee || 0), 0)).toFixed(2) : '0.00'}</span>
+            <span class="total-value">$${(Number(returnData.netRefundAmount) || (returnData.items ? returnData.items.reduce((sum, item) => sum + (Number(item.refundAmount) || 0), 0) - 
+                returnData.items.reduce((sum, item) => sum + (Number(item.restockingFee) || 0), 0) : 0)).toFixed(2)}</span>
           </div>
         </div>
         
@@ -474,13 +471,13 @@ const Returns = () => {
           />
           <ReturnStatsCard
             title="Total Refunds"
-            value={`${(stats.totalRefundAmount || 0).toFixed(2)}`}
+            value={`${(Number(stats.totalRefundAmount) || 0).toFixed(2)}`}
             icon={<TrendingUp className="h-5 w-5" />}
             color="green"
           />
           <ReturnStatsCard
             title="Return Rate"
-            value={`${(stats.returnRate || 0).toFixed(1)}%`}
+            value={`${(Number(stats.returnRate) || 0).toFixed(1)}%`}
             icon={<TrendingUp className="h-5 w-5" />}
             color="purple"
           />
@@ -581,7 +578,7 @@ const Returns = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${returnItem.netRefundAmount?.toFixed(2) || '0.00'}
+                        ${(Number(returnItem.netRefundAmount) || 0).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">

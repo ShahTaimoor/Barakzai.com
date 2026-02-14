@@ -9,9 +9,10 @@ class InventoryRepository {
     return result.rows[0] || null;
   }
 
-  async findOne(filters = {}) {
+  async findOne(filters = {}, client = null) {
+    const q = client ? client.query.bind(client) : query;
     if (filters.product || filters.productId) {
-      const result = await query(
+      const result = await q(
         'SELECT * FROM inventory WHERE product_id = $1 AND deleted_at IS NULL LIMIT 1',
         [filters.product || filters.productId]
       );
@@ -78,9 +79,10 @@ class InventoryRepository {
     return this.findAll({ status }, options);
   }
 
-  async create(data) {
+  async create(data, client = null) {
     const availableStock = Math.max(0, (data.currentStock ?? data.current_stock ?? 0) - (data.reservedStock ?? data.reserved_stock ?? 0));
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `INSERT INTO inventory (product_id, product_model, current_stock, reserved_stock, available_stock, reservations, reorder_point, reorder_quantity, max_stock, location, cost, status, last_updated, last_count, movements, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING *`,
@@ -104,7 +106,7 @@ class InventoryRepository {
     return result.rows[0];
   }
 
-  async updateById(id, data) {
+  async updateById(id, data, client = null) {
     const updates = [];
     const params = [];
     let paramCount = 1;
@@ -123,7 +125,8 @@ class InventoryRepository {
     if (updates.length === 0) return this.findById(id);
     updates.push('last_updated = CURRENT_TIMESTAMP', 'updated_at = CURRENT_TIMESTAMP');
     params.push(id);
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `UPDATE inventory SET ${updates.join(', ')} WHERE id = $${paramCount} AND deleted_at IS NULL RETURNING *`,
       params
     );

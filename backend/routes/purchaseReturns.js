@@ -37,7 +37,7 @@ router.post('/', [
   body('originalOrder').isUUID(4).withMessage('Valid original purchase invoice/order ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one return item is required'),
   body('items.*.product').isUUID(4).withMessage('Valid product ID is required'),
-  body('items.*.originalOrderItem').isUUID(4).withMessage('Valid order item ID is required'),
+  body('items.*.originalOrderItem').notEmpty().withMessage('Valid order item ID is required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Valid quantity is required'),
   body('items.*.returnReason').isIn([
     'defective', 'wrong_item', 'not_as_described', 'damaged_shipping',
@@ -48,6 +48,7 @@ router.post('/', [
   body('items.*.action').isIn(['refund', 'exchange', 'store_credit', 'repair', 'replace']).withMessage('Valid action is required'),
   body('refundMethod').optional().isIn(['original_payment', 'store_credit', 'cash', 'check', 'bank_transfer']),
   body('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
+  body('deferProcess').optional().isBoolean().withMessage('deferProcess must be boolean'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
@@ -96,7 +97,7 @@ router.get('/', [
   auth,
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
-  query('status').optional().isIn(['pending', 'approved', 'rejected', 'processing', 'received', 'completed', 'cancelled']),
+  query('status').optional().isIn(['pending', 'inspected', 'approved', 'rejected', 'processing', 'received', 'completed', 'processed', 'cancelled']),
   query('returnType').optional().isIn(['return', 'exchange', 'warranty', 'recall']),
   query('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
   ...validateDateParams,

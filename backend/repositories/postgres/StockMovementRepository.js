@@ -239,9 +239,14 @@ class StockMovementRepository {
     };
   }
 
-  async create(data) {
+  /**
+   * @param {Object} data - Movement data
+   * @param {Object} [client] - Optional pg client for use inside a transaction
+   */
+  async create(data, client = null) {
     const totalValue = (data.quantity || 0) * (data.unitCost ?? data.unit_cost ?? 0);
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `INSERT INTO stock_movements (
         product_id, product_name, product_sku, movement_type, quantity, unit_cost, total_value,
         previous_stock, new_stock, reference_type, reference_id, reference_number, location,
@@ -267,7 +272,7 @@ class StockMovementRepository {
         data.fromLocation || data.from_location || null,
         data.toLocation || data.to_location || null,
         data.user || data.userId,
-        data.userName || data.user_name,
+        data.userName || data.user_name || (data.user || data.userId ? String(data.user || data.userId) : 'System'),
         data.reason || null,
         data.notes || null,
         data.batchNumber || data.batch_number || null,
@@ -325,34 +330,36 @@ class StockMovementRepository {
   async reverse(movementId, userId, userName, reason) {
     const movement = await this.findById(movementId);
     if (!movement) throw new Error('Movement not found');
-    if (movement.is_reversal) throw new Error('Cannot reverse a reversal movement');
+    if (movement.isReversal || movement.is_reversal) throw new Error('Cannot reverse a reversal movement');
     if (movement.status !== 'completed') throw new Error('Can only reverse completed movements');
+    const productId = movement.productId ?? movement.product_id;
+    if (!productId) throw new Error('Original movement has no product_id; cannot reverse');
     const reversed = await this.create({
-      product: movement.product_id,
-      productId: movement.product_id,
-      productName: movement.product_name,
-      productSku: movement.product_sku,
-      movementType: movement.movement_type,
+      product: productId,
+      productId,
+      productName: movement.productName ?? movement.product_name,
+      productSku: movement.productSku ?? movement.product_sku,
+      movementType: movement.movementType ?? movement.movement_type,
       quantity: movement.quantity,
-      unitCost: movement.unit_cost,
-      totalValue: movement.total_value,
-      previousStock: movement.new_stock,
-      newStock: movement.previous_stock,
-      referenceType: movement.reference_type,
-      referenceId: movement.reference_id,
-      referenceNumber: movement.reference_number,
+      unitCost: movement.unitCost ?? movement.unit_cost,
+      totalValue: movement.totalValue ?? movement.total_value,
+      previousStock: movement.newStock ?? movement.new_stock,
+      newStock: movement.previousStock ?? movement.previous_stock,
+      referenceType: movement.referenceType ?? movement.reference_type,
+      referenceId: movement.referenceId ?? movement.reference_id,
+      referenceNumber: movement.referenceNumber ?? movement.reference_number,
       location: movement.location,
-      fromLocation: movement.to_location,
-      toLocation: movement.from_location,
+      fromLocation: movement.toLocation ?? movement.to_location,
+      toLocation: movement.fromLocation ?? movement.from_location,
       user: userId,
       userId,
-      userName: userName || movement.user_name,
+      userName: userName || movement.userName || movement.user_name,
       reason: reason || 'Reversal of movement',
       notes: `Reversal of movement ${movementId}`,
-      batchNumber: movement.batch_number,
-      expiryDate: movement.expiry_date,
-      supplier: movement.supplier_id,
-      customer: movement.customer_id,
+      batchNumber: movement.batchNumber ?? movement.batch_number,
+      expiryDate: movement.expiryDate ?? movement.expiry_date,
+      supplier: movement.supplierId ?? movement.supplier_id,
+      customer: movement.customerId ?? movement.customer_id,
       status: 'completed',
       isReversal: true,
       originalMovement: movementId,

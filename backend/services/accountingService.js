@@ -31,6 +31,52 @@ class AccountingService {
   }
 
   /**
+   * Get default account codes for system operations
+   */
+  static async getDefaultAccountCodes() {
+    return {
+      cash: '1000',
+      bank: '1001',
+      accountsReceivable: '1100',
+      inventory: '1200',
+      accountsPayable: '2000',
+      salesRevenue: '4000',
+      salesReturns: '4100', // Assuming 4100 for Sales Returns
+      costOfGoodsSold: '5000',
+      purchaseReturns: '5100' // Assuming 5100 for Purchase Returns
+    };
+  }
+
+  /**
+   * Get specific account code by criteria
+   * @param {string} name - Account name
+   * @param {string} type - Account type
+   * @param {string} subtype - Account subtype
+   */
+  static async getAccountCode(name, type, subtype) {
+    // strict lookup not implemented, return defaults based on subtype/name
+    const codes = await this.getDefaultAccountCodes();
+    if (name === 'Sales Returns' || subtype === 'sales_returns') return codes.salesReturns;
+    if (name === 'Purchase Returns' || subtype === 'purchase_returns') return codes.purchaseReturns;
+    if (subtype === 'revenue' || subtype === 'sales_revenue') return codes.salesRevenue;
+    if (subtype === 'cost_of_goods_sold') return codes.costOfGoodsSold;
+
+    // Fallback query if needed, or throw
+    const result = await query(
+      `SELECT account_code FROM chart_of_accounts 
+       WHERE (account_name ILIKE $1 OR account_subtype = $2) 
+       AND is_active = TRUE LIMIT 1`,
+      [name, subtype]
+    );
+
+    if (result.rows.length > 0) {
+      return result.rows[0].account_code;
+    }
+
+    throw new Error(`Account code not found for ${name} (${subtype})`);
+  }
+
+  /**
    * Create a ledger transaction (double-entry)
    * @param {Object} entry1 - First entry {accountCode, debitAmount, creditAmount, description, ...}
    * @param {Object} entry2 - Second entry {accountCode, debitAmount, creditAmount, description, ...}
@@ -52,8 +98,8 @@ class AccountingService {
     }
 
     // Validate only one side is non-zero for each entry
-    if ((entry1.debitAmount > 0 && entry1.creditAmount > 0) || 
-        (entry2.debitAmount > 0 && entry2.creditAmount > 0)) {
+    if ((entry1.debitAmount > 0 && entry1.creditAmount > 0) ||
+      (entry2.debitAmount > 0 && entry2.creditAmount > 0)) {
       throw new Error('Each entry must have either debit OR credit, not both');
     }
 
@@ -171,7 +217,7 @@ class AccountingService {
    * Get account balance from ledger
    */
   static async getAccountBalance(accountCode, asOfDate = null) {
-    const dateFilter = asOfDate 
+    const dateFilter = asOfDate
       ? 'AND transaction_date <= $2'
       : '';
 
@@ -214,7 +260,7 @@ class AccountingService {
    */
   static async getCustomerBalance(customerId, asOfDate = null) {
     console.log(`Calculating balance for customer: ${customerId}`);
-    const dateFilter = asOfDate 
+    const dateFilter = asOfDate
       ? 'AND transaction_date <= $2'
       : '';
 
@@ -254,7 +300,7 @@ class AccountingService {
    * Only includes AP account (2000) entries - single source of truth
    */
   static async getSupplierBalance(supplierId, asOfDate = null) {
-    const dateFilter = asOfDate 
+    const dateFilter = asOfDate
       ? 'AND transaction_date <= $2'
       : '';
 
@@ -331,7 +377,7 @@ class AccountingService {
       accountCode: creditAccount,
       debitAmount: 0,
       creditAmount: amount,
-      description: customerId 
+      description: customerId
         ? `Payment from Customer: ${cashReceipt.receipt_number || cashReceipt.receiptNumber}`
         : `Refund/Advance from Supplier: ${cashReceipt.receipt_number || cashReceipt.receiptNumber}`
     };
@@ -396,7 +442,7 @@ class AccountingService {
       accountCode: creditAccount,
       debitAmount: 0,
       creditAmount: amount,
-      description: customerId 
+      description: customerId
         ? `Payment from Customer: ${bankReceipt.receipt_number || bankReceipt.receiptNumber}`
         : `Refund/Advance from Supplier: ${bankReceipt.receipt_number || bankReceipt.receiptNumber}`
     };
@@ -453,7 +499,7 @@ class AccountingService {
       accountCode: debitAccount,
       debitAmount: amount,
       creditAmount: 0,
-      description: supplierId 
+      description: supplierId
         ? `Payment to Supplier: ${cashPayment.payment_number || cashPayment.paymentNumber}`
         : `Refund to Customer: ${cashPayment.payment_number || cashPayment.paymentNumber}`
     };
@@ -518,7 +564,7 @@ class AccountingService {
       accountCode: debitAccount,
       debitAmount: amount,
       creditAmount: 0,
-      description: supplierId 
+      description: supplierId
         ? `Payment to Supplier: ${bankPayment.payment_number || bankPayment.paymentNumber}`
         : `Refund to Customer: ${bankPayment.payment_number || bankPayment.paymentNumber}`
     };
@@ -710,7 +756,7 @@ class AccountingService {
       // 2. If payment was made at invoice creation, post payment entry
       if (paidAmount > 0) {
         const paymentAccountCode = paymentMethod === 'bank' || paymentMethod === 'bank_transfer' ? '1001' : '1000'; // Bank or Cash
-        
+
         await this.createTransaction(
           {
             accountCode: '2000', // Accounts Payable
@@ -742,7 +788,7 @@ class AccountingService {
    * Get bulk account balances
    */
   static async getBulkAccountBalances(accountCodes, asOfDate = null) {
-    const dateFilter = asOfDate 
+    const dateFilter = asOfDate
       ? 'AND ledger.transaction_date <= $2'
       : '';
 
@@ -786,7 +832,7 @@ class AccountingService {
    * Only includes AR account (1100) entries - single source of truth
    */
   static async getBulkCustomerBalances(customerIds, asOfDate = null) {
-    const dateFilter = asOfDate 
+    const dateFilter = asOfDate
       ? 'AND transaction_date <= $2'
       : '';
 
@@ -825,7 +871,7 @@ class AccountingService {
    * Only includes AP account (2000) entries - single source of truth
    */
   static async getBulkSupplierBalances(supplierIds, asOfDate = null) {
-    const dateFilter = asOfDate 
+    const dateFilter = asOfDate
       ? 'AND transaction_date <= $2'
       : '';
 
