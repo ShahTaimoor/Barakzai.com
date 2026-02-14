@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, 
@@ -19,9 +19,12 @@ import { showSuccessToast, showErrorToast, handleApiError } from '../utils/error
 import { formatCurrency } from '../utils/formatters';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
+const ALERTS_PER_PAGE = 50;
+
 const InventoryAlerts = () => {
   const navigate = useNavigate();
   const [filterLevel, setFilterLevel] = useState('all'); // 'all', 'critical', 'warning'
+  const [currentPage, setCurrentPage] = useState(1);
   const [autoConfirm, setAutoConfirm] = useState(false);
 
   // Fetch low stock alerts
@@ -34,12 +37,18 @@ const InventoryAlerts = () => {
     {
       includeOutOfStock: filterLevel === 'all' || filterLevel === 'critical',
       includeCritical: filterLevel === 'all' || filterLevel === 'critical',
-      includeWarning: filterLevel === 'all' || filterLevel === 'warning'
+      includeWarning: filterLevel === 'all' || filterLevel === 'warning',
+      page: currentPage,
+      limit: ALERTS_PER_PAGE
     },
     {
       pollingInterval: 30000, // Refetch every 30 seconds
     }
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterLevel]);
 
   // Fetch alert summary
   const { data: summaryResponse } = useGetAlertSummaryQuery(undefined, {
@@ -87,6 +96,15 @@ const InventoryAlerts = () => {
   const alertsData = alertsResponse?.data?.data || alertsResponse?.data || alertsResponse || [];
   const alerts = Array.isArray(alertsData) ? alertsData : [];
   const summary = summaryResponse?.data?.data || summaryResponse?.data || summaryResponse || {};
+
+  const pagination = {
+    current: alertsResponse?.data?.pagination?.page ?? alertsResponse?.pagination?.page ?? 1,
+    pages: alertsResponse?.data?.pagination?.pages ?? alertsResponse?.pagination?.pages ?? 1,
+    total: alertsResponse?.data?.pagination?.total ?? alertsResponse?.pagination?.total ?? alerts.length,
+    limit: alertsResponse?.data?.pagination?.limit ?? alertsResponse?.pagination?.limit ?? ALERTS_PER_PAGE
+  };
+  pagination.hasPrev = pagination.current > 1;
+  pagination.hasNext = pagination.current < pagination.pages;
 
   const getAlertBadgeColor = (level) => {
     switch (level) {
@@ -323,6 +341,44 @@ const InventoryAlerts = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!isLoading && !error && alerts.length > 0 && pagination.pages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-4 px-6 border-t border-gray-200">
+            <p className="text-sm text-gray-600">
+              Showing{' '}
+              <span className="font-medium">
+                {(pagination.current - 1) * pagination.limit + 1}
+              </span>
+              {' - '}
+              <span className="font-medium">
+                {Math.min(pagination.current * pagination.limit, pagination.total)}
+              </span>
+              {' of '}
+              <span className="font-medium">{pagination.total}</span>
+              {' alerts'}
+            </p>
+            <nav className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={!pagination.hasPrev}
+                className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600 px-2">
+                Page {pagination.current} of {pagination.pages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
+                disabled={!pagination.hasNext}
+                className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </nav>
           </div>
         )}
       </div>

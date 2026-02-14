@@ -26,6 +26,15 @@ class CustomerService {
     if (queryParams.search) {
       filters.search = queryParams.search;
     }
+    if (queryParams.status) {
+      filters.status = queryParams.status;
+    }
+    if (queryParams.businessType) {
+      filters.businessType = queryParams.businessType;
+    }
+    if (queryParams.customerTier) {
+      filters.customerTier = queryParams.customerTier;
+    }
 
     // Handle city filtering in the main getCustomers query
     let result;

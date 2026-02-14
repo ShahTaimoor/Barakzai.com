@@ -18,7 +18,6 @@ import {
   useLinkInvestorsMutation,
 } from '../store/services/productsApi';
 import { useGetCategoriesQuery } from '../store/services/categoriesApi';
-import { useFuzzySearch } from '../hooks/useFuzzySearch';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import toast from 'react-hot-toast';
 import { LoadingPage } from '../components/LoadingSpinner';
@@ -42,9 +41,12 @@ import { useAppDispatch } from '../store/hooks';
 import { api } from '../store/api';
 import { useProductOperations } from '../hooks/useProductOperations';
 
+const PRODUCTS_PER_PAGE = 50;
+
 const Products = () => {
   const dispatch = useAppDispatch();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [bulkUpdateType, setBulkUpdateType] = useState(null);
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
@@ -56,8 +58,9 @@ const Products = () => {
   const { openTab } = useTab();
 
   const queryParams = { 
-    search: searchTerm,
-    limit: 999999,
+    search: searchTerm || undefined,
+    page: currentPage,
+    limit: PRODUCTS_PER_PAGE,
     ...filters
   };
 
@@ -87,17 +90,20 @@ const Products = () => {
     if (data?.items) return data.items;
     return [];
   }, [data]);
-  
-  const products = useFuzzySearch(
-    allProducts,
-    searchTerm,
-    ['name', 'description', 'brand', 'category.name'],
-    {
-      threshold: 0.4,
-      minScore: 0.3,
-      limit: null
-    }
-  );
+
+  const pagination = useMemo(() => {
+    const raw = data?.pagination || data?.data?.pagination || {};
+    return {
+      current: raw.current ?? raw.page ?? 1,
+      pages: raw.pages ?? 1,
+      total: raw.total ?? 0,
+      limit: raw.limit ?? PRODUCTS_PER_PAGE,
+      hasPrev: (raw.current ?? raw.page ?? 1) > 1,
+      hasNext: (raw.current ?? raw.page ?? 1) < (raw.pages ?? 1),
+    };
+  }, [data]);
+
+  const products = allProducts;
 
   const bulkOps = useBulkOperations(products, {
     idField: '_id',
@@ -116,11 +122,17 @@ const Products = () => {
 
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleClearFilters = () => {
     setFilters({});
     setSearchTerm('');
+    setCurrentPage(1);
   };
 
   const handleBulkUpdate = async (updates) => {
@@ -260,7 +272,7 @@ const Products = () => {
         onImportComplete={() => {
           dispatch(api.util.invalidateTags([{ type: 'Products', id: 'LIST' }]));
         }}
-        filters={queryParams}
+        filters={{ ...queryParams, limit: 999999, page: 1 }}
       />
 
       <ProductFilters 
@@ -335,6 +347,44 @@ const Products = () => {
           setShowBarcodeGenerator(true);
         }}
       />
+
+      {/* Pagination */}
+      {pagination.pages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-4 border-t border-gray-200">
+          <p className="text-sm text-gray-600">
+            Showing{' '}
+            <span className="font-medium">
+              {(pagination.current - 1) * pagination.limit + 1}
+            </span>
+            {' - '}
+            <span className="font-medium">
+              {Math.min(pagination.current * pagination.limit, pagination.total)}
+            </span>
+            {' of '}
+            <span className="font-medium">{pagination.total}</span>
+            {' products'}
+          </p>
+          <nav className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={!pagination.hasPrev}
+              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600 px-2">
+              Page {pagination.current} of {pagination.pages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
+              disabled={!pagination.hasNext}
+              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </nav>
+        </div>
+      )}
 
       <ProductModal
         product={productOps.selectedProduct}

@@ -1,13 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, 
-  Search, 
-  Users,
+  Search,
 } from 'lucide-react';
 import {
   useGetCustomersQuery,
 } from '../store/services/customersApi';
-import { useFuzzySearch } from '../hooks/useFuzzySearch';
 import { LoadingPage } from '../components/LoadingSpinner';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
@@ -18,21 +16,29 @@ import { CustomerFormModal } from '../components/CustomerFormModal';
 import { CustomerList } from '../components/CustomerList';
 import { useCustomerOperations } from '../hooks/useCustomerOperations';
 
+const CUSTOMERS_PER_PAGE = 50;
+
 export const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [showNotes, setShowNotes] = useState(false);
   const [notesEntity, setNotesEntity] = useState(null);
 
   const queryParams = { 
-    search: searchTerm,
-    limit: 999999,
+    search: searchTerm || undefined,
+    page: currentPage,
+    limit: CUSTOMERS_PER_PAGE,
     ...filters
   };
 
   const { data, isLoading, error, refetch } = useGetCustomersQuery(queryParams, {
     refetchOnMountOrArgChange: true,
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, JSON.stringify(filters)]);
 
   const { confirmation, confirmDelete, handleConfirm, handleCancel } = useDeleteConfirmation();
 
@@ -47,21 +53,21 @@ export const Customers = () => {
     setSearchTerm('');
   };
 
-  // Get all customers from API
-  const allCustomers = data?.data?.customers || data?.customers || [];
-  
-  // Apply fuzzy search on client side for better UX
-  // Hook must be called before any early returns
-  const customers = useFuzzySearch(
-    allCustomers,
-    searchTerm,
-    ['name', 'businessName', 'email', 'phone', 'displayName'],
-    {
-      threshold: 0.4,
-      minScore: 0.3,
-      limit: null // Show all matches
-    }
-  );
+  const customers = useMemo(() => {
+    return data?.data?.customers || data?.customers || [];
+  }, [data]);
+
+  const pagination = useMemo(() => {
+    const raw = data?.pagination || data?.data?.pagination || {};
+    return {
+      current: raw.current ?? raw.page ?? 1,
+      pages: raw.pages ?? 1,
+      total: raw.total ?? 0,
+      limit: raw.limit ?? CUSTOMERS_PER_PAGE,
+      hasPrev: (raw.current ?? raw.page ?? 1) > 1,
+      hasNext: (raw.current ?? raw.page ?? 1) < (raw.pages ?? 1),
+    };
+  }, [data]);
 
   if (isLoading) {
     return <LoadingPage message="Loading customers..." />;
@@ -110,7 +116,7 @@ export const Customers = () => {
       {/* Import/Export Section */}
       <CustomerImportExport 
         onImportComplete={() => refetch()}
-        filters={queryParams}
+        filters={{ ...queryParams, limit: 999999, page: 1 }}
       />
 
       {/* Advanced Filters */}
@@ -126,10 +132,48 @@ export const Customers = () => {
         onEdit={customerOps.handleEdit}
         onDelete={(customer) => customerOps.handleDelete(customer, confirmDelete)}
         onShowNotes={(customer) => {
-          setNotesEntity({ type: 'Customer', id: customer._id, name: customer.businessName || customer.name });
+          setNotesEntity({ type: 'Customer', id: customer._id || customer.id, name: customer.businessName || customer.name });
           setShowNotes(true);
         }}
       />
+
+      {/* Pagination */}
+      {pagination.pages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-4 border-t border-gray-200">
+          <p className="text-sm text-gray-600">
+            Showing{' '}
+            <span className="font-medium">
+              {(pagination.current - 1) * pagination.limit + 1}
+            </span>
+            {' - '}
+            <span className="font-medium">
+              {Math.min(pagination.current * pagination.limit, pagination.total)}
+            </span>
+            {' of '}
+            <span className="font-medium">{pagination.total}</span>
+            {' customers'}
+          </p>
+          <nav className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={!pagination.hasPrev}
+              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600 px-2">
+              Page {pagination.current} of {pagination.pages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
+              disabled={!pagination.hasNext}
+              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </nav>
+        </div>
+      )}
 
       {customerOps.isModalOpen && (
         <CustomerFormModal

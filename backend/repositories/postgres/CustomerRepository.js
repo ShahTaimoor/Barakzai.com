@@ -21,32 +21,9 @@ class CustomerRepository {
    * Find all customers with filters
    */
   async findAll(filters = {}, options = {}) {
-    let sql = 'SELECT * FROM customers WHERE is_deleted = FALSE';
-    const params = [];
-    let paramCount = 1;
-
-    if (filters.id || filters._id) {
-      sql += ` AND id = $${paramCount++}`;
-      params.push(filters.id || filters._id);
-    }
-    if (filters.ids || filters.customerIds) {
-      sql += ` AND id = ANY($${paramCount++}::uuid[])`;
-      params.push(filters.ids || filters.customerIds);
-    }
-    if (filters.isActive !== undefined) {
-      sql += ` AND is_active = $${paramCount++}`;
-      params.push(filters.isActive);
-    }
-    if (filters.status) {
-      sql += ` AND status = $${paramCount++}`;
-      params.push(filters.status);
-    }
-
-    if (filters.search) {
-      sql += ` AND (business_name ILIKE $${paramCount} OR name ILIKE $${paramCount} OR email ILIKE $${paramCount})`;
-      params.push(`%${filters.search}%`);
-      paramCount++;
-    }
+    const { sql: whereClause, params } = this._buildWhereClause(filters);
+    let sql = `SELECT * FROM customers ${whereClause}`;
+    let paramCount = params.length + 1;
 
     const sortStr = toSortString(options.sort, 'created_at DESC');
     const [field, direction] = sortStr.split(' ');
@@ -67,6 +44,46 @@ class CustomerRepository {
   }
 
   /**
+   * Build WHERE clause and params for filtering (shared by findAll and count)
+   */
+  _buildWhereClause(filters) {
+    let sql = 'WHERE is_deleted = FALSE';
+    const params = [];
+    let paramCount = 1;
+
+    if (filters.id || filters._id) {
+      sql += ` AND id = $${paramCount++}`;
+      params.push(filters.id || filters._id);
+    }
+    if (filters.ids || filters.customerIds) {
+      sql += ` AND id = ANY($${paramCount++}::uuid[])`;
+      params.push(filters.ids || filters.customerIds);
+    }
+    if (filters.isActive !== undefined) {
+      sql += ` AND is_active = $${paramCount++}`;
+      params.push(filters.isActive);
+    }
+    if (filters.status) {
+      sql += ` AND status = $${paramCount++}`;
+      params.push(filters.status);
+    }
+    if (filters.businessType || filters.business_type) {
+      sql += ` AND business_type = $${paramCount++}`;
+      params.push(filters.businessType || filters.business_type);
+    }
+    if (filters.customerTier || filters.customer_tier) {
+      sql += ` AND customer_tier = $${paramCount++}`;
+      params.push(filters.customerTier || filters.customer_tier);
+    }
+    if (filters.search) {
+      sql += ` AND (business_name ILIKE $${paramCount} OR name ILIKE $${paramCount} OR email ILIKE $${paramCount})`;
+      params.push(`%${filters.search}%`);
+      paramCount++;
+    }
+    return { sql, params };
+  }
+
+  /**
    * Find with pagination
    */
   async findWithPagination(filters = {}, options = {}) {
@@ -74,10 +91,12 @@ class CustomerRepository {
     const limit = options.limit || 20;
     const offset = (page - 1) * limit;
 
-    // Get total count
+    const { sql: whereClause, params: whereParams } = this._buildWhereClause(filters);
+
+    // Get total count with same filters
     const countResult = await query(
-      'SELECT COUNT(*) FROM customers WHERE is_deleted = FALSE',
-      []
+      `SELECT COUNT(*) FROM customers ${whereClause}`,
+      whereParams
     );
     const total = parseInt(countResult.rows[0].count);
 
