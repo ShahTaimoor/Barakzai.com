@@ -565,7 +565,7 @@ const AccountLedgerSummary = () => {
               {showCustomerDropdown && filteredCustomers.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                   {filteredCustomers.map((customer) => {
-                    const displayName = customer.businessName || customer.name || 'Unknown Customer';
+                    const displayName = customer.businessName || customer.business_name || customer.name || 'Unknown Customer';
                     return (
                       <button
                         key={getId(customer) ?? displayName}
@@ -574,6 +574,9 @@ const AccountLedgerSummary = () => {
                           }`}
                       >
                         <div className="text-sm font-medium text-gray-900">{displayName}</div>
+                        {customer.name && customer.name !== displayName && (
+                          <div className="text-xs text-gray-500">{customer.name}</div>
+                        )}
                         {customer.email && (
                           <div className="text-xs text-gray-500">{customer.email}</div>
                         )}
@@ -606,7 +609,7 @@ const AccountLedgerSummary = () => {
               {showSupplierDropdown && filteredSuppliers.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                   {filteredSuppliers.map((supplier) => {
-                    const displayName = supplier.companyName || supplier.name || 'Unknown Supplier';
+                    const displayName = supplier.companyName || supplier.company_name || supplier.name || 'Unknown Supplier';
                     return (
                       <button
                         key={getId(supplier) ?? displayName}
@@ -615,6 +618,9 @@ const AccountLedgerSummary = () => {
                           }`}
                       >
                         <div className="text-sm font-medium text-gray-900">{displayName}</div>
+                        {supplier.name && supplier.name !== displayName && (
+                          <div className="text-xs text-gray-500">{supplier.name}</div>
+                        )}
                         {supplier.email && (
                           <div className="text-xs text-gray-500">{supplier.email}</div>
                         )}
