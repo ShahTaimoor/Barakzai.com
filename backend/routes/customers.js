@@ -721,25 +721,46 @@ router.post('/import/excel', [
           continue;
         }
         
-        // Check if customer already exists
-        const customerExists = await customerService.customerExists({ 
-          businessName: customerData.businessName.toString().trim()
-        });
-        
-        if (customerExists) {
-          results.errors.push({
-            row: i + 2,
-            error: `Customer already exists with business name: ${customerData.businessName}`
-          });
+        // Check if customer already exists (by business name, case-insensitive)
+        const normalizedBusinessName = customerData.businessName.toString().trim();
+        const existingCustomer = await customerRepository.findByBusinessName(normalizedBusinessName);
+
+        // If customer exists, treat this row as an update (useful when fixing missing business type, tier, etc.)
+        if (existingCustomer) {
+          const updatePayload = {};
+          if (customerData.businessType) {
+            updatePayload.businessType = customerData.businessType.toString().toLowerCase();
+          }
+          if (customerData.customerTier) {
+            updatePayload.customerTier = customerData.customerTier.toString().toLowerCase();
+          }
+          if (customerData.status) {
+            updatePayload.status = customerData.status.toString().toLowerCase();
+          }
+
+          // Only attempt update if we actually have something to change
+          if (Object.keys(updatePayload).length > 0) {
+            await customerService.updateCustomer(
+              existingCustomer.id,
+              updatePayload,
+              req.user?.id || req.user?._id
+            );
+            results.success++;
+          } else {
+            results.errors.push({
+              row: i + 2,
+              error: `Customer already exists with business name: ${customerData.businessName} (no updatable fields provided)`
+            });
+          }
           continue;
         }
-        
-        // Create customer using service
+
+        // Create customer using service when it does not already exist
         const customerPayload = {
           name: customerData.name.toString().trim(),
           email: customerData.email ? customerData.email.toString().trim() : undefined,
           phone: customerData.phone.toString().trim() || '',
-          businessName: customerData.businessName.toString().trim(),
+          businessName: normalizedBusinessName,
           businessType: customerData.businessType.toString().toLowerCase(),
           taxId: customerData.taxId.toString().trim() || '',
           customerTier: customerData.customerTier.toString().toLowerCase(),

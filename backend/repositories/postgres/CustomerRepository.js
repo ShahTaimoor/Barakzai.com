@@ -301,6 +301,18 @@ class CustomerRepository {
     return result.rows[0] || null;
   }
 
+  /**
+   * Find a single customer by business name (case-insensitive, trimmed)
+   */
+  async findByBusinessName(businessName) {
+    if (!businessName || !String(businessName).trim()) return null;
+    const result = await query(
+      'SELECT * FROM customers WHERE TRIM(LOWER(business_name)) = TRIM(LOWER($1)) AND is_deleted = FALSE LIMIT 1',
+      [String(businessName).trim()]
+    );
+    return result.rows[0] || null;
+  }
+
   async emailExists(email, excludeId = null) {
     if (!email || !String(email).trim()) return false;
     let sql = 'SELECT 1 FROM customers WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) AND is_deleted = FALSE';
