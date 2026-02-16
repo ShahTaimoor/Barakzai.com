@@ -2,6 +2,34 @@ const BankRepository = require('../repositories/BankRepository');
 const BankPaymentRepository = require('../repositories/BankPaymentRepository');
 const BankReceiptRepository = require('../repositories/BankReceiptRepository');
 
+/**
+ * Map DB bank row (snake_case) to API response format (camelCase)
+ */
+function mapBankForResponse(row) {
+  if (!row) return row;
+  return {
+    id: row.id,
+    _id: row.id,
+    bankName: row.bank_name ?? row.bankName,
+    accountName: row.account_name ?? row.accountName,
+    accountNumber: row.account_number ?? row.accountNumber,
+    branchName: row.branch_name ?? row.branchName,
+    branchAddress: row.branch_address ?? row.branchAddress,
+    accountType: row.account_type ?? row.accountType,
+    routingNumber: row.routing_number ?? row.routingNumber,
+    swiftCode: row.swift_code ?? row.swiftCode,
+    iban: row.iban,
+    openingBalance: row.opening_balance != null ? parseFloat(row.opening_balance) : (row.openingBalance ?? 0),
+    currentBalance: row.current_balance != null ? parseFloat(row.current_balance) : (row.currentBalance ?? 0),
+    isActive: row.is_active !== undefined ? row.is_active : (row.isActive !== false),
+    notes: row.notes,
+    createdBy: row.created_by ?? row.createdBy,
+    updatedBy: row.updated_by ?? row.updatedBy,
+    createdAt: row.created_at ?? row.createdAt,
+    updatedAt: row.updated_at ?? row.updatedAt
+  };
+}
+
 class BankService {
   /**
    * Get banks with filters
@@ -15,9 +43,10 @@ class BankService {
       filter.isActive = queryParams.isActive === 'true';
     }
 
-    return await BankRepository.findWithFilters(filter, {
+    const rows = await BankRepository.findWithFilters(filter, {
       sort: { bankName: 1, accountNumber: 1 }
     });
+    return rows.map(mapBankForResponse);
   }
 
   /**
@@ -30,7 +59,7 @@ class BankService {
     if (!bank) {
       throw new Error('Bank not found');
     }
-    return bank;
+    return mapBankForResponse(bank);
   }
 
   /**
@@ -57,7 +86,8 @@ class BankService {
       createdBy: userId
     };
 
-    return await BankRepository.create(processedData);
+    const created = await BankRepository.create(processedData);
+    return mapBankForResponse(created);
   }
 
   /**
@@ -93,7 +123,8 @@ class BankService {
     if (updateData.notes !== undefined) processedData.notes = updateData.notes ? updateData.notes.trim() : null;
     processedData.updatedBy = userId;
 
-    return await BankRepository.updateById(id, processedData);
+    const updated = await BankRepository.updateById(id, processedData);
+    return mapBankForResponse(updated);
   }
 
   /**

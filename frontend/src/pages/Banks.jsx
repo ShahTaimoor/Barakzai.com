@@ -384,7 +384,7 @@ const Banks = () => {
 
     try {
       if (editingBank) {
-        await updateBank({ id: editingBank._id, ...payload }).unwrap();
+        await updateBank({ id: editingBank.id || editingBank._id, ...payload }).unwrap();
         toast.success('Bank account updated successfully');
       } else {
         await createBank(payload).unwrap();
@@ -403,7 +403,7 @@ const Banks = () => {
     const bankName = `${bank.bankName} - ${bank.accountNumber}`;
     confirmDelete(bankName, 'Bank Account', async () => {
       try {
-        await deleteBank(bank._id).unwrap();
+        await deleteBank(bank.id || bank._id).unwrap();
         toast.success('Bank account deleted successfully');
         refetch();
       } catch (error) {
@@ -544,7 +544,7 @@ const Banks = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredBanks.map((bank) => (
-                  <tr key={bank._id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={bank.id || bank._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       {bank.isActive !== false ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
