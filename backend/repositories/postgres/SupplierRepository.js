@@ -88,12 +88,17 @@ class SupplierRepository {
     const contactPerson = supplierData.contactPerson != null
       ? (typeof supplierData.contactPerson === 'string' ? supplierData.contactPerson : (supplierData.contactPerson?.name || null))
       : null;
+    const isActive = supplierData.isActive !== undefined
+      ? !!supplierData.isActive
+      : (supplierData.status !== 'inactive' && supplierData.status !== 'suspended');
+    const supplierType = (supplierData.businessType || supplierData.supplier_type || 'other');
+    const rating = Math.min(5, Math.max(0, parseInt(supplierData.rating, 10) || 3));
     const result = await query(
       `INSERT INTO suppliers (
         name, company_name, contact_person, email, phone, address,
         opening_balance, pending_balance, advance_balance, current_balance, credit_limit, payment_terms, tax_id, notes,
-        is_active, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        is_active, supplier_type, rating, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *`,
       [
         supplierData.name || null,
@@ -110,7 +115,9 @@ class SupplierRepository {
         supplierData.paymentTerms || supplierData.payment_terms || null,
         supplierData.taxId || supplierData.tax_id || null,
         supplierData.notes || null,
-        supplierData.isActive !== false && supplierData.status !== 'inactive',
+        isActive,
+        supplierType,
+        rating,
         supplierData.createdBy || supplierData.created_by || null
       ]
     );
@@ -130,13 +137,48 @@ class SupplierRepository {
       updates.push(`company_name = $${paramCount++}`);
       params.push(supplierData.companyName);
     }
-    if (supplierData.email !== undefined) {
-      updates.push(`email = $${paramCount++}`);
-      params.push(supplierData.email);
+    if (supplierData.contactPerson !== undefined) {
+      const cp = typeof supplierData.contactPerson === 'string'
+        ? supplierData.contactPerson
+        : (supplierData.contactPerson?.name ?? null);
+      updates.push(`contact_person = $${paramCount++}`);
+      params.push(cp);
+    }
+    if (supplierData.phone !== undefined) {
+      updates.push(`phone = $${paramCount++}`);
+      params.push(supplierData.phone);
+    }
+    if (supplierData.address !== undefined) {
+      updates.push(`address = $${paramCount++}`);
+      params.push(typeof supplierData.address === 'object' ? JSON.stringify(supplierData.address) : supplierData.address);
+    }
+    if (supplierData.paymentTerms !== undefined) {
+      updates.push(`payment_terms = $${paramCount++}`);
+      params.push(supplierData.paymentTerms);
+    }
+    if (supplierData.taxId !== undefined) {
+      updates.push(`tax_id = $${paramCount++}`);
+      params.push(supplierData.taxId);
+    }
+    if (supplierData.notes !== undefined) {
+      updates.push(`notes = $${paramCount++}`);
+      params.push(supplierData.notes);
     }
     if (supplierData.isActive !== undefined) {
       updates.push(`is_active = $${paramCount++}`);
       params.push(supplierData.isActive);
+    }
+    if (supplierData.status !== undefined && supplierData.isActive === undefined) {
+      updates.push(`is_active = $${paramCount++}`);
+      params.push(supplierData.status !== 'inactive');
+    }
+    if (supplierData.businessType !== undefined || supplierData.supplier_type !== undefined) {
+      updates.push(`supplier_type = $${paramCount++}`);
+      params.push(supplierData.businessType || supplierData.supplier_type || 'other');
+    }
+    if (supplierData.rating !== undefined) {
+      updates.push(`rating = $${paramCount++}`);
+      params.push(Math.min(5, Math.max(0, parseInt(supplierData.rating, 10) || 3)));
     }
     if (supplierData.updatedBy !== undefined) {
       updates.push(`updated_by = $${paramCount++}`);

@@ -112,31 +112,31 @@ const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
               {order.orderType}
             </span>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center flex-nowrap gap-1">
             <button
               onClick={() => onView(order)}
-              className="text-primary-600 hover:text-primary-800"
+              className="shrink-0 text-primary-600 hover:text-primary-800"
               title="View Invoice"
             >
               <Eye className="h-4 w-4" />
             </button>
             <button
               onClick={() => onPrint(order)}
-              className="text-green-600 hover:text-green-800"
+              className="shrink-0 text-green-600 hover:text-green-800"
               title="Print Invoice"
             >
               <Printer className="h-4 w-4" />
             </button>
             <button
               onClick={() => onEdit(order)}
-              className="text-blue-600 hover:text-blue-800"
+              className="shrink-0 text-blue-600 hover:text-blue-800"
               title="Edit Invoice"
             >
               <Edit className="h-4 w-4" />
             </button>
             <button
               onClick={() => onDelete(order)}
-              className="text-red-600 hover:text-red-800"
+              className="shrink-0 text-red-600 hover:text-red-800"
               title="Delete Invoice"
             >
               <Trash2 className="h-4 w-4" />
@@ -522,15 +522,15 @@ export const Orders = () => {
           <div className="hidden lg:block bg-gray-50 border-b border-gray-200">
             <div className="px-4 xl:px-6 py-3">
               <div className="grid grid-cols-12 gap-3 xl:gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <div className="col-span-2">Order Number</div>
-                <div className="col-span-2">Customer</div>
+                <div className="col-span-1">Order #</div>
+                <div className="col-span-3">Customer</div>
                 <div className="col-span-1">Date</div>
                 <div className="col-span-1">Items</div>
                 <div className="col-span-1">Total</div>
                 <div className="col-span-2">Status</div>
                 <div className="col-span-1">Type</div>
                 <div className="col-span-1">Notes</div>
-                <div className="col-span-1 min-w-[100px]">Actions</div>
+                <div className="col-span-1 min-w-[100px] text-right">Actions</div>
               </div>
             </div>
           </div>
@@ -548,15 +548,15 @@ export const Orders = () => {
                 <div className="hidden lg:block px-4 xl:px-6 py-3 xl:py-4 hover:bg-gray-50 transition-colors">
                   <div className="grid grid-cols-12 gap-3 xl:gap-4 items-center">
                     {/* Order Number */}
-                    <div className="col-span-2 min-w-0">
+                    <div className="col-span-1 min-w-0">
                       <div className="font-medium text-gray-900 truncate text-sm">
                         #{order.order_number ?? order.orderNumber ?? '—'}
                       </div>
                     </div>
 
                     {/* Customer */}
-                    <div className="col-span-2 min-w-0">
-                      <div className="text-sm text-gray-900 truncate">
+                    <div className="col-span-3 min-w-0">
+                      <div className="text-sm text-gray-900 truncate" title={order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}>
                         {order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}
                       </div>
                     </div>
@@ -624,32 +624,32 @@ export const Orders = () => {
                     </div>
 
                     {/* Actions */}
-                    <div className="col-span-1 min-w-0">
-                      <div className="flex items-center space-x-1 flex-wrap gap-1">
+                    <div className="col-span-1 flex justify-end">
+                      <div className="flex items-center flex-nowrap gap-1">
                         <button
                           onClick={() => handleView(order)}
-                          className="text-primary-600 hover:text-primary-800 p-1 flex-shrink-0"
+                          className="shrink-0 text-primary-600 hover:text-primary-800 p-1"
                           title="View Invoice"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handlePrint(order)}
-                          className="text-green-600 hover:text-green-800 p-1 flex-shrink-0"
+                          className="shrink-0 text-green-600 hover:text-green-800 p-1"
                           title="Print Invoice"
                         >
                           <Printer className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleEdit(order)}
-                          className="text-blue-600 hover:text-blue-800 p-1 flex-shrink-0"
+                          className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
                           title="Edit Invoice"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(order)}
-                          className="text-red-600 hover:text-red-800 p-1 flex-shrink-0"
+                          className="shrink-0 text-red-600 hover:text-red-800 p-1"
                           title="Delete Invoice"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -732,31 +732,31 @@ export const Orders = () => {
 
                     {/* Action Buttons */}
                     <div className="pt-3 border-t border-gray-200">
-                      <div className="flex items-center flex-wrap gap-2 justify-start">
+                      <div className="flex items-center flex-nowrap gap-1">
                         <button
                           onClick={() => handleView(order)}
-                          className="text-primary-600 hover:text-primary-800 p-2 rounded hover:bg-primary-50 transition-colors flex-shrink-0"
+                          className="shrink-0 text-primary-600 hover:text-primary-800 p-2 rounded hover:bg-primary-50 transition-colors"
                           title="View Invoice"
                         >
                           <Eye className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handlePrint(order)}
-                          className="text-green-600 hover:text-green-800 p-2 rounded hover:bg-green-50 transition-colors flex-shrink-0"
+                          className="shrink-0 text-green-600 hover:text-green-800 p-2 rounded hover:bg-green-50 transition-colors"
                           title="Print Invoice"
                         >
                           <Printer className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleEdit(order)}
-                          className="text-blue-600 hover:text-blue-800 p-2 rounded hover:bg-blue-50 transition-colors flex-shrink-0"
+                          className="shrink-0 text-blue-600 hover:text-blue-800 p-2 rounded hover:bg-blue-50 transition-colors"
                           title="Edit Invoice"
                         >
                           <Edit className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleDelete(order)}
-                          className="text-red-600 hover:text-red-800 p-2 rounded hover:bg-red-50 transition-colors flex-shrink-0"
+                          className="shrink-0 text-red-600 hover:text-red-800 p-2 rounded hover:bg-red-50 transition-colors"
                           title="Delete Invoice"
                         >
                           <Trash2 className="h-5 w-5" />

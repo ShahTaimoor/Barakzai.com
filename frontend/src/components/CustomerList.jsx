@@ -26,12 +26,9 @@ export const CustomerList = ({
         <div className="hidden md:block bg-gray-50 px-4 lg:px-8 py-4 lg:py-6 border-b border-gray-200">
           <div className="grid grid-cols-12 gap-3 lg:gap-4 items-center">
 
-            <div className="col-span-2">
+            <div className="col-span-4">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Business Name</h3>
               <p className="text-xs lg:text-sm text-gray-500">Contact Person</p>
-            </div>
-            <div className="col-span-2">
-              <h3 className="text-sm lg:text-base font-medium text-gray-700">Email</h3>
             </div>
             <div className="col-span-1">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Phone</h3>
@@ -51,7 +48,7 @@ export const CustomerList = ({
             <div className="col-span-1">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Balance</h3>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 text-right">
               <h3 className="text-sm lg:text-base font-medium text-gray-700">Actions</h3>
             </div>
           </div>
@@ -104,10 +101,6 @@ export const CustomerList = ({
                 <div className="grid grid-cols-2 gap-3 text-xs">
 
                   <div>
-                    <p className="text-gray-500 mb-1">Email</p>
-                    <p className="text-gray-700 truncate">{customer.email || '-'}</p>
-                  </div>
-                  <div>
                     <p className="text-gray-500 mb-1">Phone</p>
                     <p className="text-gray-700">{customer.phone || '-'}</p>
                   </div>
@@ -150,26 +143,22 @@ export const CustomerList = ({
               <div className="hidden md:grid grid-cols-12 gap-3 lg:gap-4 items-center">
 
 
-                <div className="col-span-2">
+                <div className="col-span-4 min-w-0">
                   <div className="flex items-center space-x-3 lg:space-x-4">
                     {customer.businessType === 'individual' ? (
                       <User className="h-5 w-5 lg:h-6 lg:w-6 text-gray-400 flex-shrink-0" />
                     ) : (
                       <Building className="h-5 w-5 lg:h-6 lg:w-6 text-gray-400 flex-shrink-0" />
                     )}
-                    <div className="min-w-0">
-                      <h3 className="text-sm lg:text-base font-medium text-gray-900 truncate">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm lg:text-base font-medium text-gray-900 truncate" title={customer.businessName || customer.business_name || customer.displayName}>
                         {customer.businessName || customer.business_name || customer.displayName}
                       </h3>
-                      <p className="text-xs lg:text-sm text-gray-500 truncate">
+                      <p className="text-xs lg:text-sm text-gray-500 truncate" title={customer.name}>
                         {customer.name}
                       </p>
                     </div>
                   </div>
-                </div>
-
-                <div className="col-span-2">
-                  <p className="text-xs lg:text-sm text-gray-600 truncate">{customer.email || '-'}</p>
                 </div>
 
                 <div className="col-span-1">
@@ -208,8 +197,8 @@ export const CustomerList = ({
                   </p>
                 </div>
 
-                <div className="col-span-2">
-                  <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="col-span-1 flex justify-end">
+                  <div className="flex items-center flex-nowrap gap-1">
                     <button
                       onClick={() => onShowNotes(customer)}
                       className="text-green-600 hover:text-green-800 p-1"

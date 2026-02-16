@@ -76,6 +76,8 @@ const buildSupplierCreatePayload = (body, userId) => {
     taxId: body.taxId || null,
     notes: body.notes || null,
     status: body.status || 'active',
+    businessType: body.businessType || body.supplierType || 'other',
+    rating: body.rating != null ? Math.min(5, Math.max(0, parseInt(body.rating, 10) || 3)) : 3,
     createdBy: userId
   };
   if (openingBalance !== null) payload.openingBalance = openingBalance;
@@ -89,10 +91,13 @@ const buildSupplierUpdatePayload = (body, userId) => {
   if (body.email !== undefined) payload.email = body.email;
   if (body.phone !== undefined) payload.phone = body.phone;
   if (body.address !== undefined) payload.address = body.address;
+  if (body.addresses !== undefined) payload.address = body.addresses;
   if (body.paymentTerms !== undefined) payload.paymentTerms = body.paymentTerms;
   if (body.taxId !== undefined) payload.taxId = body.taxId;
   if (body.notes !== undefined) payload.notes = body.notes;
   if (body.status !== undefined) payload.status = body.status;
+  if (body.businessType !== undefined || body.supplierType !== undefined) payload.businessType = body.businessType || body.supplierType;
+  if (body.rating !== undefined) payload.rating = body.rating;
   const ob = parseOpeningBalance(body.openingBalance);
   if (ob !== null) {
     payload.openingBalance = ob;
@@ -321,11 +326,10 @@ router.put('/:id', [
       req.body.openingBalance = undefined;
     }
 
-    const supplier = await updateSupplierWithLedger(
-      req.params.id,
-      req.body,
-      req.user._id
-    );
+    const userId = req.user?.id || req.user?._id;
+    const supplierData = buildSupplierUpdatePayload(req.body, userId);
+    const updatedRow = await supplierService.updateSupplier(req.params.id, supplierData, userId);
+    const supplier = updatedRow ? await supplierService.getSupplierById(updatedRow.id) : null;
 
     if (!supplier) {
       return res.status(404).json({ message: 'Supplier not found' });

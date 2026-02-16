@@ -505,15 +505,15 @@ export const PurchaseInvoices = () => {
           {/* Table Header - Desktop Only */}
           <div className="hidden md:block bg-gray-50 px-4 lg:px-6 py-3 border-b border-gray-200">
             <div className="grid grid-cols-12 gap-3 lg:gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div className="col-span-2">Invoice Number</div>
-              <div className="col-span-2">Supplier</div>
+              <div className="col-span-1">Invoice #</div>
+              <div className="col-span-3">Supplier</div>
               <div className="col-span-1">Date</div>
               <div className="col-span-1">Items</div>
               <div className="col-span-1">Total</div>
               <div className="col-span-1">Status</div>
               <div className="col-span-1">Payment</div>
               <div className="col-span-1">Notes</div>
-              <div className="col-span-2">Actions</div>
+              <div className="col-span-2 text-right">Actions</div>
             </div>
           </div>
 
@@ -540,24 +540,24 @@ export const PurchaseInvoices = () => {
                         <span>{invoice.items?.length || 0} items</span>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-1 flex-shrink-0">
+                    <div className="flex items-center flex-nowrap gap-1 flex-shrink-0">
                       <button
                         onClick={() => handleView(invoice)}
-                        className="text-gray-600 hover:text-gray-800 p-1"
+                        className="shrink-0 text-gray-600 hover:text-gray-800 p-1"
                         title="View Invoice"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handlePrint(invoice)}
-                        className="text-green-600 hover:text-green-800 p-1"
+                        className="shrink-0 text-green-600 hover:text-green-800 p-1"
                         title="Print Invoice"
                       >
                         <Printer className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(invoice)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
+                        className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
                         title="Edit Invoice"
                       >
                         <Edit className="h-4 w-4" />
@@ -565,7 +565,7 @@ export const PurchaseInvoices = () => {
                       {!['paid', 'closed'].includes(invoice.status) && (
                         <button
                           onClick={() => handleDelete(invoice)}
-                          className="text-red-600 hover:text-red-800 p-1"
+                          className="shrink-0 text-red-600 hover:text-red-800 p-1"
                           title="Delete Invoice"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -600,15 +600,15 @@ export const PurchaseInvoices = () => {
                 {/* Desktop Table Layout */}
                 <div className="hidden md:grid grid-cols-12 gap-3 lg:gap-4 items-center">
                   {/* Invoice Number */}
-                  <div className="col-span-2">
+                  <div className="col-span-1 min-w-0">
                     <div className="font-medium text-sm text-gray-900 truncate">
                       {invoice.invoiceNumber}
                     </div>
                   </div>
 
                   {/* Supplier */}
-                  <div className="col-span-2">
-                    <div className="text-sm text-gray-900 truncate">
+                  <div className="col-span-3 min-w-0">
+                    <div className="text-sm text-gray-900 truncate" title={invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}>
                       {invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
                     </div>
                   </div>
@@ -663,19 +663,18 @@ export const PurchaseInvoices = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="col-span-2">
-                    <div className="flex items-center space-x-1">
+                  <div className="col-span-2 flex justify-end">
+                    <div className="flex items-center flex-nowrap gap-1">
                       <button
                         onClick={() => handleView(invoice)}
-                        className="text-gray-600 hover:text-gray-800 p-1"
+                        className="shrink-0 text-gray-600 hover:text-gray-800 p-1"
                         title="View Invoice"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
-
                       <button
                         onClick={() => handlePrint(invoice)}
-                        className="text-green-600 hover:text-green-800 p-1"
+                        className="shrink-0 text-green-600 hover:text-green-800 p-1"
                         title="Print Invoice"
                       >
                         <Printer className="h-4 w-4" />
@@ -683,7 +682,7 @@ export const PurchaseInvoices = () => {
 
                       <button
                         onClick={() => handleEdit(invoice)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
+                        className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
                         title="Edit Invoice"
                       >
                         <Edit className="h-4 w-4" />
@@ -693,7 +692,7 @@ export const PurchaseInvoices = () => {
                       {!['paid', 'closed'].includes(invoice.status) && (
                         <button
                           onClick={() => handleDelete(invoice)}
-                          className="text-red-600 hover:text-red-800 p-1"
+                          className="shrink-0 text-red-600 hover:text-red-800 p-1"
                           title="Delete Invoice"
                         >
                           <Trash2 className="h-4 w-4" />

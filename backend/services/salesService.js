@@ -505,7 +505,8 @@ class SalesService {
       status: 'confirmed',
       notes,
       createdBy: user.id || user._id?.toString(),
-      appliedDiscounts: appliedDiscountsForSale
+      appliedDiscounts: appliedDiscountsForSale,
+      orderType: orderType || 'retail'
     };
 
     const order = await transaction(async (client) => {

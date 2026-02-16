@@ -228,15 +228,16 @@ class SalesRepository {
       status,
       notes,
       createdBy,
-      appliedDiscounts
+      appliedDiscounts,
+      orderType
     } = saleData;
 
     const q = client ? client.query.bind(client) : query;
     const result = await q(
       `INSERT INTO sales (
         order_number, customer_id, sale_date, items, subtotal, discount, tax, total,
-        payment_method, payment_status, status, notes, created_by, applied_discounts
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        payment_method, payment_status, status, notes, created_by, applied_discounts, order_type
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [
         orderNumber,
@@ -252,7 +253,8 @@ class SalesRepository {
         status || 'pending',
         notes || null,
         createdBy,
-        JSON.stringify(Array.isArray(appliedDiscounts) ? appliedDiscounts : [])
+        JSON.stringify(Array.isArray(appliedDiscounts) ? appliedDiscounts : []),
+        (orderType || 'retail').toLowerCase()
       ]
     );
 
@@ -325,6 +327,11 @@ class SalesRepository {
     if (updateData.notes !== undefined) {
       fields.push(`notes = $${paramCount++}`);
       values.push(updateData.notes);
+    }
+
+    if (updateData.orderType !== undefined) {
+      fields.push(`order_type = $${paramCount++}`);
+      values.push(String(updateData.orderType).toLowerCase());
     }
 
     if (updateData.updatedBy !== undefined) {

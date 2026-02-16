@@ -143,14 +143,42 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                 ? -supplier.advanceBalance
                 : 0;
 
+        // Normalize addresses: API returns address (object/array) or addresses (array)
+        const rawAddress = supplier.address || supplier.addresses;
+        let addresses = supplierDefaultValues.addresses;
+        if (Array.isArray(rawAddress) && rawAddress.length > 0) {
+          addresses = rawAddress.map((a) => ({
+            type: a.type || 'both',
+            street: a.street || '',
+            city: a.city || '',
+            state: a.state || '',
+            zipCode: a.zipCode || '',
+            country: a.country || 'US',
+            isDefault: a.isDefault ?? (a === rawAddress[0])
+          }));
+        } else if (rawAddress && typeof rawAddress === 'object' && !Array.isArray(rawAddress)) {
+          addresses = [{
+            type: rawAddress.type || 'both',
+            street: rawAddress.street || '',
+            city: rawAddress.city || '',
+            state: rawAddress.state || '',
+            zipCode: rawAddress.zipCode || '',
+            country: rawAddress.country || 'US',
+            isDefault: true
+          }];
+        } else if (supplier.addresses?.length) {
+          addresses = supplier.addresses;
+        }
+
         setFormData({
           ...supplierDefaultValues,
           ...supplier,
+          companyName: supplier.companyName || supplier.company_name || supplier.businessName || '',
           contactPerson: {
-            name: supplier.contactPerson?.name || '',
+            name: supplier.contactPerson?.name || supplier.contact_person || '',
             title: supplier.contactPerson?.title || ''
           },
-          addresses: supplier.addresses?.length ? supplier.addresses : supplierDefaultValues.addresses,
+          addresses,
           openingBalance: derivedOpeningBalance,
           // Use supplier's existing ledger account or auto-link to Accounts Payable
           ledgerAccount: supplier.ledgerAccount?._id || supplier.ledgerAccount || (accountsPayable._id || accountsPayable.id) || ''
@@ -1024,7 +1052,7 @@ export const Suppliers = () => {
                             {supplier.companyName || supplier.company_name || supplier.businessName || '-'}
                           </h3>
                           <p className="text-xs text-gray-500 truncate">
-                            {supplier.contactPerson?.name || '-'}
+                            {supplier.contactPerson?.name || supplier.contact_person || '-'}
                           </p>
                         </div>
                       </div>
@@ -1076,7 +1104,7 @@ export const Suppliers = () => {
                         <p className="text-gray-500 mb-1">Type</p>
                         <span className={`badge ${supplier.businessType === 'wholesaler' ? 'badge-info' : 'badge-gray'
                           }`}>
-                          {supplier.businessType}
+                          {supplier.businessType || supplier.supplier_type || 'other'}
                         </span>
                       </div>
                       <div>
@@ -1089,7 +1117,7 @@ export const Suppliers = () => {
                                 }`}
                             />
                           ))}
-                          <span className="ml-1 text-xs text-gray-600">({supplier.rating})</span>
+                          <span className="ml-1 text-xs text-gray-600">({supplier.rating ?? 3})</span>
                         </div>
                       </div>
                       <div>
@@ -1110,7 +1138,7 @@ export const Suppliers = () => {
                             {supplier.companyName || supplier.company_name || supplier.businessName || '-'}
                           </h3>
                           <p className="text-xs lg:text-sm text-gray-500 truncate">
-                            {supplier.contactPerson?.name || '-'}
+                            {supplier.contactPerson?.name || supplier.contact_person || '-'}
                           </p>
                         </div>
                       </div>
@@ -1138,9 +1166,9 @@ export const Suppliers = () => {
 
                     {/* Type */}
                     <div className="col-span-1">
-                      <span className={`badge ${supplier.businessType === 'wholesaler' ? 'badge-info' : 'badge-gray'
+                      <span className={`badge ${(supplier.businessType || supplier.supplier_type) === 'wholesaler' ? 'badge-info' : 'badge-gray'
                         }`}>
-                        {supplier.businessType}
+                        {supplier.businessType || supplier.supplier_type || 'other'}
                       </span>
                     </div>
 

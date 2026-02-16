@@ -2,6 +2,21 @@ const supplierRepository = require('../repositories/postgres/SupplierRepository'
 const AccountingService = require('./accountingService');
 
 /**
+ * Map DB supplier row to API response format (contactPerson, status, businessType, rating)
+ */
+function mapSupplierForResponse(supplier) {
+  if (!supplier) return supplier;
+  const contactPersonValue = supplier.contact_person || supplier.contactPerson?.name;
+  return {
+    ...supplier,
+    contactPerson: contactPersonValue ? { name: contactPersonValue } : (supplier.contactPerson || {}),
+    status: supplier.status ?? (supplier.is_active ? 'active' : 'inactive'),
+    businessType: supplier.businessType ?? supplier.supplier_type ?? 'other',
+    rating: supplier.rating != null ? Number(supplier.rating) : 3
+  };
+}
+
+/**
  * Supplier Service - PostgreSQL Implementation
  */
 class SupplierService {
@@ -30,17 +45,17 @@ class SupplierService {
     const supplierIds = result.suppliers.map(s => s.id);
     const balanceMap = await AccountingService.getBulkSupplierBalances(supplierIds);
 
-    // Attach balances
+    // Attach balances and map response format
     result.suppliers = result.suppliers.map(supplier => {
       const supplierId = String(supplier.id);
       const balance = balanceMap.get(supplierId) || balanceMap.get(supplier.id) || 0;
-      return {
+      return mapSupplierForResponse({
         ...supplier,
-        id: supplier.id, // Ensure id is present
+        id: supplier.id,
         currentBalance: balance,
         pendingBalance: balance > 0 ? balance : 0,
         advanceBalance: balance < 0 ? Math.abs(balance) : 0
-      };
+      });
     });
 
     return result;
@@ -57,13 +72,13 @@ class SupplierService {
 
     const balance = await AccountingService.getSupplierBalance(id);
 
-    return {
+    return mapSupplierForResponse({
       ...supplier,
-      id: supplier.id, // Ensure id is present
+      id: supplier.id,
       currentBalance: balance,
       pendingBalance: balance > 0 ? balance : 0,
       advanceBalance: balance < 0 ? Math.abs(balance) : 0
-    };
+    });
   }
 
   /**
@@ -75,7 +90,7 @@ class SupplierService {
       createdBy: userId
     });
 
-    return supplier;
+    return mapSupplierForResponse(supplier);
   }
 
   /**
@@ -91,7 +106,7 @@ class SupplierService {
       throw new Error('Supplier not found');
     }
 
-    return supplier;
+    return mapSupplierForResponse(supplier);
   }
 
   /**
@@ -137,13 +152,13 @@ class SupplierService {
     return suppliers.map(s => {
       const supplierId = String(s.id);
       const balance = balanceMap.get(supplierId) || balanceMap.get(s.id) || 0;
-      return {
+      return mapSupplierForResponse({
         ...s,
         id: s.id,
         currentBalance: balance,
         pendingBalance: balance > 0 ? balance : 0,
         advanceBalance: balance < 0 ? Math.abs(balance) : 0
-      };
+      });
     });
   }
 

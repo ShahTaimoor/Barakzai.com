@@ -727,6 +727,9 @@ router.put('/:id', [
       updateData.amountPaid = parseFloat(req.body.amountReceived) || 0;
       updateData.paymentStatus = order.payment?.status ?? (updateData.amountPaid >= (parseFloat(order.pricing?.total ?? order.total) || 0) ? 'paid' : (updateData.amountPaid > 0 ? 'partial' : 'pending'));
     }
+    if (req.body.orderType !== undefined) {
+      updateData.orderType = req.body.orderType;
+    }
     await salesRepository.update(req.params.id, updateData);
 
     // Post amount received change to account ledger so balance reflects the update
