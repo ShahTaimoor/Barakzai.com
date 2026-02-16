@@ -8,12 +8,17 @@ require('dotenv').config();
  * PRODUCTION POSTGRESQL POOL CONFIGURATION
  * Optimized for Accounting Systems (Double-Entry Ledger)
  */
+// pg SCRAM auth requires password to be a string (not undefined/number)
+const safePassword = process.env.POSTGRES_PASSWORD != null
+  ? String(process.env.POSTGRES_PASSWORD)
+  : '';
+
 const poolConfig = {
   host: process.env.POSTGRES_HOST,
   port: process.env.POSTGRES_PORT,
   database: process.env.POSTGRES_DB,
   user: process.env.POSTGRES_USER,
-  password: process.env.POSTGRES_PASSWORD,
+  password: safePassword,
   
   // 1. Connection Limits
   // A safe limit for most PostgreSQL installations. 

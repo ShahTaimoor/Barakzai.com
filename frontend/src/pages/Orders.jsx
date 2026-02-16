@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import {
   useGetOrdersQuery,
+  useLazyGetOrderByIdQuery,
   useUpdateOrderMutation,
   useDeleteOrderMutation,
   usePostMissingSalesToLedgerMutation,
@@ -168,7 +169,9 @@ export const Orders = () => {
     items: [],
     billDate: '',
     customer: null,
-    orderType: 'retail'
+    orderType: 'retail',
+    discount: '',
+    amountReceived: ''
   });
 
   const { openTab } = useTab();
@@ -186,6 +189,7 @@ export const Orders = () => {
   const [updateOrder] = useUpdateOrderMutation();
   const [deleteOrder] = useDeleteOrderMutation();
   const [postMissingSalesToLedger, { isLoading: isPostingToLedger }] = usePostMissingSalesToLedgerMutation();
+  const [fetchOrderById] = useLazyGetOrderByIdQuery();
 
   // Fetch orders
   const { data: ordersResponse, isLoading, error, refetch: refetchOrders } = useGetOrdersQuery(
@@ -284,56 +288,69 @@ export const Orders = () => {
   };
 
   // Event handlers
-  const handleEdit = (order) => {
-    // Initialize edit form with order data
-    setSelectedOrder(order);
+  const handleEdit = async (order) => {
+    try {
+      // Fetch fresh order by ID to get enriched product names from backend
+      const result = await fetchOrderById(order._id || order.id).unwrap();
+      const orderData = result?.order || result?.data?.order || result;
+      const freshOrder = orderData || order;
 
-    // Format items for editing (ensure product ID is available)
-    const formattedItems = (order.items || []).map(item => ({
-      product: item.product?._id || item.product || null,
-      productName: item.product?.name || 'Unknown Product',
-      quantity: item.quantity || 1,
-      unitPrice: item.unitPrice || 0,
-      total: item.total || (item.quantity * item.unitPrice) || 0
-    }));
+      // Initialize edit form with fresh order data (includes enriched product names)
+      setSelectedOrder(freshOrder);
 
-    // Ensure customer is ID string, not object
-    let customerId = null;
-    if (order.customer) {
-      customerId = typeof order.customer === 'object'
-        ? (order.customer._id || order.customer.id || order.customer)
-        : order.customer;
+      // Format items for editing (ensure product ID is available; use product name from enriched data)
+      const formattedItems = (freshOrder.items || []).map(item => ({
+        product: item.product?._id || item.product?.id || item.product || item.product_id || null,
+        productName: item.product?.name || item.product?.displayName || item.product?.variantName || 'Unknown Product',
+        quantity: item.quantity || 1,
+        unitPrice: item.unitPrice || 0,
+        total: item.total || (item.quantity * item.unitPrice) || 0
+      }));
+
+      // Ensure customer is ID string, not object
+      let customerId = null;
+      if (freshOrder.customer) {
+        customerId = typeof freshOrder.customer === 'object'
+          ? (freshOrder.customer._id || freshOrder.customer.id || freshOrder.customer)
+          : freshOrder.customer;
+      }
+
+      // Format billDate for input (YYYY-MM-DD format)
+      const formatDateForInput = (date) => {
+        if (date == null) return '';
+        const d = new Date(date);
+        if (Number.isNaN(d.getTime())) return '';
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const orderDate = freshOrder.sale_date ?? freshOrder.billDate ?? freshOrder.order_date ?? freshOrder.created_at ?? freshOrder.createdAt;
+      const discountVal = freshOrder.discount ?? freshOrder.pricing?.discountAmount ?? 0;
+      const amountReceivedVal = freshOrder.payment?.amountPaid ?? freshOrder.amount_paid ?? 0;
+      setEditFormData({
+        notes: freshOrder.notes || '',
+        items: formattedItems,
+        customer: customerId,
+        orderType: freshOrder.orderType ?? freshOrder.order_type ?? 'retail',
+        billDate: formatDateForInput(orderDate),
+        discount: discountVal === 0 ? '' : String(discountVal),
+        amountReceived: amountReceivedVal === 0 ? '' : String(amountReceivedVal)
+      });
+
+      // Reset product selection fields
+      setSelectedProduct(null);
+      setNewProductQuantity(1);
+      setNewProductRate(0);
+      setProductSearchTerm('');
+      setCustomerSearchTerm(freshOrder.customer?.business_name ?? freshOrder.customer?.businessName ?? freshOrder.customer?.name ?? freshOrder.customerInfo?.businessName ?? freshOrder.customerInfo?.name ?? '');
+
+      // Open edit modal
+      setShowEditModal(true);
+    } catch (err) {
+      handleApiError(err, 'Loading invoice for edit');
     }
-
-    // Format billDate for input (YYYY-MM-DD format)
-    const formatDateForInput = (date) => {
-      if (date == null) return '';
-      const d = new Date(date);
-      if (Number.isNaN(d.getTime())) return '';
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    const orderDate = order.sale_date ?? order.billDate ?? order.order_date ?? order.created_at ?? order.createdAt;
-    setEditFormData({
-      notes: order.notes || '',
-      items: formattedItems,
-      customer: customerId,
-      orderType: order.orderType ?? order.order_type ?? 'retail',
-      billDate: formatDateForInput(orderDate)
-    });
-
-    // Reset product selection fields
-    setSelectedProduct(null);
-    setNewProductQuantity(1);
-    setNewProductRate(0);
-    setProductSearchTerm('');
-    setCustomerSearchTerm(order.customer?.business_name ?? order.customer?.businessName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.name ?? '');
-
-    // Open edit modal
-    setShowEditModal(true);
   };
 
   const handlePrint = (order) => {
@@ -924,31 +941,46 @@ export const Orders = () => {
                 </div>
               </div>
 
-              {/* Totals */}
-              <div className="flex justify-end">
-                <div className="w-80">
-                  <table className="w-full">
-                    <tbody>
-                      <tr>
-                        <td className="px-4 py-2">Subtotal:</td>
-                        <td className="px-4 py-2 text-right">{Math.round(selectedOrder.pricing?.subtotal || 0)}</td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-2">Tax:</td>
-                        <td className="px-4 py-2 text-right">{Math.round(selectedOrder.pricing?.taxAmount || 0)}</td>
-                      </tr>
-                      <tr>
-                        <td className="px-4 py-2">Discount:</td>
-                        <td className="px-4 py-2 text-right">{Math.round(selectedOrder.pricing?.discountAmount || 0)}</td>
-                      </tr>
-                      <tr className="border-t-2 border-gray-900">
-                        <td className="px-4 py-2 font-bold">Total:</td>
-                        <td className="px-4 py-2 text-right font-bold">{Math.round(selectedOrder.pricing?.total || 0)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              {/* Totals - use top-level subtotal/tax/discount/total (sales from API) and fall back to sum from items when 0 */}
+              {(() => {
+                const items = Array.isArray(selectedOrder?.items) ? selectedOrder.items : [];
+                const sumFromItems = items.reduce((s, i) => {
+                  const qty = Number(i.quantity ?? i.qty) || 0;
+                  const price = Number(i.unitPrice ?? i.unit_price ?? i.price) || 0;
+                  const lineTotal = Number(i.total ?? i.subtotal ?? i.lineTotal) || (qty * price);
+                  return s + lineTotal;
+                }, 0);
+                const viewSubtotal = Number(selectedOrder?.subtotal ?? selectedOrder?.pricing?.subtotal) || (items.length > 0 ? sumFromItems : 0);
+                const viewDiscount = Number(selectedOrder?.discount ?? selectedOrder?.pricing?.discountAmount ?? selectedOrder?.pricing?.discount) || 0;
+                const viewTax = Number(selectedOrder?.tax ?? selectedOrder?.pricing?.taxAmount) || 0;
+                const viewTotal = Number(selectedOrder?.total ?? selectedOrder?.pricing?.total) || (viewSubtotal - viewDiscount + viewTax);
+                return (
+                  <div className="flex justify-end">
+                    <div className="w-80">
+                      <table className="w-full">
+                        <tbody>
+                          <tr>
+                            <td className="px-4 py-2">Subtotal:</td>
+                            <td className="px-4 py-2 text-right">{Math.round(viewSubtotal)}</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2">Tax:</td>
+                            <td className="px-4 py-2 text-right">{Math.round(viewTax)}</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2">Discount:</td>
+                            <td className="px-4 py-2 text-right">{Math.round(viewDiscount)}</td>
+                          </tr>
+                          <tr className="border-t-2 border-gray-900">
+                            <td className="px-4 py-2 font-bold">Total:</td>
+                            <td className="px-4 py-2 text-right font-bold">{Math.round(viewTotal)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Footer */}
               <div className="mt-8 text-center text-sm text-gray-500">
@@ -1088,6 +1120,32 @@ export const Orders = () => {
                         </div>
                       )}
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      value={editFormData.discount}
+                      onChange={(e) => setEditFormData({ ...editFormData, discount: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Invoice-level discount amount</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount Received</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      value={editFormData.amountReceived}
+                      onChange={(e) => setEditFormData({ ...editFormData, amountReceived: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Amount paid/received for this invoice</p>
+                  </div>
                 </div>
               </div>
 
@@ -1114,7 +1172,9 @@ export const Orders = () => {
                   items: formattedItems,
                   orderType: editFormData.orderType,
                   customer: customerId || undefined, // Only include if not null
-                  billDate: editFormData.billDate || undefined // Include billDate for backdating/postdating
+                  billDate: editFormData.billDate || undefined, // Include billDate for backdating/postdating
+                  discount: editFormData.discount !== '' ? parseFloat(editFormData.discount) : undefined,
+                  amountReceived: editFormData.amountReceived !== '' ? parseFloat(editFormData.amountReceived) : undefined
                 };
 
                 handleUpdateOrder(selectedOrder._id, updateData);
@@ -1378,13 +1438,13 @@ export const Orders = () => {
                             <tr>
                               <td className="px-4 py-2">Discount:</td>
                               <td className="px-4 py-2 text-right">
-                                {Math.round(selectedOrder.pricing?.discountAmount || 0)}
+                                {Math.round(Number(editFormData.discount) || selectedOrder.pricing?.discountAmount || selectedOrder?.discount || 0)}
                               </td>
                             </tr>
                             <tr className="border-t-2 border-gray-900">
                               <td className="px-4 py-2 font-bold">Total:</td>
                               <td className="px-4 py-2 text-right font-bold">
-                                {Math.round(editFormData.items.reduce((sum, item) => sum + item.total, 0) + (selectedOrder.pricing?.taxAmount || 0) - (selectedOrder.pricing?.discountAmount || 0))}
+                                {Math.round(editFormData.items.reduce((sum, item) => sum + item.total, 0) + (selectedOrder.pricing?.taxAmount || 0) - (Number(editFormData.discount) || selectedOrder.pricing?.discountAmount || selectedOrder?.discount || 0))}
                               </td>
                             </tr>
                           </tbody>

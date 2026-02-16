@@ -324,7 +324,8 @@ export const PurchaseInvoices = () => {
         invoiceType: invoice.invoiceType || 'purchase',
         invoiceDate: invoice.invoiceDate || invoice.createdAt, // Include invoiceDate for editing
         createdAt: invoice.createdAt, // Include createdAt as fallback
-        isEditMode: true
+        isEditMode: true,
+        payment: invoice.payment || {} // Include payment for amount paid editing
       };
 
       openTab({

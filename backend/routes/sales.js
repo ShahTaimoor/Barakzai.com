@@ -6,6 +6,7 @@ const path = require('path');
 const PDFDocument = require('pdfkit');
 const StockMovementService = require('../services/stockMovementService');
 const salesService = require('../services/salesService');
+const AccountingService = require('../services/accountingService');
 const salesRepository = require('../repositories/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
 const productVariantRepository = require('../repositories/ProductVariantRepository');
@@ -351,9 +352,9 @@ router.post('/', [
       });
     }
 
-    const { customer, items, orderType, payment, notes, isTaxExempt, billDate } = req.body;
+    const { customer, items, orderType, payment, notes, isTaxExempt, billDate, appliedDiscounts, discountAmount, subtotal, total, tax } = req.body;
 
-    // Use SalesService to create the sale (invoice)
+    // Use SalesService to create the sale (invoice); appliedDiscounts/discountAmount from POS discount codes
     const savedOrder = await salesService.createSale(
       {
         customer,
@@ -363,7 +364,12 @@ router.post('/', [
         notes,
         isTaxExempt,
         billDate,
-        billStartTime
+        billStartTime,
+        appliedDiscounts,
+        discountAmount,
+        subtotal,
+        total,
+        tax
       },
       req.user
     );
@@ -472,7 +478,9 @@ router.put('/:id', [
   body('items.*.product').optional().isUUID(4).withMessage('Valid product is required'),
   body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   body('items.*.unitPrice').optional().isFloat({ min: 0 }).withMessage('Unit price must be positive'),
-  body('billDate').optional().isISO8601().withMessage('Valid bill date required (ISO 8601 format)')
+  body('billDate').optional().isISO8601().withMessage('Valid bill date required (ISO 8601 format)'),
+  body('discount').optional().isFloat({ min: 0 }).withMessage('Discount must be a non-negative number'),
+  body('amountReceived').optional().isFloat({ min: 0 }).withMessage('Amount received must be a non-negative number')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -529,6 +537,20 @@ router.put('/:id', [
     // Update billDate if provided (for backdating/postdating)
     if (req.body.billDate !== undefined) {
       order.billDate = parseLocalDate(req.body.billDate);
+    }
+
+    // Invoice-level discount: if provided, set pricing discount and recalc total
+    if (req.body.discount !== undefined) {
+      const discountAmount = parseFloat(req.body.discount) || 0;
+      order.pricing.discountAmount = discountAmount;
+      order.pricing.total = (order.pricing.subtotal || 0) - discountAmount + (order.pricing.taxAmount || 0);
+    }
+
+    // Amount received (for edit invoice)
+    if (req.body.amountReceived !== undefined) {
+      const amt = parseFloat(req.body.amountReceived) || 0;
+      order.payment.amountPaid = amt;
+      order.payment.status = amt >= (parseFloat(order.pricing?.total ?? order.total) || 0) ? 'paid' : (amt > 0 ? 'partial' : 'pending');
     }
 
     // Update items if provided and recalculate pricing
@@ -623,9 +645,9 @@ router.put('/:id', [
       // Update order items and pricing
       order.items = newOrderItems;
       order.pricing.subtotal = newSubtotal;
-      order.pricing.discountAmount = newTotalDiscount;
+      order.pricing.discountAmount = req.body.discount !== undefined ? (parseFloat(req.body.discount) || 0) : newTotalDiscount;
       order.pricing.taxAmount = newTotalTax;
-      order.pricing.total = newSubtotal - newTotalDiscount + newTotalTax;
+      order.pricing.total = newSubtotal - order.pricing.discountAmount + newTotalTax;
 
       // Check credit limit for credit sales when order total increases
       const finalCustomer = customerData || (order.customer_id || order.customer ? await customerRepository.findById(order.customer_id || order.customer) : null);
@@ -697,8 +719,36 @@ router.put('/:id', [
       updateData.discount = order.pricing?.discountAmount ?? order.discount;
       updateData.tax = order.pricing?.taxAmount ?? order.tax;
       updateData.total = order.pricing?.total ?? order.total;
+    } else if (req.body.discount !== undefined) {
+      updateData.discount = order.pricing?.discountAmount ?? order.discount;
+      updateData.total = order.pricing?.total ?? order.total;
+    }
+    if (req.body.amountReceived !== undefined) {
+      updateData.amountPaid = parseFloat(req.body.amountReceived) || 0;
+      updateData.paymentStatus = order.payment?.status ?? (updateData.amountPaid >= (parseFloat(order.pricing?.total ?? order.total) || 0) ? 'paid' : (updateData.amountPaid > 0 ? 'partial' : 'pending'));
     }
     await salesRepository.update(req.params.id, updateData);
+
+    // Post amount received change to account ledger so balance reflects the update
+    if (req.body.amountReceived !== undefined) {
+      const oldAmountPaid = parseFloat(order.amount_paid) || 0;
+      const newAmountPaid = parseFloat(req.body.amountReceived) || 0;
+      if (Math.abs(newAmountPaid - oldAmountPaid) >= 0.01) {
+        try {
+          await AccountingService.recordSalePaymentAdjustment({
+            saleId: order.id || order._id,
+            orderNumber: order.order_number || order.orderNumber,
+            customerId: order.customer_id,
+            oldAmountPaid,
+            newAmountPaid,
+            paymentMethod: order.payment_method || order.payment?.method || 'cash',
+            createdBy: req.user?.id || req.user?._id
+          });
+        } catch (ledgerErr) {
+          console.error('Failed to post sale payment adjustment to ledger:', ledgerErr);
+        }
+      }
+    }
 
     // Adjust inventory based on item changes
     if (req.body.items && req.body.items.length > 0) {

@@ -1,5 +1,21 @@
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
+// Load .env: try backend/.env first (where your .env lives), then project root
+const backendEnv = path.join(__dirname, '../../.env');
+const rootEnv = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(backendEnv)) {
+  require('dotenv').config({ path: backendEnv });
+} else {
+  require('dotenv').config({ path: rootEnv });
+}
+
+// Fail fast with a clear message if Postgres password is missing (avoids SCRAM "must be a string" error)
+const pw = process.env.POSTGRES_PASSWORD;
+if (pw === undefined || pw === null || typeof pw !== 'string') {
+  console.error('❌ POSTGRES_PASSWORD is not set or not a string. Set it in backend/.env (e.g. POSTGRES_PASSWORD=yourpassword).');
+  process.exit(1);
+}
+
 const { query, connectDB } = require('../../config/postgres');
 
 const MIGRATIONS = [
@@ -26,7 +42,8 @@ const MIGRATIONS = [
   '021_stock_movement_return_quarantine_inventory_balance.sql',
   '022_returns_status_workflow.sql',
   '023_add_wholesale_price_to_products.sql',
-  '024_add_business_type_customer_tier_to_customers.sql'
+  '024_add_business_type_customer_tier_to_customers.sql',
+  '025_sales_amount_paid.sql'
 ];
 
 async function ensureMigrationsTable() {

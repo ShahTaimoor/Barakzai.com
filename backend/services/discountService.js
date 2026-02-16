@@ -208,6 +208,27 @@ class DiscountService {
     const discount = await this.getDiscountByCode(discountCode);
     if (!discount) throw new Error('Discount code not found');
 
+    // Enforce total usage limit
+    const usageLimit = discount.usage_limit ?? discount.usageLimit;
+    const usageSoFar = discount.current_usage ?? discount.currentUsage ?? 0;
+    if (usageLimit != null && usageLimit > 0 && usageSoFar >= usageLimit) {
+      throw new Error('Discount usage limit reached');
+    }
+
+    // Enforce per-customer usage limit
+    const orderCustomerId = order.customer_id || order.customer || customerId;
+    const perCustomerLimit = discount.usage_limit_per_customer ?? discount.usageLimitPerCustomer;
+    if (perCustomerLimit != null && perCustomerLimit > 0 && orderCustomerId) {
+      const analytics = discount.analytics && typeof discount.analytics === 'object' ? discount.analytics : {};
+      const usageHistory = Array.isArray(analytics.usageHistory) ? analytics.usageHistory : [];
+      const customerUsageCount = usageHistory.filter(
+        u => String(u.customerId || u.customer_id || '') === String(orderCustomerId)
+      ).length;
+      if (customerUsageCount >= perCustomerLimit) {
+        throw new Error('You have reached the maximum uses of this discount');
+      }
+    }
+
     const applicability = isApplicableToOrder(discount, order, order.customer_id || order.customer);
     if (!applicability.applicable) throw new Error(applicability.reason);
 
@@ -244,7 +265,8 @@ class DiscountService {
     const currentUsage = (discount.current_usage ?? discount.currentUsage ?? 0) + 1;
     const analytics = discount.analytics && typeof discount.analytics === 'object' ? discount.analytics : {};
     const usageHistory = Array.isArray(analytics.usageHistory) ? analytics.usageHistory : [];
-    usageHistory.push({ orderId, customerId, discountAmount, orderTotal: orderTotal, appliedAt: new Date() });
+    const orderCustomerIdForHistory = order.customer_id || order.customer || customerId;
+    usageHistory.push({ orderId, customerId: orderCustomerIdForHistory, discountAmount, orderTotal: orderTotal, appliedAt: new Date() });
     await DiscountRepository.updateById(discount.id, { currentUsage, analytics: { ...analytics, usageHistory } });
 
     return {
@@ -252,6 +274,20 @@ class DiscountService {
       appliedDiscount,
       newTotal,
     };
+  }
+
+  /**
+   * Record that a discount code was used (e.g. when creating a sale with applied discounts).
+   * Increments usage and appends to analytics.usageHistory. Does not modify the order.
+   */
+  async recordDiscountUsage(discountCode, customerId, amount, orderId) {
+    const discount = await this.getDiscountByCode(discountCode);
+    if (!discount) return;
+    const currentUsage = (discount.current_usage ?? discount.currentUsage ?? 0) + 1;
+    const analytics = discount.analytics && typeof discount.analytics === 'object' ? discount.analytics : {};
+    const usageHistory = Array.isArray(analytics.usageHistory) ? analytics.usageHistory : [];
+    usageHistory.push({ orderId, customerId, discountAmount: amount, appliedAt: new Date() });
+    await DiscountRepository.updateById(discount.id ?? discount._id, { currentUsage, analytics: { ...analytics, usageHistory } });
   }
 
   // Remove discount from an order
@@ -283,6 +319,7 @@ class DiscountService {
   // Get applicable discounts for an order
   async getApplicableDiscounts(orderData, customerData = null) {
     const orderTotal = Number(orderData?.total ?? 0);
+    const customerId = orderData?.customerId ?? orderData?.customer_id ?? customerData?.id ?? customerData?._id ?? null;
     const all = await DiscountRepository.findAll({ isActive: true }, { limit: 200 });
     const now = new Date();
     const applicable = [];
@@ -293,6 +330,20 @@ class DiscountService {
       if (validUntil && new Date(validUntil) < now) continue;
       const minOrder = Number(d.minimum_order_amount ?? d.minimumOrderAmount ?? 0);
       if (orderTotal < minOrder) continue;
+      // Skip if total usage limit reached
+      const usageLimit = d.usage_limit ?? d.usageLimit;
+      const usageSoFar = d.current_usage ?? d.currentUsage ?? 0;
+      if (usageLimit != null && usageLimit > 0 && usageSoFar >= usageLimit) continue;
+      // Skip if per-customer limit reached for this customer
+      const perCustomerLimit = d.usage_limit_per_customer ?? d.usageLimitPerCustomer;
+      if (perCustomerLimit != null && perCustomerLimit > 0 && customerId) {
+        const analytics = d.analytics && typeof d.analytics === 'object' ? d.analytics : {};
+        const usageHistory = Array.isArray(analytics.usageHistory) ? analytics.usageHistory : [];
+        const customerUsageCount = usageHistory.filter(
+          u => String(u.customerId || u.customer_id || '') === String(customerId)
+        ).length;
+        if (customerUsageCount >= perCustomerLimit) continue;
+      }
       const amount = calculateDiscountAmount(d, orderTotal);
       applicable.push({ discount: d, amount });
     }
@@ -467,13 +518,15 @@ class DiscountService {
   // Generate discount code suggestions
   generateDiscountCodeSuggestions(name, type) {
     const suggestions = [];
-    const baseName = name.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    const nameStr = (name != null && name !== '') ? String(name) : '';
+    const typeStr = (type != null && type !== '') ? String(type) : '';
+    const baseName = nameStr.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     
     // Simple suggestions based on name and type
     suggestions.push(baseName.substring(0, 8));
-    suggestions.push(`${baseName.substring(0, 4)}${type.toUpperCase().substring(0, 4)}`);
+    suggestions.push(`${baseName.substring(0, 4)}${typeStr.toUpperCase().substring(0, 4)}`);
     suggestions.push(`${baseName.substring(0, 6)}${Date.now().toString().slice(-2)}`);
-    suggestions.push(`${type.toUpperCase()}${baseName.substring(0, 6)}`);
+    suggestions.push(`${typeStr.toUpperCase()}${baseName.substring(0, 6)}`);
     
     return suggestions.filter(s => s.length >= 4 && s.length <= 20);
   }

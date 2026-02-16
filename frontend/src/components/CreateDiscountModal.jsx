@@ -178,9 +178,21 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
       newErrors.applicableCustomers = 'At least one customer must be selected';
     }
 
-    // Usage limits validation
+    // Usage limits validation (when provided, must be non-negative integer)
+    if (formData.usageLimit && formData.usageLimit !== '') {
+      const usageLimitNum = parseInt(formData.usageLimit, 10);
+      if (isNaN(usageLimitNum) || usageLimitNum < 0 || !Number.isInteger(Number(formData.usageLimit))) {
+        newErrors.usageLimit = 'Usage limit must be a non-negative integer';
+      }
+    }
+    if (formData.usageLimitPerCustomer && formData.usageLimitPerCustomer !== '') {
+      const perCustomerNum = parseInt(formData.usageLimitPerCustomer, 10);
+      if (isNaN(perCustomerNum) || perCustomerNum < 0 || !Number.isInteger(Number(formData.usageLimitPerCustomer))) {
+        newErrors.usageLimitPerCustomer = 'Per-customer usage limit must be a non-negative integer';
+      }
+    }
     if (formData.usageLimit && formData.usageLimitPerCustomer && 
-        parseInt(formData.usageLimitPerCustomer) > parseInt(formData.usageLimit)) {
+        parseInt(formData.usageLimitPerCustomer, 10) > parseInt(formData.usageLimit, 10)) {
       newErrors.usageLimitPerCustomer = 'Per-customer limit cannot exceed total limit';
     }
 
@@ -209,6 +221,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
       if (errors.applicableCategories) errorMessages.push(`Categories selection is incorrect: ${errors.applicableCategories}`);
       if (errors.applicableCustomers) errorMessages.push(`Customers selection is incorrect: ${errors.applicableCustomers}`);
       if (errors.maximumDiscount) errorMessages.push(`Maximum discount is incorrect: ${errors.maximumDiscount}`);
+      if (errors.usageLimit) errorMessages.push(`Usage limit is incorrect: ${errors.usageLimit}`);
       if (errors.usageLimitPerCustomer) errorMessages.push(`Usage limit per customer is incorrect: ${errors.usageLimitPerCustomer}`);
       if (errors.maximumQuantity) errorMessages.push(`Maximum quantity is incorrect: ${errors.maximumQuantity}`);
       
@@ -295,7 +308,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
         } else {
           // Fallback: show field names that have errors
           const fieldNames = Object.keys(newErrors)
-            .map(field => field
+            .map(field => (field ?? '')
               .replace(/([A-Z])/g, ' $1')
               .replace(/^./, str => str.toUpperCase())
               .trim()
@@ -1048,13 +1061,21 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={formData.usageLimit}
                     onChange={(e) => handleChange('usageLimit', e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                      errors.usageLimit ? 'border-red-300' : 'border-gray-300'
+                    }`}
                     placeholder="Leave empty for unlimited"
                     disabled={isCreating}
                   />
+                  {errors.usageLimit && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.usageLimit}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1063,7 +1084,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={formData.usageLimitPerCustomer}
                     onChange={(e) => handleChange('usageLimitPerCustomer', e.target.value)}
                     className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${

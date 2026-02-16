@@ -129,24 +129,26 @@ const PrintDocument = ({
         let postalCode = '';
         const pickAddr = (defaultAddress) => {
             if (!defaultAddress) return;
-            street = defaultAddress.street || '';
+            street = defaultAddress.street || defaultAddress.address_line1 || defaultAddress.addressLine1 || defaultAddress.line1 || '';
             city = defaultAddress.city || '';
-            state = defaultAddress.state || '';
-            postalCode = defaultAddress.zipCode || defaultAddress.zip || defaultAddress.postalCode || '';
+            state = defaultAddress.state || defaultAddress.province || '';
+            postalCode = defaultAddress.zipCode || defaultAddress.zip || defaultAddress.postalCode || defaultAddress.postal_code || '';
             customerAddress = [street, city, state, defaultAddress.country, postalCode].filter(Boolean).join(', ');
         };
-        if (customer.addresses && Array.isArray(customer.addresses) && customer.addresses.length > 0) {
-            const defaultAddress = customer.addresses.find(addr => addr.isDefault) ||
-                customer.addresses.find(addr => addr.type === 'billing' || addr.type === 'both') ||
-                customer.addresses[0];
+        const addressList = customer.addresses ?? (Array.isArray(customer.address) ? customer.address : null);
+        if (addressList && addressList.length > 0) {
+            const defaultAddress = addressList.find(addr => addr.isDefault) ||
+                addressList.find(addr => addr.type === 'billing' || addr.type === 'both') ||
+                addressList[0];
             pickAddr(defaultAddress);
         }
         if (!customerAddress) {
             const refParty = orderData.customer || orderData.supplier;
-            if (refParty?.addresses && Array.isArray(refParty.addresses) && refParty.addresses.length > 0) {
-                const defaultAddress = refParty.addresses.find(addr => addr.isDefault) ||
-                    refParty.addresses.find(addr => addr.type === 'billing' || addr.type === 'both') ||
-                    refParty.addresses[0];
+            const refList = refParty?.addresses ?? (Array.isArray(refParty?.address) ? refParty.address : null);
+            if (refList && refList.length > 0) {
+                const defaultAddress = refList.find(addr => addr.isDefault) ||
+                    refList.find(addr => addr.type === 'billing' || addr.type === 'both') ||
+                    refList[0];
                 pickAddr(defaultAddress);
             }
         }
@@ -161,11 +163,13 @@ const PrintDocument = ({
                 orderData.billingAddress ||
                 '';
             
-            // Format address if it's an object
-            if (typeof addr === 'object' && addr !== null) {
-                customerAddress = [addr.street, addr.city, addr.province || addr.state, addr.country].filter(Boolean).join(', ');
-            } else {
-                customerAddress = addr || '';
+            // Format address: single object (Postgres JSONB object or API object)
+            if (typeof addr === 'object' && addr !== null && !Array.isArray(addr)) {
+                const streetPart = addr.street || addr.address_line1 || addr.addressLine1 || addr.line1 || '';
+                const parts = [streetPart, addr.address_line2 || addr.addressLine2 || addr.line2, addr.city, addr.province || addr.state, addr.country, addr.zipCode || addr.zip || addr.postalCode || addr.postal_code].filter(Boolean);
+                customerAddress = parts.join(', ');
+            } else if (typeof addr === 'string') {
+                customerAddress = addr;
             }
         }
 
@@ -187,37 +191,44 @@ const PrintDocument = ({
 
     const items = Array.isArray(orderData?.items) ? orderData.items : [];
 
+    const computedSubtotalFromItems = items.reduce((sum, item) => {
+        const qty = toNumber(item.quantity ?? item.qty, 0);
+        const price = toNumber(
+            item.unitPrice ?? item.unit_price ?? item.price ?? item.unitCost ?? item.rate ?? item.costPerUnit,
+            0
+        );
+        const lineTotal = toNumber(
+            item.subtotal ?? item.total ?? item.lineTotal ?? item.totalPrice ?? item.total_cost ?? item.totalCost,
+            qty * price
+        );
+        return sum + lineTotal;
+    }, 0);
+
+    // When there are items, use sum from items so summary is never 0; fall back to stored only if sum is 0
+    const storedSubtotal = toNumber(orderData?.pricing?.subtotal ?? orderData?.subtotal, undefined);
     const computedSubtotal =
-        orderData?.pricing?.subtotal ??
-        orderData?.subtotal ??
-        items.reduce((sum, item) => {
-            const qty = toNumber(item.quantity ?? item.qty, 0);
-            const price = toNumber(
-                item.unitPrice ?? item.price ?? item.unitCost ?? item.rate,
-                0
-            );
-            return sum + qty * price;
-        }, 0);
+        items.length > 0
+            ? (computedSubtotalFromItems > 0 ? computedSubtotalFromItems : toNumber(storedSubtotal, 0))
+            : toNumber(storedSubtotal, 0);
 
     const discountValue =
-        orderData?.pricing?.discountAmount ??
-        orderData?.discount ??
-        orderData?.pricing?.discount ??
-        0;
+        toNumber(orderData?.pricing?.discountAmount ?? orderData?.pricing?.discount ?? orderData?.discount, 0);
     const taxValue =
-        orderData?.pricing?.taxAmount ??
-        orderData?.tax ??
+        toNumber(orderData?.pricing?.taxAmount ?? orderData?.tax, undefined) ??
         (orderData?.pricing?.isTaxExempt ? 0 : 0);
+    const storedTotal = toNumber(orderData?.pricing?.total ?? orderData?.total, undefined);
     const totalValue =
-        orderData?.pricing?.total ??
-        orderData?.total ??
-        computedSubtotal - toNumber(discountValue) + toNumber(taxValue);
+        items.length > 0
+            ? (storedTotal != null && storedTotal > 0 ? storedTotal : (computedSubtotal - toNumber(discountValue) + toNumber(taxValue)))
+            : (storedTotal ?? (computedSubtotal - toNumber(discountValue) + toNumber(taxValue)));
 
     const documentNumber =
         orderData?.invoiceNumber ||
         orderData?.orderNumber ||
+        orderData?.order_number ||
         orderData?.poNumber ||
         orderData?.referenceNumber ||
+        orderData?.id ||
         orderData?._id ||
         'N/A';
 
@@ -280,6 +291,11 @@ const PrintDocument = ({
     ].filter(Boolean);
 
     const hasCameraTime = orderData?.billStartTime || orderData?.billEndTime;
+
+    // Received amount: from API or fallback when paid (so we don't show 0.0 on paid invoices)
+    const rawReceived = toNumber(orderData?.payment?.amountPaid ?? orderData?.amount_paid, 0);
+    const isPaid = orderData?.payment_status === 'paid' || orderData?.payment?.status === 'paid';
+    const receivedAmount = rawReceived > 0 ? rawReceived : (isPaid ? toNumber(totalValue, 0) : 0);
 
     // ==========================================
     // Layout 2 (Professional Boxed Layout)
@@ -401,11 +417,11 @@ const PrintDocument = ({
                                 </tr>
                                 <tr>
                                     <td className="border-b border-r border-black p-1 text-right font-bold">Received Amount</td>
-                                    <td className="border-b border-r border-black p-1 text-right">{formatCurrency(orderData?.payment?.amountPaid || 0)}</td>
+                                    <td className="border-b border-r border-black p-1 text-right">{formatCurrency(receivedAmount)}</td>
                                 </tr>
                                 <tr>
                                     <td className="border-b border-r border-black p-1 text-right font-bold">Invoice Balance</td>
-                                    <td className="border-b border-r border-black p-1 text-right">{formatCurrency(toNumber(totalValue) - toNumber(orderData?.payment?.amountPaid || 0))}</td>
+                                    <td className="border-b border-r border-black p-1 text-right">{formatCurrency(toNumber(totalValue) - receivedAmount)}</td>
                                 </tr>
                                 <tr>
                                     <td className="border-b border-r border-black p-1 text-right font-bold">Previous Balance</td>

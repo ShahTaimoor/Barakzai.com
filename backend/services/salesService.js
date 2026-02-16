@@ -10,6 +10,8 @@ const customerTransactionService = require('./customerTransactionService');
 const CustomerBalanceService = require('./customerBalanceService');
 const AccountingService = require('./accountingService');
 const profitDistributionService = require('./profitDistributionService');
+const discountService = require('./discountService');
+const paymentRepository = require('../repositories/postgres/PaymentRepository');
 
 // Helper function to parse date string as local date (not UTC)
 const parseLocalDate = (dateString) => {
@@ -47,6 +49,49 @@ class SalesService {
     if (customer.firstName) customer.firstName = customer.firstName.toUpperCase();
     if (customer.lastName) customer.lastName = customer.lastName.toUpperCase();
     return customer;
+  }
+
+  /**
+   * Enrich order items with product names when product is stored as ID only.
+   * @param {Array} items - Order items
+   * @returns {Promise<Array>} - Items with product populated as { _id, name }
+   */
+  async enrichItemsWithProductNames(items) {
+    if (!items || !Array.isArray(items) || items.length === 0) return items;
+    const productIds = [...new Set(items.map(i => {
+      const p = i.product || i.product_id;
+      if (!p) return null;
+      const id = typeof p === 'string' ? p : (p._id || p.id || p);
+      return id && typeof id === 'string' ? id : (id && id.toString ? id.toString() : null);
+    }).filter(Boolean))];
+    if (productIds.length === 0) return items;
+
+    const products = await productRepository.findAll({ ids: productIds }, { limit: 1000 });
+    const productMap = new Map();
+    for (const p of products) {
+      const id = p.id || p._id;
+      const sid = id && id.toString ? id.toString() : String(id);
+      productMap.set(sid, { _id: id, name: p.name || p.displayName || 'Product' });
+    }
+    for (const id of productIds) {
+      if (productMap.has(id)) continue;
+      const v = await productVariantRepository.findById(id);
+      if (v) {
+        const vid = v.id || v._id;
+        productMap.set(id, { _id: vid, name: v.display_name || v.variant_name || v.displayName || v.variantName || 'Variant' });
+      }
+    }
+
+    return items.map(item => {
+      const i = { ...item };
+      const p = i.product || i.product_id;
+      const id = !p ? null : (typeof p === 'string' ? p : (p._id || p.id || p));
+      const sid = id && typeof id === 'string' ? id : (id && id.toString ? id.toString() : null);
+      if (sid && productMap.has(sid)) {
+        i.product = productMap.get(sid);
+      }
+      return i;
+    });
   }
 
   /**
@@ -160,7 +205,7 @@ class SalesService {
       if (cust) customerMap.set(cid, this.transformCustomerToUppercase(cust));
     }
 
-    const orders = sales.map(order => {
+    const orders = await Promise.all(sales.map(async (order) => {
       const o = { ...order };
       if (o.customer_id && customerMap.has(o.customer_id)) {
         o.customer = customerMap.get(o.customer_id);
@@ -171,6 +216,7 @@ class SalesService {
         o.customer.advanceBalance = (ob + bal) < 0 ? Math.abs(ob + bal) : 0;
       }
       if (o.items && Array.isArray(o.items)) {
+        o.items = await this.enrichItemsWithProductNames(o.items);
         o.items = o.items.map(item => {
           const i = { ...item };
           if (i.product) i.product = this.transformProductToUppercase(i.product);
@@ -178,7 +224,7 @@ class SalesService {
         });
       }
       return o;
-    });
+    }));
 
     return {
       orders,
@@ -208,17 +254,55 @@ class SalesService {
         order.customer.currentBalance = balance;
         order.customer.pendingBalance = balance > 0 ? balance : 0;
         order.customer.advanceBalance = balance < 0 ? Math.abs(balance) : 0;
+
+        // customerInfo for print: include formatted address (handle address as array or object from JSONB)
+        const addrRaw = customer.address;
+        let addressStr = '';
+        if (typeof addrRaw === 'string') addressStr = addrRaw;
+        else if (Array.isArray(addrRaw) && addrRaw.length > 0) {
+          const a = addrRaw.find(ad => ad.isDefault) || addrRaw.find(ad => ad.type === 'billing' || ad.type === 'both') || addrRaw[0];
+          addressStr = [a.street || a.address_line1 || a.addressLine1, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode].filter(Boolean).join(', ');
+        } else if (addrRaw && typeof addrRaw === 'object') {
+          addressStr = [addrRaw.street || addrRaw.address_line1 || addrRaw.addressLine1, addrRaw.city, addrRaw.state || addrRaw.province, addrRaw.country, addrRaw.zipCode || addrRaw.zip || addrRaw.postalCode].filter(Boolean).join(', ');
+        }
+        order.customerInfo = {
+          name: customer.business_name || customer.businessName || customer.name,
+          businessName: customer.business_name || customer.businessName,
+          email: customer.email,
+          phone: customer.phone,
+          address: addressStr,
+        };
       }
     }
 
-    // Transform product names in items
+    // Enrich items with product names and transform to uppercase
     if (order.items && Array.isArray(order.items)) {
+      order.items = await this.enrichItemsWithProductNames(order.items);
       order.items.forEach(item => {
         if (item.product) {
           item.product = this.transformProductToUppercase(item.product);
         }
       });
     }
+
+    // Attach payment.amountPaid for invoice/print (stored on sale, or payments table, or paid-at-creation)
+    const orderId = order.id || order._id;
+    let amountPaid = parseFloat(order.amount_paid);
+    if (Number.isNaN(amountPaid) || amountPaid < 0) amountPaid = 0;
+    if (amountPaid === 0) {
+      try {
+        amountPaid = await paymentRepository.calculateTotalPaid(orderId);
+      } catch (_) { /* ignore */ }
+    }
+    if (amountPaid === 0 && (order.payment_status === 'paid' || order.paymentStatus === 'paid')) {
+      amountPaid = parseFloat(order.total) || 0;
+    }
+    order.payment = {
+      ...(order.payment || {}),
+      amountPaid,
+      method: order.payment?.method || order.payment_method || 'N/A',
+      status: order.payment?.status || order.payment_status || 'pending',
+    };
 
     return order;
   }
@@ -278,7 +362,7 @@ class SalesService {
    */
   async createSale(data, user, options = {}) {
     const { skipInventoryUpdate = false } = options;
-    const { customer, items, orderType, payment, notes, isTaxExempt, billDate, billStartTime, salesOrderId } = data;
+    const { customer, items, orderType, payment, notes, isTaxExempt, billDate, billStartTime, salesOrderId, appliedDiscounts: payloadDiscounts, discountAmount: payloadDiscountAmount, subtotal: payloadSubtotal, total: payloadTotal, tax: payloadTax } = data;
 
     // Validate customer if provided
     let customerData = null;
@@ -357,7 +441,17 @@ class SalesService {
       totalTax += itemTax;
     }
 
-    const orderTotal = subtotal - totalDiscount + totalTax;
+    let orderTotal = subtotal - totalDiscount + totalTax;
+    let finalDiscount = totalDiscount;
+    let finalTax = totalTax;
+    const appliedDiscountsForSale = Array.isArray(payloadDiscounts) ? payloadDiscounts : [];
+
+    if (appliedDiscountsForSale.length > 0 && (payloadDiscountAmount != null || payloadTotal != null)) {
+      if (payloadDiscountAmount != null) finalDiscount = Number(payloadDiscountAmount);
+      if (payloadTax != null) finalTax = Number(payloadTax);
+      if (payloadTotal != null) orderTotal = Number(payloadTotal);
+      else orderTotal = subtotal - finalDiscount + finalTax;
+    }
 
     // Check credit limit for credit sales (account payment or partial payment)
     if (customerData && (customerData.credit_limit || customerData.creditLimit) > 0) {
@@ -396,26 +490,40 @@ class SalesService {
     // Generate order number if not provided (sales/invoices use INV-, not SO- which is for sales orders only)
     const orderNumber = data.orderNumber || `INV-${Date.now()}`;
 
-    // Prepare sale data for PostgreSQL
+    // Prepare sale data for PostgreSQL (include applied discount codes when provided from POS)
     const saleData = {
       orderNumber,
       customerId: customer || null,
       saleDate: parseLocalDate(billDate) || new Date(),
       items: orderItems,
       subtotal,
-      discount: totalDiscount,
-      tax: totalTax,
+      discount: finalDiscount,
+      tax: finalTax,
       total: orderTotal,
       paymentMethod: payment.method,
       paymentStatus: payment.isPartialPayment ? 'partial' : (String(payment.method || '').toLowerCase() === 'cash' ? 'paid' : 'pending'),
       status: 'confirmed',
       notes,
-      createdBy: user.id || user._id?.toString()
+      createdBy: user.id || user._id?.toString(),
+      appliedDiscounts: appliedDiscountsForSale
     };
 
     const order = await transaction(async (client) => {
       return await salesRepository.create(saleData, client);
     });
+
+    // Record discount usage for each applied code (so usage limits are updated)
+    for (const applied of appliedDiscountsForSale) {
+      const code = applied.code || applied.discountCode;
+      const amount = Number(applied.amount ?? 0);
+      if (code && amount >= 0) {
+        try {
+          await discountService.recordDiscountUsage(code, customer || null, amount, order.id);
+        } catch (e) {
+          console.error('Failed to record discount usage for', code, e.message);
+        }
+      }
+    }
 
     const paymentStatus = order.payment_status ?? order.paymentStatus ?? saleData.paymentStatus;
     const orderStatus = order.status ?? saleData.status;

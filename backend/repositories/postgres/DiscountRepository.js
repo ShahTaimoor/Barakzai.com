@@ -1,5 +1,17 @@
 const { query } = require('../../config/postgres');
 
+// Coerce values for numeric columns so we never send "" to Postgres (invalid input syntax for type numeric)
+function toNumericOptional(v) {
+  if (v === '' || v === undefined || v === null) return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+}
+function toNumericDefault(v, def = 0) {
+  if (v === '' || v === undefined || v === null) return def;
+  const n = Number(v);
+  return Number.isNaN(n) ? def : n;
+}
+
 class DiscountRepository {
   async findById(id) {
     const result = await query('SELECT * FROM discounts WHERE id = $1', [id]);
@@ -52,10 +64,31 @@ class DiscountRepository {
     if (period.endDate) { sql += ` AND created_at <= $${p++}`; params.push(period.endDate); }
     const result = await query(sql, params);
     const row = result.rows[0];
+
+    // Total usage: sum of current_usage across all discounts (optionally filtered by period)
+    let usageSql = 'SELECT COALESCE(SUM(current_usage), 0)::int AS total_usage FROM discounts WHERE 1=1';
+    const usageParams = [];
+    let up = 1;
+    if (period.startDate) { usageSql += ` AND created_at >= $${up++}`; usageParams.push(period.startDate); }
+    if (period.endDate) { usageSql += ` AND created_at <= $${up++}`; usageParams.push(period.endDate); }
+    const usageResult = await query(usageSql, usageParams);
+    const totalUsage = parseInt(usageResult.rows[0]?.total_usage || 0, 10);
+
+    // Total customer savings: sum of discount amounts from sales (optionally filtered by period)
+    let salesSql = 'SELECT COALESCE(SUM(discount), 0)::decimal AS total_discount FROM sales WHERE deleted_at IS NULL AND (discount IS NOT NULL AND discount > 0)';
+    const salesParams = [];
+    let sp = 1;
+    if (period.startDate) { salesSql += ` AND created_at >= $${sp++}`; salesParams.push(period.startDate); }
+    if (period.endDate) { salesSql += ` AND created_at <= $${sp++}`; salesParams.push(period.endDate); }
+    const salesResult = await query(salesSql, salesParams);
+    const totalDiscountAmount = parseFloat(salesResult.rows[0]?.total_discount || 0, 10);
+
     return {
       total: parseInt(row?.total || 0, 10),
       active: parseInt(row?.active || 0, 10),
       byStatus: { active: parseInt(row?.active || 0, 10), inactive: Math.max(0, parseInt(row?.total || 0, 10) - parseInt(row?.active || 0, 10)) },
+      totalUsage,
+      totalDiscountAmount,
     };
   }
 
@@ -77,8 +110,9 @@ class DiscountRepository {
       `INSERT INTO discounts (name, description, code, type, value, maximum_discount, minimum_order_amount, applicable_to, valid_from, valid_until, is_active, created_by, conditions, analytics, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *`,
       [
-        data.name, data.description || null, (data.code || '').toUpperCase(), data.type, data.value,
-        data.maximumDiscount ?? data.maximum_discount ?? null, data.minimumOrderAmount ?? data.minimum_order_amount ?? 0,
+        data.name, data.description || null, (data.code || '').toUpperCase(), data.type, toNumericDefault(data.value),
+        toNumericOptional(data.maximumDiscount ?? data.maximum_discount),
+        toNumericDefault(data.minimumOrderAmount ?? data.minimum_order_amount, 0),
         data.applicableTo || data.applicable_to || 'all', data.validFrom || data.valid_from, data.validUntil || data.valid_until,
         data.isActive !== false, data.createdBy || data.created_by, data.conditions ? JSON.stringify(data.conditions) : '{}'
       ]
@@ -90,11 +124,16 @@ class DiscountRepository {
     const updates = [];
     const params = [];
     let paramCount = 1;
+    const numericOptional = new Set(['maximum_discount', 'current_usage']);
+    const numericDefault = new Set(['minimum_order_amount', 'value']);
     const map = { name: 'name', description: 'description', code: 'code', type: 'type', value: 'value', maximumDiscount: 'maximum_discount', minimumOrderAmount: 'minimum_order_amount', applicableTo: 'applicable_to', validFrom: 'valid_from', validUntil: 'valid_until', isActive: 'is_active', currentUsage: 'current_usage', analytics: 'analytics', lastModifiedBy: 'last_modified_by' };
     for (const [k, col] of Object.entries(map)) {
       if (data[k] !== undefined) {
         updates.push(`${col} = $${paramCount++}`);
-        params.push(typeof data[k] === 'object' ? JSON.stringify(data[k]) : (k === 'code' ? (data[k] || '').toUpperCase() : data[k]));
+        let val = typeof data[k] === 'object' ? JSON.stringify(data[k]) : (k === 'code' ? (data[k] || '').toUpperCase() : data[k]);
+        if (numericOptional.has(col)) val = toNumericOptional(val);
+        else if (numericDefault.has(col)) val = toNumericDefault(val);
+        params.push(val);
       }
     }
     if (updates.length === 0) return this.findById(id);

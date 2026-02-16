@@ -21,10 +21,10 @@ router.post('/', [
   body('validFrom').isISO8601().toDate().withMessage('Valid from date is required'),
   body('validUntil').isISO8601().toDate().withMessage('Valid until date is required'),
   body('applicableTo').optional().isIn(['all', 'products', 'categories', 'customers']).withMessage('Invalid applicable to value'),
-  body('usageLimit').optional().isInt({ min: 1 }).withMessage('Usage limit must be a positive integer'),
-  body('usageLimitPerCustomer').optional().isInt({ min: 1 }).withMessage('Per-customer usage limit must be a positive integer'),
+  body('usageLimit').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Usage limit must be a non-negative integer'),
+  body('usageLimitPerCustomer').optional({ checkFalsy: true }).isInt({ min: 0 }).withMessage('Per-customer usage limit must be a non-negative integer'),
   body('minimumOrderAmount').optional().isFloat({ min: 0 }).withMessage('Minimum order amount must be non-negative'),
-  body('maximumDiscount').optional().isFloat({ min: 0 }).withMessage('Maximum discount must be non-negative'),
+  body('maximumDiscount').optional({ checkFalsy: true }).isFloat({ min: 0 }).withMessage('Maximum discount must be non-negative'),
   body('priority').optional().isInt({ min: 0 }).withMessage('Priority must be a non-negative integer'),
   handleValidationErrors,
 ], async (req, res) => {

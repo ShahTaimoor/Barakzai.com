@@ -1871,7 +1871,7 @@ const CashReceipts = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Payment Method
                   </label>
-                  <p className="text-sm text-gray-900 capitalize">{selectedReceipt.paymentMethod.replace('_', ' ')}</p>
+                  <p className="text-sm text-gray-900 capitalize">{(selectedReceipt.paymentMethod ?? '').replace(/_/g, ' ')}</p>
                 </div>
                 {selectedReceipt.notes && (
                   <div>

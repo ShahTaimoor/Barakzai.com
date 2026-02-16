@@ -11,6 +11,7 @@ const { validateDateParams, processDateFilter } = require('../middleware/dateFil
 const purchaseInvoiceService = require('../services/purchaseInvoiceService');
 const purchaseInvoiceRepository = require('../repositories/postgres/PurchaseInvoiceRepository');
 const supplierRepository = require('../repositories/postgres/SupplierRepository');
+const AccountingService = require('../services/accountingService');
 
 const router = express.Router();
 
@@ -376,6 +377,31 @@ router.put('/:id', [
     }
 
     const updatedInvoice = await purchaseInvoiceRepository.updateById(req.params.id, updateData);
+
+    // Parse updatedInvoice payment if it came back as string from DB
+    const updatedPayment = typeof updatedInvoice?.payment === 'string' ? JSON.parse(updatedInvoice.payment || '{}') : (updatedInvoice?.payment || {});
+
+    // Post amount paid change to account ledger so balance reflects the update
+    if (req.body.payment !== undefined) {
+      const oldAmountPaid = parseFloat(invoice.payment?.amount ?? invoice.payment?.paidAmount ?? 0) || 0;
+      const newAmountPaid = parseFloat(updatedPayment?.amount ?? updatedPayment?.paidAmount ?? 0) || 0;
+      if (Math.abs(newAmountPaid - oldAmountPaid) >= 0.01) {
+        try {
+          const supplierId = updatedInvoice.supplier_id || updatedInvoice.supplierId || invoice.supplier_id || invoice.supplierId;
+          await AccountingService.recordPurchasePaymentAdjustment({
+            invoiceId: updatedInvoice.id || updatedInvoice._id,
+            invoiceNumber: updatedInvoice.invoice_number || updatedInvoice.invoiceNumber,
+            supplierId: supplierId || updatedInvoice.supplier,
+            oldAmountPaid,
+            newAmountPaid,
+            paymentMethod: updatedPayment?.method || invoice.payment?.method || 'cash',
+            createdBy: req.user?.id || req.user?._id
+          });
+        } catch (ledgerErr) {
+          console.error('Failed to post purchase payment adjustment to ledger:', ledgerErr);
+        }
+      }
+    }
 
     // Adjust inventory based on item changes if invoice was confirmed
     if (invoice.status === 'confirmed' && req.body.items && req.body.items.length > 0) {

@@ -26,6 +26,7 @@ import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery, useGetLastPurcha
 import { useGetVariantsQuery, useGetVariantsByBaseProductQuery } from '../store/services/productVariantsApi';
 import { useGetCustomersQuery, useGetCustomerQuery, useLazySearchCustomersQuery } from '../store/services/customersApi';
 import { useCreateSaleMutation, useUpdateOrderMutation, useLazyGetLastPricesQuery } from '../store/services/salesApi';
+import { useCheckApplicableDiscountsMutation } from '../store/services/discountsApi';
 import { useGetBanksQuery } from '../store/services/banksApi';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
 import { SearchableDropdown } from '../components/SearchableDropdown';
@@ -853,6 +854,10 @@ export const Sales = ({ tabId, editData }) => {
   const [createSale, { isLoading: isCreatingSale }] = useCreateSaleMutation();
   const [updateOrder, { isLoading: isUpdatingOrder }] = useUpdateOrderMutation();
   const [getLastPrices] = useLazyGetLastPricesQuery();
+  const [checkApplicableDiscounts, { isLoading: checkingDiscount }] = useCheckApplicableDiscountsMutation();
+
+  const [discountCodeInput, setDiscountCodeInput] = useState('');
+  const [applicableDiscountList, setApplicableDiscountList] = useState([]);
 
   // Duplicate prevention: use BOTH ref (synchronous check) and state (button disable)
   const isSubmittingRef = useRef(false); // For immediate synchronous checks
@@ -915,6 +920,29 @@ export const Sales = ({ tabId, editData }) => {
 
   const subtotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
   const codeDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + discount.amount, 0);
+
+  // Fetch applicable discount codes when cart subtotal or customer changes
+  useEffect(() => {
+    if (subtotal <= 0) {
+      setApplicableDiscountList([]);
+      return;
+    }
+    let cancelled = false;
+    checkApplicableDiscounts({
+      orderData: { total: subtotal },
+      customerData: selectedCustomer ? { id: selectedCustomer._id || selectedCustomer.id } : null
+    })
+      .unwrap()
+      .then((res) => {
+        if (cancelled) return;
+        const list = res?.applicableDiscounts ?? res?.data?.applicableDiscounts ?? [];
+        setApplicableDiscountList(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setApplicableDiscountList([]);
+      });
+    return () => { cancelled = true; };
+  }, [subtotal, selectedCustomer?._id, selectedCustomer?.id]);
 
   let directDiscountAmount = 0;
   if (directDiscount.value > 0) {
@@ -1341,6 +1369,72 @@ export const Sales = ({ tabId, editData }) => {
 
   const { confirmation: clearConfirmation, confirmClear, handleConfirm: handleClearConfirm, handleCancel: handleClearCancel } = useClearConfirmation();
 
+  const applyDiscountFromItem = (match) => {
+    const discount = match.discount || {};
+    const code = (discount.code || discount.discount_code || '').toString().toUpperCase();
+    if (!code) return;
+    if (appliedDiscounts.some((d) => (d.code || '').toUpperCase() === code)) {
+      showErrorToast('This discount is already applied');
+      return;
+    }
+    const amount = match.calculatedAmount ?? (discount.type === 'percentage' ? (subtotal * (discount.value || 0)) / 100 : Math.min(discount.value || 0, subtotal));
+    setAppliedDiscounts((prev) => [
+      ...prev,
+      {
+        code: discount.code || discount.discount_code || code,
+        amount: Number(amount) || 0,
+        discountId: discount.id || discount._id,
+        type: discount.type,
+        value: discount.value
+      }
+    ]);
+    setDiscountCodeInput('');
+    showSuccessToast(`Discount ${code} applied`);
+  };
+
+  const handleApplyDiscountCode = async () => {
+    const code = discountCodeInput?.trim?.()?.toUpperCase?.() || '';
+    if (!code) {
+      showErrorToast('Please enter a discount code');
+      return;
+    }
+    if (subtotal <= 0) {
+      showErrorToast('Add items to the cart before applying a discount');
+      return;
+    }
+    try {
+      const res = await checkApplicableDiscounts({
+        orderData: { total: subtotal },
+        customerData: selectedCustomer ? { id: selectedCustomer._id || selectedCustomer.id } : null
+      }).unwrap();
+      const list = res?.applicableDiscounts ?? res?.data?.applicableDiscounts ?? [];
+      const match = list.find(
+        (item) => (item.discount?.code || item.discount?.discount_code || '').toString().toUpperCase() === code
+      );
+      if (!match) {
+        showErrorToast('Invalid or not applicable discount code');
+        return;
+      }
+      applyDiscountFromItem(match);
+    } catch (e) {
+      showErrorToast(e?.data?.message || e?.message || 'Failed to apply discount code');
+    }
+  };
+
+  const handleSelectDiscountFromDropdown = (e) => {
+    const value = e.target.value;
+    if (!value) return;
+    const match = applicableDiscountList.find(
+      (item) => (item.discount?.code || item.discount?.discount_code || '').toString().toUpperCase() === value
+    );
+    if (match) applyDiscountFromItem(match);
+    e.target.value = '';
+  };
+
+  const handleRemoveDiscountCode = (code) => {
+    setAppliedDiscounts((prev) => prev.filter((d) => (d.code || '').toUpperCase() !== (code || '').toUpperCase()));
+  };
+
   const handleClearCart = () => {
     if (cart.length > 0) {
       setIsClearingCart(true);
@@ -1350,6 +1444,7 @@ export const Sales = ({ tabId, editData }) => {
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setAppliedDiscounts([]);
+          setDiscountCodeInput('');
           setIsTaxExempt(true);
           setDirectDiscount({ type: 'amount', value: 0 });
           setIsAdvancePayment(false);
@@ -1653,6 +1748,7 @@ export const Sales = ({ tabId, editData }) => {
       // setSelectedCustomer(null);
       setAmountPaid(0);
       setAppliedDiscounts([]);
+      setDiscountCodeInput('');
       setDirectDiscount({ type: 'amount', value: 0 });
       setNotes('');
       setInvoiceNumber('');
@@ -2901,11 +2997,94 @@ export const Sales = ({ tabId, editData }) => {
 
               {/* Payment and Discount Section - One Row */}
               <div className="mt-4 bg-white rounded-lg p-4 shadow-sm">
+                {/* Discount code (from Discount Management) */}
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Discount code
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value=""
+                      onChange={handleSelectDiscountFromDropdown}
+                      disabled={subtotal <= 0 || applicableDiscountList.length === 0}
+                      className="px-3 py-2 border-2 border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 min-w-[180px]"
+                      title="Choose an applicable discount"
+                    >
+                      <option value="">
+                        {subtotal <= 0
+                          ? 'Add items to see discounts'
+                          : applicableDiscountList.length === 0
+                            ? 'No applicable discounts'
+                            : 'Select discount code...'}
+                      </option>
+                      {applicableDiscountList
+                        .filter(
+                          (item) =>
+                            !appliedDiscounts.some(
+                              (d) =>
+                                (d.code || '').toUpperCase() ===
+                                (item.discount?.code || item.discount?.discount_code || '').toString().toUpperCase()
+                            )
+                        )
+                        .map((item) => {
+                          const d = item.discount || {};
+                          const code = (d.code || d.discount_code || '').toString();
+                          const amt = item.calculatedAmount ?? 0;
+                          const label =
+                            d.type === 'percentage'
+                              ? `${code} - ${d.value}% off (${typeof amt === 'number' ? amt.toFixed(2) : amt})`
+                              : `${code} - ${typeof amt === 'number' ? amt.toFixed(2) : amt} off`;
+                          return (
+                            <option key={code} value={code}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                    </select>
+                    <span className="text-slate-400 text-sm hidden sm:inline">or</span>
+                    <input
+                      type="text"
+                      placeholder="Enter code (e.g. SUMMER)"
+                      value={discountCodeInput}
+                      onChange={(e) => setDiscountCodeInput((e.target.value || '').toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyDiscountCode()}
+                      className="px-3 py-2 border-2 border-slate-200 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 w-40"
+                    />
+                    <LoadingButton
+                      onClick={handleApplyDiscountCode}
+                      isLoading={checkingDiscount}
+                      disabled={!discountCodeInput?.trim() || subtotal <= 0}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold"
+                    >
+                      Apply code
+                    </LoadingButton>
+                  </div>
+                  {appliedDiscounts.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {appliedDiscounts.map((d) => (
+                        <span
+                          key={d.code}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-medium"
+                        >
+                          {d.code} -{typeof d.amount === 'number' ? d.amount.toFixed(2) : d.amount}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDiscountCode(d.code)}
+                            className="ml-1 text-green-600 hover:text-green-900"
+                            aria-label="Remove"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start">
-                  {/* Apply Discount */}
+                  {/* Manual discount (amount or %) */}
                   <div className="flex flex-col">
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
-                      Apply Discount
+                      Apply Discount (manual)
                     </label>
                     <div className="flex space-x-2">
                       <select

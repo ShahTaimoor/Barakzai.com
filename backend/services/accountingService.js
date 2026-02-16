@@ -674,6 +674,78 @@ class AccountingService {
   }
 
   /**
+   * Record sale payment adjustment when amount received is changed on edit.
+   * Posts the delta to account_ledger so balance reflects the change.
+   * - Delta > 0: Dr Cash/Bank, Cr AR (payment received)
+   * - Delta < 0: Dr AR, Cr Cash/Bank (reversal)
+   * @param {Object} params - { saleId, orderNumber, customerId, oldAmountPaid, newAmountPaid, paymentMethod, createdBy }
+   */
+  static async recordSalePaymentAdjustment(params) {
+    const { saleId, orderNumber, customerId, oldAmountPaid, newAmountPaid, paymentMethod = 'cash', createdBy } = params;
+    const oldAmt = parseFloat(oldAmountPaid) || 0;
+    const newAmt = parseFloat(newAmountPaid) || 0;
+    const delta = newAmt - oldAmt;
+    if (Math.abs(delta) < 0.01) return { ok: true };
+
+    const refNum = orderNumber || saleId;
+    const debitAccount = (paymentMethod === 'bank' || paymentMethod === 'bank_transfer') ? '1001' : '1000';
+    const creditAccount = '1100'; // AR
+
+    if (delta > 0) {
+      // Payment received: Dr Cash/Bank, Cr AR
+      return await this.createTransaction(
+        { accountCode: debitAccount, debitAmount: delta, creditAmount: 0, description: `Sale payment (edit): ${refNum}` },
+        { accountCode: creditAccount, debitAmount: 0, creditAmount: delta, description: `Payment for sale: ${refNum}` },
+        { referenceType: 'sale_payment', referenceId: saleId, referenceNumber: refNum, customerId: customerId || null, currency: 'PKR', createdBy }
+      );
+    } else {
+      // Reversal: Dr AR, Cr Cash/Bank
+      const absDelta = Math.abs(delta);
+      return await this.createTransaction(
+        { accountCode: creditAccount, debitAmount: absDelta, creditAmount: 0, description: `Sale payment reversal (edit): ${refNum}` },
+        { accountCode: debitAccount, debitAmount: 0, creditAmount: absDelta, description: `Reversal for sale: ${refNum}` },
+        { referenceType: 'sale_payment', referenceId: saleId, referenceNumber: refNum, customerId: customerId || null, currency: 'PKR', createdBy }
+      );
+    }
+  }
+
+  /**
+   * Record purchase payment adjustment when amount paid is changed on edit.
+   * Posts the delta to account_ledger so balance reflects the change.
+   * - Delta > 0: Dr AP (2000), Cr Cash/Bank (payment made)
+   * - Delta < 0: Dr Cash/Bank, Cr AP (reversal)
+   * @param {Object} params - { invoiceId, invoiceNumber, supplierId, oldAmountPaid, newAmountPaid, paymentMethod, createdBy }
+   */
+  static async recordPurchasePaymentAdjustment(params) {
+    const { invoiceId, invoiceNumber, supplierId, oldAmountPaid, newAmountPaid, paymentMethod = 'cash', createdBy } = params;
+    const oldAmt = parseFloat(oldAmountPaid) || 0;
+    const newAmt = parseFloat(newAmountPaid) || 0;
+    const delta = newAmt - oldAmt;
+    if (Math.abs(delta) < 0.01) return { ok: true };
+
+    const refNum = invoiceNumber || invoiceId;
+    const creditAccount = (paymentMethod === 'bank' || paymentMethod === 'bank_transfer') ? '1001' : '1000'; // Cash or Bank
+    const debitAccount = '2000'; // AP
+
+    if (delta > 0) {
+      // Payment made: Dr AP, Cr Cash/Bank
+      return await this.createTransaction(
+        { accountCode: debitAccount, debitAmount: delta, creditAmount: 0, description: `Purchase payment (edit): ${refNum}` },
+        { accountCode: creditAccount, debitAmount: 0, creditAmount: delta, description: `Payment for purchase: ${refNum}` },
+        { referenceType: 'purchase_invoice_payment', referenceId: invoiceId, referenceNumber: refNum, supplierId: supplierId || null, currency: 'PKR', createdBy }
+      );
+    } else {
+      // Reversal: Dr Cash/Bank, Cr AP
+      const absDelta = Math.abs(delta);
+      return await this.createTransaction(
+        { accountCode: creditAccount, debitAmount: absDelta, creditAmount: 0, description: `Purchase payment reversal (edit): ${refNum}` },
+        { accountCode: debitAccount, debitAmount: 0, creditAmount: absDelta, description: `Reversal for purchase: ${refNum}` },
+        { referenceType: 'purchase_invoice_payment', referenceId: invoiceId, referenceNumber: refNum, supplierId: supplierId || null, currency: 'PKR', createdBy }
+      );
+    }
+  }
+
+  /**
    * Record purchase transaction
    */
   static async recordPurchase(purchase) {

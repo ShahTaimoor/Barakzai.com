@@ -384,14 +384,213 @@ class ReportsService {
   }
 
   /**
+   * Get stock summary report (Opening Balance, Purchase, Sale, Returns, Damage, Closing Balance, For Zakat)
+   * @param {object} filters - Query filters (category, dateFrom, dateTo)
+   * @returns {Promise<object>}
+   */
+  async getStockSummaryReport(filters) {
+    const { query } = require('../config/postgres');
+    const { getStartOfDayPakistan, getEndOfDayPakistan } = require('../utils/dateFilter');
+
+    const categoryId = filters.category && filters.category !== 'all' ? filters.category : null;
+    const dateFrom = filters.dateFrom ? getStartOfDayPakistan(filters.dateFrom) : getStartOfDayPakistan(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    const dateTo = filters.dateTo ? getEndOfDayPakistan(filters.dateTo) : getEndOfDayPakistan(new Date().toISOString().split('T')[0]);
+
+    const params = [dateFrom, dateTo];
+    let paramIdx = 3;
+    const prodFilter = categoryId ? ` AND p.category_id = $${paramIdx++}` : '';
+    if (categoryId) params.push(categoryId);
+
+    const stockInTypes = "'purchase','return_in','adjustment_in','transfer_in','production','initial_stock'";
+    const stockOutTypes = "'sale','return_out','adjustment_out','transfer_out','damage','expiry','theft','consumption'";
+
+    const sql = `
+      WITH products_base AS (
+        SELECT p.id, p.name, p.sku, p.unit, cat.name as "categoryName",
+               COALESCE(p.cost_price, 0) as cost_price,
+               COALESCE(p.selling_price, 0) as selling_price,
+               COALESCE(p.wholesale_price, p.selling_price, 0) as wholesale_price,
+               COALESCE(p.min_stock_level, 0) as min_stock_level,
+               COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0)::decimal as "currentStock"
+        FROM products p
+        LEFT JOIN categories cat ON p.category_id = cat.id
+        LEFT JOIN inventory_balance ib ON ib.product_id = p.id
+        LEFT JOIN inventory i ON i.product_id = p.id AND i.deleted_at IS NULL
+        WHERE p.is_deleted = FALSE AND p.is_active = TRUE ${prodFilter}
+      ),
+      opening AS (
+        SELECT product_id, product_name, product_sku,
+          SUM(CASE WHEN movement_type IN (${stockInTypes}) THEN quantity ELSE -quantity END) as qty,
+          SUM(CASE WHEN movement_type IN (${stockInTypes}) THEN total_value ELSE -total_value END) as amount
+        FROM stock_movements
+        WHERE created_at < $1 AND status = 'completed'
+        GROUP BY product_id, product_name, product_sku
+      ),
+      period_act AS (
+        SELECT product_id,
+          SUM(CASE WHEN movement_type = 'purchase' THEN quantity ELSE 0 END) as purchase_qty,
+          SUM(CASE WHEN movement_type = 'purchase' THEN total_value ELSE 0 END) as purchase_amt,
+          SUM(CASE WHEN movement_type = 'return_out' THEN quantity ELSE 0 END) as purchase_return_qty,
+          SUM(CASE WHEN movement_type = 'return_out' THEN total_value ELSE 0 END) as purchase_return_amt,
+          SUM(CASE WHEN movement_type = 'sale' THEN quantity ELSE 0 END) as sale_qty,
+          SUM(CASE WHEN movement_type = 'sale' THEN total_value ELSE 0 END) as sale_amt,
+          SUM(CASE WHEN movement_type = 'return_in' THEN quantity ELSE 0 END) as sale_return_qty,
+          SUM(CASE WHEN movement_type = 'return_in' THEN total_value ELSE 0 END) as sale_return_amt,
+          SUM(CASE WHEN movement_type = 'damage' THEN quantity ELSE 0 END) as damage_qty,
+          SUM(CASE WHEN movement_type = 'damage' THEN total_value ELSE 0 END) as damage_amt
+        FROM stock_movements
+        WHERE created_at >= $1 AND created_at <= $2 AND status = 'completed'
+        GROUP BY product_id
+      ),
+      last_pur AS (
+        SELECT DISTINCT ON (product_id) product_id, unit_cost as last_purchase_price
+        FROM stock_movements
+        WHERE movement_type = 'purchase' AND status = 'completed'
+        ORDER BY product_id, created_at DESC
+      ),
+      avg_cost AS (
+        SELECT product_id,
+          CASE WHEN SUM(quantity) > 0 THEN SUM(total_value) / SUM(quantity) ELSE 0 END as avg_purchase_price
+        FROM stock_movements
+        WHERE movement_type = 'purchase' AND status = 'completed'
+        GROUP BY product_id
+      )
+      SELECT
+        pb.id, pb.name, pb.sku, pb.unit, pb."categoryName", pb.cost_price, pb.selling_price, pb.wholesale_price,
+        pb."currentStock",
+        pb.min_stock_level,
+        CASE WHEN o.qty IS NOT NULL THEN COALESCE(o.qty, 0) ELSE pb."currentStock" END::decimal as "openingQty",
+        CASE WHEN o.amount IS NOT NULL THEN COALESCE(o.amount, 0) ELSE (pb."currentStock" * pb.cost_price) END::decimal as "openingAmount",
+        COALESCE(pa.purchase_qty, 0)::decimal as "purchaseQty",
+        COALESCE(pa.purchase_amt, 0)::decimal as "purchaseAmount",
+        COALESCE(pa.purchase_return_qty, 0)::decimal as "purchaseReturnQty",
+        COALESCE(pa.purchase_return_amt, 0)::decimal as "purchaseReturnAmount",
+        COALESCE(pa.sale_qty, 0)::decimal as "saleQty",
+        COALESCE(pa.sale_amt, 0)::decimal as "saleAmount",
+        COALESCE(pa.sale_return_qty, 0)::decimal as "saleReturnQty",
+        COALESCE(pa.sale_return_amt, 0)::decimal as "saleReturnAmount",
+        COALESCE(pa.damage_qty, 0)::decimal as "damageQty",
+        COALESCE(pa.damage_amt, 0)::decimal as "damageAmount",
+        COALESCE(lp.last_purchase_price, pb.cost_price, 0)::decimal as "lastPurchasePrice",
+        COALESCE(ac.avg_purchase_price, pb.cost_price, 0)::decimal as "avgPurchasePrice"
+      FROM products_base pb
+      LEFT JOIN opening o ON o.product_id = pb.id
+      LEFT JOIN period_act pa ON pa.product_id = pb.id
+      LEFT JOIN last_pur lp ON lp.product_id = pb.id
+      LEFT JOIN avg_cost ac ON ac.product_id = pb.id
+      ORDER BY pb.name ASC
+    `;
+
+    const result = await query(sql, params);
+    const rows = result.rows.map(r => {
+      const openingQty = parseFloat(r.openingQty || 0);
+      const openingAmount = parseFloat(r.openingAmount || 0);
+      const purchaseQty = parseFloat(r.purchaseQty || 0);
+      const purchaseAmount = parseFloat(r.purchaseAmount || 0);
+      const purchaseReturnQty = parseFloat(r.purchaseReturnQty || 0);
+      const purchaseReturnAmount = parseFloat(r.purchaseReturnAmount || 0);
+      const saleQty = parseFloat(r.saleQty || 0);
+      const saleAmount = parseFloat(r.saleAmount || 0);
+      const saleReturnQty = parseFloat(r.saleReturnQty || 0);
+      const saleReturnAmount = parseFloat(r.saleReturnAmount || 0);
+      const damageQty = parseFloat(r.damageQty || 0);
+      const damageAmount = parseFloat(r.damageAmount || 0);
+      const closingQty = openingQty + purchaseQty - purchaseReturnQty - saleQty + saleReturnQty - damageQty;
+      const lastPurchasePrice = parseFloat(r.lastPurchasePrice || 0);
+      const avgPurchasePrice = parseFloat(r.avgPurchasePrice || 0);
+      const costPrice = avgPurchasePrice || lastPurchasePrice || parseFloat(r.cost_price || 0);
+      const sellingPriceRaw = parseFloat(r.sellingPrice || r.selling_price || 0);
+      const wholesalePriceRaw = parseFloat(r.wholesalePrice || r.wholesale_price || 0);
+      const sellingPrice = sellingPriceRaw || costPrice;
+      const wholesalePrice = wholesalePriceRaw || sellingPriceRaw || costPrice;
+      const closingAmount = closingQty * costPrice;
+      const wholesaleValuation = closingQty * wholesalePrice;
+      const zakatSaleAmount = closingQty * sellingPrice;
+      const zakatAvgAmount = closingQty * avgPurchasePrice;
+      const minStockLevel = parseFloat(r.min_stock_level || 0);
+      return {
+        id: r.id,
+        name: r.name,
+        sku: r.sku,
+        unit: r.unit,
+        categoryName: r.categoryName,
+        minStockLevel,
+        lastPurchasePrice,
+        openingQty,
+        openingAmount,
+        purchaseQty,
+        purchaseAmount,
+        purchaseReturnQty,
+        purchaseReturnAmount,
+        saleQty,
+        saleAmount,
+        saleReturnQty,
+        saleReturnAmount,
+        damageQty,
+        damageAmount,
+        closingQty,
+        closingAmount,
+        salePrice1: sellingPriceRaw,
+        wholesaleValuation,
+        zakatAmount: zakatSaleAmount,
+        avgPurchasePrice,
+        zakatAvgAmount
+      };
+    });
+
+    const totals = rows.reduce((acc, r) => ({
+      openingQty: acc.openingQty + r.openingQty,
+      openingAmount: acc.openingAmount + r.openingAmount,
+      purchaseQty: acc.purchaseQty + r.purchaseQty,
+      purchaseAmount: acc.purchaseAmount + r.purchaseAmount,
+      purchaseReturnQty: acc.purchaseReturnQty + r.purchaseReturnQty,
+      purchaseReturnAmount: acc.purchaseReturnAmount + r.purchaseReturnAmount,
+      saleQty: acc.saleQty + r.saleQty,
+      saleAmount: acc.saleAmount + r.saleAmount,
+      saleReturnQty: acc.saleReturnQty + r.saleReturnQty,
+      saleReturnAmount: acc.saleReturnAmount + r.saleReturnAmount,
+      damageQty: acc.damageQty + r.damageQty,
+      damageAmount: acc.damageAmount + r.damageAmount,
+      closingQty: acc.closingQty + r.closingQty,
+      closingAmount: acc.closingAmount + r.closingAmount,
+      wholesaleValuation: acc.wholesaleValuation + (r.wholesaleValuation || 0),
+      zakatAmount: acc.zakatAmount + r.zakatAmount,
+      zakatAvgAmount: acc.zakatAvgAmount + r.zakatAvgAmount
+    }), { openingQty: 0, openingAmount: 0, purchaseQty: 0, purchaseAmount: 0, purchaseReturnQty: 0, purchaseReturnAmount: 0, saleQty: 0, saleAmount: 0, saleReturnQty: 0, saleReturnAmount: 0, damageQty: 0, damageAmount: 0, closingQty: 0, closingAmount: 0, wholesaleValuation: 0, zakatAmount: 0, zakatAvgAmount: 0 });
+
+    const lowStockCount = rows.filter(r => (r.closingQty ?? 0) <= (r.minStockLevel ?? 0)).length;
+    const outOfStockCount = rows.filter(r => (r.closingQty || 0) === 0).length;
+
+    return {
+      data: rows,
+      summary: {
+        ...totals,
+        totalItems: rows.length,
+        totalValuation: totals.closingAmount,
+        totalWholesaleValuation: totals.wholesaleValuation,
+        totalRetailValuation: totals.zakatAmount,
+        totalStock: totals.closingQty,
+        lowStockCount,
+        outOfStockCount
+      },
+      reportType: 'stock-summary',
+      filters: { categoryId, dateFrom: filters.dateFrom, dateTo: filters.dateTo }
+    };
+  }
+
+  /**
    * Get comprehensive inventory report
    * @param {object} filters - Query filters (category, lowStock, type)
    * @returns {Promise<object>}
    */
   async getInventoryReport(filters) {
+    const reportType = filters.type || 'summary';
+    if (reportType === 'stock-summary') {
+      return this.getStockSummaryReport(filters);
+    }
+
     const { query } = require('../config/postgres');
     const categoryId = filters.category && filters.category !== 'all' ? filters.category : null;
-    const reportType = filters.type || 'summary'; // summary, low-stock, valuation
 
     let sql = '';
     let params = [];

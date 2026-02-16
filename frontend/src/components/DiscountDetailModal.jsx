@@ -84,7 +84,7 @@ const DiscountDetailModal = ({
             <div>
               <h3 className="text-xl font-bold text-gray-900">{discount.name}</h3>
               <p className="text-sm text-gray-500">
-                Code: {discount.code} • {discount.type.replace('_', ' ')}
+                Code: {discount.code} • {(discount.type ?? '').replace(/_/g, ' ')}
               </p>
             </div>
           </div>

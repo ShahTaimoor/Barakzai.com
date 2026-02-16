@@ -94,13 +94,16 @@ router.get('/customers', [
 });
 
 // @route   GET /api/reports/inventory
-// @desc    Get inventory report
+// @desc    Get inventory report (summary, low-stock, valuation, stock-summary)
 // @access  Private
 router.get('/inventory', [
   auth,
   requirePermission('view_reports'),
   query('lowStock').optional().isBoolean(),
-  query('category').optional().isUUID(4),
+  query('category').optional(),
+  query('type').optional().isIn(['summary', 'low-stock', 'valuation', 'stock-summary']),
+  query('dateFrom').optional().isDate(),
+  query('dateTo').optional().isDate(),
   handleValidationErrors,
 ], async (req, res) => {
   try {

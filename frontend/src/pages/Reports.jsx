@@ -12,7 +12,9 @@ import {
   ArrowDownRight,
   Filter,
   RefreshCcw,
-  MapPin
+  MapPin,
+  DollarSign,
+  ShoppingBag
 } from 'lucide-react';
 import {
   useGetSalesReportQuery,
@@ -34,7 +36,7 @@ export const Reports = () => {
   const [activeTab, setActiveTab] = useState('party-balance');
   const [partyType, setPartyType] = useState('customer');
   const [salesGroupBy, setSalesGroupBy] = useState('daily');
-  const [inventoryType, setInventoryType] = useState('summary');
+  const [inventoryType, setInventoryType] = useState('stock-summary');
   const [financialType, setFinancialType] = useState('trial-balance');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [city, setCity] = useState('all');
@@ -90,7 +92,8 @@ export const Reports = () => {
     refetch: refetchInventory
   } = useGetInventoryReportQuery({
     category: selectedCategory === 'all' ? undefined : selectedCategory,
-    type: inventoryType
+    type: inventoryType,
+    ...(inventoryType === 'stock-summary' && { dateFrom: dateRange.from, dateTo: dateRange.to })
   }, {
     skip: activeTab !== 'inventory'
   });
@@ -197,6 +200,31 @@ export const Reports = () => {
         }
         return [];
       case 'inventory':
+        if (inventoryType === 'stock-summary') {
+          return [
+            { header: 'S.NO', render: (row, idx) => (idx ?? 0) + 1, align: 'right', key: 'sno' },
+            { header: 'Product Name', key: 'name' },
+            { header: 'Last Purchase Price', render: (row) => (row.lastPurchasePrice || 0).toLocaleString(), align: 'right' },
+            { header: 'Op. Qty', render: (row) => (row.openingQty || 0).toLocaleString(), align: 'right' },
+            { header: 'Op. Amount', render: (row) => (row.openingAmount || 0).toLocaleString(), align: 'right' },
+            { header: 'Purchase Qty', render: (row) => (row.purchaseQty || 0).toLocaleString(), align: 'right' },
+            { header: 'Purchase Amt', render: (row) => (row.purchaseAmount || 0).toLocaleString(), align: 'right' },
+            { header: 'Pur.Ret Qty', render: (row) => (row.purchaseReturnQty || 0).toLocaleString(), align: 'right' },
+            { header: 'Pur.Ret Amt', render: (row) => (row.purchaseReturnAmount || 0).toLocaleString(), align: 'right' },
+            { header: 'Sale Qty', render: (row) => (row.saleQty || 0).toLocaleString(), align: 'right' },
+            { header: 'Sale Amt', render: (row) => (row.saleAmount || 0).toLocaleString(), align: 'right' },
+            { header: 'Sale Ret Qty', render: (row) => (row.saleReturnQty || 0).toLocaleString(), align: 'right' },
+            { header: 'Sale Ret Amt', render: (row) => (row.saleReturnAmount || 0).toLocaleString(), align: 'right' },
+            { header: 'Damage Qty', render: (row) => (row.damageQty || 0).toLocaleString(), align: 'right' },
+            { header: 'Damage Amt', render: (row) => (row.damageAmount || 0).toLocaleString(), align: 'right' },
+            { header: 'Closing Qty', render: (row) => (row.closingQty || 0).toLocaleString(), align: 'right', bold: true },
+            { header: 'Closing Amt', render: (row) => (row.closingAmount || 0).toLocaleString(), align: 'right', bold: true },
+            { header: 'Sale Price1', render: (row) => (row.salePrice1 || 0).toLocaleString(), align: 'right' },
+            { header: 'Zakat Amt', render: (row) => (row.zakatAmount || 0).toLocaleString(), align: 'right' },
+            { header: 'Avg Pur.Price', render: (row) => (row.avgPurchasePrice || 0).toLocaleString(), align: 'right' },
+            { header: 'Zakat Avg Amt', render: (row) => (row.zakatAvgAmount || 0).toLocaleString(), align: 'right' },
+          ];
+        }
         const baseCols = [
           { header: 'Product Name', key: 'name' },
           { header: 'SKU', key: 'sku' },
@@ -253,7 +281,7 @@ export const Reports = () => {
       case 'sales':
         return `Sales Analysis (${salesGroupBy.charAt(0).toUpperCase() + salesGroupBy.slice(1)})`;
       case 'inventory':
-        return `Inventory ${inventoryType === 'summary' ? 'Summary' : inventoryType === 'low-stock' ? 'Low Stock' : 'Valuation'} Report`;
+        return `Inventory ${inventoryType === 'stock-summary' ? 'Stock Summary' : inventoryType === 'summary' ? 'Current Stock' : inventoryType === 'low-stock' ? 'Low Stock' : 'Valuation'} Report`;
       case 'financial':
         return financialType === 'trial-balance' ? 'Trial Balance' : financialType === 'pl-statement' ? 'Profit & Loss Statement' : 'Balance Sheet';
       default:
@@ -293,12 +321,20 @@ export const Reports = () => {
       };
     }
     if (activeTab === 'inventory') {
-      return {
+      const base = {
         'Total Items': inventoryReportData?.summary?.totalItems || 0,
         'Total Valuation': inventoryReportData?.summary?.totalValuation || 0,
         'Low Stock Items': inventoryReportData?.summary?.lowStockCount || 0,
         'Out of Stock': inventoryReportData?.summary?.outOfStockCount || 0
       };
+      if (inventoryType === 'stock-summary') {
+        return {
+          ...base,
+          'Wholesale Valuation': inventoryReportData?.summary?.totalWholesaleValuation ?? 0,
+          'Retail Valuation': inventoryReportData?.summary?.totalRetailValuation ?? 0
+        };
+      }
+      return base;
     }
     if (activeTab === 'financial') {
       if (financialType === 'trial-balance') {
@@ -331,7 +367,9 @@ export const Reports = () => {
     if (activeTab === 'party-balance') return 'Current Total';
     if (activeTab === 'sales') return 'In Selected Period';
     if (activeTab === 'inventory') {
-      if (title === 'Total Valuation') return 'Current Assets Value';
+      if (title === 'Total Valuation') return 'Cost Price';
+      if (title === 'Wholesale Valuation') return 'Wholesale Price';
+      if (title === 'Retail Valuation') return 'Retail Price';
       return 'Current Status';
     }
     return '';
@@ -359,7 +397,7 @@ export const Reports = () => {
             </div>
           )}
           
-          {activeTab !== 'inventory' && (
+          {(activeTab !== 'inventory' || inventoryType === 'stock-summary') && (
             <DateFilter
               startDate={dateRange.from}
               endDate={dateRange.to}
@@ -395,27 +433,35 @@ export const Reports = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Object.entries(getSummaryData() || {}).map(([title, value], idx) => (
-          <SummaryCard
-            key={title}
-            title={title}
-            value={value}
-            icon={
-              idx === 0 ? <Users className="h-6 w-6 text-blue-600" /> :
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${activeTab === 'inventory' && inventoryType === 'stock-summary' ? 'lg:grid-cols-6' : 'lg:grid-cols-4'}`}>
+        {Object.entries(getSummaryData() || {}).map(([title, value], idx) => {
+          const getIcon = () => {
+            if (title === 'Wholesale Valuation') return <DollarSign className="h-6 w-6 text-amber-600" />;
+            if (title === 'Retail Valuation') return <ShoppingBag className="h-6 w-6 text-teal-600" />;
+            return idx === 0 ? <Users className="h-6 w-6 text-blue-600" /> :
               idx === 1 ? <TrendingUp className="h-6 w-6 text-purple-600" /> :
               idx === 2 ? <Package className="h-6 w-6 text-green-600" /> :
-              <Wallet className="h-6 w-6 text-red-600" />
-            }
-            bgColor={
-              idx === 0 ? "bg-blue-50" :
+              <Wallet className="h-6 w-6 text-red-600" />;
+          };
+          const getBgColor = () => {
+            if (title === 'Wholesale Valuation') return "bg-amber-50";
+            if (title === 'Retail Valuation') return "bg-teal-50";
+            return idx === 0 ? "bg-blue-50" :
               idx === 1 ? "bg-purple-50" :
               idx === 2 ? "bg-green-50" :
-              "bg-red-50"
-            }
-            trend={getSummaryTrend(title)}
-          />
-        ))}
+              "bg-red-50";
+          };
+          return (
+            <SummaryCard
+              key={title}
+              title={title}
+              value={value}
+              icon={getIcon()}
+              bgColor={getBgColor()}
+              trend={getSummaryTrend(title)}
+            />
+          );
+        })}
       </div>
 
       {/* Main Report Section */}
@@ -584,7 +630,8 @@ export const Reports = () => {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex bg-gray-100 p-1 rounded-lg">
                   {[
-                    { id: 'summary', label: 'Stock Summary' },
+                    { id: 'stock-summary', label: 'Stock Summary' },
+                    { id: 'summary', label: 'Current Stock' },
                     { id: 'low-stock', label: 'Low Stock' },
                     { id: 'valuation', label: 'Stock Valuation' }
                   ].map((type) => (
@@ -599,7 +646,16 @@ export const Reports = () => {
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  {inventoryType === 'stock-summary' && (
+                    <DateFilter
+                      startDate={dateRange.from}
+                      endDate={dateRange.to}
+                      onDateChange={(start, end) => setDateRange({ from: start || '', to: end || '' })}
+                      compact={true}
+                      showPresets={true}
+                    />
+                  )}
                   <div className="w-48 text-sm">
                     <SearchableDropdown
                       options={[{ id: 'all', name: 'All Categories' }, ...categories]}
@@ -637,15 +693,41 @@ export const Reports = () => {
                         <td colSpan={getColumns().length} className="px-6 py-10 text-center text-gray-500">No inventory data found</td>
                       </tr>
                     ) : (
-                      inventoryReportData?.data?.map((row, idx) => (
-                        <tr key={row.id || idx} className="hover:bg-gray-50 transition-colors">
-                          {getColumns().map((col, colIdx) => (
-                            <td key={colIdx} className={`px-6 py-4 whitespace-nowrap text-sm ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.bold ? 'font-bold' : ''}`}>
-                              {col.render ? col.render(row) : row[col.key]}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      <>
+                        {inventoryReportData?.data?.map((row, idx) => (
+                          <tr key={row.id || idx} className="hover:bg-gray-50 transition-colors">
+                            {getColumns().map((col, colIdx) => (
+                              <td key={colIdx} className={`px-6 py-4 whitespace-nowrap text-sm ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.bold ? 'font-bold' : ''}`}>
+                                {col.render ? col.render(row, idx) : row[col.key]}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                        {inventoryType === 'stock-summary' && inventoryReportData?.data?.length > 0 && inventoryReportData?.summary && (
+                          <tr className="bg-gray-50 font-bold border-t-2 border-gray-300">
+                            <td colSpan={2} className="px-6 py-3 text-sm text-gray-900">Grand Total</td>
+                            <td className="px-6 py-3 text-sm text-right">—</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.openingQty || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.openingAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.purchaseQty || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.purchaseAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.purchaseReturnQty || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.purchaseReturnAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.saleQty || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.saleAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.saleReturnQty || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.saleReturnAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.damageQty || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.damageAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.closingQty || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.closingAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">—</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.zakatAmount || 0).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-sm text-right">—</td>
+                            <td className="px-6 py-3 text-sm text-right">{(inventoryReportData.summary.zakatAvgAmount || 0).toLocaleString()}</td>
+                          </tr>
+                        )}
+                      </>
                     )}
                   </tbody>
                 </table>

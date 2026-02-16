@@ -623,6 +623,15 @@ export const Purchase = ({ tabId, editData }) => {
         setPurchaseItems(formattedItems);
       }
 
+      // Set payment amount and method for editing (same as sales invoice amount received)
+      if (editData.payment) {
+        const amt = editData.payment.amount ?? editData.payment.paidAmount ?? 0;
+        setAmountPaid(typeof amt === 'number' ? amt : parseFloat(amt) || 0);
+        if (editData.payment.method) {
+          setPaymentMethod(editData.payment.method);
+        }
+      }
+
       // Data loaded successfully (no toast needed as PurchaseInvoices already shows opening message)
     }
   }, [editData?.invoiceId]); // Only depend on invoiceId to prevent multiple executions
