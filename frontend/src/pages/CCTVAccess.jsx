@@ -54,6 +54,35 @@ const CCTVAccess = ({ tabId }) => {
     orderNumber: orderNumber || undefined
   });
 
+  // Normalize orders from API (backend returns snake_case; support both and add fallbacks for missing CCTV fields)
+  // Use created_at/updated_at so bill times show real time (not 00:00:00) and duration can be calculated
+  const orders = React.useMemo(() => {
+    const raw = data?.orders || [];
+    return raw.map((o) => {
+      const customer = o.customer || {};
+      const displayName = customer.displayName ?? customer.business_name ?? customer.businessName ?? customer.name ?? 'Walk-in Customer';
+      const saleDate = o.sale_date || o.saleDate || o.created_at || o.createdAt;
+      const createdAt = o.created_at ?? o.createdAt;
+      const updatedAt = o.updated_at ?? o.updatedAt;
+      const total = o.total != null ? o.total : (o.pricing?.total ?? 0);
+      // Prefer real CCTV timestamps; else use created_at (has time) and updated_at so duration can show
+      const billStart = o.bill_start_time ?? o.billStartTime ?? createdAt ?? saleDate;
+      const billEnd = o.bill_end_time ?? o.billEndTime ?? updatedAt ?? createdAt ?? saleDate;
+      return {
+        _id: o.id || o._id,
+        id: o.id || o._id,
+        orderNumber: o.order_number ?? o.orderNumber ?? 'N/A',
+        billDate: o.bill_date ?? o.billDate ?? saleDate,
+        billStartTime: billStart,
+        billEndTime: billEnd,
+        customer: { ...customer, displayName },
+        customerInfo: { name: displayName },
+        pricing: { total },
+        createdAt
+      };
+    });
+  }, [data?.orders]);
+
   const formatDateTime = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -80,8 +109,13 @@ const CCTVAccess = ({ tabId }) => {
 
   const calculateDuration = (startTime, endTime) => {
     if (!startTime || !endTime) return 'N/A';
-    const duration = Math.round((new Date(endTime) - new Date(startTime)) / 1000);
-    return `${duration} seconds`;
+    const seconds = Math.round((new Date(endTime) - new Date(startTime)) / 1000);
+    if (seconds <= 0) return '—';
+    if (seconds < 60) return `${seconds} sec`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (secs === 0) return `${mins} min`;
+    return `${mins} min ${secs} sec`;
   };
 
   const copyToClipboard = (text, type) => {
@@ -268,12 +302,12 @@ const CCTVAccess = ({ tabId }) => {
           <AlertCircle className="h-5 w-5 text-red-600" />
           <span className="text-red-800">Error loading CCTV orders: {error.message || 'Unknown error'}</span>
         </div>
-      ) : !data?.orders || data.orders.length === 0 ? (
+      ) : !orders.length ? (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
           <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">No orders with CCTV timestamps found</p>
+          <p className="text-gray-600 text-lg">No orders found</p>
           <p className="text-gray-500 text-sm mt-2">
-            Try adjusting your search filters or check if orders have been created with CCTV tracking enabled.
+            Try adjusting your search filters or date range.
           </p>
         </div>
       ) : (
@@ -308,7 +342,7 @@ const CCTVAccess = ({ tabId }) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {data.orders.map((order) => (
+                  {orders.map((order) => (
                     <tr key={order._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
@@ -415,7 +449,7 @@ const CCTVAccess = ({ tabId }) => {
             </div>
 
             {/* Pagination */}
-            {data.pagination && data.pagination.pages > 1 && (
+            {data?.pagination && data.pagination.pages > 1 && (
               <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-700">
                   Showing {((data.pagination.page - 1) * data.pagination.limit) + 1} to{' '}

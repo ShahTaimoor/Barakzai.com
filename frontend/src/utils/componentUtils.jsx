@@ -137,6 +137,7 @@ export const componentRegistry = {
   '/balance-sheets': {
     title: 'Balance Sheets',
     icon: 'FileText',
+    allowMultiple: true,
     component: () => import('../pages/BalanceSheets').then(m => m.default || m.BalanceSheets)
   },
   '/discounts': {

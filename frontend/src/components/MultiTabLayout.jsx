@@ -629,9 +629,9 @@ export const MultiTabLayout = ({ children }) => {
 
             {/* Action Buttons Container - Center/Mid-Left with Horizontal Scroll - Hidden on Mobile */}
             <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
-              {/* Cash Receiving Button - Left side, desktop only */}
+              {/* Cash Receiving Button - Left side, desktop only (opens in tab) */}
               <button
-                onClick={() => navigate('/cash-receiving')}
+                onClick={() => handleNavigationClick({ href: '/cash-receiving', name: 'Cash Receiving' })}
                 className="btn btn-primary items-center justify-center gap-1.5 px-2.5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
               >
                 <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
