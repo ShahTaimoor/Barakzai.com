@@ -43,7 +43,8 @@ const MIGRATIONS = [
   '022_returns_status_workflow.sql',
   '023_add_wholesale_price_to_products.sql',
   '024_add_business_type_customer_tier_to_customers.sql',
-  '025_sales_amount_paid.sql'
+  '025_sales_amount_paid.sql',
+  '026_add_bank_account.sql'
 ];
 
 async function ensureMigrationsTable() {

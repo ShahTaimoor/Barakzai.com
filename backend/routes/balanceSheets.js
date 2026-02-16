@@ -7,6 +7,8 @@ const balanceSheetService = require('../services/balanceSheetCalculationService'
 function wrapForList(sheet, id = null) {
   const date = sheet.statementDate || sheet.generatedAt || new Date();
   const idStr = id || `bs-${date.toISOString().slice(0, 10)}`;
+  const assets = sheet.assets || {};
+  const equity = sheet.equity || {};
   return {
     _id: idStr,
     id: idStr,
@@ -15,10 +17,10 @@ function wrapForList(sheet, id = null) {
     periodType: 'monthly',
     status: 'draft',
     metadata: { generatedAt: sheet.generatedAt || date },
-    assets: sheet.assets || { totalAssets: 0 },
-    equity: sheet.equity || { totalEquity: 0 },
-    liabilities: sheet.liabilities || { total: 0 },
-    ...sheet
+    ...sheet,
+    assets: { ...assets, totalAssets: assets.total ?? assets.totalAssets ?? 0 },
+    equity: { ...equity, totalEquity: equity.total ?? equity.totalEquity ?? 0 },
+    liabilities: sheet.liabilities || { total: 0 }
   };
 }
 

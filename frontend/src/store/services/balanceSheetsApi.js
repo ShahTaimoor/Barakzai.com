@@ -8,7 +8,7 @@ export const balanceSheetsApi = api.injectEndpoints({
         method: 'post',
         data,
       }),
-      invalidatesTags: [{ type: 'Reports', id: 'BALANCE_SHEETS' }],
+      invalidatesTags: [{ type: 'Reports', id: 'BALANCE_SHEETS' }, { type: 'Reports', id: 'BALANCE_SHEETS_LATEST' }],
     }),
     getBalanceSheets: builder.query({
       query: (params) => ({
