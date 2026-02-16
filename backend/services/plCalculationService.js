@@ -94,7 +94,7 @@ class PLCalculationService {
   }
 
   /**
-   * Calculate other expenses
+   * Calculate other expenses (account 5600 only)
    */
   async calculateOtherExpenses(startDate, endDate) {
     const result = await query(
@@ -111,15 +111,47 @@ class PLCalculationService {
   }
 
   /**
-   * Calculate net income
+   * Get all expense account codes from chart of accounts (excluding COGS 5000).
+   * Used so Record Expense and any expense account impact P&L.
+   */
+  async getExpenseAccountCodes() {
+    const result = await query(
+      `SELECT account_code FROM chart_of_accounts
+       WHERE account_type = 'expense' AND account_code != '5000'
+         AND deleted_at IS NULL AND is_active = TRUE`,
+      []
+    );
+    return (result.rows || []).map((r) => r.account_code);
+  }
+
+  /**
+   * Calculate total expenses from ledger for ALL expense-type accounts in period.
+   * Ensures Record Expense (and any expense account) impacts P&L.
+   */
+  async calculateTotalExpensesFromLedger(startDate, endDate) {
+    const codes = await this.getExpenseAccountCodes();
+    if (codes.length === 0) return 0;
+    const result = await query(
+      `SELECT COALESCE(SUM(debit_amount - credit_amount), 0) AS total
+       FROM account_ledger
+       WHERE account_code = ANY($1)
+         AND transaction_date >= $2
+         AND transaction_date <= $3
+         AND status = 'completed'
+         AND reversed_at IS NULL`,
+      [codes, startDate, endDate]
+    );
+    return parseFloat(result.rows[0]?.total || 0);
+  }
+
+  /**
+   * Calculate net income (includes all expense accounts so Record Expense impacts P&L)
    */
   async calculateNetIncome(startDate, endDate) {
     const revenue = await this.calculateRevenue(startDate, endDate);
     const cogs = await this.calculateCOGS(startDate, endDate);
-    const operatingExpenses = await this.calculateOperatingExpenses(startDate, endDate);
-    const otherExpenses = await this.calculateOtherExpenses(startDate, endDate);
-    
-    return revenue - cogs - operatingExpenses - otherExpenses;
+    const totalExpenses = await this.calculateTotalExpensesFromLedger(startDate, endDate);
+    return revenue - cogs - totalExpenses;
   }
 
   /**
@@ -157,19 +189,25 @@ class PLCalculationService {
     const totalRevenue = salesRevenue - salesReturns + otherIncome;
     const grossProfit = totalRevenue - cogs;
 
-    // Operating Expenses
+    // Operating Expenses (breakdown by standard accounts)
     const salaries = await this.calculateAccountExpense('5200', start, end);
     const rent = await this.calculateAccountExpense('5300', start, end);
     const utilities = await this.calculateAccountExpense('5400', start, end);
     const depreciation = await this.calculateAccountExpense('5500', start, end);
     const otherOperating = await this.calculateAccountExpense('5100', start, end);
-    const totalOperatingExpenses = salaries + rent + utilities + depreciation + otherOperating;
+    const standardOperatingTotal = salaries + rent + utilities + depreciation + otherOperating;
 
-    // Other Expenses
+    // Other Expenses (5600)
     const otherExpenses = await this.calculateOtherExpenses(start, end);
 
-    // Net Income
-    const netIncome = grossProfit - totalOperatingExpenses - otherExpenses;
+    // Total expenses from ALL expense accounts in ledger (so Record Expense impacts P&L)
+    const totalExpensesFromLedger = await this.calculateTotalExpensesFromLedger(start, end);
+    const otherExpenseAccounts = Math.max(0, totalExpensesFromLedger - standardOperatingTotal - otherExpenses);
+    const totalOperatingExpenses = standardOperatingTotal + otherExpenseAccounts;
+
+    // Net Income (uses full expense total so every recorded expense is included)
+    const totalExpensesForNet = totalOperatingExpenses + otherExpenses;
+    const netIncome = grossProfit - totalExpensesForNet;
 
     return {
       period: {
@@ -193,11 +231,13 @@ class PLCalculationService {
         utilities: utilities,
         depreciation: depreciation,
         otherOperating: otherOperating,
+        otherExpenseAccounts: otherExpenseAccounts,
         total: totalOperatingExpenses
       },
       otherExpenses: {
         total: otherExpenses
       },
+      totalExpenses: totalExpensesForNet,
       netIncome: netIncome,
       generatedAt: new Date()
     };

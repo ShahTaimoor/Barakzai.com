@@ -462,6 +462,54 @@ class AccountingService {
   }
 
   /**
+   * Record expense cash payment (Record Expense: no customer/supplier)
+   * Business Meaning: Money paid OUT for operating expense
+   *   Dr Expense Account (from chart_of_accounts id) [amount]
+   *   Cr Cash (1000) [amount]
+   *
+   * @param {Object} cashPayment - Cash payment data (id, amount, date, payment_number, etc.)
+   * @param {string} expenseAccountId - UUID of expense account in chart_of_accounts
+   * @param {Object} client - Optional PostgreSQL client for existing transaction
+   */
+  static async recordExpenseCashPayment(cashPayment, expenseAccountId, client = null) {
+    const q = client ? client.query.bind(client) : query;
+    const accountResult = await q(
+      'SELECT account_code, allow_direct_posting FROM chart_of_accounts WHERE id = $1 AND is_active = TRUE AND deleted_at IS NULL',
+      [expenseAccountId]
+    );
+    if (!accountResult.rows.length) {
+      throw new Error('Expense account not found or inactive');
+    }
+    const expenseAccountCode = accountResult.rows[0].account_code;
+    const amount = parseFloat(cashPayment.amount);
+    const refNum = cashPayment.payment_number || cashPayment.paymentNumber || cashPayment.id;
+
+    const entry1 = {
+      accountCode: expenseAccountCode,
+      debitAmount: amount,
+      creditAmount: 0,
+      description: `Expense: ${cashPayment.particular || refNum}`
+    };
+    const entry2 = {
+      accountCode: '1000',
+      debitAmount: 0,
+      creditAmount: amount,
+      description: `Cash Payment: ${refNum}`
+    };
+
+    return await this.createTransaction(entry1, entry2, {
+      referenceType: 'cash_payment',
+      referenceId: cashPayment.id,
+      referenceNumber: refNum,
+      customerId: null,
+      supplierId: null,
+      transactionDate: cashPayment.date || cashPayment.transactionDate || new Date(),
+      currency: 'PKR',
+      createdBy: cashPayment.created_by || cashPayment.createdBy
+    }, client);
+  }
+
+  /**
    * Record cash payment transaction (Unified: Customer or Supplier)
    * Business Meaning: Money paid OUT of the business
    * 
@@ -481,7 +529,7 @@ class AccountingService {
     const customerId = cashPayment.customer_id || cashPayment.customerId;
     const amount = parseFloat(cashPayment.amount);
 
-    // Validation: Must have either customer or supplier, not both
+    // Validation: Must have either customer or supplier, not both (expense-only handled by recordExpenseCashPayment)
     if (customerId && supplierId) {
       throw new Error('Cash payment must be for either a customer OR a supplier, not both');
     }

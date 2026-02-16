@@ -144,7 +144,7 @@ router.post('/', [
       }
     }
 
-    // Validation: Must have either customer or supplier, not both
+    // Validation: Must have either customer, supplier, or expense account (Record Expense)
     if (customer && supplier) {
       return res.status(400).json({
         success: false,
@@ -152,10 +152,11 @@ router.post('/', [
       });
     }
 
-    if (!customer && !supplier) {
+    const isExpenseOnly = Boolean(expenseAccount) && !customer && !supplier;
+    if (!customer && !supplier && !expenseAccount) {
       return res.status(400).json({
         success: false,
-        message: 'Cash payment must specify either a customer or a supplier'
+        message: 'Cash payment must specify either a customer, a supplier, or an expense account (Record Expense)'
       });
     }
 
@@ -193,7 +194,11 @@ router.post('/', [
       const payment = await cashPaymentRepository.create(cashPaymentData, client);
 
       // Post to account ledger atomically (using same client)
-      await AccountingService.recordCashPayment(payment, client);
+      if (isExpenseOnly && expenseAccount) {
+        await AccountingService.recordExpenseCashPayment(payment, expenseAccount, client);
+      } else {
+        await AccountingService.recordCashPayment(payment, client);
+      }
 
       return payment;
     });
