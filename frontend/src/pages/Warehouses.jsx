@@ -364,15 +364,21 @@ const Warehouses = () => {
     }
   );
 
-  // Extract warehouses array from response
+  // Extract warehouses array from response and normalize snake_case from API (e.g. is_active → isActive)
   const warehouses = React.useMemo(() => {
+    let list = [];
     if (!warehousesResponse) return [];
-    if (warehousesResponse?.data?.data?.items) return warehousesResponse.data.data.items;
-    if (warehousesResponse?.data?.items) return warehousesResponse.data.items;
-    if (warehousesResponse?.data?.warehouses) return warehousesResponse.data.warehouses;
-    if (warehousesResponse?.warehouses) return warehousesResponse.warehouses;
-    if (Array.isArray(warehousesResponse)) return warehousesResponse;
-    return [];
+    if (warehousesResponse?.data?.data?.items) list = warehousesResponse.data.data.items;
+    else if (warehousesResponse?.data?.items) list = warehousesResponse.data.items;
+    else if (warehousesResponse?.data?.warehouses) list = warehousesResponse.data.warehouses;
+    else if (warehousesResponse?.warehouses) list = warehousesResponse.warehouses;
+    else if (Array.isArray(warehousesResponse)) list = warehousesResponse;
+    return list.map((w) => ({
+      ...w,
+      _id: w._id ?? w.id,
+      isActive: w.isActive ?? w.is_active,
+      isPrimary: w.isPrimary ?? w.is_primary
+    }));
   }, [warehousesResponse]);
 
   // Mutations
