@@ -881,10 +881,12 @@ export const Dashboard = () => {
         />
       </div>
 
-      {/* Period Comparison Section */}
-      <PeriodComparisonSection
-        title="Sales Performance Comparison"
-        metrics={[
+      {/* Period Comparison Section – graphs & cards */}
+      <div className="card">
+        <div className="card-content pt-4">
+          <PeriodComparisonSection
+            title="Sales Performance Comparison"
+            metrics={[
           {
             title: 'Total Revenue',
             fetchFunction: (params) => fetchPeriodSummary(params).then(res => ({
@@ -922,8 +924,10 @@ export const Dashboard = () => {
             iconColor: 'bg-orange-500'
           }
         ]}
-        fetchFunction={fetchPeriodSummary}
-      />
+            fetchFunction={fetchPeriodSummary}
+          />
+        </div>
+      </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
