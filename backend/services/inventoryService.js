@@ -185,24 +185,41 @@ const getInventoryHistory = async ({ productId, limit = 50, offset = 0, type, st
   }
 };
 
-// Get inventory summary (simplified without Mongo aggregate)
+// Get inventory summary: counts across ALL products (inventory table when present, else product.stock_quantity).
 const getInventorySummary = async () => {
   try {
-    const rows = await inventoryRepository.findAll({ status: 'active' });
-    let totalProducts = rows.length;
-    if (totalProducts === 0 && productRepository.count) {
-      const productCount = await productRepository.count({});
-      totalProducts = productCount || 0;
-    }
-    const outOfStock = rows.filter(r => getCurrentStock(r) <= 0).length;
-    const lowStock = rows.filter(r => getCurrentStock(r) > 0 && getCurrentStock(r) <= (Number(r.reorder_point ?? r.reorderPoint) || 0)).length;
+    const totalProducts = await productRepository.count({});
+    const allProducts = await productRepository.findAll({}, { limit: 50000 });
+    const allInventoryRows = await inventoryRepository.findAll({}, { limit: 50000 });
+
+    const invByProductId = new Map();
+    (allInventoryRows || []).forEach((r) => {
+      const pid = (r.product_id ?? r.productId ?? r.product)?.toString?.() ?? r.product_id;
+      if (pid) invByProductId.set(pid, r);
+    });
+
+    let outOfStock = 0;
+    let lowStock = 0;
     let totalValue = 0;
-    for (const row of rows) {
-      const productId = row.product_id ?? row.productId ?? row.product;
-      const product = await productRepository.findById(productId);
-      const cost = product ? (Number(product.cost_price ?? product.costPrice ?? 0) || (product.pricing?.cost ?? 0)) : (getCost(row).average ?? 0);
-      totalValue += getCurrentStock(row) * cost;
+
+    for (const product of allProducts || []) {
+      const pid = (product.id ?? product._id)?.toString?.();
+      const inv = pid ? invByProductId.get(pid) : null;
+      // Use inventory table as source of truth: no inventory row = treat as 0 stock (out of stock)
+      const currentStock = inv != null
+        ? getCurrentStock(inv)
+        : Number(0);
+      const reorderPoint = inv != null
+        ? Number(inv.reorder_point ?? inv.reorderPoint ?? 0)
+        : Number(product.min_stock_level ?? product.minStockLevel ?? product.minStock ?? 0);
+
+      if (currentStock <= 0) outOfStock += 1;
+      else if (reorderPoint > 0 && currentStock <= reorderPoint) lowStock += 1;
+
+      const cost = Number(product.cost_price ?? product.costPrice ?? 0) || (product.pricing?.cost ?? 0);
+      totalValue += currentStock * cost;
     }
+
     return { totalProducts, outOfStock, lowStock, totalValue };
   } catch (error) {
     console.error('Error getting inventory summary:', error);

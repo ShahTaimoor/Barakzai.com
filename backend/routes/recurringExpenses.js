@@ -108,7 +108,6 @@ router.get(
   '/upcoming',
   [
     auth,
-    requirePermission('view_reports'),
     query('days').optional().isInt({ min: 1, max: 90 })
   ],
   async (req, res) => {

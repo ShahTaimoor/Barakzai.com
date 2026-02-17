@@ -61,10 +61,10 @@ app.use('/api', createRateLimiter({
   windowMs: 60000, // 1 minute
   max: 100 // 100 requests per minute
 }));
-// Stricter rate limiter for auth endpoints: 5 requests per minute per IP
+// Auth endpoints: allow normal use (user list, profile, update). Login brute-force still limited by global /api limit.
 app.use('/api/auth', createRateLimiter({
   windowMs: 60000, // 1 minute
-  max: 5 // 5 requests per minute (prevents brute force)
+  max: 120 // 120 per minute so loading/updating users and profile don't hit 429
 }));
 
 // CORS configuration - use environment variable for allowed origins

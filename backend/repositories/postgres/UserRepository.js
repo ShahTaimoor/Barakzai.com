@@ -207,6 +207,7 @@ class UserRepository {
     const data = {};
     if (updateData.firstName !== undefined) data.firstName = updateData.firstName;
     if (updateData.lastName !== undefined) data.lastName = updateData.lastName;
+    if (updateData.email !== undefined) data.email = updateData.email;
     if (updateData.phone !== undefined) data.phone = updateData.phone;
     return this.update(id, data);
   }

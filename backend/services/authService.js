@@ -120,17 +120,26 @@ class AuthService {
   }
 
   /**
-   * Update user profile
+   * Update user profile (firstName, lastName, email, phone). Password must be changed via changePassword().
    * @param {string} userId - User ID
    * @param {object} updateData - Data to update
    * @returns {Promise<{user: User, message: string}>}
    */
   async updateProfile(userId, updateData) {
-    const { firstName, lastName, phone } = updateData;
+    const { firstName, lastName, email, phone } = updateData;
+
+    const emailVal = email !== undefined && email !== null ? String(email).trim() : '';
+    if (emailVal) {
+      const taken = await userRepository.emailExists(emailVal, userId);
+      if (taken) {
+        throw new Error('Email already exists');
+      }
+    }
 
     const updateFields = {};
-    if (firstName) updateFields.firstName = firstName;
-    if (lastName) updateFields.lastName = lastName;
+    if (firstName !== undefined) updateFields.firstName = firstName;
+    if (lastName !== undefined) updateFields.lastName = lastName;
+    if (emailVal) updateFields.email = emailVal.toLowerCase();
     if (phone !== undefined) updateFields.phone = phone;
 
     const user = await userRepository.updateProfile(userId, updateFields);

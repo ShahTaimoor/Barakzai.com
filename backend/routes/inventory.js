@@ -74,10 +74,9 @@ router.get('/', [
     const { page = 1, limit = 10, search, status, lowStock, warehouse } = req.query;
     const skip = (page - 1) * limit;
 
-    // Get API-shaped products (PostgreSQL: use productService, no aggregate)
+    // Get API-shaped products (all products so inventory page shows full catalog; filter by status in UI if needed)
     const productResult = await productService.getProducts({
       search: search || undefined,
-      status: 'active',
       limit: 9999,
       all: 'true'
     });
