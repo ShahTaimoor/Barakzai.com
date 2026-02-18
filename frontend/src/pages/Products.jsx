@@ -41,12 +41,14 @@ import { useAppDispatch } from '../store/hooks';
 import { api } from '../store/api';
 import { useProductOperations } from '../hooks/useProductOperations';
 
-const PRODUCTS_PER_PAGE = 50;
+const LIMIT_OPTIONS = [50, 500, 1000, 5000];
+const DEFAULT_LIMIT = 50;
 
 const Products = () => {
   const dispatch = useAppDispatch();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_LIMIT);
   const [filters, setFilters] = useState({});
   const [bulkUpdateType, setBulkUpdateType] = useState(null);
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
@@ -60,7 +62,7 @@ const Products = () => {
   const queryParams = { 
     search: searchTerm || undefined,
     page: currentPage,
-    limit: PRODUCTS_PER_PAGE,
+    limit: itemsPerPage,
     ...filters
   };
 
@@ -97,11 +99,11 @@ const Products = () => {
       current: raw.current ?? raw.page ?? 1,
       pages: raw.pages ?? 1,
       total: raw.total ?? 0,
-      limit: raw.limit ?? PRODUCTS_PER_PAGE,
+      limit: raw.limit ?? itemsPerPage,
       hasPrev: (raw.current ?? raw.page ?? 1) > 1,
       hasNext: (raw.current ?? raw.page ?? 1) < (raw.pages ?? 1),
     };
-  }, [data]);
+  }, [data, itemsPerPage]);
 
   const products = allProducts;
 
@@ -122,6 +124,12 @@ const Products = () => {
 
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
+    setCurrentPage(1);
+  };
+
+  const handleLimitChange = (e) => {
+    const val = Number(e.target.value);
+    setItemsPerPage(val);
     setCurrentPage(1);
   };
 
@@ -254,7 +262,7 @@ const Products = () => {
       </div>
 
       <div className="w-full">
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="flex-1 relative min-w-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -264,6 +272,19 @@ const Products = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input pl-10 w-full text-sm sm:text-base"
             />
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <label htmlFor="limit-select" className="text-sm text-gray-600 whitespace-nowrap">Show:</label>
+            <select
+              id="limit-select"
+              value={itemsPerPage}
+              onChange={handleLimitChange}
+              className="input text-sm py-2 pr-8 pl-3 min-w-[80px]"
+            >
+              {LIMIT_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

@@ -33,13 +33,16 @@ import { useNavigate } from 'react-router-dom';
 import { useTab } from '../contexts/TabContext';
 import { getComponentInfo } from '../utils/componentUtils';
 
+const LIMIT_OPTIONS = [50, 500, 1000, 5000];
+const DEFAULT_LIMIT = 50;
+
 export const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [lowStockFilter, setLowStockFilter] = useState(false);
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_LIMIT);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -91,6 +94,12 @@ export const Inventory = () => {
   const warehouseList = useMemo(() => {
     return warehousesData?.data?.warehouses || warehousesData?.warehouses || warehousesData?.data || warehousesData || [];
   }, [warehousesData]);
+
+  const handleLimitChange = (e) => {
+    const val = Number(e.target.value);
+    setItemsPerPage(val);
+    setCurrentPage(1);
+  };
 
   const warehouseOptions = useMemo(() => {
     const options = [
@@ -431,6 +440,18 @@ export const Inventory = () => {
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Show</label>
+            <select
+              value={itemsPerPage}
+              onChange={handleLimitChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+            >
+              {LIMIT_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Search</label>
             <div className="relative">

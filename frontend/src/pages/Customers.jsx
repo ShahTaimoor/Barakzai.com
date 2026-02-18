@@ -16,11 +16,13 @@ import { CustomerFormModal } from '../components/CustomerFormModal';
 import { CustomerList } from '../components/CustomerList';
 import { useCustomerOperations } from '../hooks/useCustomerOperations';
 
-const CUSTOMERS_PER_PAGE = 50;
+const LIMIT_OPTIONS = [50, 500, 1000, 5000];
+const DEFAULT_LIMIT = 50;
 
 export const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_LIMIT);
   const [filters, setFilters] = useState({});
   const [showNotes, setShowNotes] = useState(false);
   const [notesEntity, setNotesEntity] = useState(null);
@@ -28,7 +30,7 @@ export const Customers = () => {
   const queryParams = { 
     search: searchTerm || undefined,
     page: currentPage,
-    limit: CUSTOMERS_PER_PAGE,
+    limit: itemsPerPage,
     ...filters
   };
 
@@ -53,6 +55,12 @@ export const Customers = () => {
     setSearchTerm('');
   };
 
+  const handleLimitChange = (e) => {
+    const val = Number(e.target.value);
+    setItemsPerPage(val);
+    setCurrentPage(1);
+  };
+
   const customers = useMemo(() => {
     return data?.data?.customers || data?.customers || [];
   }, [data]);
@@ -63,11 +71,11 @@ export const Customers = () => {
       current: raw.current ?? raw.page ?? 1,
       pages: raw.pages ?? 1,
       total: raw.total ?? 0,
-      limit: raw.limit ?? CUSTOMERS_PER_PAGE,
+      limit: raw.limit ?? itemsPerPage,
       hasPrev: (raw.current ?? raw.page ?? 1) > 1,
       hasNext: (raw.current ?? raw.page ?? 1) < (raw.pages ?? 1),
     };
-  }, [data]);
+  }, [data, itemsPerPage]);
 
   if (isLoading) {
     return <LoadingPage message="Loading customers..." />;
@@ -100,16 +108,29 @@ export const Customers = () => {
       </div>
 
       {/* Search */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1 relative">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex-1 relative min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search customers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10"
+            className="input pl-10 w-full"
           />
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <label htmlFor="customers-limit" className="text-sm text-gray-600 whitespace-nowrap">Show:</label>
+          <select
+            id="customers-limit"
+            value={itemsPerPage}
+            onChange={handleLimitChange}
+            className="input text-sm py-2 pr-8 pl-3 min-w-[80px]"
+          >
+            {LIMIT_OPTIONS.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
         </div>
       </div>
 

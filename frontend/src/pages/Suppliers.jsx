@@ -814,8 +814,13 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
   );
 };
 
+const LIMIT_OPTIONS = [50, 500, 1000, 5000];
+const DEFAULT_LIMIT = 50;
+
 export const Suppliers = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_LIMIT);
   const [filters, setFilters] = useState({});
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -823,8 +828,9 @@ export const Suppliers = () => {
   const [notesEntity, setNotesEntity] = useState(null);
 
   const queryParams = {
-    search: searchTerm,
-    limit: 999999, // Get all suppliers without pagination
+    search: searchTerm || undefined,
+    page: currentPage,
+    limit: itemsPerPage,
     ...filters
   };
 
@@ -838,15 +844,26 @@ export const Suppliers = () => {
 
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
+    setCurrentPage(1);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const handleClearFilters = () => {
     setFilters({});
     setSearchTerm('');
   };
 
-  // Get all suppliers and apply fuzzy search
+  const handleLimitChange = (e) => {
+    const val = Number(e.target.value);
+    setItemsPerPage(val);
+    setCurrentPage(1);
+  };
+
   const allSuppliers = suppliers?.data?.suppliers || suppliers?.suppliers || [];
+  const pagination = suppliers?.data?.pagination || suppliers?.pagination || {};
   const filteredSuppliers = useFuzzySearch(
     allSuppliers,
     searchTerm,
@@ -967,23 +984,36 @@ export const Suppliers = () => {
       </div>
 
       {/* Search */}
-      <div className="flex items-center space-x-4">
-        <div className="flex-1 relative">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex-1 relative min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search suppliers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10"
+            className="input pl-10 w-full"
           />
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <label htmlFor="suppliers-limit" className="text-sm text-gray-600 whitespace-nowrap">Show:</label>
+          <select
+            id="suppliers-limit"
+            value={itemsPerPage}
+            onChange={handleLimitChange}
+            className="input text-sm py-2 pr-8 pl-3 min-w-[80px]"
+          >
+            {LIMIT_OPTIONS.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Import/Export Section */}
       <SupplierImportExport
         onImportComplete={() => queryClient.invalidateQueries('suppliers')}
-        filters={queryParams}
+        filters={{ ...queryParams, limit: 999999, page: 1 }}
       />
 
       {/* Advanced Filters */}
@@ -1224,7 +1254,47 @@ export const Suppliers = () => {
             </div>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {/* Pagination */}
+      {!isLoading && !error && pagination?.pages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-4 border-t border-gray-200">
+          <p className="text-sm text-gray-600">
+            Showing{' '}
+            <span className="font-medium">
+              {((pagination.current || 1) - 1) * (pagination.limit || itemsPerPage) + 1}
+            </span>
+            {' - '}
+            <span className="font-medium">
+              {Math.min((pagination.current || 1) * (pagination.limit || itemsPerPage), pagination.total || 0)}
+            </span>
+            {' of '}
+            <span className="font-medium">{pagination.total || 0}</span>
+            {' suppliers'}
+          </p>
+          <nav className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={!(pagination.hasPrev)}
+              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600 px-2">
+              Page {pagination.current || 1} of {pagination.pages || 1}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(pagination.pages || 1, p + 1))}
+              disabled={!(pagination.hasNext)}
+              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {!isLoading && !error && filteredSuppliers.length === 0 && (
         <div className="card">
           <div className="card-content text-center py-12">
             <Building className="mx-auto h-12 w-12 text-gray-400" />
