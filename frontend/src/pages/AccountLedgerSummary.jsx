@@ -215,15 +215,17 @@ const AccountLedgerSummary = () => {
     });
   }, [allCustomersSummary, selectedCustomerId]);
 
-  // Filter customers for dropdown (must be before early return)
+  // Filter customers for dropdown (search by business name, company name, name)
   const filteredCustomers = useMemo(() => {
     if (!customerSearchQuery.trim()) return allCustomers.slice(0, 50);
     const query = customerSearchQuery.toLowerCase();
     return allCustomers.filter(customer => {
-      const name = (customer.businessName || customer.name || '').toLowerCase();
+      const businessName = (customer.businessName || customer.business_name || '').toLowerCase();
+      const companyName = (customer.companyName || customer.company_name || '').toLowerCase();
+      const name = (customer.name || '').toLowerCase();
       const email = (customer.email || '').toLowerCase();
       const phone = (customer.phone || '').toLowerCase();
-      return name.includes(query) || email.includes(query) || phone.includes(query);
+      return businessName.includes(query) || companyName.includes(query) || name.includes(query) || email.includes(query) || phone.includes(query);
     }).slice(0, 50);
   }, [allCustomers, customerSearchQuery]);
 
@@ -237,15 +239,17 @@ const AccountLedgerSummary = () => {
     });
   }, [suppliers, selectedSupplierId]);
 
-  // Filter suppliers for dropdown (must be before early return)
+  // Filter suppliers for dropdown (search by business name, company name, name)
   const filteredSuppliers = useMemo(() => {
     if (!supplierSearchQuery.trim()) return allSuppliers.slice(0, 50);
     const query = supplierSearchQuery.toLowerCase();
     return allSuppliers.filter(supplier => {
-      const name = (supplier.companyName || supplier.name || '').toLowerCase();
+      const companyName = (supplier.companyName || supplier.company_name || '').toLowerCase();
+      const businessName = (supplier.businessName || supplier.business_name || '').toLowerCase();
+      const name = (supplier.name || '').toLowerCase();
       const email = (supplier.email || '').toLowerCase();
       const phone = (supplier.phone || '').toLowerCase();
-      return name.includes(query) || email.includes(query) || phone.includes(query);
+      return companyName.includes(query) || businessName.includes(query) || name.includes(query) || email.includes(query) || phone.includes(query);
     }).slice(0, 50);
   }, [allSuppliers, supplierSearchQuery]);
 
