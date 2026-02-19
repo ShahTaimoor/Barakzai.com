@@ -23,6 +23,7 @@ import {
   useExportJSONMutation,
   useDownloadFileMutation,
 } from '../store/services/purchaseInvoicesApi';
+import { useLazyGetSupplierQuery } from '../store/services/suppliersApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useTab } from '../contexts/TabContext';
@@ -169,14 +170,47 @@ export const PurchaseInvoices = () => {
   const [exportJSONMutation] = useExportJSONMutation();
   const [downloadFileMutation] = useDownloadFileMutation();
 
-  // Print helper - fetch full invoice by ID to ensure supplier address is included
+  const [getSupplierById] = useLazyGetSupplierQuery();
+
+  // Print helper - fetch full invoice by ID, and fetch supplier if address is missing
   const handlePrint = async (invoice) => {
     if (!invoice) return;
     const id = invoice.id || invoice._id;
     if (id) {
       try {
         const result = await getPurchaseInvoiceById(id).unwrap();
-        const fullInvoice = result?.invoice || result?.data?.invoice || result?.data || result;
+        let fullInvoice = result?.invoice || result?.data?.invoice || result?.data || result;
+        const supplierId = fullInvoice?.supplier_id || fullInvoice?.supplierId || fullInvoice?.supplier?.id || fullInvoice?.supplier?._id || fullInvoice?.supplierInfo?.id || fullInvoice?.supplierInfo?._id;
+        const hasAddress = !!(fullInvoice?.supplierInfo?.address || fullInvoice?.supplier?.address);
+        if (!hasAddress && supplierId && typeof supplierId === 'string') {
+          try {
+            const supResult = await getSupplierById(supplierId).unwrap();
+            const supplier = supResult?.supplier || supResult?.data?.supplier || supResult;
+            if (supplier) {
+              let addr = '';
+              if (typeof supplier.address === 'string' && supplier.address.trim()) addr = supplier.address.trim();
+              else if (Array.isArray(supplier.address) && supplier.address.length > 0) {
+                const a = supplier.address.find(x => x.isDefault) || supplier.address.find(x => x.type === 'billing' || x.type === 'both') || supplier.address[0];
+                const parts = [a.street || a.address_line1 || a.addressLine1, a.city, a.state || a.province, a.country, a.zipCode || a.zip].filter(Boolean);
+                addr = parts.join(', ');
+              } else if (supplier.address && typeof supplier.address === 'object') {
+                const a = supplier.address;
+                const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.address_line2 || a.addressLine2, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postal_code].filter(Boolean);
+                addr = parts.join(', ');
+              } else if (supplier.addresses?.length) {
+                const a = supplier.addresses.find(x => x.isDefault) || supplier.addresses.find(x => x.type === 'billing' || x.type === 'both') || supplier.addresses[0];
+                addr = [a.street || a.address_line1 || a.addressLine1, a.city, a.state || a.province, a.country, a.zipCode || a.zip].filter(Boolean).join(', ');
+              }
+              if (addr) {
+                fullInvoice = {
+                  ...fullInvoice,
+                  supplierInfo: { ...(fullInvoice.supplierInfo || {}), address: addr },
+                  supplier: typeof fullInvoice.supplier === 'object' ? { ...fullInvoice.supplier, address: addr } : fullInvoice.supplier
+                };
+              }
+            }
+          } catch (e) { /* ignore */ }
+        }
         setSelectedInvoice(fullInvoice || invoice);
       } catch {
         setSelectedInvoice(invoice);
@@ -728,7 +762,8 @@ export const PurchaseInvoices = () => {
         onClose={() => setShowViewModal(false)}
         orderData={selectedInvoice ? {
           ...selectedInvoice,
-          supplier: selectedInvoice.supplierInfo // Map supplierInfo to supplier for PrintModal
+          supplier: selectedInvoice.supplierInfo || selectedInvoice.supplier,
+          supplierInfo: { ...(selectedInvoice.supplierInfo || {}), address: selectedInvoice.supplierInfo?.address || selectedInvoice.supplier?.address }
         } : null}
         documentTitle="Purchase Invoice"
         partyLabel="Supplier"

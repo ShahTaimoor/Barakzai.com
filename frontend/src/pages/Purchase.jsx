@@ -1699,23 +1699,52 @@ export const Purchase = ({ tabId, editData }) => {
               {purchaseItems.length > 0 && (
                 <button
                   onClick={() => {
-                    const tempOrder = {
-                      orderNumber: `PO-${Date.now()}`,
-                      orderType: 'purchase',
-                      supplier: selectedSupplier?._id,
-                      customer: selectedSupplier, // PrintModal expects 'customer' field
-                      customerInfo: selectedSupplier ? {
+                    const supplierInfoForPrint = selectedSupplier ? {
                         name: selectedSupplier.companyName || selectedSupplier.company_name || selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name,
                         email: selectedSupplier.email,
                         phone: selectedSupplier.phone,
                         address: (() => {
+                          if (typeof selectedSupplier.address === 'string' && selectedSupplier.address.trim()) return selectedSupplier.address.trim();
                           const addr = selectedSupplier.address || selectedSupplier.companyAddress || selectedSupplier.location;
-                          if (!addr) return null;
-                          if (typeof addr === 'string') return addr;
-                          return [addr.street, addr.city, addr.province || addr.state, addr.country].filter(Boolean).join(', ');
+                          if (addr && typeof addr === 'object') {
+                            const parts = [addr.street || addr.address_line1 || addr.addressLine1 || addr.line1, addr.address_line2 || addr.addressLine2, addr.city, addr.province || addr.state, addr.country, addr.zipCode || addr.zip || addr.postalCode || addr.postal_code].filter(Boolean);
+                            if (parts.length) return parts.join(', ');
+                          }
+                          if (selectedSupplier.addresses?.length) {
+                            const a = selectedSupplier.addresses.find(x => x.isDefault) || selectedSupplier.addresses.find(x => x.type === 'billing' || x.type === 'both') || selectedSupplier.addresses[0];
+                            const parts = [a.street || a.address_line1 || a.addressLine1, a.city, a.province || a.state, a.country, a.zipCode || a.zip].filter(Boolean);
+                            if (parts.length) return parts.join(', ');
+                          }
+                          return null;
+                        })(),
+                        businessName: selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.companyName
+                      } : null;
+                    const tempOrder = {
+                      orderNumber: `PO-${Date.now()}`,
+                      orderType: 'purchase',
+                      supplier: selectedSupplier,
+                        name: selectedSupplier.companyName || selectedSupplier.company_name || selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name,
+                        email: selectedSupplier.email,
+                        phone: selectedSupplier.phone,
+                        address: (() => {
+                          if (typeof selectedSupplier.address === 'string' && selectedSupplier.address.trim()) return selectedSupplier.address.trim();
+                          const addr = selectedSupplier.address || selectedSupplier.companyAddress || selectedSupplier.location;
+                          if (addr && typeof addr === 'object') {
+                            const parts = [addr.street || addr.address_line1 || addr.addressLine1 || addr.line1, addr.address_line2 || addr.addressLine2, addr.city, addr.province || addr.state, addr.country, addr.zipCode || addr.zip || addr.postalCode || addr.postal_code].filter(Boolean);
+                            if (parts.length) return parts.join(', ');
+                          }
+                          if (selectedSupplier.addresses?.length) {
+                            const a = selectedSupplier.addresses.find(x => x.isDefault) || selectedSupplier.addresses.find(x => x.type === 'billing' || x.type === 'both') || selectedSupplier.addresses[0];
+                            const parts = [a.street || a.address_line1 || a.addressLine1, a.city, a.province || a.state, a.country, a.zipCode || a.zip].filter(Boolean);
+                            if (parts.length) return parts.join(', ');
+                          }
+                          return null;
                         })(),
                         businessName: selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.companyName
                       } : null,
+                      supplierInfo: supplierInfoForPrint,
+                      customer: selectedSupplier,
+                      customerInfo: supplierInfoForPrint,
                       items: purchaseItems.map(item => {
                         const product = item.product || {};
                         const displayName = product.isVariant

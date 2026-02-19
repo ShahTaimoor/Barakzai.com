@@ -19,16 +19,14 @@ const router = express.Router();
 const formatSupplierAddress = (supplierData) => {
   if (!supplierData) return '';
   if (supplierData.address && typeof supplierData.address === 'string') return supplierData.address.trim();
+  if (Array.isArray(supplierData.address) && supplierData.address.length > 0) {
+    const a = supplierData.address.find(x => x.isDefault) || supplierData.address.find(x => x.type === 'billing' || x.type === 'both') || supplierData.address[0];
+    const parts = [a.street || a.address_line1 || a.addressLine1, a.city, a.state || a.province, a.country, a.zipCode || a.zip].filter(Boolean);
+    return parts.join(', ');
+  }
   if (supplierData.address && typeof supplierData.address === 'object') {
     const a = supplierData.address;
-    const parts = [
-      a.street || a.address_line1 || a.addressLine1 || a.line1,
-      a.address_line2 || a.addressLine2 || a.line2,
-      a.city,
-      a.state || a.province,
-      a.country,
-      a.zipCode || a.zip || a.postalCode || a.postal_code
-    ].filter(Boolean);
+    const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.address_line2 || a.addressLine2 || a.line2, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
     return parts.join(', ');
   }
   if (supplierData.addresses && Array.isArray(supplierData.addresses) && supplierData.addresses.length > 0) {

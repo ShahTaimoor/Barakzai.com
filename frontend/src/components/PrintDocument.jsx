@@ -184,17 +184,38 @@ const PrintDocument = ({
                 customer.billingAddress ||
                 orderData.customerInfo?.address ||
                 orderData.supplierInfo?.address ||
+                orderData.supplier_info?.address ||
+                (typeof orderData.supplier === 'object' ? orderData.supplier?.address : null) ||
                 orderData.shippingAddress ||
                 orderData.billingAddress ||
                 '';
             
-            // Format address: single object (Postgres JSONB object or API object)
-            if (typeof addr === 'object' && addr !== null && !Array.isArray(addr)) {
+            // Format address: object, array (suppliers store addresses array in address column), or string
+            if (Array.isArray(addr) && addr.length > 0) {
+                const a = addr.find(x => x.isDefault) || addr.find(x => x.type === 'billing' || x.type === 'both') || addr[0];
+                const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+                customerAddress = parts.join(', ');
+            } else if (typeof addr === 'object' && addr !== null) {
                 const streetPart = addr.street || addr.address_line1 || addr.addressLine1 || addr.line1 || '';
                 const parts = [streetPart, addr.address_line2 || addr.addressLine2 || addr.line2, addr.city, addr.province || addr.state, addr.country, addr.zipCode || addr.zip || addr.postalCode || addr.postal_code].filter(Boolean);
                 customerAddress = parts.join(', ');
             } else if (typeof addr === 'string') {
                 customerAddress = addr;
+            }
+        }
+        // Final fallback for supplier: extract from supplier_info / supplierInfo
+        if (!customerAddress && (partyLabel?.toLowerCase() || '').includes('supplier')) {
+            const si = orderData?.supplier_info || orderData?.supplierInfo;
+            if (si) {
+                let raw = si.address ?? si.addresses?.[0];
+                if (Array.isArray(si.address) && si.address.length > 0) {
+                    raw = si.address.find(x => x.isDefault) || si.address.find(x => x.type === 'billing' || x.type === 'both') || si.address[0];
+                }
+                if (typeof raw === 'string' && raw.trim()) customerAddress = raw.trim();
+                else if (raw && typeof raw === 'object') {
+                    const parts = [raw.street || raw.address_line1 || raw.addressLine1 || raw.line1, raw.address_line2 || raw.addressLine2, raw.city, raw.state || raw.province, raw.country, raw.zipCode || raw.zip || raw.postalCode || raw.postal_code].filter(Boolean);
+                    if (parts.length) customerAddress = parts.join(', ');
+                }
             }
         }
 

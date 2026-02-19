@@ -6,6 +6,11 @@ function getAddressFromSupplierInfo(supplierInfo) {
   const si = typeof supplierInfo === 'string' ? (() => { try { return JSON.parse(supplierInfo); } catch (e) { return null; } })() : supplierInfo;
   if (!si || typeof si !== 'object') return '';
   if (typeof si.address === 'string' && si.address.trim()) return si.address.trim();
+  if (Array.isArray(si.address) && si.address.length > 0) {
+    const a = si.address.find(x => x.isDefault) || si.address.find(x => x.type === 'billing' || x.type === 'both') || si.address[0];
+    const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.address_line2 || a.addressLine2 || a.line2, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+    return parts.join(', ');
+  }
   if (si.address && typeof si.address === 'object') {
     const parts = [
       si.address.street || si.address.address_line1 || si.address.addressLine1 || si.address.line1,
@@ -38,23 +43,35 @@ function formatSupplierAddressFromDb(rawAddress) {
   if (!rawAddress) return '';
   if (typeof rawAddress === 'string') {
     const trimmed = rawAddress.trim();
-    if (trimmed.startsWith('{')) {
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
-        const obj = JSON.parse(trimmed);
-        const parts = [
-          obj.street || obj.address_line1 || obj.addressLine1 || obj.line1,
-          obj.address_line2 || obj.addressLine2 || obj.line2,
-          obj.city,
-          obj.state || obj.province,
-          obj.country,
-          obj.zipCode || obj.zip || obj.postalCode || obj.postal_code
-        ].filter(Boolean);
-        return parts.join(', ');
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const a = parsed.find(x => x.isDefault) || parsed.find(x => x.type === 'billing' || x.type === 'both') || parsed[0];
+          const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.address_line2 || a.addressLine2 || a.line2, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+          return parts.join(', ');
+        }
+        if (parsed && typeof parsed === 'object') {
+          const parts = [parsed.street || parsed.address_line1 || parsed.addressLine1 || parsed.line1, parsed.address_line2 || parsed.addressLine2 || parsed.line2, parsed.city, parsed.state || parsed.province, parsed.country, parsed.zipCode || parsed.zip || parsed.postalCode || parsed.postal_code].filter(Boolean);
+          return parts.join(', ');
+        }
       } catch (e) {
         return trimmed;
       }
     }
     return trimmed;
+  }
+  if (Array.isArray(rawAddress) && rawAddress.length > 0) {
+    const a = rawAddress.find(x => x.isDefault) || rawAddress.find(x => x.type === 'billing' || x.type === 'both') || rawAddress[0];
+    const parts = [
+      a.street || a.address_line1 || a.addressLine1 || a.line1,
+      a.address_line2 || a.addressLine2 || a.line2,
+      a.city,
+      a.state || a.province,
+      a.country,
+      a.zipCode || a.zip || a.postalCode || a.postal_code
+    ].filter(Boolean);
+    return parts.join(', ');
   }
   if (typeof rawAddress === 'object') {
     const parts = [
