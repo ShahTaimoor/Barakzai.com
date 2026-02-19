@@ -107,13 +107,38 @@ const PrintDocument = ({
         // Merge them, preferring info for basic details but keeping balance from fullParty if missing in info
         const customer = { ...fullParty, ...info };
 
-        const composedName =
-            customer.name ||
-            customer.displayName ||
-            customer.businessName ||
-            customer.companyName ||
-            customer.fullName ||
-            '—';
+        // Prefer business/company name for both Customer (sales) and Supplier (purchase)
+        const isCustomer = (partyLabel?.toLowerCase() || '').includes('customer');
+        const isSupplier = (partyLabel?.toLowerCase() || '').includes('supplier');
+        const composedName = isCustomer
+            ? (customer.businessName ||
+               customer.business_name ||
+               orderData.customerInfo?.businessName ||
+               orderData.customerInfo?.business_name ||
+               customer.companyName ||
+               customer.name ||
+               customer.displayName ||
+               customer.fullName ||
+               '—')
+            : isSupplier
+            ? (customer.companyName ||
+               customer.company_name ||
+               customer.businessName ||
+               customer.business_name ||
+               orderData.supplierInfo?.companyName ||
+               orderData.supplierInfo?.businessName ||
+               orderData.supplierInfo?.business_name ||
+               customer.name ||
+               customer.displayName ||
+               customer.fullName ||
+               '—')
+            : (customer.name ||
+               customer.displayName ||
+               customer.businessName ||
+               customer.business_name ||
+               customer.companyName ||
+               customer.fullName ||
+               '—');
         const businessName =
             customer.businessName ||
             customer.companyName ||
@@ -187,7 +212,7 @@ const PrintDocument = ({
                 ? customer.currentBalance
                 : ((toNumber(customer.pendingBalance || 0)) - (toNumber(customer.advanceBalance || 0)))
         };
-    }, [orderData]);
+    }, [orderData, partyLabel]);
 
     const items = Array.isArray(orderData?.items) ? orderData.items : [];
 

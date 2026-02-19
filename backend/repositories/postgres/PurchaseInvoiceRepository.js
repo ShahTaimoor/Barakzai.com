@@ -1,5 +1,38 @@
 const { query } = require('../../config/postgres');
 
+// Extract address from stored supplier_info (JSONB) when supplier table address is empty
+function getAddressFromSupplierInfo(supplierInfo) {
+  if (!supplierInfo) return '';
+  const si = typeof supplierInfo === 'string' ? (() => { try { return JSON.parse(supplierInfo); } catch (e) { return null; } })() : supplierInfo;
+  if (!si || typeof si !== 'object') return '';
+  if (typeof si.address === 'string' && si.address.trim()) return si.address.trim();
+  if (si.address && typeof si.address === 'object') {
+    const parts = [
+      si.address.street || si.address.address_line1 || si.address.addressLine1 || si.address.line1,
+      si.address.address_line2 || si.address.addressLine2 || si.address.line2,
+      si.address.city,
+      si.address.state || si.address.province,
+      si.address.country,
+      si.address.zipCode || si.address.zip || si.address.postalCode || si.address.postal_code
+    ].filter(Boolean);
+    return parts.join(', ');
+  }
+  // Handle addresses array (e.g. from suppliers with multiple addresses)
+  if (si.addresses && Array.isArray(si.addresses) && si.addresses.length > 0) {
+    const addr = si.addresses.find(a => a.isDefault) || si.addresses.find(a => a.type === 'billing' || a.type === 'both') || si.addresses[0];
+    const parts = [
+      addr.street || addr.address_line1 || addr.addressLine1 || addr.line1,
+      addr.address_line2 || addr.addressLine2 || addr.line2,
+      addr.city,
+      addr.state || addr.province,
+      addr.country,
+      addr.zipCode || addr.zip || addr.postalCode || addr.postal_code
+    ].filter(Boolean);
+    return parts.join(', ');
+  }
+  return '';
+}
+
 // Format supplier address from DB (can be string or JSON)
 function formatSupplierAddressFromDb(rawAddress) {
   if (!rawAddress) return '';
@@ -141,13 +174,21 @@ class PurchaseInvoiceRepository {
     if (row.supplier_id != null) {
         if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_name != null)) {
           // Supplier exists and is not deleted - use joined data (include address, phone, email for print)
+          let addr = formatSupplierAddressFromDb(row.supplier_address) || getAddressFromSupplierInfo(invoice.supplier_info);
+          // Last resort: fetch supplier directly if address still empty (e.g. supplier updated address after invoice created)
+          if (!addr && row.supplier_id) {
+            try {
+              const supResult = await query('SELECT address FROM suppliers WHERE id = $1 AND (is_deleted = FALSE OR is_deleted IS NULL)', [row.supplier_id]);
+              if (supResult.rows[0]?.address) addr = formatSupplierAddressFromDb(supResult.rows[0].address);
+            } catch (e) { /* ignore */ }
+          }
           invoice.supplierInfo = {
             id: row.supplier_id,
             _id: row.supplier_id,
             companyName: row.supplier_company_name,
             name: row.supplier_name,
             displayName: row.supplier_company_name || row.supplier_name || 'Unknown Supplier',
-            address: formatSupplierAddressFromDb(row.supplier_address) || undefined,
+            address: addr || undefined,
             phone: row.supplier_phone || undefined,
             email: row.supplier_email || undefined
           };
@@ -293,13 +334,15 @@ class PurchaseInvoiceRepository {
       if (row.supplier_id != null) {
         if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_name != null)) {
           // Supplier exists and is not deleted - use joined data (include address, phone, email for print)
+          const addrFromSupplier = formatSupplierAddressFromDb(row.supplier_address);
+          const addrFromStored = getAddressFromSupplierInfo(invoice.supplier_info);
           invoice.supplierInfo = {
             id: row.supplier_id,
             _id: row.supplier_id,
             companyName: row.supplier_company_name,
             name: row.supplier_name,
             displayName: row.supplier_company_name || row.supplier_name || 'Unknown Supplier',
-            address: formatSupplierAddressFromDb(row.supplier_address) || undefined,
+            address: addrFromSupplier || addrFromStored || undefined,
             phone: row.supplier_phone || undefined,
             email: row.supplier_email || undefined
           };

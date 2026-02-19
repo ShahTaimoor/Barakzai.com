@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import {
   useGetPurchaseInvoicesQuery,
+  useLazyGetPurchaseInvoiceQuery,
   useConfirmPurchaseInvoiceMutation,
   useDeletePurchaseInvoiceMutation,
   useExportExcelMutation,
@@ -157,6 +158,8 @@ export const PurchaseInvoices = () => {
 
   // Editing occurs in Purchase page; no supplier query needed here
 
+  const [getPurchaseInvoiceById] = useLazyGetPurchaseInvoiceQuery();
+
   // Mutations
   const [confirmPurchaseInvoiceMutation, { isLoading: confirming }] = useConfirmPurchaseInvoiceMutation();
   const [deletePurchaseInvoiceMutation, { isLoading: deleting }] = useDeletePurchaseInvoiceMutation();
@@ -166,10 +169,21 @@ export const PurchaseInvoices = () => {
   const [exportJSONMutation] = useExportJSONMutation();
   const [downloadFileMutation] = useDownloadFileMutation();
 
-  // Print helper
-  const handlePrint = (invoice) => {
+  // Print helper - fetch full invoice by ID to ensure supplier address is included
+  const handlePrint = async (invoice) => {
     if (!invoice) return;
-    setSelectedInvoice(invoice);
+    const id = invoice.id || invoice._id;
+    if (id) {
+      try {
+        const result = await getPurchaseInvoiceById(id).unwrap();
+        const fullInvoice = result?.invoice || result?.data?.invoice || result?.data || result;
+        setSelectedInvoice(fullInvoice || invoice);
+      } catch {
+        setSelectedInvoice(invoice);
+      }
+    } else {
+      setSelectedInvoice(invoice);
+    }
     setShowViewModal(true);
   };
 

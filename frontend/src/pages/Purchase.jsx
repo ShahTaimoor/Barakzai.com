@@ -1202,11 +1202,18 @@ export const Purchase = ({ tabId, editData }) => {
         email: selectedSupplier.email,
         phone: selectedSupplier.phone,
         companyName: selectedSupplier.companyName,
-        address: typeof selectedSupplier.address === 'string'
-          ? selectedSupplier.address
-          : selectedSupplier.address
-            ? [selectedSupplier.address.street, selectedSupplier.address.city, selectedSupplier.address.province || selectedSupplier.address.state, selectedSupplier.address.country].filter(Boolean).join(', ')
-            : null
+        address: (() => {
+          if (typeof selectedSupplier.address === 'string' && selectedSupplier.address.trim()) return selectedSupplier.address.trim();
+          if (selectedSupplier.address && typeof selectedSupplier.address === 'object') {
+            const a = selectedSupplier.address;
+            return [a.street, a.address_line1 || a.addressLine1, a.city, a.province || a.state, a.country, a.zipCode || a.zip].filter(Boolean).join(', ') || null;
+          }
+          if (selectedSupplier.addresses?.length) {
+            const addr = selectedSupplier.addresses.find(a => a.isDefault) || selectedSupplier.addresses.find(a => a.type === 'billing' || a.type === 'both') || selectedSupplier.addresses[0];
+            return [addr.street, addr.address_line1 || addr.addressLine1, addr.city, addr.province || addr.state, addr.country, addr.zipCode || addr.zip].filter(Boolean).join(', ') || null;
+          }
+          return null;
+        })()
       },
       items: purchaseItems.map(item => ({
         product: item.product?._id,
@@ -1698,7 +1705,7 @@ export const Purchase = ({ tabId, editData }) => {
                       supplier: selectedSupplier?._id,
                       customer: selectedSupplier, // PrintModal expects 'customer' field
                       customerInfo: selectedSupplier ? {
-                        name: selectedSupplier.displayName,
+                        name: selectedSupplier.companyName || selectedSupplier.company_name || selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name,
                         email: selectedSupplier.email,
                         phone: selectedSupplier.phone,
                         address: (() => {

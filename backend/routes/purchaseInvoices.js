@@ -18,10 +18,22 @@ const router = express.Router();
 // Format supplier address for invoice supplierInfo (for print)
 const formatSupplierAddress = (supplierData) => {
   if (!supplierData) return '';
-  if (supplierData.address && typeof supplierData.address === 'string') return supplierData.address;
+  if (supplierData.address && typeof supplierData.address === 'string') return supplierData.address.trim();
+  if (supplierData.address && typeof supplierData.address === 'object') {
+    const a = supplierData.address;
+    const parts = [
+      a.street || a.address_line1 || a.addressLine1 || a.line1,
+      a.address_line2 || a.addressLine2 || a.line2,
+      a.city,
+      a.state || a.province,
+      a.country,
+      a.zipCode || a.zip || a.postalCode || a.postal_code
+    ].filter(Boolean);
+    return parts.join(', ');
+  }
   if (supplierData.addresses && Array.isArray(supplierData.addresses) && supplierData.addresses.length > 0) {
     const addr = supplierData.addresses.find(a => a.isDefault) || supplierData.addresses.find(a => a.type === 'billing' || a.type === 'both') || supplierData.addresses[0];
-    const parts = [addr.street, addr.city, addr.state, addr.country, addr.zipCode].filter(Boolean);
+    const parts = [addr.street || addr.address_line1 || addr.addressLine1, addr.city, addr.state || addr.province, addr.country, addr.zipCode || addr.zip].filter(Boolean);
     return parts.join(', ');
   }
   return '';
@@ -156,9 +168,24 @@ router.post('/', [
     } = req.body;
 
     const genInvoiceNumber = () => `PI-${Date.now()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    // Ensure supplierInfo has address - fetch from supplier record if missing
+    let enrichedSupplierInfo = supplierInfo || {};
+    if (supplier && (!enrichedSupplierInfo.address || (typeof enrichedSupplierInfo.address === 'string' && !enrichedSupplierInfo.address.trim()))) {
+      try {
+        const supplierData = await supplierRepository.findById(supplier);
+        if (supplierData) {
+          const addr = formatSupplierAddress(supplierData);
+          if (addr) {
+            enrichedSupplierInfo = { ...enrichedSupplierInfo, address: addr };
+          }
+        }
+      } catch (e) {
+        // Ignore - use whatever supplierInfo was provided
+      }
+    }
     const invoiceData = {
       supplier,
-      supplierInfo,
+      supplierInfo: enrichedSupplierInfo,
       items,
       pricing,
       payment: {

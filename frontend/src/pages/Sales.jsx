@@ -3228,10 +3228,10 @@ export const Sales = ({ tabId, editData }) => {
                         orderType: mapBusinessTypeToOrderType(selectedCustomer?.businessType),
                         customer: selectedCustomer ?? undefined,
                         customerInfo: selectedCustomer ? {
-                          name: selectedCustomer.displayName,
+                          name: selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name,
                           email: selectedCustomer.email,
                           phone: selectedCustomer.phone,
-                          businessName: selectedCustomer.businessName,
+                          businessName: selectedCustomer.businessName || selectedCustomer.business_name,
                           address: customerAddress || undefined,
                           currentBalance: selectedCustomer.currentBalance,
                           pendingBalance: selectedCustomer.pendingBalance,
