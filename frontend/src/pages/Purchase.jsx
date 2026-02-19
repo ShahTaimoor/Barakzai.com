@@ -865,6 +865,19 @@ export const Purchase = ({ tabId, editData }) => {
           // Failed to search suppliers - silent fail
         }
       }
+
+      // Navigate to Purchase Invoices page after successful update
+      const componentInfo = getComponentInfo('/purchase-invoices');
+      if (componentInfo) {
+        openTab({
+          title: 'Purchase Invoices',
+          path: '/purchase-invoices',
+          component: componentInfo.component,
+          icon: componentInfo.icon,
+          allowMultiple: componentInfo.allowMultiple,
+          props: {}
+        });
+      }
     } catch (error) {
       toast.error(error?.data?.message || error?.message || 'Failed to update purchase');
     }

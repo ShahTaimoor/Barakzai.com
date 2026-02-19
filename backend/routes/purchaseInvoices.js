@@ -315,7 +315,7 @@ router.put('/:id', [
     }
 
     // Store old values for comparison
-    const oldItems = JSON.parse(JSON.stringify(invoice.items));
+    const oldItems = JSON.parse(JSON.stringify(invoice.items || []));
     const oldTotal = invoice.pricing.total;
     const oldSupplier = invoice.supplier;
 
@@ -359,7 +359,7 @@ router.put('/:id', [
         const itemSubtotal = item.quantity * item.unitCost;
         const itemDiscount = itemSubtotal * ((item.discountPercent || 0) / 100);
         const itemTaxable = itemSubtotal - itemDiscount;
-        const itemTax = invoice.pricing.isTaxExempt ? 0 : itemTaxable * (item.taxRate || 0);
+        const itemTax = (invoice.pricing && invoice.pricing.isTaxExempt) ? 0 : itemTaxable * (item.taxRate || 0);
 
         newSubtotal += itemSubtotal;
         newTotalDiscount += itemDiscount;
@@ -378,11 +378,34 @@ router.put('/:id', [
 
     const updatedInvoice = await purchaseInvoiceRepository.updateById(req.params.id, updateData);
 
-    // Parse updatedInvoice payment if it came back as string from DB
+    // Parse updatedInvoice payment/pricing if they came back as string from DB
     const updatedPayment = typeof updatedInvoice?.payment === 'string' ? JSON.parse(updatedInvoice.payment || '{}') : (updatedInvoice?.payment || {});
+    const updatedPricing = typeof updatedInvoice?.pricing === 'string' ? JSON.parse(updatedInvoice.pricing || '{}') : (updatedInvoice?.pricing || {});
+    const updatedSupplierId = updatedInvoice.supplier_id || updatedInvoice.supplierId || updatedInvoice.supplier;
 
-    // Post amount paid change to account ledger so balance reflects the update
-    if (req.body.payment !== undefined) {
+    const totalChanged = Math.abs((updatedPricing.total || 0) - oldTotal) >= 0.01;
+    const supplierChanged = String(oldSupplier || '') !== String(updatedSupplierId || '');
+
+    // Account Ledger: When confirmed invoice and (total or supplier) changed - reverse old entries and re-post
+    let didFullLedgerRepost = false;
+    if (invoice.status === 'confirmed' && (totalChanged || supplierChanged)) {
+      try {
+        const invoiceId = updatedInvoice.id || updatedInvoice._id;
+        await AccountingService.reverseLedgerEntriesByReference('purchase_invoice', invoiceId);
+        await AccountingService.reverseLedgerEntriesByReference('purchase_invoice_payment', invoiceId);
+        const fullInvoiceForLedger = await purchaseInvoiceRepository.findById(req.params.id);
+        await AccountingService.recordPurchaseInvoice({
+          ...fullInvoiceForLedger,
+          createdBy: req.user?.id || req.user?._id
+        });
+        didFullLedgerRepost = true;
+      } catch (ledgerErr) {
+        console.error('Failed to re-post purchase invoice to ledger:', ledgerErr);
+      }
+    }
+
+    // Account Ledger: When only payment amount changed (and we didn't do full re-post)
+    if (!didFullLedgerRepost && req.body.payment !== undefined) {
       const oldAmountPaid = parseFloat(invoice.payment?.amount ?? invoice.payment?.paidAmount ?? 0) || 0;
       const newAmountPaid = parseFloat(updatedPayment?.amount ?? updatedPayment?.paidAmount ?? 0) || 0;
       if (Math.abs(newAmountPaid - oldAmountPaid) >= 0.01) {
@@ -420,29 +443,31 @@ router.put('/:id', [
           if (quantityChange !== 0) {
             if (quantityChange > 0) {
               // Quantity increased - add more inventory
+              const productId = newItem.product?.id || newItem.product?._id || newItem.product;
               await inventoryService.updateStock({
-                productId: newItem.product,
+                productId,
                 type: 'in',
                 quantity: quantityChange,
                 reason: 'Purchase Invoice Update - Quantity Increased',
                 reference: 'Purchase Invoice',
-                referenceId: updatedInvoice._id,
+                referenceId: updatedInvoice.id || updatedInvoice._id,
                 referenceModel: 'PurchaseInvoice',
-                performedBy: req.user._id,
-                notes: `Inventory increased due to purchase invoice ${updatedInvoice.invoiceNumber} update - quantity increased by ${quantityChange}`
+                performedBy: req.user?.id || req.user?._id,
+                notes: `Inventory increased due to purchase invoice ${updatedInvoice.invoice_number || updatedInvoice.invoiceNumber} update - quantity increased by ${quantityChange}`
               });
             } else {
               // Quantity decreased - reduce inventory
+              const productId = newItem.product?.id || newItem.product?._id || newItem.product;
               await inventoryService.updateStock({
-                productId: newItem.product,
+                productId,
                 type: 'out',
                 quantity: Math.abs(quantityChange),
                 reason: 'Purchase Invoice Update - Quantity Decreased',
                 reference: 'Purchase Invoice',
-                referenceId: updatedInvoice._id,
+                referenceId: updatedInvoice.id || updatedInvoice._id,
                 referenceModel: 'PurchaseInvoice',
-                performedBy: req.user._id,
-                notes: `Inventory reduced due to purchase invoice ${updatedInvoice.invoiceNumber} update - quantity decreased by ${Math.abs(quantityChange)}`
+                performedBy: req.user?.id || req.user?._id,
+                notes: `Inventory reduced due to purchase invoice ${updatedInvoice.invoice_number || updatedInvoice.invoiceNumber} update - quantity decreased by ${Math.abs(quantityChange)}`
               });
             }
           }
@@ -476,10 +501,10 @@ router.put('/:id', [
 
     // Adjust supplier balance if total changed, payment changed, or supplier changed
     // Need to properly handle overpayments using SupplierBalanceService
-    if (updatedInvoice.supplier && (
-      updatedInvoice.pricing.total !== oldTotal ||
-      oldSupplier?.toString() !== updatedInvoice.supplier?.toString() ||
-      (updatedInvoice.payment?.amount || updatedInvoice.payment?.paidAmount || 0) !== (invoice.payment?.amount || invoice.payment?.paidAmount || 0)
+    if (updatedSupplierId && (
+      updatedPricing.total !== oldTotal ||
+      oldSupplier?.toString() !== String(updatedSupplierId) ||
+      (updatedPayment?.amount || updatedPayment?.paidAmount || 0) !== (invoice.payment?.amount || invoice.payment?.paidAmount || 0)
     )) {
       try {
         const SupplierBalanceService = require('../services/supplierBalanceService');
@@ -488,9 +513,9 @@ router.put('/:id', [
         // The ledger entries will be updated/reversed as needed.
 
         // Record new payment if any
-        const newAmountPaid = updatedInvoice.payment?.amount || updatedInvoice.payment?.paidAmount || 0;
+        const newAmountPaid = updatedPayment?.amount || updatedPayment?.paidAmount || 0;
         if (newAmountPaid > 0) {
-          await SupplierBalanceService.recordPayment(updatedInvoice.supplier, newAmountPaid, updatedInvoice._id);
+          await SupplierBalanceService.recordPayment(updatedSupplierId, newAmountPaid, updatedInvoice.id || updatedInvoice._id);
         }
       } catch (error) {
         console.error('Error adjusting supplier balance on purchase invoice update:', error);
@@ -498,14 +523,12 @@ router.put('/:id', [
       }
     }
 
-    await updatedInvoice.populate([
-      { path: 'supplier', select: 'name companyName email phone address' },
-      { path: 'items.product', select: 'name description pricing' }
-    ]);
+    // Fetch full invoice with supplier/items (Postgres - no Mongoose populate)
+    const fullInvoice = await purchaseInvoiceRepository.findById(req.params.id);
 
     res.json({
       message: 'Purchase invoice updated successfully',
-      invoice: updatedInvoice
+      invoice: fullInvoice || updatedInvoice
     });
   } catch (error) {
     console.error('Error updating purchase invoice:', error);
