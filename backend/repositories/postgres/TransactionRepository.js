@@ -54,7 +54,7 @@ class TransactionRepository {
   }
 
   _buildWhere(filter) {
-    const conditions = ['1=1'];
+    const conditions = ['1=1', 'reversed_at IS NULL']; // Exclude reversed entries from display (e.g. when receipt/payment was edited)
     const params = [];
     let paramCount = 1;
 

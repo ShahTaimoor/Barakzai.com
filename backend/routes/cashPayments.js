@@ -337,8 +337,18 @@ router.put('/:id', [
     if (notes !== undefined) updateData.notes = notes ? notes.trim() : null;
     updateData.updatedBy = req.user._id.toString();
 
-    // Update using repository
-    const updatedPayment = await cashPaymentRepository.update(req.params.id, updateData);
+    // Update with ledger adjustment (reverse old entries, update record, re-post new entries)
+    const { transaction } = require('../config/postgres');
+    const updatedPayment = await transaction(async (client) => {
+      await AccountingService.reverseLedgerEntriesByReference('cash_payment', req.params.id, client);
+      const payment = await cashPaymentRepository.update(req.params.id, updateData, client);
+      if (!payment) return null;
+      // Re-post only for supplier/customer payments (not expense-only)
+      if (payment.supplier_id || payment.customer_id) {
+        await AccountingService.recordCashPayment(payment, client);
+      }
+      return payment;
+    });
     
     if (!updatedPayment) {
       return res.status(404).json({

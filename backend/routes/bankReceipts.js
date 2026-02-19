@@ -299,16 +299,27 @@ router.put('/:id', [
       notes
     } = req.body;
 
-    // Update receipt (repository.update now returns formatted data with supplier/customer)
-    const updatedReceipt = await bankReceiptRepository.update(req.params.id, {
-      date: date ? new Date(date) : undefined,
-      amount: amount ? parseFloat(amount) : undefined,
-      particular: particular ? particular.trim() : undefined,
-      bankId: bank || undefined,
-      transactionReference: transactionReference ? transactionReference.trim() : undefined,
-      supplierId: supplier || undefined,
-      customerId: customer || undefined,
-      notes: notes ? notes.trim() : undefined
+    const { transaction } = require('../config/postgres');
+    const updatedReceipt = await transaction(async (client) => {
+      // 1. Reverse old ledger entries
+      await AccountingService.reverseLedgerEntriesByReference('bank_receipt', req.params.id, client);
+      // 2. Update receipt (within transaction)
+      const receipt = await bankReceiptRepository.update(req.params.id, {
+        date: date ? new Date(date) : undefined,
+        amount: amount ? parseFloat(amount) : undefined,
+        particular: particular ? particular.trim() : undefined,
+        bankId: bank || undefined,
+        transactionReference: transactionReference ? transactionReference.trim() : undefined,
+        supplierId: supplier !== undefined ? (supplier || null) : undefined,
+        customerId: customer !== undefined ? (customer || null) : undefined,
+        notes: notes ? notes.trim() : undefined
+      }, client);
+      if (!receipt) return null;
+      // 3. Re-post ledger with updated values (must have customer or supplier)
+      if (receipt.customer_id || receipt.supplier_id) {
+        await AccountingService.recordBankReceipt(receipt, client);
+      }
+      return receipt;
     });
 
     if (!updatedReceipt) {
@@ -318,10 +329,13 @@ router.put('/:id', [
       });
     }
 
+    // Fetch formatted receipt with supplier/customer for response
+    const receiptWithDetails = await bankReceiptRepository.findById(req.params.id);
+
     res.json({
       success: true,
       message: 'Bank receipt updated successfully',
-      data: updatedReceipt
+      data: receiptWithDetails || { ...updatedReceipt, voucherCode: updatedReceipt.receipt_number }
     });
   } catch (error) {
     console.error('Update bank receipt error:', error);

@@ -353,7 +353,7 @@ class CashPaymentRepository {
     };
   }
 
-  async update(id, paymentData) {
+  async update(id, paymentData, client = null) {
     const updates = [];
     const params = [];
     let paramCount = 1;
@@ -396,7 +396,8 @@ class CashPaymentRepository {
     }
     updates.push('updated_at = CURRENT_TIMESTAMP');
     params.push(id);
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `UPDATE cash_payments SET ${updates.join(', ')} WHERE id = $${paramCount} AND deleted_at IS NULL RETURNING *`,
       params
     );

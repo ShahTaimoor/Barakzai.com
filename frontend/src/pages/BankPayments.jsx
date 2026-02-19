@@ -1433,7 +1433,7 @@ const BankPayments = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            {formatDateForInput(payment.date) === today && (
+                            {(
                               <>
                                 <button
                                   onClick={() => handleEdit(payment)}

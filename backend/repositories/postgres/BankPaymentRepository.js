@@ -390,7 +390,7 @@ class BankPaymentRepository {
     };
   }
 
-  async update(id, paymentData) {
+  async update(id, paymentData, client = null) {
     const updates = [];
     const params = [];
     let paramCount = 1;
@@ -437,7 +437,8 @@ class BankPaymentRepository {
     }
     updates.push('updated_at = CURRENT_TIMESTAMP');
     params.push(id);
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `UPDATE bank_payments SET ${updates.join(', ')} WHERE id = $${paramCount} AND deleted_at IS NULL RETURNING *`,
       params
     );
@@ -446,6 +447,7 @@ class BankPaymentRepository {
       return null;
     }
     
+    if (client) return result.rows[0];
     // Return the updated payment with supplier/customer data using findById
     return await this.findById(id);
   }

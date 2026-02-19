@@ -31,15 +31,16 @@ class CashReceiptRepository {
     
     // Build supplier object if supplier_id exists in cash_receipts
     if (row.supplier_id != null) {
-      if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null)) {
+      if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null || row.supplier_name != null)) {
         // Supplier exists and is not deleted
+        const supDisplayName = row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier';
         receipt.supplier = {
           id: row.supplier_id,
           _id: row.supplier_id,
           companyName: row.supplier_company_name,
           businessName: row.supplier_business_name,
           name: row.supplier_name,
-          displayName: row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier'
+          displayName: supDisplayName
         };
       } else {
         // Supplier ID exists but supplier was deleted
@@ -152,15 +153,16 @@ class CashReceiptRepository {
       
       // Build supplier object if supplier_id exists in cash_receipts
       if (row.supplier_id != null) {
-        if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null)) {
+        if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null || row.supplier_name != null)) {
           // Supplier exists and is not deleted
+          const supDisplayName = row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier';
           receipt.supplier = {
             id: row.supplier_id,
             _id: row.supplier_id,
             companyName: row.supplier_company_name,
             businessName: row.supplier_business_name,
             name: row.supplier_name,
-            displayName: row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier'
+            displayName: supDisplayName
           };
         } else {
           // Supplier ID exists but supplier was deleted
@@ -324,15 +326,16 @@ class CashReceiptRepository {
       
       // Build supplier object if supplier_id exists in cash_receipts
       if (row.supplier_id != null) {
-        if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null)) {
+        if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null || row.supplier_name != null)) {
           // Supplier exists and is not deleted
+          const supDisplayName = row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier';
           receipt.supplier = {
             id: row.supplier_id,
             _id: row.supplier_id,
             companyName: row.supplier_company_name,
             businessName: row.supplier_business_name,
             name: row.supplier_name,
-            displayName: row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier'
+            displayName: supDisplayName
           };
         } else {
           // Supplier ID exists but supplier was deleted
@@ -394,7 +397,7 @@ class CashReceiptRepository {
     };
   }
 
-  async update(id, receiptData) {
+  async update(id, receiptData, client = null) {
     const updates = [];
     const params = [];
     let paramCount = 1;
@@ -435,7 +438,8 @@ class CashReceiptRepository {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     params.push(id);
 
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `UPDATE cash_receipts SET ${updates.join(', ')} WHERE id = $${paramCount} AND deleted_at IS NULL RETURNING *`,
       params
     );

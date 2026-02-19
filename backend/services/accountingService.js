@@ -332,6 +332,22 @@ class AccountingService {
   }
 
   /**
+   * Reverse ledger entries by reference (for edits - mark old entries as reversed)
+   * @param {string} referenceType - e.g. 'cash_receipt', 'cash_payment', 'bank_receipt', 'bank_payment'
+   * @param {string} referenceId - UUID of the receipt/payment
+   * @param {Object} client - Optional PostgreSQL client for transaction
+   */
+  static async reverseLedgerEntriesByReference(referenceType, referenceId, client = null) {
+    const q = client ? client.query.bind(client) : query;
+    await q(
+      `UPDATE account_ledger 
+       SET reversed_at = CURRENT_TIMESTAMP 
+       WHERE reference_type = $1 AND reference_id::text = $2 AND reversed_at IS NULL`,
+      [referenceType, String(referenceId)]
+    );
+  }
+
+  /**
    * Record cash receipt transaction (Unified: Customer or Supplier)
    * Business Meaning: Money received INTO the business
    * 

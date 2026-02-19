@@ -323,7 +323,7 @@ class BankReceiptRepository {
     };
   }
 
-  async update(id, receiptData) {
+  async update(id, receiptData, client = null) {
     const updates = [];
     const params = [];
     let paramCount = 1;
@@ -368,7 +368,8 @@ class BankReceiptRepository {
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     params.push(id);
 
-    const result = await query(
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `UPDATE bank_receipts SET ${updates.join(', ')} WHERE id = $${paramCount} AND deleted_at IS NULL RETURNING *`,
       params
     );
@@ -377,7 +378,8 @@ class BankReceiptRepository {
       return null;
     }
     
-    // Return the updated receipt with customer data using findById
+    // Return the updated receipt with customer data using findById (skip when in transaction - caller may need raw row)
+    if (client) return result.rows[0];
     return await this.findById(id);
   }
 

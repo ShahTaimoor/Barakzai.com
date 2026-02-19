@@ -321,15 +321,26 @@ router.put('/:id', [
       notes
     } = req.body;
 
-    // Update receipt
-    const updatedReceipt = await cashReceiptRepository.update(req.params.id, {
-      date: date ? new Date(date) : undefined,
-      amount: amount ? parseFloat(amount) : undefined,
-      particular: particular ? particular.trim() : undefined,
-      supplierId: supplier || undefined,
-      customerId: customer || undefined,
-      paymentMethod: paymentMethod || undefined,
-      notes: notes ? notes.trim() : undefined
+    const { transaction } = require('../config/postgres');
+    const updatedReceipt = await transaction(async (client) => {
+      // 1. Reverse old ledger entries
+      await AccountingService.reverseLedgerEntriesByReference('cash_receipt', req.params.id, client);
+      // 2. Update receipt (within transaction)
+      const receipt = await cashReceiptRepository.update(req.params.id, {
+        date: date ? new Date(date) : undefined,
+        amount: amount ? parseFloat(amount) : undefined,
+        particular: particular ? particular.trim() : undefined,
+        supplierId: supplier !== undefined ? (supplier || null) : undefined,
+        customerId: customer !== undefined ? (customer || null) : undefined,
+        paymentMethod: paymentMethod || undefined,
+        notes: notes ? notes.trim() : undefined
+      }, client);
+      if (!receipt) return null;
+      // 3. Re-post ledger with updated values (must have customer or supplier)
+      if (receipt.customer_id || receipt.supplier_id) {
+        await AccountingService.recordCashReceipt(receipt, client);
+      }
+      return receipt;
     });
 
     if (!updatedReceipt) {

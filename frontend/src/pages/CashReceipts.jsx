@@ -780,7 +780,7 @@ const CashReceipts = () => {
     if (supplierId) {
       setPaymentType('supplier');
       setSelectedSupplier(receipt.supplier);
-      setSupplierSearchTerm(receipt.supplier.companyName || receipt.supplier.name || '');
+      setSupplierSearchTerm(receipt.supplier.companyName || receipt.supplier.businessName || receipt.supplier.displayName || receipt.supplier.name || '');
       setSelectedCustomer(null);
       setCustomerSearchTerm('');
     } else if (customerId) {
@@ -1377,7 +1377,7 @@ const CashReceipts = () => {
                         </div>
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Customer
+                        Customer/Supplier
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Particular
@@ -1405,7 +1405,11 @@ const CashReceipts = () => {
                             {Math.round(receipt.amount)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {receipt.customer ? ((receipt.customer.businessName || receipt.customer.business_name || receipt.customer.name)?.toUpperCase() || 'N/A') : 'N/A'}
+                            {receipt.customer
+                              ? (receipt.customer.businessName || receipt.customer.business_name || receipt.customer.displayName || receipt.customer.name || `${(receipt.customer.firstName || '')} ${(receipt.customer.lastName || '')}`.trim() || 'N/A')
+                              : receipt.supplier
+                                ? (receipt.supplier.companyName || receipt.supplier.businessName || receipt.supplier.displayName || receipt.supplier.name || 'N/A')
+                                : 'N/A'}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                             {receipt.particular}
@@ -1426,7 +1430,7 @@ const CashReceipts = () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
-                              {formatDateForInput(receipt.date) === today && (
+                              {(
                                 <>
                                   <button
                                     onClick={() => handleEdit(receipt)}
@@ -1867,6 +1871,18 @@ const CashReceipts = () => {
                   </label>
                   <p className="text-sm text-gray-900">{selectedReceipt.particular}</p>
                 </div>
+                {(selectedReceipt.customer || selectedReceipt.supplier) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {selectedReceipt.customer ? 'Customer' : 'Supplier'}
+                    </label>
+                    <p className="text-sm text-gray-900">
+                      {selectedReceipt.customer
+                        ? (selectedReceipt.customer.businessName || selectedReceipt.customer.business_name || selectedReceipt.customer.displayName || selectedReceipt.customer.name || 'N/A')
+                        : (selectedReceipt.supplier.companyName || selectedReceipt.supplier.businessName || selectedReceipt.supplier.displayName || selectedReceipt.supplier.name || 'N/A')}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Payment Method

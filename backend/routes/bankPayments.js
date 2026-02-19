@@ -309,8 +309,20 @@ router.put('/:id', [
     if (notes !== undefined) updateData.notes = notes ? notes.trim() : null;
     updateData.updatedBy = req.user?.id || req.user?._id;
 
-    // Update payment (repository.update now returns formatted data with supplier/customer)
-    const updatedPayment = await bankPaymentRepository.update(req.params.id, updateData);
+    const { transaction } = require('../config/postgres');
+    const updatedPayment = await transaction(async (client) => {
+      // 1. Reverse old ledger entries
+      await AccountingService.reverseLedgerEntriesByReference('bank_payment', req.params.id, client);
+      // 2. Update payment (within transaction)
+      const payment = await bankPaymentRepository.update(req.params.id, updateData, client);
+      if (!payment) return null;
+      // 3. Re-post ledger with updated values (must have customer or supplier)
+      if (payment.customer_id || payment.supplier_id) {
+        await AccountingService.recordBankPayment(payment, client);
+      }
+      return payment;
+    });
+
     if (!updatedPayment) {
       return res.status(404).json({
         success: false,
@@ -318,10 +330,13 @@ router.put('/:id', [
       });
     }
 
+    // Fetch formatted payment with supplier/customer for response
+    const paymentWithDetails = await bankPaymentRepository.findById(req.params.id);
+
     res.json({
       success: true,
       message: 'Bank payment updated successfully',
-      data: updatedPayment
+      data: paymentWithDetails || { ...updatedPayment, voucherCode: updatedPayment.payment_number }
     });
   } catch (error) {
     console.error('Update bank payment error:', error);
