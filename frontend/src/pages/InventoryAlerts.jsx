@@ -8,7 +8,8 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  Zap
+  Zap,
+  Search
 } from 'lucide-react';
 import {
   useGetLowStockAlertsQuery,
@@ -19,13 +20,15 @@ import { showSuccessToast, showErrorToast, handleApiError } from '../utils/error
 import { formatCurrency } from '../utils/formatters';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
-const ALERTS_PER_PAGE = 50;
+const LIMIT_OPTIONS = [50, 500, 1000, 5000];
 
 const InventoryAlerts = () => {
   const navigate = useNavigate();
   const [filterLevel, setFilterLevel] = useState('all'); // 'all', 'critical', 'warning'
   const [currentPage, setCurrentPage] = useState(1);
   const [autoConfirm, setAutoConfirm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [limit, setLimit] = useState(50);
 
   // Fetch low stock alerts
   const { 
@@ -39,7 +42,8 @@ const InventoryAlerts = () => {
       includeCritical: filterLevel === 'all' || filterLevel === 'critical',
       includeWarning: filterLevel === 'all' || filterLevel === 'warning',
       page: currentPage,
-      limit: ALERTS_PER_PAGE
+      limit,
+      ...(searchTerm.trim() && { search: searchTerm.trim() })
     },
     {
       pollingInterval: 30000, // Refetch every 30 seconds
@@ -48,7 +52,7 @@ const InventoryAlerts = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterLevel]);
+  }, [filterLevel, searchTerm, limit]);
 
   // Fetch alert summary
   const { data: summaryResponse } = useGetAlertSummaryQuery(undefined, {
@@ -101,7 +105,7 @@ const InventoryAlerts = () => {
     current: alertsResponse?.data?.pagination?.page ?? alertsResponse?.pagination?.page ?? 1,
     pages: alertsResponse?.data?.pagination?.pages ?? alertsResponse?.pagination?.pages ?? 1,
     total: alertsResponse?.data?.pagination?.total ?? alertsResponse?.pagination?.total ?? alerts.length,
-    limit: alertsResponse?.data?.pagination?.limit ?? alertsResponse?.pagination?.limit ?? ALERTS_PER_PAGE
+    limit: alertsResponse?.data?.pagination?.limit ?? alertsResponse?.pagination?.limit ?? limit
   };
   pagination.hasPrev = pagination.current > 1;
   pagination.hasNext = pagination.current < pagination.pages;
@@ -200,28 +204,52 @@ const InventoryAlerts = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-          <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Filter by Level:</label>
-          <select
-            value={filterLevel}
-            onChange={(e) => setFilterLevel(e.target.value)}
-            className="input"
-          >
-            <option value="all">All Alerts</option>
-            <option value="critical">Critical Only</option>
-            <option value="warning">Warning Only</option>
-          </select>
-          <div className="flex items-center space-x-2 ml-auto">
-            <input
-              type="checkbox"
-              id="autoConfirm"
-              checked={autoConfirm}
-              onChange={(e) => setAutoConfirm(e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="autoConfirm" className="text-sm text-gray-700">
-              Auto-confirm generated POs
-            </label>
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 flex-wrap">
+            <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Filter by Level:</label>
+            <select
+              value={filterLevel}
+              onChange={(e) => setFilterLevel(e.target.value)}
+              className="input w-full sm:w-auto"
+            >
+              <option value="all">All Alerts</option>
+              <option value="critical">Critical Only</option>
+              <option value="warning">Warning Only</option>
+            </select>
+            <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search products by name or SKU..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input w-full pl-9"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Show:</label>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+                className="input w-auto"
+              >
+                {LIMIT_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center space-x-2 ml-auto">
+              <input
+                type="checkbox"
+                id="autoConfirm"
+                checked={autoConfirm}
+                onChange={(e) => setAutoConfirm(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="autoConfirm" className="text-sm text-gray-700">
+                Auto-confirm generated POs
+              </label>
+            </div>
           </div>
         </div>
       </div>

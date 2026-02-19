@@ -14,8 +14,9 @@ router.get('/', [
   query('includeOutOfStock').optional().isIn(['true', 'false']),
   query('includeCritical').optional().isIn(['true', 'false']),
   query('includeWarning').optional().isIn(['true', 'false']),
+  query('search').optional().isString().trim(),
   query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 500 })
+  query('limit').optional().isInt({ min: 1, max: 5000 })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -29,7 +30,18 @@ router.get('/', [
       includeWarning: req.query.includeWarning !== 'false'
     };
 
-    const allAlerts = await InventoryAlertService.getLowStockAlerts(options);
+    let allAlerts = await InventoryAlertService.getLowStockAlerts(options);
+
+    // Filter by search (product name or SKU)
+    const searchTerm = (req.query.search || '').trim().toLowerCase();
+    if (searchTerm) {
+      allAlerts = allAlerts.filter(alert => {
+        const name = (alert.product?.name || '').toLowerCase();
+        const sku = (alert.product?.sku || '').toLowerCase();
+        return name.includes(searchTerm) || sku.includes(searchTerm);
+      });
+    }
+
     const total = allAlerts.length;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
