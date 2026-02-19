@@ -597,6 +597,24 @@ class SalesService {
 
     await AccountingService.recordSale(order, {});
 
+    // Post payment to ledger when sale is created with amount paid (so balance reflects payment)
+    const amountPaidAtCreate = parseFloat(payment?.amount ?? order.amount_paid ?? order.amountPaid ?? 0) || 0;
+    if (amountPaidAtCreate > 0 && customer) {
+      try {
+        await AccountingService.recordSalePaymentAdjustment({
+          saleId: order.id || order._id,
+          orderNumber: order.order_number || order.orderNumber,
+          customerId: customer,
+          oldAmountPaid: 0,
+          newAmountPaid: amountPaidAtCreate,
+          paymentMethod: payment?.method || 'cash',
+          createdBy: user?.id || user?._id
+        });
+      } catch (ledgerErr) {
+        console.error('Failed to post sale payment to ledger on create:', ledgerErr);
+      }
+    }
+
     const createdSale = await salesRepository.findById(order.id);
     if (createdSale && createdSale.customer_id) {
       const customerDetails = await customerRepository.findById(createdSale.customer_id);
