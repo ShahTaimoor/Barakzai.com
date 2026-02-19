@@ -314,8 +314,8 @@ class AccountLedgerService {
             if (rawId == null) return null;
             const customerId = typeof rawId === 'string' ? rawId : (rawId && typeof rawId.toString === 'function' ? rawId.toString() : String(rawId));
 
-            // Get opening balance from customer record
-            let openingBalance = customer.openingBalance || 0;
+            // Get opening balance from customer record (support snake_case from Postgres)
+            let openingBalance = parseFloat(customer.opening_balance ?? customer.openingBalance ?? 0) || 0;
 
             // Calculate adjusted opening balance from ledger entries before startDate
             // SINGLE SOURCE OF TRUTH: Read from account_ledger table only
@@ -441,10 +441,10 @@ class AccountLedgerService {
               businessName: customer.business_name ?? customer.businessName,
               email: customer.email || '',
               phone: customer.phone || '',
-              openingBalance: customer.openingBalance || 0,
+              openingBalance: parseFloat(customer.opening_balance ?? customer.openingBalance ?? 0) || 0,
               totalDebits: 0,
               totalCredits: 0,
-              closingBalance: customer.openingBalance || 0,
+              closingBalance: parseFloat(customer.opening_balance ?? customer.openingBalance ?? 0) || 0,
               transactionCount: 0,
               particular: 'Error loading transactions',
               entries: []
@@ -461,8 +461,8 @@ class AccountLedgerService {
             if (rawId == null) return null;
             const supplierId = typeof rawId === 'string' ? rawId : String(rawId);
 
-            // Get opening balance from supplier record
-            let openingBalance = supplier.openingBalance || 0;
+            // Get opening balance from supplier record (support snake_case from Postgres)
+            let openingBalance = parseFloat(supplier.opening_balance ?? supplier.openingBalance ?? 0) || 0;
 
             // Calculate adjusted opening balance from ledger entries before startDate
             // SINGLE SOURCE OF TRUTH: Read from account_ledger table only
@@ -615,10 +615,10 @@ class AccountLedgerService {
               name: supplier.companyName || supplier.contactPerson?.name || '',
               email: supplier.email || '',
               phone: supplier.phone || '',
-              openingBalance: supplier.openingBalance || 0,
+              openingBalance: parseFloat(supplier.opening_balance ?? supplier.openingBalance ?? 0) || 0,
               totalDebits: 0,
               totalCredits: 0,
-              closingBalance: supplier.openingBalance || 0,
+              closingBalance: parseFloat(supplier.opening_balance ?? supplier.openingBalance ?? 0) || 0,
               transactionCount: 0,
               particular: 'Error loading transactions',
               entries: []
