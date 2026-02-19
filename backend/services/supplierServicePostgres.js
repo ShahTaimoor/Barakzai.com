@@ -7,8 +7,15 @@ const AccountingService = require('./accountingService');
 function mapSupplierForResponse(supplier) {
   if (!supplier) return supplier;
   const contactPersonValue = supplier.contact_person || supplier.contactPerson?.name;
+  const companyName = supplier.company_name ?? supplier.companyName;
+  const businessName = supplier.business_name ?? supplier.businessName;
+  const name = supplier.name;
+  const displayName = businessName || companyName || name || 'Unknown Supplier';
   return {
     ...supplier,
+    companyName,
+    businessName,
+    displayName,
     contactPerson: contactPersonValue ? { name: contactPersonValue } : (supplier.contactPerson || {}),
     status: supplier.status ?? (supplier.is_active ? 'active' : 'inactive'),
     businessType: supplier.businessType ?? supplier.supplier_type ?? 'other',

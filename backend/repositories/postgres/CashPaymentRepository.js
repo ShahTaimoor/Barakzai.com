@@ -9,6 +9,9 @@ class CashPaymentRepository {
         s.company_name as supplier_company_name,
         s.business_name as supplier_business_name,
         s.name as supplier_name,
+        s.supplier_type as supplier_type,
+        s.phone as supplier_phone,
+        s.email as supplier_email,
         c.id as joined_customer_id,
         c.name as customer_name,
         c.business_name as customer_business_name
@@ -31,15 +34,19 @@ class CashPaymentRepository {
     
     // Build supplier object if supplier_id exists in cash_payments
     if (row.supplier_id != null) {
-      if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null)) {
-        // Supplier exists and is not deleted
+        if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null || row.supplier_name != null)) {
+          // Supplier exists and is not deleted
+          const supDisplayName = row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier';
         payment.supplier = {
           id: row.supplier_id,
           _id: row.supplier_id,
           companyName: row.supplier_company_name,
           businessName: row.supplier_business_name,
           name: row.supplier_name,
-          displayName: row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier'
+          displayName: supDisplayName,
+          businessType: row.supplier_type,
+          phone: row.supplier_phone,
+          email: row.supplier_email
         };
       } else {
         // Supplier ID exists but supplier was deleted
@@ -83,6 +90,9 @@ class CashPaymentRepository {
     if (payment.supplier_company_name !== undefined) delete payment.supplier_company_name;
     if (payment.supplier_business_name !== undefined) delete payment.supplier_business_name;
     if (payment.supplier_name !== undefined) delete payment.supplier_name;
+    if (payment.supplier_type !== undefined) delete payment.supplier_type;
+    if (payment.supplier_phone !== undefined) delete payment.supplier_phone;
+    if (payment.supplier_email !== undefined) delete payment.supplier_email;
     if (payment.customer_name !== undefined) delete payment.customer_name;
     if (payment.customer_business_name !== undefined) delete payment.customer_business_name;
     
@@ -149,7 +159,11 @@ class CashPaymentRepository {
         cp.*,
         s.id as joined_supplier_id,
         s.company_name as supplier_company_name,
+        s.business_name as supplier_business_name,
         s.name as supplier_name,
+        s.supplier_type as supplier_type,
+        s.phone as supplier_phone,
+        s.email as supplier_email,
         c.id as joined_customer_id,
         c.name as customer_name,
         c.business_name as customer_business_name
@@ -241,15 +255,19 @@ class CashPaymentRepository {
       // Build supplier object if supplier_id exists in cash_payments
       // Use cp.supplier_id (from cash_payments) and joined_supplier_id (from JOIN) to determine if supplier exists
       if (row.supplier_id != null) {
-        if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null)) {
+        if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_business_name != null || row.supplier_name != null)) {
           // Supplier exists and is not deleted
+          const supDisplayName = row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier';
           payment.supplier = {
             id: row.supplier_id,
             _id: row.supplier_id,
             companyName: row.supplier_company_name,
             businessName: row.supplier_business_name,
             name: row.supplier_name,
-            displayName: row.supplier_business_name || row.supplier_company_name || row.supplier_name || 'Unknown Supplier'
+            displayName: supDisplayName,
+            businessType: row.supplier_type,
+            phone: row.supplier_phone,
+            email: row.supplier_email
           };
         } else {
           // Supplier ID exists but supplier was deleted
@@ -293,6 +311,9 @@ class CashPaymentRepository {
       if (payment.supplier_company_name !== undefined) delete payment.supplier_company_name;
       if (payment.supplier_business_name !== undefined) delete payment.supplier_business_name;
       if (payment.supplier_name !== undefined) delete payment.supplier_name;
+      if (payment.supplier_type !== undefined) delete payment.supplier_type;
+      if (payment.supplier_phone !== undefined) delete payment.supplier_phone;
+      if (payment.supplier_email !== undefined) delete payment.supplier_email;
       if (payment.customer_name !== undefined) delete payment.customer_name;
       if (payment.customer_business_name !== undefined) delete payment.customer_business_name;
       

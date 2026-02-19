@@ -1,5 +1,89 @@
 const { query } = require('../../config/postgres');
 
+// Format supplier address from DB (can be string or JSON)
+function formatSupplierAddressFromDb(rawAddress) {
+  if (!rawAddress) return '';
+  if (typeof rawAddress === 'string') {
+    const trimmed = rawAddress.trim();
+    if (trimmed.startsWith('{')) {
+      try {
+        const obj = JSON.parse(trimmed);
+        const parts = [
+          obj.street || obj.address_line1 || obj.addressLine1 || obj.line1,
+          obj.address_line2 || obj.addressLine2 || obj.line2,
+          obj.city,
+          obj.state || obj.province,
+          obj.country,
+          obj.zipCode || obj.zip || obj.postalCode || obj.postal_code
+        ].filter(Boolean);
+        return parts.join(', ');
+      } catch (e) {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+  if (typeof rawAddress === 'object') {
+    const parts = [
+      rawAddress.street || rawAddress.address_line1 || rawAddress.addressLine1 || rawAddress.line1,
+      rawAddress.address_line2 || rawAddress.addressLine2 || rawAddress.line2,
+      rawAddress.city,
+      rawAddress.state || rawAddress.province,
+      rawAddress.country,
+      rawAddress.zipCode || rawAddress.zip || rawAddress.postalCode || rawAddress.postal_code
+    ].filter(Boolean);
+    return parts.join(', ');
+  }
+  return '';
+}
+
+// Enrich invoice items with product names (from products or product_variants table)
+function applyProductNamesToItems(items, nameMap) {
+  if (!items || !Array.isArray(items)) return;
+  for (const item of items) {
+    const pid = typeof item.product === 'object' ? item.product?._id || item.product?.id : item.product;
+    const productName = pid ? nameMap[pid] : null;
+    if (productName) {
+      item.product = typeof item.product === 'object' ? { ...item.product, name: productName } : { _id: pid, name: productName };
+    } else if (!item.name && !(typeof item.product === 'object' && item.product?.name)) {
+      item.name = 'Unknown Product'; // Product may have been deleted
+    }
+  }
+}
+
+async function enrichItemsWithProductNames(invoiceOrInvoices) {
+  try {
+    const invoices = Array.isArray(invoiceOrInvoices) ? invoiceOrInvoices : [invoiceOrInvoices];
+    const productIds = [];
+    for (const inv of invoices) {
+      if (!inv?.items || !Array.isArray(inv.items)) continue;
+      for (const item of inv.items) {
+        const pid = typeof item.product === 'object' ? item.product?._id || item.product?.id : item.product;
+        if (pid && typeof pid === 'string' && !productIds.includes(pid)) productIds.push(pid);
+      }
+    }
+    if (productIds.length === 0) return;
+
+    const prodResult = await query(
+      `SELECT id, name FROM products WHERE id = ANY($1::uuid[]) AND (is_deleted = FALSE OR is_deleted IS NULL)`,
+      [productIds]
+    );
+    const varResult = await query(
+      `SELECT id, COALESCE(display_name, variant_name) as name FROM product_variants WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+      [productIds]
+    );
+    const nameMap = {};
+    for (const row of prodResult.rows) nameMap[row.id] = row.name;
+    for (const row of varResult.rows) nameMap[row.id] = row.name;
+
+    for (const inv of invoices) {
+      if (inv?.items) applyProductNamesToItems(inv.items, nameMap);
+    }
+  } catch (err) {
+    // Don't fail invoice fetch if product lookup fails (e.g. invalid UUIDs, deleted products)
+  }
+}
+
 class PurchaseInvoiceRepository {
   async findById(id) {
     const result = await query(
@@ -7,7 +91,10 @@ class PurchaseInvoiceRepository {
         pi.*,
         s.id as joined_supplier_id,
         s.company_name as supplier_company_name,
-        s.name as supplier_name
+        s.name as supplier_name,
+        s.address as supplier_address,
+        s.phone as supplier_phone,
+        s.email as supplier_email
       FROM purchase_invoices pi
       LEFT JOIN suppliers s ON pi.supplier_id = s.id AND s.deleted_at IS NULL
       WHERE pi.id = $1 AND pi.deleted_at IS NULL`,
@@ -53,13 +140,16 @@ class PurchaseInvoiceRepository {
     // Build supplierInfo object - prioritize joined supplier data over stored supplier_info JSONB
     if (row.supplier_id != null) {
         if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_name != null)) {
-          // Supplier exists and is not deleted - use joined data
+          // Supplier exists and is not deleted - use joined data (include address, phone, email for print)
           invoice.supplierInfo = {
             id: row.supplier_id,
             _id: row.supplier_id,
             companyName: row.supplier_company_name,
             name: row.supplier_name,
-            displayName: row.supplier_company_name || row.supplier_name || 'Unknown Supplier'
+            displayName: row.supplier_company_name || row.supplier_name || 'Unknown Supplier',
+            address: formatSupplierAddressFromDb(row.supplier_address) || undefined,
+            phone: row.supplier_phone || undefined,
+            email: row.supplier_email || undefined
           };
       } else {
         // Try to parse supplier_info JSONB if supplier was deleted
@@ -95,7 +185,11 @@ class PurchaseInvoiceRepository {
     if (invoice.joined_supplier_id !== undefined) delete invoice.joined_supplier_id;
     if (invoice.supplier_company_name !== undefined) delete invoice.supplier_company_name;
     if (invoice.supplier_name !== undefined) delete invoice.supplier_name;
+    if (invoice.supplier_address !== undefined) delete invoice.supplier_address;
+    if (invoice.supplier_phone !== undefined) delete invoice.supplier_phone;
+    if (invoice.supplier_email !== undefined) delete invoice.supplier_email;
     
+    await enrichItemsWithProductNames(invoice);
     return invoice;
   }
 
@@ -106,7 +200,10 @@ class PurchaseInvoiceRepository {
         pi.*,
         s.id as joined_supplier_id,
         s.company_name as supplier_company_name,
-        s.name as supplier_name
+        s.name as supplier_name,
+        s.address as supplier_address,
+        s.phone as supplier_phone,
+        s.email as supplier_email
       FROM purchase_invoices pi
       LEFT JOIN suppliers s ON pi.supplier_id = s.id AND s.deleted_at IS NULL
       WHERE pi.deleted_at IS NULL
@@ -195,13 +292,16 @@ class PurchaseInvoiceRepository {
       // Build supplierInfo object - prioritize joined supplier data over stored supplier_info JSONB
       if (row.supplier_id != null) {
         if (row.joined_supplier_id != null && (row.supplier_company_name != null || row.supplier_name != null)) {
-          // Supplier exists and is not deleted - use joined data
+          // Supplier exists and is not deleted - use joined data (include address, phone, email for print)
           invoice.supplierInfo = {
             id: row.supplier_id,
             _id: row.supplier_id,
             companyName: row.supplier_company_name,
             name: row.supplier_name,
-            displayName: row.supplier_company_name || row.supplier_name || 'Unknown Supplier'
+            displayName: row.supplier_company_name || row.supplier_name || 'Unknown Supplier',
+            address: formatSupplierAddressFromDb(row.supplier_address) || undefined,
+            phone: row.supplier_phone || undefined,
+            email: row.supplier_email || undefined
           };
         } else {
           // Try to parse supplier_info JSONB if supplier was deleted
@@ -237,10 +337,14 @@ class PurchaseInvoiceRepository {
       if (invoice.joined_supplier_id !== undefined) delete invoice.joined_supplier_id;
       if (invoice.supplier_company_name !== undefined) delete invoice.supplier_company_name;
       if (invoice.supplier_name !== undefined) delete invoice.supplier_name;
+      if (invoice.supplier_address !== undefined) delete invoice.supplier_address;
+      if (invoice.supplier_phone !== undefined) delete invoice.supplier_phone;
+      if (invoice.supplier_email !== undefined) delete invoice.supplier_email;
       
       return invoice;
     });
-    
+
+    await enrichItemsWithProductNames(invoices);
     return invoices;
   }
 
