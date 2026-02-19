@@ -437,7 +437,7 @@ export const Dashboard = () => {
 
   const cashReceiptsColumns = [
     { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.receipt_number || '-' },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
+    { key: 'customer', label: 'Customer/Supplier', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
     { key: 'date', label: 'Date', sortable: true, format: 'date' },
     { key: 'particular', label: 'Particular', sortable: true },
     { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
@@ -454,7 +454,7 @@ export const Dashboard = () => {
 
   const bankReceiptsColumns = [
     { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.receipt_number || '-' },
-    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
+    { key: 'customer', label: 'Customer/Supplier', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
     { key: 'date', label: 'Date', sortable: true, format: 'date' },
     { key: 'particular', label: 'Particular', sortable: true },
     { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
