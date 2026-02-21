@@ -3,7 +3,7 @@ import { Users, Building2, Search, Calendar, Download, FileText, ChevronDown, Pr
 import { useGetLedgerSummaryQuery, useGetCustomerDetailedTransactionsQuery, useGetSupplierDetailedTransactionsQuery } from '../store/services/accountLedgerApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
 import { useGetSuppliersQuery } from '../store/services/suppliersApi';
-import { useLazyGetOrderByIdQuery } from '../store/services/salesApi';
+import { useLazyGetOrderByIdQuery, usePostMissingSalesToLedgerMutation } from '../store/services/salesApi';
 import { useLazyGetCashReceiptByIdQuery } from '../store/services/cashReceiptsApi';
 import { useLazyGetBankReceiptByIdQuery } from '../store/services/bankReceiptsApi';
 import { useLazyGetPurchaseInvoiceQuery } from '../store/services/purchaseInvoicesApi';
@@ -55,6 +55,7 @@ const AccountLedgerSummary = () => {
   const [printLoading, setPrintLoading] = useState(false);
 
   const [getOrderById] = useLazyGetOrderByIdQuery();
+  const [postMissingSalesToLedger, { isLoading: isBackfillLoading }] = usePostMissingSalesToLedgerMutation();
   const [getCashReceiptById] = useLazyGetCashReceiptByIdQuery();
   const [getBankReceiptById] = useLazyGetBankReceiptByIdQuery();
   const [getPurchaseInvoiceById] = useLazyGetPurchaseInvoiceQuery();
@@ -399,6 +400,21 @@ const AccountLedgerSummary = () => {
     toast.info('Export functionality coming soon');
   };
 
+  const handleBackfillSales = async () => {
+    try {
+      const result = await postMissingSalesToLedger({
+        dateFrom: filters.startDate,
+        dateTo: filters.endDate
+      }).unwrap();
+      const posted = result?.posted ?? 0;
+      const failed = result?.errors?.length ?? 0;
+      toast.success(`Backfilled ${posted} sale(s).${failed ? ` ${failed} failed.` : ''}`);
+      refetch();
+    } catch (err) {
+      handleApiError(err, 'Failed to backfill sales to ledger');
+    }
+  };
+
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) {
@@ -567,6 +583,15 @@ const AccountLedgerSummary = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Customer Receivables and Supplier Payables</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleBackfillSales}
+            className="btn btn-secondary btn-md flex items-center gap-2"
+            disabled={isBackfillLoading}
+            title="Post missing sales to ledger for the selected date range"
+          >
+            <FileText className="h-4 w-4" />
+            {isBackfillLoading ? 'Backfilling...' : 'Backfill Sales'}
+          </button>
           <button
             onClick={handlePrint}
             className="btn btn-secondary btn-md flex items-center gap-2"
