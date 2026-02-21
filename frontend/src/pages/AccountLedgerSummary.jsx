@@ -482,6 +482,7 @@ const AccountLedgerSummary = () => {
             .font-bold { font-weight: 700; }
             .bg-gray-50 { background-color: #fafafa !important; -webkit-print-color-adjust: exact !important; }
             .bg-gray-100 { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact !important; }
+            .print-amount { font-size: 10.5px; }
             .print-footer {
               margin-top: 10px;
               text-align: right;
@@ -1080,9 +1081,9 @@ const AccountLedgerSummary = () => {
               <th style={{ width: '4%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>S.NO</th>
               <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>DATE</th>
               <th style={{ width: '60%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
-              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>DEBITS</th>
-              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>CREDITS</th>
-              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>BALANCE</th>
+              <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>DEBITS</th>
+              <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>CREDITS</th>
+              <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>BALANCE</th>
             </tr>
           </thead>
           <tbody>
@@ -1091,9 +1092,9 @@ const AccountLedgerSummary = () => {
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>-</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
               <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: 'bold', fontSize: '11px' }}>Opening Balance</td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right', fontWeight: 'bold' }}>
+              <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
+              <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
+              <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right', fontWeight: 'bold' }}>
                 {formatCurrency(
                   (selectedCustomerId ? (customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance) : (supplierDetail?.openingBalance ?? detailedSupplierTransactionsData?.data?.openingBalance)) ?? 0
                 )}
@@ -1113,13 +1114,13 @@ const AccountLedgerSummary = () => {
                     </span>
                   )}
                 </td>
-                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                   {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
                 </td>
-                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                   {entry.creditAmount > 0 ? formatCurrency(entry.creditAmount) : '0'}
                 </td>
-                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                   {formatCurrency(entry.balance || 0)}
                 </td>
               </tr>
@@ -1128,13 +1129,13 @@ const AccountLedgerSummary = () => {
             {/* Total Row */}
             <tr style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>
               <td colSpan="3" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>Total</td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+              <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                 {formatCurrency(sumDebits(selectedCustomerId ? (customerDetail?.entries ?? detailedTransactionsData?.data?.entries) : (supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)))}
               </td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+              <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                 {formatCurrency(sumCredits(selectedCustomerId ? (customerDetail?.entries ?? detailedTransactionsData?.data?.entries) : (supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)))}
               </td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+              <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                 {formatCurrency(
                   selectedCustomerId
                     ? closingBalanceFromEntries(customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance ?? 0, customerDetail?.entries ?? detailedTransactionsData?.data?.entries, false)
