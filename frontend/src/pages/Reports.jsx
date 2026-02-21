@@ -307,10 +307,8 @@ export const Reports = () => {
   const getSummaryData = () => {
     if (activeTab === 'party-balance') {
       return {
-        [`Total ${partyType === 'customer' ? 'Customer' : 'Supplier'} Balance`]: 
-          partyType === 'customer' ? summary.totalCustomerBalance : summary.totalSupplierBalance,
-        'Total Payments': 
-          partyType === 'customer' ? summary.totalCustomerPayments : summary.totalSupplierPayments
+        [`Total ${partyType === 'customer' ? 'Customer' : 'Supplier'} Balance`]:
+          partyType === 'customer' ? summary.totalCustomerBalance : summary.totalSupplierBalance
       };
     }
     if (activeTab === 'sales') {
