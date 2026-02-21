@@ -1,3 +1,4 @@
+const { query } = require('../config/postgres');
 const transactionRepository = require('../repositories/TransactionRepository');
 const chartOfAccountsRepository = require('../repositories/ChartOfAccountsRepository');
 const customerRepository = require('../repositories/CustomerRepository');
@@ -12,6 +13,63 @@ const bankPaymentRepository = require('../repositories/BankPaymentRepository');
 const returnRepository = require('../repositories/postgres/ReturnRepository');
 
 class AccountLedgerService {
+  async appendBankNameToEntries(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) return entries;
+
+    const bankReceiptIds = entries
+      .filter(e => (e.referenceType || e.source) === 'bank_receipt' && e.referenceId)
+      .map(e => e.referenceId);
+    const bankPaymentIds = entries
+      .filter(e => (e.referenceType || e.source) === 'bank_payment' && e.referenceId)
+      .map(e => e.referenceId);
+
+    const bankNameByReceiptId = new Map();
+    const bankNameByPaymentId = new Map();
+
+    if (bankReceiptIds.length > 0) {
+      const receiptResult = await query(
+        `SELECT br.id, b.bank_name AS "bankName"
+         FROM bank_receipts br
+         LEFT JOIN banks b ON br.bank_id = b.id
+         WHERE br.id = ANY($1::uuid[])`,
+        [bankReceiptIds]
+      );
+      receiptResult.rows.forEach(row => {
+        if (row.bankName) bankNameByReceiptId.set(row.id, row.bankName);
+      });
+    }
+
+    if (bankPaymentIds.length > 0) {
+      const paymentResult = await query(
+        `SELECT bp.id, b.bank_name AS "bankName"
+         FROM bank_payments bp
+         LEFT JOIN banks b ON bp.bank_id = b.id
+         WHERE bp.id = ANY($1::uuid[])`,
+        [bankPaymentIds]
+      );
+      paymentResult.rows.forEach(row => {
+        if (row.bankName) bankNameByPaymentId.set(row.id, row.bankName);
+      });
+    }
+
+    return entries.map(entry => {
+      const bankName =
+        (entry.referenceType || entry.source) === 'bank_receipt'
+          ? bankNameByReceiptId.get(entry.referenceId)
+          : (entry.referenceType || entry.source) === 'bank_payment'
+            ? bankNameByPaymentId.get(entry.referenceId)
+            : null;
+      if (!bankName) return entry;
+      const suffix = ` (Bank: ${bankName})`;
+      const particular = entry.particular || entry.description || '';
+      const description = entry.description || '';
+      return {
+        ...entry,
+        particular: particular.includes(suffix) ? particular : `${particular}${suffix}`,
+        description: description ? (description.includes(suffix) ? description : `${description}${suffix}`) : description
+      };
+    });
+  }
   /**
    * Clamp date range to prevent excessive queries
    * @param {Date|string} start - Start date
@@ -150,7 +208,7 @@ class AccountLedgerService {
 
     // Calculate running balance only when specific account is selected
     let runningBalance = accountInfo ? accountInfo.openingBalance || 0 : null;
-    const ledgerEntries = result.transactions.map(transaction => {
+    let ledgerEntries = result.transactions.map(transaction => {
       const debit = transaction.debitAmount || 0;
       const credit = transaction.creditAmount || 0;
 
@@ -172,6 +230,60 @@ class AccountLedgerService {
         source: 'Transaction'
       };
     });
+
+    // Enrich bank receipt/payment entries with bank name in description
+    const bankReceiptIds = ledgerEntries
+      .filter(e => e.referenceType === 'bank_receipt' && e.referenceId)
+      .map(e => e.referenceId);
+    const bankPaymentIds = ledgerEntries
+      .filter(e => e.referenceType === 'bank_payment' && e.referenceId)
+      .map(e => e.referenceId);
+
+    const bankNameByReceiptId = new Map();
+    const bankNameByPaymentId = new Map();
+
+    if (bankReceiptIds.length > 0) {
+      const receiptResult = await query(
+        `SELECT br.id, b.bank_name AS "bankName"
+         FROM bank_receipts br
+         LEFT JOIN banks b ON br.bank_id = b.id
+         WHERE br.id = ANY($1::uuid[])`,
+        [bankReceiptIds]
+      );
+      receiptResult.rows.forEach(row => {
+        if (row.bankName) bankNameByReceiptId.set(row.id, row.bankName);
+      });
+    }
+
+    if (bankPaymentIds.length > 0) {
+      const paymentResult = await query(
+        `SELECT bp.id, b.bank_name AS "bankName"
+         FROM bank_payments bp
+         LEFT JOIN banks b ON bp.bank_id = b.id
+         WHERE bp.id = ANY($1::uuid[])`,
+        [bankPaymentIds]
+      );
+      paymentResult.rows.forEach(row => {
+        if (row.bankName) bankNameByPaymentId.set(row.id, row.bankName);
+      });
+    }
+
+    if (bankNameByReceiptId.size > 0 || bankNameByPaymentId.size > 0) {
+      ledgerEntries = ledgerEntries.map(entry => {
+        const bankName =
+          entry.referenceType === 'bank_receipt'
+            ? bankNameByReceiptId.get(entry.referenceId)
+            : entry.referenceType === 'bank_payment'
+              ? bankNameByPaymentId.get(entry.referenceId)
+              : null;
+        if (!bankName) return entry;
+        const suffix = ` (Bank: ${bankName})`;
+        const desc = entry.description || '';
+        return desc.includes(suffix)
+          ? entry
+          : { ...entry, description: `${desc}${suffix}` };
+      });
+    }
 
     // Optional supplier name filter (case-insensitive) when populated
     let filteredEntries = ledgerEntries;
@@ -408,6 +520,7 @@ class AccountLedgerService {
                   balance: running
                 };
               });
+              entries = await this.appendBankNameToEntries(entries);
             }
 
             const displayName = customer.business_name ?? customer.businessName ?? customer.name ?? '';
@@ -589,6 +702,7 @@ class AccountLedgerService {
                   balance: running
                 };
               });
+              entries = await this.appendBankNameToEntries(entries);
             }
 
             return {
