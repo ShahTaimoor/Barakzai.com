@@ -364,6 +364,83 @@ class AccountingService {
   }
 
   /**
+   * Check if a sale already has ledger entries (reference_type = 'sale').
+   * @param {string} saleId
+   * @returns {Promise<boolean>}
+   */
+  static async hasSaleLedgerEntries(saleId) {
+    const result = await query(
+      `SELECT 1 FROM account_ledger
+       WHERE reference_type = 'sale'
+         AND reference_id::text = $1
+         AND reversed_at IS NULL
+       LIMIT 1`,
+      [String(saleId)]
+    );
+    return result.rows.length > 0;
+  }
+
+  /**
+   * Update sale ledger entries (AR/Revenue amounts + common fields).
+   * Keeps COGS/Inventory entries intact to avoid losing cost data.
+   * @param {object} params
+   * @param {string} params.saleId
+   * @param {number} params.total
+   * @param {Date|string} [params.transactionDate]
+   * @param {string|null} [params.customerId]
+   * @param {string} [params.referenceNumber]
+   */
+  static async updateSaleLedgerEntries(params) {
+    const { saleId, total, transactionDate, customerId, referenceNumber } = params || {};
+    const saleIdStr = String(saleId);
+    const updates = [];
+    const values = [saleIdStr];
+    let idx = 2;
+
+    if (transactionDate) {
+      updates.push(`transaction_date = $${idx++}`);
+      values.push(transactionDate);
+    }
+    if (customerId !== undefined) {
+      updates.push(`customer_id = $${idx++}`);
+      values.push(customerId || null);
+    }
+    if (referenceNumber) {
+      updates.push(`reference_number = $${idx++}`);
+      values.push(referenceNumber);
+    }
+
+    if (updates.length > 0) {
+      await query(
+        `UPDATE account_ledger
+         SET ${updates.join(', ')}
+         WHERE reference_type = 'sale'
+           AND reference_id::text = $1
+           AND reversed_at IS NULL`,
+        values
+      );
+    }
+
+    const totalAmount = parseFloat(total) || 0;
+    const refNum = referenceNumber || saleIdStr;
+    await query(
+      `UPDATE account_ledger
+       SET debit_amount = CASE WHEN account_code = '1100' THEN $2 ELSE debit_amount END,
+           credit_amount = CASE WHEN account_code = '4000' THEN $2 ELSE credit_amount END,
+           description = CASE
+             WHEN account_code = '1100' THEN $3
+             WHEN account_code = '4000' THEN $4
+             ELSE description
+           END
+       WHERE reference_type = 'sale'
+         AND reference_id::text = $1
+         AND reversed_at IS NULL
+         AND account_code IN ('1100', '4000')`,
+      [saleIdStr, totalAmount, `Sale: ${refNum}`, `Sale Revenue: ${refNum}`]
+    );
+  }
+
+  /**
    * Record cash receipt transaction (Unified: Customer or Supplier)
    * Business Meaning: Money received INTO the business
    * 

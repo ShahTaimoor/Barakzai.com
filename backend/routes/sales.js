@@ -510,6 +510,7 @@ router.put('/:id', [
     const oldItems = JSON.parse(JSON.stringify(Array.isArray(order.items) ? order.items : []));
     const oldTotal = orderTotal();
     const oldCustomer = order.customer_id || order.customer;
+    const oldSaleDate = order.sale_date || order.saleDate || order.created_at || order.createdAt;
     const incomingCustomer = req.body.customer !== undefined ? (req.body.customer || null) : oldCustomer;
     const customerChanged = String(oldCustomer || '') !== String(incomingCustomer || '');
 
@@ -734,6 +735,36 @@ router.put('/:id', [
     }
     await salesRepository.update(req.params.id, updateData);
 
+    // Refresh order from DB for ledger updates (ensures latest totals/dates)
+    let updatedOrder = await salesRepository.findById(req.params.id);
+
+    const newTotal = parseFloat(updatedOrder?.total) || 0;
+    const newSaleDate = updatedOrder?.sale_date || updatedOrder?.saleDate || updatedOrder?.created_at || updatedOrder?.createdAt;
+    const refNum = updatedOrder?.order_number || updatedOrder?.orderNumber || (updatedOrder?.id || updatedOrder?._id);
+    const totalChanged = Math.abs(newTotal - oldTotal) >= 0.01;
+    const billDateChanged = req.body.billDate !== undefined && String(newSaleDate || '') !== String(oldSaleDate || '');
+    const customerIdForLedger = updatedOrder?.customer_id || updatedOrder?.customer || null;
+
+    // Ensure sale ledger entries exist, and update key fields when edited
+    try {
+      if (updatedOrder) {
+        const hasSaleLedger = await AccountingService.hasSaleLedgerEntries(req.params.id);
+        if (!hasSaleLedger && newTotal > 0) {
+          await AccountingService.recordSale(updatedOrder);
+        } else if (hasSaleLedger && (totalChanged || billDateChanged || customerChanged)) {
+          await AccountingService.updateSaleLedgerEntries({
+            saleId: req.params.id,
+            total: newTotal,
+            transactionDate: billDateChanged ? newSaleDate : undefined,
+            customerId: customerChanged ? customerIdForLedger : undefined,
+            referenceNumber: refNum
+          });
+        }
+      }
+    } catch (ledgerErr) {
+      console.error('Failed to ensure/update sale ledger on edit:', ledgerErr);
+    }
+
     // Post amount received change to account ledger so balance reflects the update
     if (!customerChanged && req.body.amountReceived !== undefined) {
       const oldAmountPaid = parseFloat(order.amount_paid) || 0;
@@ -839,7 +870,6 @@ router.put('/:id', [
       }
     }
 
-    const updatedOrder = await salesRepository.findById(req.params.id);
     if (updatedOrder && updatedOrder.customer_id) {
       updatedOrder.customer = await customerRepository.findById(updatedOrder.customer_id);
     }
