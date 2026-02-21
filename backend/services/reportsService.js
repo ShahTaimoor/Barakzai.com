@@ -942,8 +942,8 @@ class ReportsService {
       sql = `
         SELECT 
           s.id,
-          COALESCE(s.business_name, s.name) as "businessName",
-          s.name as "contactPerson",
+          COALESCE(s.company_name, s.business_name, s.name) as "businessName",
+          COALESCE(s.contact_person, s.name) as "contactPerson",
           COALESCE(
             CASE 
               WHEN jsonb_typeof(s.address) = 'array' THEN (SELECT addr->>'city' FROM jsonb_array_elements(s.address) addr WHERE addr->>'city' IS NOT NULL LIMIT 1)
@@ -965,7 +965,7 @@ class ReportsService {
         )`;
         params.push(city);
       }
-      sql += ` GROUP BY s.id, s.business_name, s.name, s.address, s.opening_balance ORDER BY balance DESC`;
+      sql += ` GROUP BY s.id, s.company_name, s.business_name, s.name, s.contact_person, s.address, s.opening_balance ORDER BY balance DESC`;
     }
 
     const result = await query(sql, params);
