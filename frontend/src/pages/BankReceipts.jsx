@@ -396,6 +396,12 @@ const BankReceipts = () => {
     bankReceiptsData?.data?.receipts ||
     bankReceiptsData?.receipts ||
     [];
+  const resolveBankInfo = (receipt) => {
+    if (receipt?.bank && typeof receipt.bank === 'object') return receipt.bank;
+    const bankId = receipt?.bank_id || receipt?.bankId || receipt?.bank;
+    if (!bankId) return null;
+    return (banks || []).find(b => (b._id || b.id) === bankId) || null;
+  };
   const paginationInfo =
     bankReceiptsData?.data?.pagination ||
     bankReceiptsData?.pagination ||
@@ -954,13 +960,13 @@ const BankReceipts = () => {
                           {receipt.particular}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {receipt.bank ? (
+                          {resolveBankInfo(receipt) ? (
                             <div>
-                              <div className="font-medium">{receipt.bank.bankName}</div>
-                              <div className="text-gray-500 text-xs">{receipt.bank.accountNumber}</div>
+                              <div className="font-medium">{resolveBankInfo(receipt).bankName}</div>
+                              <div className="text-gray-500 text-xs">{resolveBankInfo(receipt).accountNumber}</div>
                             </div>
                           ) : (
-                            receipt.bankAccount || 'N/A'
+                            receipt.bankAccount || receipt.bankName || receipt.bank_name || '-'
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1408,7 +1414,7 @@ const BankReceipts = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Bank:</span>
-                  <span className="text-gray-900">{selectedReceipt.bank?.bankName || 'N/A'}</span>
+                  <span className="text-gray-900">{resolveBankInfo(selectedReceipt)?.bankName || selectedReceipt.bankName || selectedReceipt.bank_name || '-'}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Reference:</span>

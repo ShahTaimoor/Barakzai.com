@@ -627,6 +627,12 @@ const BankPayments = () => {
     bankPaymentsData?.data?.payments ||
     bankPaymentsData?.payments ||
     [];
+  const resolveBankInfo = (payment) => {
+    if (payment?.bank && typeof payment.bank === 'object') return payment.bank;
+    const bankId = payment?.bank_id || payment?.bankId || payment?.bank;
+    if (!bankId) return null;
+    return (banks || []).find(b => (b._id || b.id) === bankId) || null;
+  };
   const paginationInfo =
     bankPaymentsData?.data?.pagination ||
     bankPaymentsData?.pagination ||
@@ -1382,13 +1388,13 @@ const BankPayments = () => {
                           {payment.particular}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {payment.bank ? (
+                          {resolveBankInfo(payment) ? (
                             <div>
-                              <div className="font-medium">{payment.bank.bankName}</div>
-                              <div className="text-gray-500 text-xs">{payment.bank.accountNumber}</div>
+                              <div className="font-medium">{resolveBankInfo(payment).bankName}</div>
+                              <div className="text-gray-500 text-xs">{resolveBankInfo(payment).accountNumber}</div>
                             </div>
                           ) : (
-                            payment.bankAccount || 'N/A'
+                            payment.bankAccount || payment.bankName || payment.bank_name || '-'
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -2027,7 +2033,7 @@ const BankPayments = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Bank:</span>
-                  <span className="text-gray-900">{selectedPayment.bank?.bankName || 'N/A'}</span>
+                  <span className="text-gray-900">{resolveBankInfo(selectedPayment)?.bankName || selectedPayment.bankName || selectedPayment.bank_name || '-'}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Reference:</span>
