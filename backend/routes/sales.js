@@ -510,6 +510,8 @@ router.put('/:id', [
     const oldItems = JSON.parse(JSON.stringify(Array.isArray(order.items) ? order.items : []));
     const oldTotal = orderTotal();
     const oldCustomer = order.customer_id || order.customer;
+    const incomingCustomer = req.body.customer !== undefined ? (req.body.customer || null) : oldCustomer;
+    const customerChanged = String(oldCustomer || '') !== String(incomingCustomer || '');
 
     // Update order fields
     if (req.body.customer !== undefined) {
@@ -733,7 +735,7 @@ router.put('/:id', [
     await salesRepository.update(req.params.id, updateData);
 
     // Post amount received change to account ledger so balance reflects the update
-    if (req.body.amountReceived !== undefined) {
+    if (!customerChanged && req.body.amountReceived !== undefined) {
       const oldAmountPaid = parseFloat(order.amount_paid) || 0;
       const newAmountPaid = parseFloat(req.body.amountReceived) || 0;
       if (Math.abs(newAmountPaid - oldAmountPaid) >= 0.01) {
@@ -827,6 +829,15 @@ router.put('/:id', [
     }
 
     // Customer balance: now derived from Account Ledger (AccountingService), no direct Customer update.
+
+    // If customer changed, move ledger entries to the new customer
+    if (customerChanged) {
+      try {
+        await AccountingService.updateLedgerCustomerForSale(req.params.id, incomingCustomer);
+      } catch (ledgerErr) {
+        console.error('Failed to update sale ledger customer on edit:', ledgerErr);
+      }
+    }
 
     const updatedOrder = await salesRepository.findById(req.params.id);
     if (updatedOrder && updatedOrder.customer_id) {

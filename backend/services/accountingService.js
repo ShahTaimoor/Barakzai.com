@@ -348,6 +348,22 @@ class AccountingService {
   }
 
   /**
+   * Re-assign ledger entries to a different customer for a sale edit.
+   * Updates both sale and sale_payment entries for the sale reference.
+   * @param {string} saleId
+   * @param {string|null} customerId
+   */
+  static async updateLedgerCustomerForSale(saleId, customerId) {
+    await query(
+      `UPDATE account_ledger
+       SET customer_id = $1
+       WHERE reference_id::text = $2
+         AND reference_type IN ('sale', 'sale_payment')`,
+      [customerId || null, String(saleId)]
+    );
+  }
+
+  /**
    * Record cash receipt transaction (Unified: Customer or Supplier)
    * Business Meaning: Money received INTO the business
    * 

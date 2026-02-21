@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import { X, Printer } from 'lucide-react';
 import { useCompanyInfo } from '../hooks/useCompanyInfo';
+import { useGetBalanceSummaryQuery } from '../store/services/customerBalancesApi';
 import PrintDocument from './PrintDocument';
 
 const PrintModal = ({
@@ -14,6 +15,22 @@ const PrintModal = ({
   const printRef = useRef(null);
   const { companyInfo: companySettings } = useCompanyInfo();
   const resolvedDocumentTitle = documentTitle || 'Invoice';
+  const customerId =
+    orderData?.customer_id ||
+    orderData?.customerId ||
+    orderData?.customer?._id ||
+    orderData?.customer?.id ||
+    orderData?.customer?.customerId ||
+    null;
+
+  const { data: balanceSummaryData } = useGetBalanceSummaryQuery(customerId, {
+    skip: !customerId
+  });
+
+  const ledgerBalance =
+    balanceSummaryData?.data?.balances?.currentBalance ??
+    balanceSummaryData?.balances?.currentBalance ??
+    null;
 
   // Sync with Company Settings - removed local states in favor of direct prop passing in render
   // (All print states are now handled via companySettings.printSettings)
@@ -322,6 +339,7 @@ const PrintModal = ({
               <PrintDocument
                 companySettings={companySettings || {}}
                 orderData={orderData}
+                ledgerBalance={ledgerBalance}
                 printSettings={{
                   ...companySettings?.printSettings,
                   headerText: companySettings?.printSettings?.headerText,

@@ -229,15 +229,16 @@ class SalesRepository {
       notes,
       createdBy,
       appliedDiscounts,
-      orderType
+      orderType,
+      amountPaid
     } = saleData;
 
     const q = client ? client.query.bind(client) : query;
     const result = await q(
       `INSERT INTO sales (
         order_number, customer_id, sale_date, items, subtotal, discount, tax, total,
-        payment_method, payment_status, status, notes, created_by, applied_discounts, order_type
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        payment_method, payment_status, status, notes, created_by, applied_discounts, order_type, amount_paid
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *`,
       [
         orderNumber,
@@ -254,7 +255,8 @@ class SalesRepository {
         notes || null,
         createdBy,
         JSON.stringify(Array.isArray(appliedDiscounts) ? appliedDiscounts : []),
-        (orderType || 'retail').toLowerCase()
+        (orderType || 'retail').toLowerCase(),
+        amountPaid || 0
       ]
     );
 

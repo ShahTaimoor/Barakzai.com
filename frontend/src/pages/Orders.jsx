@@ -266,6 +266,54 @@ export const Orders = () => {
     return [];
   }, [customersResponse]);
 
+  const selectedCustomerName = React.useMemo(() => {
+    if (!editFormData?.customer) {
+      return (
+        selectedOrder?.customer?.business_name ??
+        selectedOrder?.customer?.businessName ??
+        selectedOrder?.customer?.name ??
+        selectedOrder?.customerInfo?.businessName ??
+        selectedOrder?.customerInfo?.name ??
+        ''
+      );
+    }
+    const match = customers.find(c => String(c._id ?? c.id) === String(editFormData.customer));
+    if (match) {
+      return (
+        match.displayName ??
+        match.display_name ??
+        match.businessName ??
+        match.business_name ??
+        match.name ??
+        ''
+      );
+    }
+    return (
+      selectedOrder?.customer?.business_name ??
+      selectedOrder?.customer?.businessName ??
+      selectedOrder?.customer?.name ??
+      selectedOrder?.customerInfo?.businessName ??
+      selectedOrder?.customerInfo?.name ??
+      ''
+    );
+  }, [customers, editFormData?.customer, selectedOrder]);
+
+  const didPrefillCustomerSearchRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!showEditModal) {
+      didPrefillCustomerSearchRef.current = false;
+      return;
+    }
+    if (didPrefillCustomerSearchRef.current) return;
+    if (!editFormData?.customer) return;
+    if (customerSearchTerm) return;
+    if (selectedCustomerName) {
+      setCustomerSearchTerm(selectedCustomerName);
+      didPrefillCustomerSearchRef.current = true;
+    }
+  }, [showEditModal, editFormData?.customer, customerSearchTerm, selectedCustomerName]);
+
   // Handlers
   const handleDeleteOrder = async (orderId) => {
     try {
@@ -353,9 +401,17 @@ export const Orders = () => {
     }
   };
 
-  const handlePrint = (order) => {
-    setPrintOrderData(order);
-    setShowPrintModal(true);
+  const handlePrint = async (order) => {
+    try {
+      const result = await fetchOrderById(order._id || order.id).unwrap();
+      const orderData = result?.order || result?.data?.order || result;
+      setPrintOrderData(orderData || order);
+      setShowPrintModal(true);
+    } catch (err) {
+      handleApiError(err, 'Loading invoice for print');
+      setPrintOrderData(order);
+      setShowPrintModal(true);
+    }
   };
 
   const handleDelete = (order) => {
@@ -994,34 +1050,34 @@ export const Orders = () => {
       {/* Edit Modal */}
       {showEditModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-0">
               {/* Header */}
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Edit Sales Invoice</h2>
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 flex justify-between items-center">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Edit Sales Invoice</h2>
                 <button
                   onClick={() => {
                     setShowEditModal(false);
                     setCustomerSearchTerm('');
                   }}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                  className="bg-white text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100"
                 >
                   Close
                 </button>
               </div>
 
               {/* Customer Information */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
-                <div className="grid grid-cols-2 gap-4">
+              <div className="px-6 py-5 bg-white border-b border-gray-200">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Customer Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer Selection</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Customer Selection</label>
                     <input
                       type="text"
                       placeholder="Search customers..."
                       value={customerSearchTerm}
                       onChange={(e) => setCustomerSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     />
                     {/* Customer Suggestions */}
                     {customerSearchTerm && customers?.length > 0 && (
@@ -1030,19 +1086,30 @@ export const Orders = () => {
                           // Get city from addresses
                           const defaultAddress = customer.addresses?.find(addr => addr.isDefault) || customer.addresses?.[0];
                           const city = defaultAddress?.city || '';
+                          const displayName =
+                            customer.displayName ??
+                            customer.display_name ??
+                            customer.business_name ??
+                            customer.businessName ??
+                            customer.name ??
+                            customer.email ??
+                            'Customer';
 
                           return (
                             <div
-                              key={customer._id}
+                              key={customer._id || customer.id || displayName}
                               onClick={() => {
-                                setEditFormData({ ...editFormData, customer: customer._id });
-                                setCustomerSearchTerm(customer.displayName);
+                                setEditFormData({ ...editFormData, customer: customer._id || customer.id });
+                                setCustomerSearchTerm(displayName);
                               }}
                               className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-center justify-between"
                             >
                               <div className="flex-1">
-                                <div className="font-medium">{customer.displayName}</div>
-                                <div className="text-sm text-gray-600">{customer.email}</div>
+                                <div className="font-medium">{displayName}</div>
+                                <div className="text-sm text-gray-600">
+                                  {customer.email || '—'}
+                                  {customer.phone ? ` - ${customer.phone}` : ''}
+                                </div>
                               </div>
                               {city && (
                                 <div className="text-xs text-gray-500 ml-2">{city}</div>
@@ -1056,27 +1123,17 @@ export const Orders = () => {
                     {editFormData.customer && (
                       <div className="mt-2 p-2 bg-blue-50 rounded border">
                         <div className="text-sm font-medium text-blue-900">
-                          Selected: {selectedOrder.customerInfo?.name || 'Customer'}
+                          Selected: {selectedCustomerName || 'Customer'}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditFormData({ ...editFormData, customer: null });
-                            setCustomerSearchTerm('');
-                          }}
-                          className="text-xs text-blue-600 hover:text-blue-800 mt-1"
-                        >
-                          Clear selection
-                        </button>
                       </div>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Order Type</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Order Type</label>
                     <select
                       value={editFormData.orderType}
                       onChange={(e) => setEditFormData({ ...editFormData, orderType: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     >
                       <option value="retail">Retail</option>
                       <option value="wholesale">Wholesale</option>
@@ -1085,26 +1142,26 @@ export const Orders = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email</label>
                     <p className="text-gray-900">{selectedOrder.customerInfo?.email || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Phone</label>
                     <p className="text-gray-900">{selectedOrder.customerInfo?.phone || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
                     <p className="text-gray-900">{selectedOrder.order_number ?? selectedOrder.orderNumber ?? '—'}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                       Bill Date <span className="text-xs text-gray-500">(for backdating/postdating)</span>
                     </label>
                     <input
                       type="date"
                       value={editFormData.billDate}
                       onChange={(e) => setEditFormData({ ...editFormData, billDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Original date: {formatOrderDate(selectedOrder)}
@@ -1120,37 +1177,11 @@ export const Orders = () => {
                         </div>
                       )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0"
-                      value={editFormData.discount}
-                      onChange={(e) => setEditFormData({ ...editFormData, discount: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Invoice-level discount amount</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount Received</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0"
-                      value={editFormData.amountReceived}
-                      onChange={(e) => setEditFormData({ ...editFormData, amountReceived: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Amount paid/received for this invoice</p>
-                  </div>
                 </div>
               </div>
 
               {/* Edit Form */}
-              <form onSubmit={(e) => {
+              <form className="px-6 py-6" onSubmit={(e) => {
                 e.preventDefault();
                 // Format items for backend - ensure product is ID, not object
                 const formattedItems = editFormData.items.map(item => ({
@@ -1183,14 +1214,14 @@ export const Orders = () => {
 
                 {/* Notes */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                     Notes
                   </label>
                   <textarea
                     value={editFormData.notes}
                     onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input w-full"
                     placeholder="Add any notes or comments..."
                   />
                 </div>
@@ -1418,40 +1449,73 @@ export const Orders = () => {
                   </div>
 
                   {/* Order Summary */}
-                  {editFormData.items && editFormData.items.length > 0 && (
-                    <div className="mt-4 flex justify-end">
-                      <div className="w-80">
-                        <table className="w-full">
-                          <tbody>
-                            <tr>
-                              <td className="px-4 py-2">Subtotal:</td>
-                              <td className="px-4 py-2 text-right">
-                                {Math.round(editFormData.items.reduce((sum, item) => sum + item.total, 0))}
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2">Tax:</td>
-                              <td className="px-4 py-2 text-right">
-                                {Math.round(selectedOrder.pricing?.taxAmount || 0)}
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2">Discount:</td>
-                              <td className="px-4 py-2 text-right">
-                                {Math.round(Number(editFormData.discount) || selectedOrder.pricing?.discountAmount || selectedOrder?.discount || 0)}
-                              </td>
-                            </tr>
-                            <tr className="border-t-2 border-gray-900">
-                              <td className="px-4 py-2 font-bold">Total:</td>
-                              <td className="px-4 py-2 text-right font-bold">
-                                {Math.round(editFormData.items.reduce((sum, item) => sum + item.total, 0) + (selectedOrder.pricing?.taxAmount || 0) - (Number(editFormData.discount) || selectedOrder.pricing?.discountAmount || selectedOrder?.discount || 0))}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                  {editFormData.items && editFormData.items.length > 0 && (() => {
+                    const subtotal = editFormData.items.reduce((sum, item) => sum + item.total, 0);
+                    const tax = Number(selectedOrder.pricing?.taxAmount || 0);
+                    const discount = Number(editFormData.discount) || selectedOrder.pricing?.discountAmount || selectedOrder?.discount || 0;
+                    const total = subtotal + tax - discount;
+                    return (
+                      <div className="mt-6">
+                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-3 rounded-t-lg">
+                          <h3 className="text-base font-semibold text-white">Order Summary</h3>
+                        </div>
+                        <div className="bg-white border border-gray-200 rounded-b-lg p-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-800 font-semibold">Subtotal:</span>
+                            <span className="text-lg font-bold text-gray-900">{subtotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-800 font-semibold">Tax:</span>
+                            <span className="text-lg font-bold text-gray-900">{tax.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-800 font-semibold">Discount:</span>
+                            <span className="text-lg font-bold text-gray-900">{Number(discount).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-base font-bold border-t-2 border-blue-400 pt-3 mt-2">
+                            <span className="text-blue-900">Total:</span>
+                            <span className="text-blue-900 text-2xl">{total.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Payment and Discount Section */}
+                  <div className="mt-6 bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                      <div className="flex flex-col">
+                        <label className="block text-xs sm:text-sm font-semibold text-gray-800 mb-2">
+                          Discount
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0"
+                          value={editFormData.discount}
+                          onChange={(e) => setEditFormData({ ...editFormData, discount: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 h-[42px]"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Invoice-level discount amount</p>
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="block text-xs sm:text-sm font-semibold text-gray-800 mb-2">
+                          Amount Received
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0"
+                          value={editFormData.amountReceived}
+                          onChange={(e) => setEditFormData({ ...editFormData, amountReceived: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-md bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-900 h-[42px]"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Amount paid/received for this invoice</p>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Form Actions */}

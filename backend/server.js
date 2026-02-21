@@ -67,17 +67,23 @@ app.use('/api/auth', createRateLimiter({
   max: 120 // 120 per minute so loading/updating users and profile don't hit 429
 }));
 
-// CORS configuration - use environment variable for allowed origins
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : [
-    'https://sa.wiserconsulting.info',
-    'http://localhost:3000', // Allow local development
-    'http://localhost:5173', // Allow Vite dev server
-    'http://localhost:5174',
-    'http://localhost:5175', // Allow Vite dev server
-    process.env.FRONTEND_URL // Allow from environment variable if set
-  ].filter(Boolean); // Remove undefined values
+// CORS configuration - include env origins plus local dev defaults
+const defaultOrigins = [
+  'https://sa.wiserconsulting.info',
+  'http://localhost:3000', // Allow local development
+  'http://localhost:5173', // Allow Vite dev server
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  process.env.FRONTEND_URL // Allow from environment variable if set
+].filter(Boolean);
+
+const envOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+  : [];
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 app.use(cors({
   origin: allowedOrigins,

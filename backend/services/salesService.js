@@ -1,4 +1,4 @@
-const { transaction } = require('../config/postgres');
+const { transaction, query } = require('../config/postgres');
 const salesRepository = require('../repositories/postgres/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
 const customerRepository = require('../repositories/postgres/CustomerRepository');
@@ -294,6 +294,21 @@ class SalesService {
         amountPaid = await paymentRepository.calculateTotalPaid(orderId);
       } catch (_) { /* ignore */ }
     }
+    if (amountPaid === 0) {
+      try {
+        const ledgerResult = await query(
+          `SELECT COALESCE(SUM(credit_amount), 0) AS total
+           FROM account_ledger
+           WHERE reference_type = 'sale_payment'
+             AND reference_id::text = $1
+             AND account_code = '1100'
+             AND status = 'completed'
+             AND reversed_at IS NULL`,
+          [String(orderId)]
+        );
+        amountPaid = parseFloat(ledgerResult.rows[0]?.total || 0);
+      } catch (_) { /* ignore */ }
+    }
     if (amountPaid === 0 && (order.payment_status === 'paid' || order.paymentStatus === 'paid')) {
       amountPaid = parseFloat(order.total) || 0;
     }
@@ -491,6 +506,7 @@ class SalesService {
     const orderNumber = data.orderNumber || `INV-${Date.now()}`;
 
     // Prepare sale data for PostgreSQL (include applied discount codes when provided from POS)
+    const amountPaidAtCreate = parseFloat(payment?.amount ?? 0) || 0;
     const saleData = {
       orderNumber,
       customerId: customer || null,
@@ -500,6 +516,7 @@ class SalesService {
       discount: finalDiscount,
       tax: finalTax,
       total: orderTotal,
+      amountPaid: amountPaidAtCreate,
       paymentMethod: payment.method,
       paymentStatus: payment.isPartialPayment ? 'partial' : (String(payment.method || '').toLowerCase() === 'cash' ? 'paid' : 'pending'),
       status: 'confirmed',
@@ -598,7 +615,6 @@ class SalesService {
     await AccountingService.recordSale(order, {});
 
     // Post payment to ledger when sale is created with amount paid (so balance reflects payment)
-    const amountPaidAtCreate = parseFloat(payment?.amount ?? order.amount_paid ?? order.amountPaid ?? 0) || 0;
     if (amountPaidAtCreate > 0 && customer) {
       try {
         await AccountingService.recordSalePaymentAdjustment({

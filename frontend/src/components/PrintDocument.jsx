@@ -6,6 +6,7 @@ const PrintDocument = ({
     printSettings,
     documentTitle = 'Invoice',
     partyLabel = 'Customer',
+    ledgerBalance: ledgerBalanceProp,
     children
 }) => {
     const {
@@ -315,6 +316,10 @@ const PrintDocument = ({
         orderData?.total ??
         0;
 
+    const ledgerBalance = ledgerBalanceProp !== undefined && ledgerBalanceProp !== null
+        ? toNumber(ledgerBalanceProp, 0)
+        : toNumber(partyInfo.balance, 0);
+
     const generatedAt = new Date();
 
     const billToLines = [
@@ -347,12 +352,14 @@ const PrintDocument = ({
     const rawReceived = toNumber(orderData?.payment?.amountPaid ?? orderData?.amount_paid, 0);
     const isPaid = orderData?.payment_status === 'paid' || orderData?.payment?.status === 'paid';
     const receivedAmount = rawReceived > 0 ? rawReceived : (isPaid ? toNumber(totalValue, 0) : 0);
+    const invoiceBalance = toNumber(totalValue, 0) - toNumber(receivedAmount, 0);
+    const previousBalance = ledgerBalance - invoiceBalance;
 
     // ==========================================
     // Layout 2 (Professional Boxed Layout)
     // ==========================================
     if (invoiceLayout === 'layout2') {
-        const totalReceivables = toNumber(totalValue) + toNumber(partyInfo.balance || 0);
+        const totalReceivables = ledgerBalance;
 
         return (
             <div className={printClassName}>
@@ -471,12 +478,8 @@ const PrintDocument = ({
                                     <td className="border-b border-r border-black p-1 text-right">{formatCurrency(receivedAmount)}</td>
                                 </tr>
                                 <tr>
-                                    <td className="border-b border-r border-black p-1 text-right font-bold">Invoice Balance</td>
-                                    <td className="border-b border-r border-black p-1 text-right">{formatCurrency(toNumber(totalValue) - receivedAmount)}</td>
-                                </tr>
-                                <tr>
                                     <td className="border-b border-r border-black p-1 text-right font-bold">Previous Balance</td>
-                                    <td className="border-b border-r border-black p-1 text-right">{formatCurrency(partyInfo.balance || 0)}</td>
+                                    <td className="border-b border-r border-black p-1 text-right">{formatCurrency(previousBalance)}</td>
                                 </tr>
                                 <tr>
                                     <td className="border-b border-r border-black p-1 text-right font-bold">Total Receivables</td>
@@ -674,6 +677,10 @@ const PrintDocument = ({
                     <div className="print-document__summary-row print-document__summary-row--total">
                         <span>Total</span>
                         <span>{formatCurrency(totalValue)}</span>
+                    </div>
+                    <div className="print-document__summary-row">
+                        <span>Ledger Balance</span>
+                        <span>{formatCurrency(ledgerBalance)}</span>
                     </div>
                 </div>
             </div>
