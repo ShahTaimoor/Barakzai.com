@@ -31,7 +31,7 @@ async function resetOneTimeSaleCustomer() {
 
     // 3. Delete Payments linked to these sales
     if (salesIds.length > 0) {
-      const deletePaymentsQuery = `DELETE FROM payments WHERE order_id = ANY($1::text[])`;
+      const deletePaymentsQuery = `DELETE FROM payments WHERE order_id = ANY($1::uuid[])`;
       const paymentResult = await query(deletePaymentsQuery, [salesIds]);
       console.log(`Deleted ${paymentResult.rowCount} payments.`);
     }
