@@ -176,4 +176,22 @@ router.get('/financial', [
   }
 });
 
+// @route   GET /api/reports/bank-cash-summary
+// @desc    Get bank and cash summary report
+// @access  Private
+router.get('/bank-cash-summary', [
+  auth,
+  requirePermission('view_reports'),
+  ...validateDateParams,
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const report = await reportsService.getBankCashSummary(req.query);
+    res.json(report);
+  } catch (error) {
+    console.error('Bank/Cash summary error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

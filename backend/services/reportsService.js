@@ -898,6 +898,103 @@ class ReportsService {
   }
 
   /**
+   * Get bank and cash summary report
+   * @param {object} filters - Query filters (dateFrom, dateTo)
+   * @returns {Promise<object>}
+   */
+  async getBankCashSummary(filters) {
+    const { query } = require('../config/postgres');
+    const { getStartOfDayPakistan, getEndOfDayPakistan } = require('../utils/dateFilter');
+
+    const dateFrom = filters.dateFrom ? getStartOfDayPakistan(filters.dateFrom) : null;
+    const dateTo = filters.dateTo ? getEndOfDayPakistan(filters.dateTo) : null;
+
+    let dateClause = '';
+    let params = [];
+    if (dateFrom && dateTo) {
+      dateClause = 'AND date BETWEEN $1 AND $2';
+      params = [dateFrom, dateTo];
+    } else if (dateFrom) {
+      dateClause = 'AND date >= $1';
+      params = [dateFrom];
+    } else if (dateTo) {
+      dateClause = 'AND date <= $1';
+      params = [dateTo];
+    }
+
+    const bankSummarySql = `
+      SELECT 
+        b.id,
+        b.bank_name as "bankName",
+        b.account_name as "accountName",
+        b.account_number as "accountNumber",
+        COALESCE(b.opening_balance, 0) as "openingBalance",
+        COALESCE(r.total_receipts, 0) as "totalReceipts",
+        COALESCE(p.total_payments, 0) as "totalPayments"
+      FROM banks b
+      LEFT JOIN (
+        SELECT bank_id, COALESCE(SUM(amount), 0) as total_receipts
+        FROM bank_receipts
+        WHERE deleted_at IS NULL
+        ${dateClause}
+        GROUP BY bank_id
+      ) r ON r.bank_id = b.id
+      LEFT JOIN (
+        SELECT bank_id, COALESCE(SUM(amount), 0) as total_payments
+        FROM bank_payments
+        WHERE deleted_at IS NULL
+        ${dateClause}
+        GROUP BY bank_id
+      ) p ON p.bank_id = b.id
+      WHERE b.deleted_at IS NULL
+      ORDER BY b.bank_name ASC, b.account_number ASC
+    `;
+
+    const bankResult = await query(bankSummarySql, params);
+    const banks = bankResult.rows.map(row => {
+      const openingBalance = parseFloat(row.openingBalance || 0);
+      const totalReceipts = parseFloat(row.totalReceipts || 0);
+      const totalPayments = parseFloat(row.totalPayments || 0);
+      return {
+        ...row,
+        openingBalance,
+        totalReceipts,
+        totalPayments,
+        balance: openingBalance + totalReceipts - totalPayments
+      };
+    });
+
+    const cashSummarySql = `
+      SELECT 
+        COALESCE((SELECT opening_balance FROM chart_of_accounts WHERE account_code = '1000' AND deleted_at IS NULL LIMIT 1), 0) as "openingBalance",
+        COALESCE((SELECT SUM(amount) FROM cash_receipts WHERE deleted_at IS NULL ${dateClause}), 0) as "totalReceipts",
+        COALESCE((SELECT SUM(amount) FROM cash_payments WHERE deleted_at IS NULL ${dateClause}), 0) as "totalPayments"
+    `;
+    const cashResult = await query(cashSummarySql, params);
+    const cashRow = cashResult.rows[0] || {};
+    const cash = {
+      openingBalance: parseFloat(cashRow.openingBalance || 0),
+      totalReceipts: parseFloat(cashRow.totalReceipts || 0),
+      totalPayments: parseFloat(cashRow.totalPayments || 0),
+    };
+    cash.balance = cash.openingBalance + cash.totalReceipts - cash.totalPayments;
+
+    const totals = {
+      totalBankBalance: banks.reduce((sum, bank) => sum + (bank.balance || 0), 0),
+      totalBankOpening: banks.reduce((sum, bank) => sum + (bank.openingBalance || 0), 0),
+      totalBankReceipts: banks.reduce((sum, bank) => sum + (bank.totalReceipts || 0), 0),
+      totalBankPayments: banks.reduce((sum, bank) => sum + (bank.totalPayments || 0), 0),
+    };
+
+    return {
+      banks,
+      cash,
+      totals,
+      dateRange: { from: dateFrom, to: dateTo }
+    };
+  }
+
+  /**
    * Get party balance report (Customer/Supplier)
    * @param {object} filters - Query filters (partyType, city, dateFrom, dateTo)
    * @returns {Promise<object>}

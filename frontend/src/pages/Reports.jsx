@@ -24,6 +24,7 @@ import {
   useGetSummaryCardsQuery,
   useGetPartyBalanceReportQuery,
   useGetFinancialReportQuery,
+  useGetBankCashSummaryQuery,
 } from '../store/services/reportsApi';
 import { useGetCitiesQuery } from '../store/services/citiesApi';
 import { useGetCategoriesQuery } from '../store/services/categoriesApi';
@@ -111,6 +112,18 @@ export const Reports = () => {
     skip: activeTab !== 'financial'
   });
 
+  // Fetch Bank & Cash Summary
+  const {
+    data: bankCashSummaryData,
+    isLoading: bankCashLoading,
+    refetch: refetchBankCash
+  } = useGetBankCashSummaryQuery({
+    dateFrom: dateRange.from,
+    dateTo: dateRange.to
+  }, {
+    skip: activeTab !== 'bank-cash'
+  });
+
   // Fetch Cities for Filter
   const { data: citiesData } = useGetCitiesQuery();
   const cities = citiesData?.cities || [];
@@ -125,6 +138,7 @@ export const Reports = () => {
     if (activeTab === 'sales') refetchSales();
     if (activeTab === 'inventory') refetchInventory();
     if (activeTab === 'financial') refetchFinancial();
+    if (activeTab === 'bank-cash') refetchBankCash();
   };
 
   const summary = summaryData || {};
@@ -269,6 +283,15 @@ export const Reports = () => {
           ];
         }
         return [];
+      case 'bank-cash':
+        return [
+          { header: 'Bank', render: (row) => row.bankName || 'N/A' },
+          { header: 'Account', render: (row) => row.accountNumber || row.accountName || '-' },
+          { header: 'Opening', render: (row) => (row.openingBalance || 0).toLocaleString(), align: 'right' },
+          { header: 'Receipts', render: (row) => (row.totalReceipts || 0).toLocaleString(), align: 'right' },
+          { header: 'Payments', render: (row) => (row.totalPayments || 0).toLocaleString(), align: 'right' },
+          { header: 'Balance', render: (row) => (row.balance || 0).toLocaleString(), align: 'right', bold: true },
+        ];
       default:
         return [];
     }
@@ -284,6 +307,8 @@ export const Reports = () => {
         return `Inventory ${inventoryType === 'stock-summary' ? 'Stock Summary' : inventoryType === 'summary' ? 'Current Stock' : inventoryType === 'low-stock' ? 'Low Stock' : 'Valuation'} Report`;
       case 'financial':
         return financialType === 'trial-balance' ? 'Trial Balance' : financialType === 'pl-statement' ? 'Profit & Loss Statement' : 'Balance Sheet';
+      case 'bank-cash':
+        return 'Bank & Cash Summary';
       default:
         return 'Business Report';
     }
@@ -299,6 +324,8 @@ export const Reports = () => {
         return inventoryReportData?.data || [];
       case 'financial':
         return financialReportData?.data || [];
+      case 'bank-cash':
+        return bankCashSummaryData?.banks || [];
       default:
         return [];
     }
@@ -358,6 +385,12 @@ export const Reports = () => {
         };
       }
     }
+    if (activeTab === 'bank-cash') {
+      return {
+        'Total Bank Balance': bankCashSummaryData?.totals?.totalBankBalance || 0,
+        'Cash Balance': bankCashSummaryData?.cash?.balance || 0
+      };
+    }
     return null;
   };
 
@@ -370,6 +403,7 @@ export const Reports = () => {
       if (title === 'Retail Valuation') return 'Retail Price';
       return 'Current Status';
     }
+    if (activeTab === 'bank-cash') return 'Current Total';
     return '';
   };
 
@@ -412,7 +446,7 @@ export const Reports = () => {
             className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             title="Refresh Data"
           >
-            <RefreshCcw className={`h-5 w-5 ${(summaryLoading || partyLoading || salesLoading || inventoryLoading) ? 'animate-spin' : ''}`} />
+            <RefreshCcw className={`h-5 w-5 ${(summaryLoading || partyLoading || salesLoading || inventoryLoading || financialLoading || bankCashLoading) ? 'animate-spin' : ''}`} />
           </button>
           
           <button 
@@ -486,6 +520,11 @@ export const Reports = () => {
               active={activeTab === 'financial'} 
               onClick={() => setActiveTab('financial')}
               label="Financials"
+            />
+            <TabButton 
+              active={activeTab === 'bank-cash'} 
+              onClick={() => setActiveTab('bank-cash')}
+              label="Bank & Cash"
             />
           </nav>
         </div>
@@ -783,6 +822,104 @@ export const Reports = () => {
                     ) : (
                       financialReportData?.data?.map((row, idx) => (
                         <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          {getColumns().map((col, colIdx) => (
+                            <td key={colIdx} className={`px-6 py-4 whitespace-nowrap text-sm ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.bold ? 'font-bold' : ''}`}>
+                              {col.render ? col.render(row) : row[col.key]}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'bank-cash' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="text-sm text-gray-500">
+                  {bankCashSummaryData?.banks?.length || 0} Banks Found
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Wallet className="h-4 w-4 text-green-600" />
+                    Cash Summary
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-gray-500">Opening</div>
+                      <div className="font-semibold">{(bankCashSummaryData?.cash?.openingBalance || 0).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Balance</div>
+                      <div className="font-semibold">{(bankCashSummaryData?.cash?.balance || 0).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Receipts</div>
+                      <div className="font-semibold text-green-700">{(bankCashSummaryData?.cash?.totalReceipts || 0).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Payments</div>
+                      <div className="font-semibold text-red-700">{(bankCashSummaryData?.cash?.totalPayments || 0).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Building2 className="h-4 w-4 text-blue-600" />
+                    Bank Totals
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-gray-500">Opening</div>
+                      <div className="font-semibold">{(bankCashSummaryData?.totals?.totalBankOpening || 0).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Balance</div>
+                      <div className="font-semibold">{(bankCashSummaryData?.totals?.totalBankBalance || 0).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Receipts</div>
+                      <div className="font-semibold text-green-700">{(bankCashSummaryData?.totals?.totalBankReceipts || 0).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Payments</div>
+                      <div className="font-semibold text-red-700">{(bankCashSummaryData?.totals?.totalBankPayments || 0).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border border-gray-100 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {getColumns().map((col, idx) => (
+                        <th key={idx} className={`px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                          {col.header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {bankCashLoading ? (
+                      <tr>
+                        <td colSpan={getColumns().length} className="px-6 py-10 text-center">
+                          <div className="flex justify-center"><RefreshCcw className="h-6 w-6 animate-spin text-gray-400" /></div>
+                        </td>
+                      </tr>
+                    ) : bankCashSummaryData?.banks?.length === 0 ? (
+                      <tr>
+                        <td colSpan={getColumns().length} className="px-6 py-10 text-center text-gray-500">No bank data found for the selected period</td>
+                      </tr>
+                    ) : (
+                      bankCashSummaryData?.banks?.map((row, idx) => (
+                        <tr key={row.id || idx} className="hover:bg-gray-50 transition-colors">
                           {getColumns().map((col, colIdx) => (
                             <td key={colIdx} className={`px-6 py-4 whitespace-nowrap text-sm ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.bold ? 'font-bold' : ''}`}>
                               {col.render ? col.render(row) : row[col.key]}
