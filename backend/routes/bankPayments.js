@@ -307,7 +307,6 @@ router.put('/:id', [
     if (supplier !== undefined) updateData.supplierId = supplier || null;
     if (customer !== undefined) updateData.customerId = customer || null;
     if (notes !== undefined) updateData.notes = notes ? notes.trim() : null;
-    updateData.updatedBy = req.user?.id || req.user?._id;
 
     const { transaction } = require('../config/postgres');
     const updatedPayment = await transaction(async (client) => {

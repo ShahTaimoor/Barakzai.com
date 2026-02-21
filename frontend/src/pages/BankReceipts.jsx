@@ -257,7 +257,7 @@ const BankReceipts = () => {
       notes: formData.notes
     };
 
-    updateBankReceipt({ id: selectedReceipt._id, ...submissionData })
+    updateBankReceipt({ id: selectedReceipt.id || selectedReceipt._id, ...submissionData })
       .unwrap()
       .then(() => {
         setShowEditModal(false);
@@ -279,7 +279,7 @@ const BankReceipts = () => {
 
   const handleDelete = (receipt) => {
     if (window.confirm('Are you sure you want to delete this bank receipt?')) {
-      deleteBankReceipt(receipt._id)
+      deleteBankReceipt(receipt.id || receipt._id)
         .unwrap()
         .then(() => {
           showSuccessToast('Bank receipt deleted successfully');
@@ -303,10 +303,10 @@ const BankReceipts = () => {
       date: receipt.date ? receipt.date.split('T')[0] : today,
       amount: receipt.amount || '',
       particular: receipt.particular || '',
-      bank: receipt.bank?._id || '',
+      bank: receipt.bank?._id || receipt.bank?.id || receipt.bank_id || receipt.bankId || '',
       transactionReference: receipt.transactionReference || '',
-      customer: receipt.customer?._id || '',
-      supplier: receipt.supplier?._id || '',
+      customer: receipt.customer?._id || receipt.customer?.id || '',
+      supplier: receipt.supplier?._id || receipt.supplier?.id || '',
       notes: receipt.notes || ''
     });
 

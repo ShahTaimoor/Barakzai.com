@@ -480,7 +480,7 @@ const BankPayments = () => {
       notes: formData.notes
     };
 
-    updateBankPayment({ id: selectedPayment._id, ...submissionData })
+    updateBankPayment({ id: selectedPayment.id || selectedPayment._id, ...submissionData })
       .unwrap()
       .then(() => {
         setShowEditModal(false);
@@ -502,7 +502,7 @@ const BankPayments = () => {
 
   const handleDelete = (payment) => {
     if (window.confirm('Are you sure you want to delete this bank payment?')) {
-      deleteBankPayment(payment._id)
+      deleteBankPayment(payment.id || payment._id)
         .unwrap()
         .then(() => {
           showSuccessToast('Bank payment deleted successfully');
@@ -526,10 +526,10 @@ const BankPayments = () => {
       date: payment.date ? payment.date.split('T')[0] : today,
       amount: payment.amount || '',
       particular: payment.particular || '',
-      bank: payment.bank?._id || '',
+      bank: payment.bank?._id || payment.bank?.id || payment.bank_id || payment.bankId || '',
       transactionReference: payment.transactionReference || '',
-      supplier: payment.supplier?._id || '',
-      customer: payment.customer?._id || '',
+      supplier: payment.supplier?._id || payment.supplier?.id || '',
+      customer: payment.customer?._id || payment.customer?.id || '',
       notes: payment.notes || ''
     });
 
