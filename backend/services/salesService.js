@@ -780,6 +780,47 @@ class SalesService {
     }
     return { posted, skipped: sales.length - posted - errors.length, errors };
   }
+
+  /**
+   * Sync existing sales to ledger (update amounts/dates/customer; post missing).
+   * Use to fix previously edited invoices that didn't reflect in ledger.
+   * @param {object} options - { dateFrom?, dateTo? } optional date range (sale_date)
+   * @returns {Promise<{ posted: number, updated: number, skipped: number, errors: Array<{ saleId, message }> }>}
+   */
+  async syncSalesLedger(options = {}) {
+    const filters = {};
+    if (options.dateFrom) filters.dateFrom = options.dateFrom;
+    if (options.dateTo) filters.dateTo = options.dateTo;
+    const sales = await salesRepository.findAll(filters, { limit: 10000 });
+    let posted = 0;
+    let updated = 0;
+    const errors = [];
+    for (const sale of sales) {
+      const idStr = sale.id && sale.id.toString();
+      try {
+        const hasLedger = await AccountingService.hasSaleLedgerEntries(idStr);
+        if (!hasLedger) {
+          await AccountingService.recordSale(sale);
+          posted++;
+        } else {
+          const refNum = sale.order_number || sale.orderNumber || sale.id;
+          const txnDate = sale.sale_date || sale.saleDate || sale.created_at || sale.createdAt || new Date();
+          const customerId = sale.customer_id || sale.customerId || null;
+          await AccountingService.updateSaleLedgerEntries({
+            saleId: idStr,
+            total: sale.total,
+            transactionDate: txnDate,
+            customerId,
+            referenceNumber: refNum
+          });
+          updated++;
+        }
+      } catch (err) {
+        errors.push({ saleId: idStr, orderNumber: sale.order_number || sale.orderNumber, message: err.message || String(err) });
+      }
+    }
+    return { posted, updated, skipped: sales.length - posted - updated - errors.length, errors };
+  }
 }
 
 module.exports = new SalesService();

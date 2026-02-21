@@ -410,6 +410,25 @@ router.post('/post-missing-to-ledger', auth, requirePermission('view_reports'), 
   }
 });
 
+// @route   POST /api/sales/sync-ledger
+// @desc    Sync sales to ledger: update existing sale entries + post missing (fixes old edits not reflected).
+// @access  Private
+router.post('/sync-ledger', auth, requirePermission('view_reports'), async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || req.body?.dateFrom;
+    const dateTo = req.query.dateTo || req.body?.dateTo;
+    const result = await salesService.syncSalesLedger({ dateFrom, dateTo });
+    return res.json({
+      success: true,
+      message: `Synced sales ledger. Updated ${result.updated}, posted ${result.posted}.` + (result.errors.length ? ` ${result.errors.length} failed.` : ''),
+      ...result
+    });
+  } catch (error) {
+    console.error('Sync sales ledger error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to sync sales ledger.' });
+  }
+});
+
 // @route   PUT /api/orders/:id/status
 // @desc    Update order status
 // @access  Private

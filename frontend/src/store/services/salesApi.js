@@ -129,6 +129,19 @@ export const salesApi = api.injectEndpoints({
         { type: 'ChartOfAccounts', id: 'LIST' },
       ],
     }),
+    syncSalesLedger: builder.mutation({
+      query: (params = {}) => ({
+        url: 'sales/sync-ledger',
+        method: 'post',
+        params: params?.dateFrom || params?.dateTo ? { dateFrom: params.dateFrom, dateTo: params.dateTo } : undefined,
+      }),
+      invalidatesTags: [
+        { type: 'Sales', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'ChartOfAccounts', id: 'LIST' },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
@@ -148,5 +161,6 @@ export const {
   useLazyGetLastPricesQuery,
   useGetCCTVOrdersQuery,
   usePostMissingSalesToLedgerMutation,
+  useSyncSalesLedgerMutation,
 } = salesApi;
 

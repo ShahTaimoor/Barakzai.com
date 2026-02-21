@@ -3,7 +3,7 @@ import { Users, Building2, Search, Calendar, Download, FileText, ChevronDown, Pr
 import { useGetLedgerSummaryQuery, useGetCustomerDetailedTransactionsQuery, useGetSupplierDetailedTransactionsQuery } from '../store/services/accountLedgerApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
 import { useGetSuppliersQuery } from '../store/services/suppliersApi';
-import { useLazyGetOrderByIdQuery, usePostMissingSalesToLedgerMutation } from '../store/services/salesApi';
+import { useLazyGetOrderByIdQuery, usePostMissingSalesToLedgerMutation, useSyncSalesLedgerMutation } from '../store/services/salesApi';
 import { useLazyGetCashReceiptByIdQuery } from '../store/services/cashReceiptsApi';
 import { useLazyGetBankReceiptByIdQuery } from '../store/services/bankReceiptsApi';
 import { useLazyGetPurchaseInvoiceQuery } from '../store/services/purchaseInvoicesApi';
@@ -56,6 +56,7 @@ const AccountLedgerSummary = () => {
 
   const [getOrderById] = useLazyGetOrderByIdQuery();
   const [postMissingSalesToLedger, { isLoading: isBackfillLoading }] = usePostMissingSalesToLedgerMutation();
+  const [syncSalesLedger, { isLoading: isSyncLoading }] = useSyncSalesLedgerMutation();
   const [getCashReceiptById] = useLazyGetCashReceiptByIdQuery();
   const [getBankReceiptById] = useLazyGetBankReceiptByIdQuery();
   const [getPurchaseInvoiceById] = useLazyGetPurchaseInvoiceQuery();
@@ -415,6 +416,22 @@ const AccountLedgerSummary = () => {
     }
   };
 
+  const handleSyncSalesLedger = async () => {
+    try {
+      const result = await syncSalesLedger({
+        dateFrom: filters.startDate,
+        dateTo: filters.endDate
+      }).unwrap();
+      const updated = result?.updated ?? 0;
+      const posted = result?.posted ?? 0;
+      const failed = result?.errors?.length ?? 0;
+      toast.success(`Synced ${updated} sale(s), posted ${posted}.${failed ? ` ${failed} failed.` : ''}`);
+      refetch();
+    } catch (err) {
+      handleApiError(err, 'Failed to sync sales ledger');
+    }
+  };
+
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) {
@@ -583,6 +600,15 @@ const AccountLedgerSummary = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Customer Receivables and Supplier Payables</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncSalesLedger}
+            className="btn btn-secondary btn-md flex items-center gap-2"
+            disabled={isSyncLoading}
+            title="Sync sales ledger for edited invoices in this date range"
+          >
+            <FileText className="h-4 w-4" />
+            {isSyncLoading ? 'Syncing...' : 'Sync Sales Ledger'}
+          </button>
           <button
             onClick={handleBackfillSales}
             className="btn btn-secondary btn-md flex items-center gap-2"
