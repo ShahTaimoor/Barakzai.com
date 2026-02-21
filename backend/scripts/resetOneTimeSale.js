@@ -36,27 +36,68 @@ async function resetOneTimeSaleCustomer() {
       console.log(`Deleted ${paymentResult.rowCount} payments.`);
     }
 
-    // 4. Soft Delete Sales
+    // 4. Remove account ledger entries for this customer (affects ledger balances)
+    const ledgerAccountCodesResult = await query(
+      `SELECT DISTINCT account_code
+       FROM account_ledger
+       WHERE customer_id = $1
+          OR order_id = ANY($2::uuid[])
+          OR reference_id = ANY($2::uuid[])`,
+      [customerId, salesIds]
+    );
+    const ledgerAccountCodes = ledgerAccountCodesResult.rows.map(r => r.account_code).filter(Boolean);
+
+    const deleteLedgerQuery = `
+      DELETE FROM account_ledger
+      WHERE customer_id = $1
+         OR order_id = ANY($2::uuid[])
+         OR reference_id = ANY($2::uuid[])
+    `;
+    const ledgerDeleteResult = await query(deleteLedgerQuery, [customerId, salesIds]);
+    console.log(`Deleted ${ledgerDeleteResult.rowCount} ledger entries.`);
+
+    // Recalculate account balances for affected accounts
+    for (const accountCode of ledgerAccountCodes) {
+      await query(
+        `UPDATE chart_of_accounts 
+         SET current_balance = (
+           SELECT opening_balance + COALESCE(SUM(
+             CASE 
+               WHEN normal_balance = 'debit' THEN (ledger.debit_amount - ledger.credit_amount)
+               ELSE (ledger.credit_amount - ledger.debit_amount)
+             END
+           ), 0)
+           FROM account_ledger ledger
+           WHERE ledger.account_code = chart_of_accounts.account_code
+             AND ledger.status = 'completed'
+             AND ledger.reversed_at IS NULL
+         )
+         WHERE account_code = $1`,
+        [accountCode]
+      );
+    }
+
+    // 5. Soft Delete Sales
     const deleteSalesQuery = `UPDATE sales SET deleted_at = CURRENT_TIMESTAMP WHERE customer_id = $1 AND deleted_at IS NULL`;
     const salesDeleteResult = await query(deleteSalesQuery, [customerId]);
     console.log(`Soft deleted ${salesDeleteResult.rowCount} sales.`);
 
-    // 5. Soft Delete Sales Orders
+    // 6. Soft Delete Sales Orders
     const deleteSOQuery = `UPDATE sales_orders SET deleted_at = CURRENT_TIMESTAMP WHERE customer_id = $1 AND deleted_at IS NULL`;
     const soDeleteResult = await query(deleteSOQuery, [customerId]);
     console.log(`Soft deleted ${soDeleteResult.rowCount} sales orders.`);
 
-    // 6. Soft Delete Returns
+    // 7. Soft Delete Returns
     const deleteReturnsQuery = `UPDATE returns SET deleted_at = CURRENT_TIMESTAMP WHERE customer_id = $1 AND deleted_at IS NULL`;
     const returnsDeleteResult = await query(deleteReturnsQuery, [customerId]);
     console.log(`Soft deleted ${returnsDeleteResult.rowCount} returns.`);
 
-    // 7. Hard Delete Customer Transactions
+    // 8. Hard Delete Customer Transactions
     const deleteTxnQuery = `DELETE FROM customer_transactions WHERE customer_id = $1`;
     const txnDeleteResult = await query(deleteTxnQuery, [customerId]);
     console.log(`Deleted ${txnDeleteResult.rowCount} customer transactions.`);
 
-    // 8. Reset Customer Balances
+    // 9. Reset Customer Balances
     const updateCustomerQuery = `
       UPDATE customers 
       SET 
