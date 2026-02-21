@@ -36,6 +36,11 @@ const PrintDocument = ({
         invoiceLayout = 'standard'
     } = printSettings || {};
 
+    const isMobileLayout =
+        (printSettings?.mobilePrintPreview ?? false) ||
+        (typeof window !== 'undefined' && window.innerWidth <= 768);
+    const printClassName = `print-document${invoiceLayout === 'layout2' ? ' print-document--layout2' : ''}${isMobileLayout ? ' print-document--mobile' : ''}`;
+
     const formatDate = (date) =>
         new Date(date || new Date()).toLocaleDateString('en-GB', {
             day: '2-digit',
@@ -350,7 +355,7 @@ const PrintDocument = ({
         const totalReceivables = toNumber(totalValue) + toNumber(partyInfo.balance || 0);
 
         return (
-            <div className="print-document print-document--layout2">
+            <div className={printClassName}>
                 {children}
 
                 {/* Header Section */}
@@ -486,7 +491,7 @@ const PrintDocument = ({
     }
 
     return (
-        <div className="print-document">
+        <div className={printClassName}>
             {/* Option to inject content (like toolbar) at the top that is hidden in print via CSS if needed */}
             {children}
 

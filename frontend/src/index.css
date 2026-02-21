@@ -198,6 +198,50 @@
   color: #111827;
 }
 
+.print-document--mobile {
+  width: 100%;
+  max-width: 420px;
+  padding: 18px 16px 16px;
+  border-radius: 14px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+}
+
+.print-document--mobile .print-document__company {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.print-document--mobile .print-document__company-details {
+  text-align: left;
+}
+
+.print-document--mobile .print-document__company-name {
+  font-size: 22px;
+}
+
+.print-document--mobile .print-document__company-subtitle {
+  font-size: 13px;
+}
+
+.print-document--mobile .print-document__info-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.print-document--mobile .print-document__table {
+  font-size: 10px;
+}
+
+.print-document--mobile .print-document__summary {
+  justify-content: stretch;
+}
+
+.print-document--mobile .print-document__summary-table {
+  width: 100%;
+}
+
 .print-document__title {
   font-size: 18px;
   font-weight: 600;
@@ -459,6 +503,45 @@
 .layout2-table td {
   border-color: #000 !important;
   color: #000 !important;
+}
+
+.print-document--mobile .layout2-header .grid {
+  grid-template-columns: 1fr !important;
+  gap: 8px;
+  text-align: center;
+}
+
+.print-document--mobile .layout2-header .col-span-2,
+.print-document--mobile .layout2-header .col-span-8,
+.print-document--mobile .layout2-header .col-span-4,
+.print-document--mobile .layout2-header .col-span-12 {
+  grid-column: 1 / -1 !important;
+  text-align: center !important;
+}
+
+.print-document--mobile .grid.grid-cols-12 {
+  grid-template-columns: 1fr !important;
+  gap: 6px !important;
+}
+
+.print-document--mobile .grid.grid-cols-12 > [class*="col-span-"] {
+  grid-column: 1 / -1 !important;
+}
+
+.print-document--mobile .layout2-company-name {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.print-document--mobile .layout2-table th,
+.print-document--mobile .layout2-table td {
+  padding: 4px 3px !important;
+  font-size: 10px !important;
+}
+
+.print-document--mobile .urdu-note {
+  margin-top: 16px;
+  font-size: 11px;
 }
 
 .urdu-note {

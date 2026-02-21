@@ -406,7 +406,6 @@ const AccountLedgerSummary = () => {
       return;
     }
 
-    const printWindow = window.open('', '_blank');
     const customerName = selectedCustomerId
       ? (customerDetail?.customer?.name || detailedTransactionsData?.data?.customer?.name || 'Customer Receivables')
       : (supplierDetail?.supplier?.name || detailedSupplierTransactionsData?.data?.supplier?.name || 'Supplier Payables');
@@ -414,7 +413,7 @@ const AccountLedgerSummary = () => {
       ? (customerDetail?.customer?.accountCode ?? detailedTransactionsData?.data?.customer?.accountCode ?? '')
       : (supplierDetail?.supplier?.accountCode ?? detailedSupplierTransactionsData?.data?.supplier?.accountCode ?? '');
 
-    printWindow.document.write(`
+    const html = `
       <html>
         <head>
           <title>Account Ledger Summary - ${customerName}</title>
@@ -506,8 +505,36 @@ const AccountLedgerSummary = () => {
           </div>
         </body>
       </html>
-    `);
+    `;
 
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+    if (isMobile) {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        iframe.remove();
+        toast.error('Unable to open print preview on mobile.');
+        return;
+      }
+      doc.open();
+      doc.write(html);
+      doc.close();
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => iframe.remove(), 1000);
+      }, 300);
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print.');
+      return;
+    }
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
@@ -1063,7 +1090,7 @@ const AccountLedgerSummary = () => {
             <tr>
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>-</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: 'bold' }}>Opening Balance</td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: 'bold', fontSize: '11px' }}>Opening Balance</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right', fontWeight: 'bold' }}>
@@ -1078,7 +1105,7 @@ const AccountLedgerSummary = () => {
               <tr key={index}>
                 <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>{index + 1}</td>
                 <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>{formatDate(entry.date)}</td>
-                <td style={{ border: '1px solid #000', padding: '6px 2px' }}>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', fontSize: '12px' }}>
                   <span className="font-medium">{entry.particular || '-'}</span>
                   {entry.voucherNo && entry.voucherNo !== '-' && (
                     <span className="ml-1">

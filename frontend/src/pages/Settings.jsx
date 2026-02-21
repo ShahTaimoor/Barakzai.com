@@ -114,6 +114,7 @@ export const Settings2 = () => {
     showPrintPaymentStatus: true,
     showPrintPaymentMethod: true,
     showPrintPaymentAmount: true,
+    mobilePrintPreview: false,
     headerText: '',
     footerText: '',
     invoiceLayout: 'standard'
@@ -721,6 +722,7 @@ export const Settings2 = () => {
           showPrintPaymentStatus: settings.printSettings.showPrintPaymentStatus ?? true,
           showPrintPaymentMethod: settings.printSettings.showPrintPaymentMethod ?? true,
           showPrintPaymentAmount: settings.printSettings.showPrintPaymentAmount ?? true,
+          mobilePrintPreview: settings.printSettings.mobilePrintPreview ?? false,
           headerText: settings.printSettings.headerText || '',
           footerText: settings.printSettings.footerText || '',
           invoiceLayout: settings.printSettings.invoiceLayout || 'standard'
@@ -838,6 +840,7 @@ export const Settings2 = () => {
           showPrintPaymentStatus: ps.showPrintPaymentStatus ?? true,
           showPrintPaymentMethod: ps.showPrintPaymentMethod ?? true,
           showPrintPaymentAmount: ps.showPrintPaymentAmount ?? true,
+          mobilePrintPreview: ps.mobilePrintPreview ?? prev.mobilePrintPreview ?? false,
           headerText: ps.headerText || prev.headerText || '',
           footerText: ps.footerText || prev.footerText || '',
           invoiceLayout: ps.invoiceLayout || prev.invoiceLayout || 'standard'
@@ -2284,6 +2287,19 @@ export const Settings2 = () => {
                             <div className="text-xs text-gray-500">Display payment amount on print</div>
                           </div>
                         </label>
+                        <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            name="mobilePrintPreview"
+                            checked={printSettings.mobilePrintPreview}
+                            onChange={handlePrintSettingsChange}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">Mobile Print Preview</div>
+                            <div className="text-xs text-gray-500">Use mobile layout for print preview/design</div>
+                          </div>
+                        </label>
                       </>
                     )}
                   </div>
@@ -2301,7 +2317,13 @@ export const Settings2 = () => {
                     )}
                   </p>
                   <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 overflow-hidden flex justify-center items-start min-h-[600px]">
-                    <div style={{ transform: 'scale(0.55)', transformOrigin: 'top center', marginBottom: '-500px' }}>
+                    <div
+                      style={
+                        printSettings.mobilePrintPreview
+                          ? { maxWidth: 420, width: '100%', transform: 'scale(0.85)', transformOrigin: 'top center', marginBottom: '-200px' }
+                          : { transform: 'scale(0.55)', transformOrigin: 'top center', marginBottom: '-500px' }
+                      }
+                    >
                       <PrintDocument
                         companySettings={{ ...companyData, logo: companyProfile.logo || companyData.logo }}
                         orderData={sampleOrderData}
