@@ -16,12 +16,9 @@ import {
 import {
   useGetOrdersQuery,
   useLazyGetOrderByIdQuery,
-  useUpdateOrderMutation,
   useDeleteOrderMutation,
   usePostMissingSalesToLedgerMutation,
 } from '../store/services/salesApi';
-import { useGetProductsQuery } from '../store/services/productsApi';
-import { useGetCustomersQuery } from '../store/services/customersApi';
 import { useGetCompanySettingsQuery } from '../store/services/settingsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { useTab } from '../contexts/TabContext';
@@ -163,30 +160,11 @@ export const Orders = () => {
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    notes: '',
-    items: [],
-    billDate: '',
-    customer: null,
-    orderType: 'retail',
-    discount: '',
-    amountReceived: ''
-  });
-
   const { openTab } = useTab();
-  const [showProductModal, setShowProductModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printOrderData, setPrintOrderData] = useState(null);
-  const [productSearchTerm, setProductSearchTerm] = useState('');
-  const [availableProducts, setAvailableProducts] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [newProductQuantity, setNewProductQuantity] = useState(1);
-  const [newProductRate, setNewProductRate] = useState(0);
-  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
 
   // Mutations
-  const [updateOrder] = useUpdateOrderMutation();
   const [deleteOrder] = useDeleteOrderMutation();
   const [postMissingSalesToLedger, { isLoading: isPostingToLedger }] = usePostMissingSalesToLedgerMutation();
   const [fetchOrderById] = useLazyGetOrderByIdQuery();
@@ -223,97 +201,6 @@ export const Orders = () => {
   const companyPhone = companySettings.contactNumber?.trim() || '';
   const companyEmail = companySettings.email?.trim() || '';
 
-  // Products query for adding items
-  const { data: productsResponse } = useGetProductsQuery(
-    {
-      search: productSearchTerm,
-      limit: 50
-    },
-    {
-      skip: !showEditModal && !showProductModal, // Fetch products when edit modal or product modal is open
-    }
-  );
-
-  // Extract products from response
-  const products = React.useMemo(() => {
-    if (!productsResponse) return [];
-    if (productsResponse?.data?.products) return productsResponse.data.products;
-    if (productsResponse?.products) return productsResponse.products;
-    if (productsResponse?.data?.data?.products) return productsResponse.data.data.products;
-    if (Array.isArray(productsResponse)) return productsResponse;
-    return [];
-  }, [productsResponse]);
-
-  // Customers query for customer selection
-  const { data: customersResponse } = useGetCustomersQuery(
-    {
-      search: customerSearchTerm,
-      limit: 50
-    },
-    {
-      skip: !showEditModal,
-      keepPreviousData: true,
-    }
-  );
-
-  // Extract customers from response
-  const customers = React.useMemo(() => {
-    if (!customersResponse) return [];
-    if (customersResponse?.data?.customers) return customersResponse.data.customers;
-    if (customersResponse?.customers) return customersResponse.customers;
-    if (customersResponse?.data?.data?.customers) return customersResponse.data.data.customers;
-    if (Array.isArray(customersResponse)) return customersResponse;
-    return [];
-  }, [customersResponse]);
-
-  const selectedCustomerName = React.useMemo(() => {
-    if (!editFormData?.customer) {
-      return (
-        selectedOrder?.customer?.business_name ??
-        selectedOrder?.customer?.businessName ??
-        selectedOrder?.customer?.name ??
-        selectedOrder?.customerInfo?.businessName ??
-        selectedOrder?.customerInfo?.name ??
-        ''
-      );
-    }
-    const match = customers.find(c => String(c._id ?? c.id) === String(editFormData.customer));
-    if (match) {
-      return (
-        match.displayName ??
-        match.display_name ??
-        match.businessName ??
-        match.business_name ??
-        match.name ??
-        ''
-      );
-    }
-    return (
-      selectedOrder?.customer?.business_name ??
-      selectedOrder?.customer?.businessName ??
-      selectedOrder?.customer?.name ??
-      selectedOrder?.customerInfo?.businessName ??
-      selectedOrder?.customerInfo?.name ??
-      ''
-    );
-  }, [customers, editFormData?.customer, selectedOrder]);
-
-  const didPrefillCustomerSearchRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (!showEditModal) {
-      didPrefillCustomerSearchRef.current = false;
-      return;
-    }
-    if (didPrefillCustomerSearchRef.current) return;
-    if (!editFormData?.customer) return;
-    if (customerSearchTerm) return;
-    if (selectedCustomerName) {
-      setCustomerSearchTerm(selectedCustomerName);
-      didPrefillCustomerSearchRef.current = true;
-    }
-  }, [showEditModal, editFormData?.customer, customerSearchTerm, selectedCustomerName]);
-
   // Handlers
   const handleDeleteOrder = async (orderId) => {
     try {
@@ -335,67 +222,64 @@ export const Orders = () => {
     }
   };
 
-  // Event handlers
+  // Event handlers - Edit opens Sales page in new tab (same as Purchase Invoice edit)
   const handleEdit = async (order) => {
     try {
-      // Fetch fresh order by ID to get enriched product names from backend
       const result = await fetchOrderById(order._id || order.id).unwrap();
       const orderData = result?.order || result?.data?.order || result;
       const freshOrder = orderData || order;
 
-      // Initialize edit form with fresh order data (includes enriched product names)
-      setSelectedOrder(freshOrder);
-
-      // Format items for editing (ensure product ID is available; use product name from enriched data)
-      const formattedItems = (freshOrder.items || []).map(item => ({
-        product: item.product?._id || item.product?.id || item.product || item.product_id || null,
-        productName: item.product?.name || item.product?.displayName || item.product?.variantName || 'Unknown Product',
-        quantity: item.quantity || 1,
-        unitPrice: item.unitPrice || 0,
-        total: item.total || (item.quantity * item.unitPrice) || 0
-      }));
-
-      // Ensure customer is ID string, not object
-      let customerId = null;
-      if (freshOrder.customer) {
-        customerId = typeof freshOrder.customer === 'object'
-          ? (freshOrder.customer._id || freshOrder.customer.id || freshOrder.customer)
-          : freshOrder.customer;
-      }
-
-      // Format billDate for input (YYYY-MM-DD format)
-      const formatDateForInput = (date) => {
-        if (date == null) return '';
-        const d = new Date(date);
-        if (Number.isNaN(d.getTime())) return '';
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+      const editData = {
+        orderId: freshOrder._id || freshOrder.id,
+        isEditMode: true,
+        customer: freshOrder.customer || freshOrder.customerInfo,
+        orderNumber: freshOrder.order_number ?? freshOrder.orderNumber,
+        notes: freshOrder.notes || '',
+        items: (freshOrder.items || []).map(item => {
+          // Preserve full product object (with name) for cart display; API returns product: { _id, name } from enrichItemsWithProductNames
+          const productObj = item.product && typeof item.product === 'object';
+          const product = productObj
+            ? {
+                _id: item.product._id || item.product.id,
+                name: item.product.name || item.product.displayName || item.product.variantName || 'Product',
+                isVariant: item.product.isVariant,
+                displayName: item.product.displayName,
+                variantName: item.product.variantName,
+                inventory: item.product.inventory || { currentStock: 0, reorderPoint: 0 }
+              }
+            : {
+                _id: item.product_id || item.product,
+                name: item.productName || 'Unknown Product',
+                inventory: { currentStock: 0, reorderPoint: 0 }
+              };
+          return {
+            product,
+            quantity: item.quantity || 1,
+            unitPrice: item.unitPrice ?? item.unit_price ?? 0,
+            totalPrice: item.total ?? (item.quantity * (item.unitPrice ?? item.unit_price ?? 0))
+          };
+        }),
+        isTaxExempt: freshOrder.isTaxExempt ?? freshOrder.is_tax_exempt ?? false,
+        payment: freshOrder.payment || {},
+        orderType: freshOrder.orderType ?? freshOrder.order_type ?? 'retail',
+        billDate: freshOrder.sale_date ?? freshOrder.billDate ?? freshOrder.order_date ?? freshOrder.created_at ?? freshOrder.createdAt
       };
 
-      const orderDate = freshOrder.sale_date ?? freshOrder.billDate ?? freshOrder.order_date ?? freshOrder.created_at ?? freshOrder.createdAt;
-      const discountVal = freshOrder.discount ?? freshOrder.pricing?.discountAmount ?? 0;
-      const amountReceivedVal = freshOrder.payment?.amountPaid ?? freshOrder.amount_paid ?? 0;
-      setEditFormData({
-        notes: freshOrder.notes || '',
-        items: formattedItems,
-        customer: customerId,
-        orderType: freshOrder.orderType ?? freshOrder.order_type ?? 'retail',
-        billDate: formatDateForInput(orderDate),
-        discount: discountVal === 0 ? '' : String(discountVal),
-        amountReceived: amountReceivedVal === 0 ? '' : String(amountReceivedVal)
-      });
-
-      // Reset product selection fields
-      setSelectedProduct(null);
-      setNewProductQuantity(1);
-      setNewProductRate(0);
-      setProductSearchTerm('');
-      setCustomerSearchTerm(freshOrder.customer?.business_name ?? freshOrder.customer?.businessName ?? freshOrder.customer?.name ?? freshOrder.customerInfo?.businessName ?? freshOrder.customerInfo?.name ?? '');
-
-      // Open edit modal
-      setShowEditModal(true);
+      const componentInfo = getComponentInfo('/sales');
+      if (componentInfo) {
+        const newTabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        openTab({
+          title: `Edit Sale - ${editData.orderNumber || freshOrder._id || freshOrder.id}`,
+          path: '/sales',
+          component: componentInfo.component,
+          icon: componentInfo.icon,
+          allowMultiple: true,
+          props: { tabId: newTabId, editData }
+        });
+        showSuccessToast(`Opening invoice for editing...`);
+      } else {
+        showErrorToast('Sales page not found');
+      }
     } catch (err) {
       handleApiError(err, 'Loading invoice for edit');
     }
@@ -442,44 +326,6 @@ export const Orders = () => {
     } catch (error) {
       handleApiError(error, 'Post to ledger');
     }
-  };
-
-  const handleAddNewProduct = () => {
-    if (!selectedProduct || !newProductRate) {
-      showErrorToast('Please select a product and enter a rate');
-      return;
-    }
-
-    // Check if product is out of stock
-    if (selectedProduct.inventory?.currentStock === 0) {
-      showErrorToast(`${selectedProduct.name} is out of stock and cannot be added to the invoice.`);
-      return;
-    }
-
-    // Check if requested quantity exceeds available stock
-    if (newProductQuantity > selectedProduct.inventory?.currentStock) {
-      showErrorToast(`Cannot add ${newProductQuantity} units.Only ${selectedProduct.inventory?.currentStock} units available in stock.`);
-      return;
-    }
-
-    const newItem = {
-      product: selectedProduct._id, // Store product ID for backend
-      productName: selectedProduct.name, // Store name for display
-      quantity: newProductQuantity,
-      unitPrice: newProductRate,
-      total: newProductQuantity * newProductRate
-    };
-
-    const updatedItems = [...editFormData.items, newItem];
-    setEditFormData({ ...editFormData, items: updatedItems });
-
-    // Reset form
-    setSelectedProduct(null);
-    setNewProductQuantity(1);
-    setNewProductRate(0);
-    setProductSearchTerm('');
-
-    showSuccessToast(`${selectedProduct.name} added to invoice`);
   };
 
   if (isLoading) {
@@ -1047,8 +893,9 @@ export const Orders = () => {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {showEditModal && selectedOrder && (
+      {/* Edit Modal removed: editing opens Sales page in new tab (same as Purchase Invoice) */}
+
+      {false && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-0">
@@ -1541,8 +1388,8 @@ export const Orders = () => {
         </div>
       )}
 
-      {/* Product Selection Modal */}
-      {showProductModal && (
+      {/* Product Selection Modal - removed with edit modal */}
+      {false && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">

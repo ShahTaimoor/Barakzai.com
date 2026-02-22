@@ -2947,52 +2947,51 @@ export const Sales = ({ tabId, editData }) => {
                   </div>
                 )}
                 {selectedCustomer && (() => {
-                  // Calculate total balance: currentBalance (which is net balance)
-                  const totalBalance = selectedCustomer.currentBalance !== undefined
-                    ? selectedCustomer.currentBalance
+                  // Match Print logic: invoiceBalance = net amount - received; previousBalance = ledger - invoiceBalance; totalReceivables = ledger
+                  const ledgerBalance = selectedCustomer.currentBalance !== undefined && selectedCustomer.currentBalance !== null
+                    ? Number(selectedCustomer.currentBalance)
                     : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
-                  const hasPreviousBalance = totalBalance !== 0;
-
-                  if (!hasPreviousBalance) return null;
+                  const receivedAmount = amountPaid || 0;
+                  const invoiceBalance = total - receivedAmount;
+                  // In edit mode, ledger already includes this invoice; in new sale, it does not
+                  const previousBalance = editData?.isEditMode
+                    ? ledgerBalance - invoiceBalance
+                    : ledgerBalance;
+                  const totalReceivables = editData?.isEditMode
+                    ? ledgerBalance
+                    : ledgerBalance + invoiceBalance;
 
                   return (
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-gray-800 font-semibold">
-                        Previous Total Balance:
-                      </span>
-                      <span className={`text-xl font-bold ${totalBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {totalBalance < 0 ? '-' : '+'}{Math.abs(Math.round(totalBalance))}
-                      </span>
-                    </div>
+                    <>
+                      {(previousBalance !== 0 || editData?.isEditMode) && (
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-gray-800 font-semibold">Previous Balance:</span>
+                          <span className={`text-xl font-bold ${previousBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {previousBalance < 0 ? '-' : '+'}{Math.abs(Number(previousBalance.toFixed(2)))}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center text-xl font-bold border-t-2 border-blue-400 pt-3 mt-2">
+                        <span className="text-blue-900">Net Amount:</span>
+                        <span className="text-blue-900 text-3xl">{Number(total.toFixed(2))}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-lg font-bold border-t-2 border-red-400 pt-3 mt-2">
+                        <span className={totalReceivables < 0 ? 'text-red-700' : 'text-green-700'}>
+                          Total Receivables:
+                        </span>
+                        <span className={`text-2xl ${totalReceivables < 0 ? 'text-red-700' : 'text-green-700'}`}>
+                          {totalReceivables < 0 ? '-' : '+'}{Math.abs(Number(totalReceivables.toFixed(2)))}
+                        </span>
+                      </div>
+                    </>
                   );
                 })()}
+                {!selectedCustomer && (
                 <div className="flex justify-between items-center text-xl font-bold border-t-2 border-blue-400 pt-3 mt-2">
                   <span className="text-blue-900">Total:</span>
                   <span className="text-blue-900 text-3xl">{Math.round(total)}</span>
                 </div>
-                {selectedCustomer && (() => {
-                  // Calculate total balance: currentBalance (which is net balance)
-                  const totalBalance = selectedCustomer.currentBalance !== undefined
-                    ? selectedCustomer.currentBalance
-                    : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
-                  const hasPreviousBalance = totalBalance !== 0;
-
-                  if (!hasPreviousBalance) return null;
-
-                  const totalBalanceAfterOrder = total + totalBalance;
-                  const isPayable = totalBalanceAfterOrder < 0;
-
-                  return (
-                    <div className="flex justify-between items-center text-lg font-bold border-t-2 border-red-400 pt-3 mt-2">
-                      <span className={isPayable ? 'text-red-700' : 'text-green-700'}>
-                        Total Balance After Order:
-                      </span>
-                      <span className={`text-2xl ${isPayable ? 'text-red-700' : 'text-green-700'}`}>
-                        {isPayable ? '-' : '+'}{Math.abs(Math.round(totalBalanceAfterOrder))}
-                      </span>
-                    </div>
-                  );
-                })()}
+                )}
               </div>
 
               {/* Payment and Discount Section - One Row */}
