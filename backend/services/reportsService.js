@@ -825,7 +825,7 @@ class ReportsService {
       SELECT SUM(balance) as total FROM (
         SELECT c.opening_balance + COALESCE(SUM(l.debit_amount - l.credit_amount), 0) as balance
         FROM customers c
-        LEFT JOIN account_ledger l ON c.id = l.customer_id AND l.status = 'completed' AND l.account_code = '1100'
+        LEFT JOIN account_ledger l ON c.id = l.customer_id AND l.status = 'completed' AND l.account_code = '1100' AND l.reversed_at IS NULL
         WHERE c.deleted_at IS NULL
         ${city ? `AND (
           (jsonb_typeof(c.address) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(c.address) addr WHERE addr->>'city' = $1))
@@ -841,7 +841,7 @@ class ReportsService {
       SELECT SUM(balance) as total FROM (
         SELECT s.opening_balance + COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance
         FROM suppliers s
-        LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000'
+        LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000' AND l.reversed_at IS NULL
         WHERE s.deleted_at IS NULL
         ${city ? `AND (
           (jsonb_typeof(s.address) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.address) addr WHERE addr->>'city' = $1))
@@ -871,6 +871,7 @@ class ReportsService {
       WHERE l.customer_id IS NOT NULL 
       AND l.account_code = '1100'
       AND l.status = 'completed'
+      AND l.reversed_at IS NULL
       ${dateFilter}
       ${city ? cityWhere : ''}
     `;
@@ -884,6 +885,7 @@ class ReportsService {
       WHERE l.supplier_id IS NOT NULL
       AND l.account_code = '2000'
       AND l.status = 'completed'
+      AND l.reversed_at IS NULL
       ${dateFilter}
       ${city ? cityWhere : ''}
     `;
@@ -1024,7 +1026,7 @@ class ReportsService {
           COALESCE(SUM(l.debit_amount), 0) as "totalDebit",
           COALESCE(SUM(l.credit_amount), 0) as "totalCredit"
         FROM customers c
-        LEFT JOIN account_ledger l ON c.id = l.customer_id AND l.status = 'completed' AND l.account_code = '1100'
+        LEFT JOIN account_ledger l ON c.id = l.customer_id AND l.status = 'completed' AND l.account_code = '1100' AND l.reversed_at IS NULL
         WHERE c.deleted_at IS NULL
       `;
       if (city) {
@@ -1052,7 +1054,7 @@ class ReportsService {
           COALESCE(SUM(l.debit_amount), 0) as "totalDebit",
           COALESCE(SUM(l.credit_amount), 0) as "totalCredit"
         FROM suppliers s
-        LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000'
+        LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000' AND l.reversed_at IS NULL
         WHERE s.deleted_at IS NULL
       `;
       if (city) {
