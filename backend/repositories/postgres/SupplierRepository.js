@@ -180,6 +180,10 @@ class SupplierRepository {
       updates.push(`rating = $${paramCount++}`);
       params.push(Math.min(5, Math.max(0, parseInt(supplierData.rating, 10) || 3)));
     }
+    if (supplierData.creditLimit !== undefined) {
+      updates.push(`credit_limit = $${paramCount++}`);
+      params.push(parseFloat(supplierData.creditLimit) || 0);
+    }
     if (supplierData.updatedBy !== undefined) {
       updates.push(`updated_by = $${paramCount++}`);
       params.push(supplierData.updatedBy);

@@ -889,6 +889,7 @@ export const Suppliers = () => {
       businessType: formData.businessType,
       paymentTerms: formData.paymentTerms,
       creditLimit: Number(formData.creditLimit) || 0,
+      openingBalance: Number(formData.openingBalance) || 0,
       rating: Number(formData.rating) || 3,
       reliability: formData.reliability,
       minOrderAmount: Number(formData.minOrderAmount) || 0,

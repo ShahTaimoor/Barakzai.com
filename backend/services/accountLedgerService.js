@@ -574,12 +574,8 @@ class AccountLedgerService {
             if (rawId == null) return null;
             const supplierId = typeof rawId === 'string' ? rawId : String(rawId);
 
-            // Get opening balance from supplier record (support snake_case from Postgres)
-            let openingBalance = parseFloat(supplier.opening_balance ?? supplier.openingBalance ?? 0) || 0;
-
-            // Calculate adjusted opening balance from ledger entries before startDate
-            // SINGLE SOURCE OF TRUTH: Read from account_ledger table only
-            // Filter by AP account code (2000) to show only Accounts Payable entries
+            // Opening balance from ledger only (supplier opening balance is posted to ledger)
+            let openingBalance = 0;
             if (start) {
               const openingLedgerEntries = await transactionRepository.findAll({
                 supplierId,
@@ -589,11 +585,9 @@ class AccountLedgerService {
               }, { lean: true });
 
               // For AP accounts: credit increases balance, debit decreases balance
-              const openingLedgerBalance = openingLedgerEntries.reduce((sum, entry) => {
+              openingBalance = openingLedgerEntries.reduce((sum, entry) => {
                 return sum + (entry.creditAmount || 0) - (entry.debitAmount || 0);
               }, 0);
-
-              openingBalance = openingBalance + openingLedgerBalance;
             }
 
             // Get period transactions from ledger (within date range)

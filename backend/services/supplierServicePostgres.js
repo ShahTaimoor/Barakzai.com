@@ -113,6 +113,20 @@ class SupplierService {
       throw new Error('Supplier not found');
     }
 
+    // Post opening balance to account ledger when it changes
+    if (supplierData.openingBalance !== undefined) {
+      try {
+        const amount = parseFloat(supplierData.openingBalance) || 0;
+        await AccountingService.postSupplierOpeningBalance(id, amount, {
+          createdBy: userId,
+          transactionDate: supplier.updated_at || new Date()
+        });
+      } catch (err) {
+        console.error('Error posting supplier opening balance to ledger:', err);
+        // Don't fail update - balance will be off until corrected
+      }
+    }
+
     return mapSupplierForResponse(supplier);
   }
 

@@ -10,6 +10,7 @@ const { auth, requirePermission } = require('../middleware/auth');
 const { validateUuidParam, handleValidationErrors } = require('../middleware/validation');
 const supplierService = require('../services/supplierServicePostgres');
 const supplierRepository = require('../repositories/postgres/SupplierRepository');
+const AccountingService = require('../services/accountingService');
 
 const router = express.Router();
 
@@ -66,12 +67,13 @@ const upload = multer({
 
 const buildSupplierCreatePayload = (body, userId) => {
   const openingBalance = parseOpeningBalance(body.openingBalance);
+  const address = body.address ?? (Array.isArray(body.addresses) && body.addresses.length > 0 ? body.addresses : null);
   const payload = {
     companyName: body.companyName,
     contactPerson: body.contactPerson?.name != null ? { name: body.contactPerson.name } : (body.contactPersonName ? { name: body.contactPersonName } : null),
     email: body.email || null,
     phone: body.phone || null,
-    address: body.address || null,
+    address: address || null,
     paymentTerms: body.paymentTerms || null,
     taxId: body.taxId || null,
     notes: body.notes || null,
@@ -81,6 +83,7 @@ const buildSupplierCreatePayload = (body, userId) => {
     createdBy: userId
   };
   if (openingBalance !== null) payload.openingBalance = openingBalance;
+  if (body.creditLimit !== undefined && body.creditLimit !== null) payload.creditLimit = parseFloat(body.creditLimit) || 0;
   return payload;
 };
 
@@ -98,6 +101,7 @@ const buildSupplierUpdatePayload = (body, userId) => {
   if (body.status !== undefined) payload.status = body.status;
   if (body.businessType !== undefined || body.supplierType !== undefined) payload.businessType = body.businessType || body.supplierType;
   if (body.rating !== undefined) payload.rating = body.rating;
+  if (body.creditLimit !== undefined && body.creditLimit !== null) payload.creditLimit = parseFloat(body.creditLimit) || 0;
   const ob = parseOpeningBalance(body.openingBalance);
   if (ob !== null) {
     payload.openingBalance = ob;
@@ -267,6 +271,7 @@ router.post('/', [
   body('businessType').optional().isIn(['manufacturer', 'distributor', 'wholesaler', 'dropshipper', 'other']),
   body('paymentTerms').optional().isIn(['cash', 'net15', 'net30', 'net45', 'net60', 'net90']),
   body('openingBalance').optional().isFloat().withMessage('Opening balance must be a valid number'),
+  body('creditLimit').optional().isFloat({ min: 0 }).withMessage('Credit limit must be a non-negative number'),
   body('status').optional().isIn(['active', 'inactive', 'suspended', 'blacklisted']),
   handleValidationErrors
 ], async (req, res) => {
@@ -281,11 +286,25 @@ router.post('/', [
     if (cleanData.notes === '') cleanData.notes = undefined;
     if (cleanData.taxId === '') cleanData.taxId = undefined;
     if (cleanData.openingBalance === '') cleanData.openingBalance = undefined;
+    if (cleanData.creditLimit === '') cleanData.creditLimit = undefined;
 
     const userId = req.user?.id || req.user?._id;
     const supplierData = buildSupplierCreatePayload(cleanData, userId);
 
     const row = await supplierRepository.create(supplierData);
+    // Post opening balance to account ledger if set
+    const openingBalance = parseFloat(row.opening_balance ?? 0) || 0;
+    if (Math.abs(openingBalance) >= 0.01) {
+      try {
+        await AccountingService.postSupplierOpeningBalance(row.id, openingBalance, {
+          createdBy: userId,
+          transactionDate: row.created_at
+        });
+      } catch (err) {
+        console.error('Error posting supplier opening balance to ledger:', err);
+        // Don't fail create - balance will be off until corrected
+      }
+    }
     const supplier = await supplierService.getSupplierByIdWithLedger(row.id);
 
     res.status(201).json({
@@ -314,6 +333,7 @@ router.put('/:id', [
   body('businessType').optional().isIn(['manufacturer', 'distributor', 'wholesaler', 'dropshipper', 'other']),
   body('paymentTerms').optional().isIn(['cash', 'net15', 'net30', 'net45', 'net60', 'net90']),
   body('openingBalance').optional().isFloat().withMessage('Opening balance must be a valid number'),
+  body('creditLimit').optional().isFloat({ min: 0 }).withMessage('Credit limit must be a non-negative number'),
   body('status').optional().isIn(['active', 'inactive', 'suspended', 'blacklisted'])
 ], async (req, res) => {
   try {
@@ -322,9 +342,8 @@ router.put('/:id', [
       return res.status(400).json({ errors: errors.array() });
     }
     
-    if (req.body.openingBalance === '') {
-      req.body.openingBalance = undefined;
-    }
+    if (req.body.openingBalance === '') req.body.openingBalance = undefined;
+    if (req.body.creditLimit === '') req.body.creditLimit = undefined;
 
     const userId = req.user?.id || req.user?._id;
     const supplierData = buildSupplierUpdatePayload(req.body, userId);

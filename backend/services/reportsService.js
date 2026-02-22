@@ -836,10 +836,10 @@ class ReportsService {
     `;
     const customerBalance = await query(customerBalanceQuery, city ? [city] : []);
 
-    // 2. Total Supplier Balance (Current)
+    // 2. Total Supplier Balance (Current) - opening balance is posted to ledger
     const supplierBalanceQuery = `
       SELECT SUM(balance) as total FROM (
-        SELECT s.opening_balance + COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance
+        SELECT COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance
         FROM suppliers s
         LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000' AND l.reversed_at IS NULL
         WHERE s.deleted_at IS NULL
@@ -847,7 +847,7 @@ class ReportsService {
           (jsonb_typeof(s.address) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.address) addr WHERE addr->>'city' = $1))
           OR (jsonb_typeof(s.address) = 'object' AND s.address->>'city' = $1)
         )` : ''}
-        GROUP BY s.id, s.opening_balance
+        GROUP BY s.id
       ) as sub
     `;
     const supplierBalance = await query(supplierBalanceQuery, city ? [city] : []);
@@ -1050,7 +1050,7 @@ class ReportsService {
             END,
             'N/A'
           ) as city,
-          (s.opening_balance + COALESCE(SUM(l.credit_amount - l.debit_amount), 0)) as balance,
+          COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance,
           COALESCE(SUM(l.debit_amount), 0) as "totalDebit",
           COALESCE(SUM(l.credit_amount), 0) as "totalCredit"
         FROM suppliers s
@@ -1064,7 +1064,7 @@ class ReportsService {
         )`;
         params.push(city);
       }
-      sql += ` GROUP BY s.id, s.company_name, s.business_name, s.name, s.contact_person, s.address, s.opening_balance ORDER BY balance DESC`;
+      sql += ` GROUP BY s.id, s.company_name, s.business_name, s.name, s.contact_person, s.address ORDER BY balance DESC`;
     }
 
     const result = await query(sql, params);

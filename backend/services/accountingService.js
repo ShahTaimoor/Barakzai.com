@@ -298,6 +298,7 @@ class AccountingService {
   /**
    * Get supplier balance from ledger
    * Only includes AP account (2000) entries - single source of truth
+   * Opening balance is posted to ledger, so no separate addition
    */
   static async getSupplierBalance(supplierId, asOfDate = null) {
     const dateFilter = asOfDate
@@ -307,15 +308,7 @@ class AccountingService {
     const params = [supplierId];
     if (asOfDate) params.push(asOfDate);
 
-    // Get opening balance
-    const supplierResult = await query(
-      'SELECT opening_balance FROM suppliers WHERE id = $1',
-      [supplierId]
-    );
-    const openingBalance = supplierResult.rows[0]?.opening_balance || 0;
-
-    // Get ledger balance from AP account only (2000)
-    // AP accounts: credit increases balance, debit decreases balance
+    // Ledger balance from AP account (2000) - includes opening balance entry if posted
     const ledgerResult = await query(
       `SELECT COALESCE(SUM(credit_amount - debit_amount), 0) AS balance
        FROM account_ledger
@@ -327,8 +320,72 @@ class AccountingService {
       params
     );
 
-    const ledgerBalance = parseFloat(ledgerResult.rows[0]?.balance || 0);
-    return openingBalance + ledgerBalance;
+    return parseFloat(ledgerResult.rows[0]?.balance || 0);
+  }
+
+  /**
+   * Post or update supplier opening balance in account ledger
+   * Reverses any existing opening balance entry, then posts new amount if non-zero
+   * @param {string} supplierId - Supplier UUID
+   * @param {number} amount - Opening balance (positive = we owe, negative = advance)
+   * @param {Object} options - { createdBy, transactionDate, client }
+   */
+  static async postSupplierOpeningBalance(supplierId, amount, options = {}) {
+    const { createdBy, transactionDate, client } = options;
+    const amt = parseFloat(amount) || 0;
+
+    const runInTransaction = async (clientToUse) => {
+      const q = clientToUse.query.bind(clientToUse);
+
+      // Reverse any existing supplier opening balance entries
+      await this.reverseLedgerEntriesByReference('supplier_opening_balance', supplierId, clientToUse);
+
+      if (Math.abs(amt) < 0.01) return; // Nothing to post
+
+      const codes = await this.getDefaultAccountCodes();
+      const refNum = `OB-${supplierId.substring(0, 8)}`;
+      const txnDate = transactionDate || new Date();
+
+      if (amt > 0) {
+        // Positive: we owe supplier - Credit AP (2000), Debit Retained Earnings (3100)
+        await this.createTransaction(
+          { accountCode: codes.accountsPayable, creditAmount: amt, description: 'Supplier opening balance (payable)' },
+          { accountCode: '3100', debitAmount: amt, description: 'Supplier opening balance (equity offset)' },
+          {
+            referenceType: 'supplier_opening_balance',
+            referenceId: supplierId,
+            referenceNumber: refNum,
+            supplierId,
+            transactionDate: txnDate,
+            createdBy
+          },
+          clientToUse
+        );
+      } else {
+        // Negative: advance to supplier - Debit AP (2000), Credit Retained Earnings (3100)
+        await this.createTransaction(
+          { accountCode: codes.accountsPayable, debitAmount: Math.abs(amt), description: 'Supplier opening balance (advance)' },
+          { accountCode: '3100', creditAmount: Math.abs(amt), description: 'Supplier opening balance (equity offset)' },
+          {
+            referenceType: 'supplier_opening_balance',
+            referenceId: supplierId,
+            referenceNumber: refNum,
+            supplierId,
+            transactionDate: txnDate,
+            createdBy
+          },
+          clientToUse
+        );
+      }
+    };
+
+    if (client) {
+      await runInTransaction(client);
+    } else {
+      await transaction(async (clientToUse) => {
+        await runInTransaction(clientToUse);
+      });
+    }
   }
 
   /**
@@ -1246,10 +1303,11 @@ class AccountingService {
   /**
    * Get bulk supplier balances
    * Only includes AP account (2000) entries - single source of truth
+   * Opening balance is posted to ledger, so ledger sum is the full balance
    */
   static async getBulkSupplierBalances(supplierIds, asOfDate = null) {
     const dateFilter = asOfDate
-      ? 'AND transaction_date <= $2'
+      ? 'AND ledger.transaction_date <= $2'
       : '';
 
     const params = [supplierIds];
@@ -1258,7 +1316,6 @@ class AccountingService {
     const result = await query(
       `SELECT 
         s.id,
-        s.opening_balance,
         COALESCE(SUM(ledger.credit_amount - ledger.debit_amount), 0) AS ledger_balance
        FROM suppliers s
        LEFT JOIN account_ledger ledger ON s.id = ledger.supplier_id
@@ -1266,16 +1323,15 @@ class AccountingService {
          AND ledger.status = 'completed'
          AND ledger.reversed_at IS NULL
          ${dateFilter}
-       WHERE s.id = ANY($1)
+       WHERE s.id = ANY($1::uuid[])
          AND s.is_deleted = FALSE
-       GROUP BY s.id, s.opening_balance`,
+       GROUP BY s.id`,
       params
     );
 
     const balanceMap = new Map();
     result.rows.forEach(row => {
-      const balance = parseFloat(row.opening_balance) + parseFloat(row.ledger_balance);
-      balanceMap.set(row.id, balance);
+      balanceMap.set(row.id, parseFloat(row.ledger_balance || 0));
     });
 
     return balanceMap;
