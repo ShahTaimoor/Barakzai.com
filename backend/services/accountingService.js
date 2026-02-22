@@ -441,6 +441,154 @@ class AccountingService {
   }
 
   /**
+   * Check if a purchase invoice already has ledger entries (reference_type = 'purchase_invoice').
+   * @param {string} invoiceId
+   * @returns {Promise<boolean>}
+   */
+  static async hasPurchaseInvoiceLedgerEntries(invoiceId) {
+    const result = await query(
+      `SELECT 1 FROM account_ledger
+       WHERE reference_type = 'purchase_invoice'
+         AND reference_id::text = $1
+         AND reversed_at IS NULL
+       LIMIT 1`,
+      [String(invoiceId)]
+    );
+    return result.rows.length > 0;
+  }
+
+  /**
+   * Check if a purchase invoice has payment ledger entries.
+   * @param {string} invoiceId
+   * @returns {Promise<boolean>}
+   */
+  static async hasPurchaseInvoicePaymentEntries(invoiceId) {
+    const result = await query(
+      `SELECT 1 FROM account_ledger
+       WHERE reference_type = 'purchase_invoice_payment'
+         AND reference_id::text = $1
+         AND reversed_at IS NULL
+       LIMIT 1`,
+      [String(invoiceId)]
+    );
+    return result.rows.length > 0;
+  }
+
+  /**
+   * Update purchase invoice ledger entries (Inventory/AP + optional payment).
+   * @param {object} params
+   * @param {string} params.invoiceId
+   * @param {number} params.total
+   * @param {Date|string} [params.transactionDate]
+   * @param {string|null} [params.supplierId]
+   * @param {string} [params.referenceNumber]
+   * @param {number} [params.paidAmount]
+   * @param {string} [params.paymentMethod]
+   */
+  static async updatePurchaseInvoiceLedgerEntries(params) {
+    const {
+      invoiceId,
+      total,
+      transactionDate,
+      supplierId,
+      referenceNumber,
+      paidAmount,
+      paymentMethod
+    } = params || {};
+    const invoiceIdStr = String(invoiceId);
+    const updates = [];
+    const values = [invoiceIdStr];
+    let idx = 2;
+
+    if (transactionDate) {
+      updates.push(`transaction_date = $${idx++}`);
+      values.push(transactionDate);
+    }
+    if (supplierId !== undefined) {
+      updates.push(`supplier_id = $${idx++}`);
+      values.push(supplierId || null);
+    }
+    if (referenceNumber) {
+      updates.push(`reference_number = $${idx++}`);
+      values.push(referenceNumber);
+    }
+
+    if (updates.length > 0) {
+      await query(
+        `UPDATE account_ledger
+         SET ${updates.join(', ')}
+         WHERE reference_type = 'purchase_invoice'
+           AND reference_id::text = $1
+           AND reversed_at IS NULL`,
+        values
+      );
+    }
+
+    const totalAmount = parseFloat(total) || 0;
+    const refNum = referenceNumber || invoiceIdStr;
+    await query(
+      `UPDATE account_ledger
+       SET debit_amount = CASE WHEN account_code = '1200' THEN $2 ELSE debit_amount END,
+           credit_amount = CASE WHEN account_code = '2000' THEN $2 ELSE credit_amount END,
+           description = CASE
+             WHEN account_code = '1200' THEN $3
+             WHEN account_code = '2000' THEN $4
+             ELSE description
+           END
+       WHERE reference_type = 'purchase_invoice'
+         AND reference_id::text = $1
+         AND reversed_at IS NULL
+         AND account_code IN ('1200', '2000')`,
+      [invoiceIdStr, totalAmount, `Purchase Invoice: ${refNum}`, `Purchase Invoice on Credit: ${refNum}`]
+    );
+
+    if (paidAmount !== undefined && paidAmount !== null) {
+      const paymentAccount = (paymentMethod === 'bank' || paymentMethod === 'bank_transfer') ? '1001' : '1000';
+      const payAmt = parseFloat(paidAmount) || 0;
+      const payUpdates = [];
+      const payValues = [invoiceIdStr];
+      let payIdx = 2;
+      if (transactionDate) {
+        payUpdates.push(`transaction_date = $${payIdx++}`);
+        payValues.push(transactionDate);
+      }
+      if (supplierId !== undefined) {
+        payUpdates.push(`supplier_id = $${payIdx++}`);
+        payValues.push(supplierId || null);
+      }
+      if (referenceNumber) {
+        payUpdates.push(`reference_number = $${payIdx++}`);
+        payValues.push(referenceNumber);
+      }
+      if (payUpdates.length > 0) {
+        await query(
+          `UPDATE account_ledger
+           SET ${payUpdates.join(', ')}
+           WHERE reference_type = 'purchase_invoice_payment'
+             AND reference_id::text = $1
+             AND reversed_at IS NULL`,
+          payValues
+        );
+      }
+      await query(
+        `UPDATE account_ledger
+         SET debit_amount = CASE WHEN account_code = '2000' THEN $2 ELSE debit_amount END,
+             credit_amount = CASE WHEN account_code IN ('1000','1001') THEN CASE WHEN account_code = $3 THEN $2 ELSE 0 END ELSE credit_amount END,
+             description = CASE
+               WHEN account_code = '2000' THEN $4
+               WHEN account_code IN ('1000','1001') THEN $5
+               ELSE description
+             END
+         WHERE reference_type = 'purchase_invoice_payment'
+           AND reference_id::text = $1
+           AND reversed_at IS NULL
+           AND account_code IN ('2000','1000','1001')`,
+        [invoiceIdStr, payAmt, paymentAccount, `Payment for Invoice: ${refNum}`, `Payment for Purchase Invoice: ${refNum}`]
+      );
+    }
+  }
+
+  /**
    * Record cash receipt transaction (Unified: Customer or Supplier)
    * Business Meaning: Money received INTO the business
    * 

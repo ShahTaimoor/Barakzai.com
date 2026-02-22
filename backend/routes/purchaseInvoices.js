@@ -97,6 +97,25 @@ router.get('/', [
   }
 });
 
+// @route   POST /api/purchase-invoices/sync-ledger
+// @desc    Sync purchase invoices to ledger: update existing entries + post missing
+// @access  Private
+router.post('/sync-ledger', auth, requirePermission('view_reports'), async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || req.body?.dateFrom;
+    const dateTo = req.query.dateTo || req.body?.dateTo;
+    const result = await purchaseInvoiceService.syncPurchaseInvoicesLedger({ dateFrom, dateTo });
+    return res.json({
+      success: true,
+      message: `Synced purchase invoices ledger. Updated ${result.updated}, posted ${result.posted}.` + (result.errors.length ? ` ${result.errors.length} failed.` : ''),
+      ...result
+    });
+  } catch (error) {
+    console.error('Sync purchase invoices ledger error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to sync purchase invoices ledger.' });
+  }
+});
+
 // @route   GET /api/purchase-invoices/:id
 // @desc    Get single purchase invoice
 // @access  Private

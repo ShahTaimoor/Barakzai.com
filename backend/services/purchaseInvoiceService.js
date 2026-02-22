@@ -1,5 +1,6 @@
 const purchaseInvoiceRepository = require('../repositories/PurchaseInvoiceRepository');
 const supplierRepository = require('../repositories/SupplierRepository');
+const AccountingService = require('./accountingService');
 
 class PurchaseInvoiceService {
   /**
@@ -128,6 +129,64 @@ class PurchaseInvoiceService {
       invoice.supplier = this.transformSupplierToUppercase(invoice.supplierInfo);
     }
     return invoice;
+  }
+
+  /**
+   * Sync purchase invoices to ledger (update existing entries, post missing).
+   * Use to fix old edited invoices not reflected in ledger.
+   * @param {object} options - { dateFrom?, dateTo? } optional date range (invoice_date/created_at)
+   * @returns {Promise<{ posted: number, updated: number, skipped: number, errors: Array<{ invoiceId, message }> }>}
+   */
+  async syncPurchaseInvoicesLedger(options = {}) {
+    const filter = await this.buildFilter(options);
+    const invoices = await purchaseInvoiceRepository.findAll(filter, { limit: 10000 });
+    let posted = 0;
+    let updated = 0;
+    const errors = [];
+    for (const invoice of invoices) {
+      const idStr = invoice.id && invoice.id.toString();
+      try {
+        const hasLedger = await AccountingService.hasPurchaseInvoiceLedgerEntries(idStr);
+        const refNum = invoice.invoice_number || invoice.invoiceNumber || invoice.id;
+        const txnDate = invoice.invoice_date || invoice.invoiceDate || invoice.created_at || invoice.createdAt || new Date();
+        const supplierId = invoice.supplier_id || invoice.supplierId || null;
+        const pricing = invoice.pricing || {};
+        const total = parseFloat(pricing.total || invoice.total || 0);
+        const payment = invoice.payment || {};
+        const paidAmount = parseFloat(payment.paidAmount || payment.amount || 0);
+        const paymentMethod = payment.method || 'cash';
+
+        if (!hasLedger) {
+          await AccountingService.recordPurchaseInvoice(invoice);
+          posted++;
+        } else {
+          await AccountingService.updatePurchaseInvoiceLedgerEntries({
+            invoiceId: idStr,
+            total,
+            transactionDate: txnDate,
+            supplierId,
+            referenceNumber: refNum,
+            paidAmount,
+            paymentMethod
+          });
+          const hasPayment = await AccountingService.hasPurchaseInvoicePaymentEntries(idStr);
+          if (paidAmount > 0 && !hasPayment) {
+            await AccountingService.recordPurchasePaymentAdjustment({
+              invoiceId: idStr,
+              invoiceNumber: refNum,
+              supplierId,
+              oldAmountPaid: 0,
+              newAmountPaid: paidAmount,
+              paymentMethod
+            });
+          }
+          updated++;
+        }
+      } catch (err) {
+        errors.push({ invoiceId: idStr, invoiceNumber: invoice.invoice_number || invoice.invoiceNumber, message: err.message || String(err) });
+      }
+    }
+    return { posted, updated, skipped: invoices.length - posted - updated - errors.length, errors };
   }
 }
 
