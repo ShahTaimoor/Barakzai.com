@@ -245,12 +245,14 @@ export const Orders = () => {
                 isVariant: item.product.isVariant,
                 displayName: item.product.displayName,
                 variantName: item.product.variantName,
-                inventory: item.product.inventory || { currentStock: 0, reorderPoint: 0 }
+                inventory: item.product.inventory || { currentStock: 0, reorderPoint: 0 },
+                pricing: item.product.pricing || { cost: 0 }
               }
             : {
                 _id: item.product_id || item.product,
                 name: item.productName || 'Unknown Product',
-                inventory: { currentStock: 0, reorderPoint: 0 }
+                inventory: { currentStock: 0, reorderPoint: 0 },
+                pricing: { cost: 0 }
               };
           return {
             product,

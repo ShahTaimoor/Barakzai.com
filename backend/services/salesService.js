@@ -52,9 +52,9 @@ class SalesService {
   }
 
   /**
-   * Enrich order items with product names when product is stored as ID only.
+   * Enrich order items with product names, inventory (stock), and cost when product is stored as ID only.
    * @param {Array} items - Order items
-   * @returns {Promise<Array>} - Items with product populated as { _id, name }
+   * @returns {Promise<Array>} - Items with product populated as { _id, name, inventory, pricing }
    */
   async enrichItemsWithProductNames(items) {
     if (!items || !Array.isArray(items) || items.length === 0) return items;
@@ -66,19 +66,46 @@ class SalesService {
     }).filter(Boolean))];
     if (productIds.length === 0) return items;
 
-    const products = await productRepository.findAll({ ids: productIds }, { limit: 1000 });
+    const [products, invRows] = await Promise.all([
+      productRepository.findAll({ ids: productIds }, { limit: 1000 }),
+      inventoryRepository.findByProductIds(productIds)
+    ]);
+    const invByProduct = new Map((invRows || []).map(inv => [String(inv.product_id), inv]));
+
     const productMap = new Map();
     for (const p of products) {
       const id = p.id || p._id;
       const sid = id && id.toString ? id.toString() : String(id);
-      productMap.set(sid, { _id: id, name: p.name || p.displayName || 'Product' });
+      const inv = invByProduct.get(sid);
+      const currentStock = inv ? (Number(inv.current_stock ?? inv.currentStock) || 0) : (Number(p.stockQuantity ?? p.stock_quantity) || 0);
+      const reorderPoint = inv ? (Number(inv.reorder_point ?? inv.reorderPoint) || 0) : (Number(p.minStockLevel ?? p.min_stock_level) || 0);
+      const cost = Number(p.costPrice ?? p.cost_price) || 0;
+      productMap.set(sid, {
+        _id: id,
+        name: p.name || p.displayName || 'Product',
+        inventory: { currentStock, reorderPoint },
+        pricing: { cost }
+      });
     }
     for (const id of productIds) {
       if (productMap.has(id)) continue;
       const v = await productVariantRepository.findById(id);
       if (v) {
-        const vid = v.id || v._id;
-        productMap.set(id, { _id: vid, name: v.display_name || v.variant_name || v.displayName || v.variantName || 'Variant' });
+        const inv = invByProduct.get(id);
+        const invData = v.inventory_data || v.inventory || {};
+        const parsed = typeof invData === 'string' ? (() => { try { return JSON.parse(invData || '{}'); } catch { return {}; } })() : invData;
+        const currentStock = inv ? (Number(inv.current_stock ?? inv.currentStock) || 0) : (Number(parsed.currentStock ?? parsed.current_stock) || 0);
+        const reorderPoint = inv ? (Number(inv.reorder_point ?? inv.reorderPoint) || 0) : (Number(parsed.reorderPoint ?? parsed.reorder_point) || 0);
+        const pricing = v.pricing;
+        const costObj = typeof pricing === 'string' ? (() => { try { return JSON.parse(pricing || '{}'); } catch { return {}; } })() : (pricing || {});
+        const cost = Number(costObj?.cost ?? costObj?.cost_price ?? 0) || 0;
+        productMap.set(id, {
+          _id: v.id || v._id,
+          name: v.display_name || v.variant_name || v.displayName || v.variantName || 'Variant',
+          isVariant: true,
+          inventory: { currentStock, reorderPoint },
+          pricing: { cost }
+        });
       }
     }
 

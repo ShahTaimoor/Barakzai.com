@@ -815,7 +815,7 @@ export const Sales = ({ tabId, editData }) => {
       // Set payment method and amount paid if available
       if (editData.payment) {
         setPaymentMethod(editData.payment.method || 'cash');
-        setAmountPaid(editData.payment.amount || 0);
+        setAmountPaid(editData.payment.amountPaid ?? editData.payment.amount ?? 0);
         if (editData.payment.method === 'bank') {
           setSelectedBankAccount(editData.payment.bankAccount || '');
         } else {
@@ -823,9 +823,14 @@ export const Sales = ({ tabId, editData }) => {
         }
       }
 
-      // Set order type
+      // Set order type and bill date
       if (editData.orderType) {
         // Order type is handled by customer selection
+      }
+      if (editData.billDate) {
+        const d = editData.billDate;
+        const dateStr = typeof d === 'string' ? d.split('T')[0] : (d ? getLocalDateString(new Date(d)) : null);
+        if (dateStr) setBillDate(dateStr);
       }
 
       // Data loaded successfully (no toast needed as Orders already shows opening message)
@@ -1968,7 +1973,10 @@ export const Sales = ({ tabId, editData }) => {
             total: itemTotal
           };
         }),
-        notes: notes || ''
+        notes: notes || '',
+        amountReceived: amountPaid ?? 0,
+        billDate: billDate || undefined,
+        discount: totalDiscountAmount > 0 ? totalDiscountAmount : undefined
       };
       handleUpdateOrder(orderId, updateData);
     } else {

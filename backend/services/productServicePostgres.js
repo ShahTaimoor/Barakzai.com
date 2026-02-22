@@ -1,3 +1,4 @@
+const { query } = require('../config/postgres');
 const productRepository = require('../repositories/postgres/ProductRepository');
 const categoryRepository = require('../repositories/postgres/CategoryRepository');
 const inventoryRepository = require('../repositories/postgres/InventoryRepository');
@@ -320,11 +321,51 @@ class ProductServicePostgres {
   }
 
   async getLastPurchasePrice(productId) {
-    return null;
+    if (!productId) return null;
+    const prices = await this.getLastPurchasePrices([productId]);
+    const entry = prices[String(productId)];
+    return entry ? { lastPurchasePrice: entry.lastPurchasePrice, invoiceNumber: entry.invoiceNumber, purchaseDate: entry.purchaseDate } : null;
   }
 
   async getLastPurchasePrices(productIds) {
-    return (productIds || []).map(() => null);
+    const prices = {};
+    if (!Array.isArray(productIds) || productIds.length === 0) return prices;
+    const ids = [...new Set(productIds.map(id => String(id)).filter(Boolean))];
+    if (ids.length === 0) return prices;
+    try {
+      const result = await query(
+        `SELECT DISTINCT ON (product_id) product_id, unit_cost as last_purchase_price, reference_number as invoice_number, created_at as purchase_date
+         FROM stock_movements
+         WHERE product_id = ANY($1::uuid[]) AND movement_type = 'purchase' AND status = 'completed'
+         ORDER BY product_id, created_at DESC`,
+        [ids]
+      );
+      for (const row of result.rows || []) {
+        const pid = row.product_id && (row.product_id.toString ? row.product_id.toString() : String(row.product_id));
+        if (pid) {
+          prices[pid] = {
+            productId: pid,
+            lastPurchasePrice: parseFloat(row.last_purchase_price) || 0,
+            invoiceNumber: row.invoice_number || null,
+            purchaseDate: row.purchase_date || null
+          };
+        }
+      }
+      // Fallback to product cost_price when no purchase history
+      const productRows = await productRepository.findAll({ ids }, { limit: ids.length });
+      for (const p of productRows || []) {
+        const pid = (p.id || p._id) && ((p.id || p._id).toString ? (p.id || p._id).toString() : String(p.id || p._id));
+        if (pid && !prices[pid]) {
+          const cost = parseFloat(p.cost_price ?? p.costPrice) || 0;
+          if (cost > 0) {
+            prices[pid] = { productId: pid, lastPurchasePrice: cost, invoiceNumber: null, purchaseDate: null };
+          }
+        }
+      }
+    } catch (err) {
+      console.error('getLastPurchasePrices error:', err);
+    }
+    return prices;
   }
 
   async getPriceForCustomerType(productId, customerType, quantity) {
