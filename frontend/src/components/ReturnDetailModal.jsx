@@ -19,7 +19,9 @@ import {
 } from 'lucide-react';
 import { useGetReturnQuery } from '../store/services/returnsApi';
 import { useGetCompanySettingsQuery } from '../store/services/settingsApi';
+import { useIssueRefundMutation } from '../store/services/saleReturnsApi';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { showSuccessToast, showErrorToast } from '../utils/errorHandler';
 
 const ReturnDetailModal = ({ 
   return: returnData,
@@ -44,6 +46,10 @@ const ReturnDetailModal = ({
     message: '',
     recipient: ''
   });
+  const [showIssueRefundModal, setShowIssueRefundModal] = useState(false);
+  const [issueRefundMethod, setIssueRefundMethod] = useState('cash');
+
+  const [issueRefund, { isLoading: isIssuingRefund }] = useIssueRefundMutation();
 
   // Fetch detailed return data
   const { data: detailedReturn, isLoading: detailLoading } = useGetReturnQuery(
@@ -318,6 +324,25 @@ const ReturnDetailModal = ({
   };
 
 
+  const handleIssueRefund = async () => {
+    if (!returnInfo?._id && !returnInfo?.id) return;
+    const returnId = returnInfo._id || returnInfo.id;
+    try {
+      await issueRefund({ returnId, method: issueRefundMethod }).unwrap();
+      showSuccessToast('Refund issued successfully');
+      setShowIssueRefundModal(false);
+      onUpdate?.();
+      onStatusUpdate?.();
+    } catch (err) {
+      showErrorToast(err?.data?.message || err?.message || 'Failed to issue refund');
+    }
+  };
+
+  const canIssueRefund = returnInfo?.origin === 'sales' &&
+    (returnInfo?.refundMethod === 'deferred' || returnInfo?.refundMethod === 'none' || returnInfo?.refund_details?.refundMethod === 'deferred') &&
+    !returnInfo?.refund_details?.refundPaidAt &&
+    returnInfo?.status === 'processed';
+
   const handleAddNote = async () => {
     if (!onAddNote) {
       console.warn('No add note callback provided');
@@ -551,6 +576,25 @@ const ReturnDetailModal = ({
                         ${(Number(returnInfo.netRefundAmount) || 0).toFixed(2)}
                       </p>
                     </div>
+                    {canIssueRefund && (
+                      <div className="md:col-span-3 flex items-end">
+                        <button
+                          type="button"
+                          onClick={() => setShowIssueRefundModal(true)}
+                          className="btn btn-primary"
+                        >
+                          Issue Refund (Pay Customer)
+                        </button>
+                      </div>
+                    )}
+                    {returnInfo?.refund_details?.refundPaidAt && (
+                      <div className="md:col-span-3">
+                        <label className="block text-sm font-medium text-gray-700">Refund Paid</label>
+                        <p className="mt-1 text-sm text-green-600">
+                          Paid on {new Date(returnInfo.refund_details.refundPaidAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -877,6 +921,53 @@ const ReturnDetailModal = ({
                 className="btn btn-primary"
               >
                 {isLoading ? <LoadingSpinner size="sm" /> : 'Log Communication'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issue Refund Modal */}
+      {showIssueRefundModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-60">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-medium text-gray-900">Issue Refund</h4>
+              <button
+                onClick={() => setShowIssueRefundModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Record cash/bank payment for Return {returnInfo?.returnNumber || returnInfo?.return_number}. Amount: ${(Number(returnInfo?.netRefundAmount) || 0).toFixed(2)}
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+              <select
+                value={issueRefundMethod}
+                onChange={(e) => setIssueRefundMethod(e.target.value)}
+                className="input"
+              >
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="check">Check</option>
+              </select>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowIssueRefundModal(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleIssueRefund}
+                disabled={isIssuingRefund}
+                className="btn btn-primary"
+              >
+                {isIssuingRefund ? <LoadingSpinner size="sm" /> : 'Issue Refund'}
               </button>
             </div>
           </div>

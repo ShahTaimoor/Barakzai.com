@@ -47,7 +47,7 @@ router.post('/', [
   ]).withMessage('Valid return reason is required'),
   body('items.*.condition').isIn(['new', 'like_new', 'good', 'fair', 'poor', 'damaged']).withMessage('Valid condition is required'),
   body('items.*.action').isIn(['refund', 'exchange', 'store_credit', 'repair', 'replace']).withMessage('Valid action is required'),
-  body('refundMethod').optional().isIn(['original_payment', 'store_credit', 'cash', 'check', 'bank_transfer']),
+  body('refundMethod').optional().isIn(['original_payment', 'store_credit', 'cash', 'check', 'bank_transfer', 'deferred']),
   body('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
   body('deferProcess').optional().isBoolean().withMessage('deferProcess must be boolean'),
   handleValidationErrors,
@@ -354,6 +354,41 @@ router.put('/:id/reject', [
     });
   } catch (error) {
     console.error('Error rejecting sale return:', error);
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// @route   POST /api/sale-returns/:id/issue-refund
+// @desc    Issue cash/bank refund for a deferred sale return (when refund was not paid at creation)
+// @access  Private (requires 'create_orders' permission)
+router.post('/:id/issue-refund', [
+  auth,
+  requirePermission('create_orders'),
+  param('id').isUUID(4).withMessage('Valid return ID is required'),
+  body('amount').optional().isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
+  body('method').optional().isIn(['cash', 'bank_transfer', 'check']).withMessage('Method must be cash, bank_transfer, or check'),
+  body('bankId').optional().isUUID(4).withMessage('Invalid bank ID'),
+  body('date').optional().isISO8601().withMessage('Date must be a valid date'),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const returnId = req.params.id;
+    const { amount, method = 'cash', bankId, date } = req.body;
+    const userId = req.user?.id || req.user?._id;
+
+    const result = await returnManagementService.issueRefundForDeferredReturn(
+      returnId,
+      { amount, method, bankId, date },
+      userId
+    );
+
+    res.json({
+      success: true,
+      message: 'Refund issued successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error issuing refund:', error);
     res.status(400).json({ message: error.message });
   }
 });

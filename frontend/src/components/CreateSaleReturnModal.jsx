@@ -9,7 +9,7 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
     originalOrder: sale?._id || '',
     returnType: 'return',
     priority: 'normal',
-    refundMethod: 'original_payment',
+    refundMethod: 'deferred',
     items: [],
     generalNotes: '',
     origin: 'sales'
@@ -23,7 +23,7 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
         originalOrder: sale._id,
         returnType: 'return',
         priority: 'normal',
-        refundMethod: 'original_payment',
+        refundMethod: 'deferred',
         items: [],
         generalNotes: '',
         origin: 'sales'
@@ -359,6 +359,7 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
                 onChange={(e) => setFormData(prev => ({ ...prev, refundMethod: e.target.value }))}
                 className="input"
               >
+                <option value="deferred">No Refund Yet (Record Return Only)</option>
                 <option value="original_payment">Original Payment Method</option>
                 <option value="store_credit">Store Credit</option>
                 <option value="cash">Cash</option>

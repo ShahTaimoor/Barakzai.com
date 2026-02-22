@@ -12,6 +12,8 @@ const SupplierRepository = require('../repositories/postgres/SupplierRepository'
 const InventoryRepository = require('../repositories/postgres/InventoryRepository');
 const InventoryBalanceRepository = require('../repositories/postgres/InventoryBalanceRepository');
 const StockMovementRepository = require('../repositories/StockMovementRepository');
+const cashPaymentRepository = require('../repositories/postgres/CashPaymentRepository');
+const bankPaymentRepository = require('../repositories/postgres/BankPaymentRepository');
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -795,6 +797,7 @@ class ReturnManagementService {
       );
 
       // 2) For cash/bank refund: record the payment out (Dr AR, Cr Cash/Bank)
+      // Skip this step for 'deferred' (no refund at this time - only record the return)
       const refundMethod = returnRequest.refundMethod || 'original_payment';
       if (refundMethod === 'cash' || refundMethod === 'original_payment') {
         await this.createDoubleEntry(
@@ -842,6 +845,9 @@ class ReturnManagementService {
           },
           client
         );
+      } else if (refundMethod === 'deferred' || refundMethod === 'none') {
+        // No cash/bank/store_credit - only Step 1 (Sales Return to AR) was posted above.
+        // Refund will be processed later when the user issues payment.
       } else if (refundMethod === 'store_credit') {
         await CustomerBalanceService.recordRefund(
           returnRequest.customer,
@@ -1440,6 +1446,100 @@ class ReturnManagementService {
     const returnRequest = await ReturnRepository.findById(returnId);
     if (!returnRequest) throw new Error('Return request not found');
     return returnRequest;
+  }
+
+  /**
+   * Issue refund payment for a deferred sale return.
+   * Use when customer was owed a refund (from "No Refund Yet") and you are now paying them.
+   * Posts: Dr AR, Cr Cash (or Cr Bank) — records the actual cash/bank outflow.
+   */
+  async issueRefundForDeferredReturn(returnId, { amount, method = 'cash', bankId = null, date }, userId) {
+    const returnRow = await ReturnRepository.findById(returnId);
+    if (!returnRow) throw new Error('Return not found');
+
+    const refundMethod = returnRow.refund_details?.refundMethod || returnRow.refundMethod;
+    if (refundMethod !== 'deferred' && refundMethod !== 'none') {
+      throw new Error('This return does not have deferred refund. Refund was already processed at creation.');
+    }
+    if (returnRow.refund_details?.refundPaidAt) {
+      throw new Error('Refund has already been paid for this return.');
+    }
+
+    const returnType = (returnRow.return_type || '').toLowerCase();
+    if (returnType.includes('purchase')) {
+      throw new Error('Issue refund is only for sale returns, not purchase returns.');
+    }
+
+    if (returnRow.status !== 'processed') {
+      throw new Error('Return must be processed before issuing refund.');
+    }
+
+    const netAmount = parseFloat(returnRow.total_amount) || 0;
+    if (netAmount <= 0) throw new Error('Return has no refund amount.');
+
+    const refundAmount = amount != null ? parseFloat(amount) : netAmount;
+    if (isNaN(refundAmount) || refundAmount <= 0 || refundAmount > netAmount) {
+      throw new Error(`Refund amount must be between 0 and ${netAmount}.`);
+    }
+
+    const customerId = toUuid(returnRow.customer_id);
+    if (!customerId) throw new Error('Return has no customer.');
+
+    const returnNumber = returnRow.return_number || `RET-${returnId.substring(0, 8)}`;
+    const particular = `Refund for Return ${returnNumber}`;
+    const notes = `Sale Return: ${returnNumber}`;
+
+    return await transaction(async (client) => {
+      let payment;
+      if (method === 'cash') {
+        const cashPaymentData = {
+          date: date ? new Date(date) : new Date(),
+          amount: refundAmount,
+          particular,
+          notes,
+          customerId,
+          paymentMethod: 'cash',
+          createdBy: userId
+        };
+        payment = await cashPaymentRepository.create(cashPaymentData, client);
+        await AccountingService.recordCashPayment(
+          { ...payment, customer_id: customerId, customerId },
+          client
+        );
+      } else if (method === 'bank_transfer' || method === 'check') {
+        const bankPaymentData = {
+          date: date ? new Date(date) : new Date(),
+          amount: refundAmount,
+          particular,
+          notes,
+          bankId: bankId || null,
+          customerId,
+          createdBy: userId
+        };
+        payment = await bankPaymentRepository.create(bankPaymentData, client);
+        await AccountingService.recordBankPayment(
+          { ...payment, customer_id: customerId, customerId },
+          client
+        );
+      } else {
+        throw new Error('Refund method must be cash, bank_transfer, or check.');
+      }
+
+      const refundDetails = {
+        ...(returnRow.refund_details || {}),
+        refundMethod: returnRow.refund_details?.refundMethod,
+        refundPaidAt: new Date(),
+        refundPaymentId: payment.id,
+        refundPaymentType: method === 'cash' ? 'cash_payment' : 'bank_payment'
+      };
+      await ReturnRepository.update(returnId, { refundDetails }, client);
+
+      const updatedReturn = await ReturnRepository.findById(returnId);
+      return {
+        return: await this.populateReturnData(updatedReturn),
+        payment
+      };
+    });
   }
 
   // Cancel return request

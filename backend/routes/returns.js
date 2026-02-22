@@ -57,7 +57,7 @@ router.post('/', [
   body('items.*.refundAmount').optional().isFloat({ min: 0 }).withMessage('Valid refund amount is required'),
   body('items.*.restockingFee').optional().isFloat({ min: 0 }).withMessage('Valid restocking fee is required'),
   body('items.*.generalNotes').optional().isString().isLength({ max: 1000 }).withMessage('General notes must be less than 1000 characters'),
-  body('refundMethod').optional().isIn(['original_payment', 'store_credit', 'cash', 'check', 'bank_transfer']),
+  body('refundMethod').optional().isIn(['original_payment', 'store_credit', 'cash', 'check', 'bank_transfer', 'deferred']),
   body('priority').optional().isIn(['low', 'normal', 'high', 'urgent']),
   body('generalNotes').optional().trim().isLength({ max: 1000 }),
   handleValidationErrors,

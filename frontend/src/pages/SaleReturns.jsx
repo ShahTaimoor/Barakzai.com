@@ -285,7 +285,7 @@ const SaleReturns = () => {
         originalOrder: firstOrderId,
         returnType: 'return',
         priority: 'normal',
-        refundMethod: 'original_payment',
+        refundMethod: 'deferred',
         items: itemsForReturn,
         generalNotes: '',
         origin: 'sales'

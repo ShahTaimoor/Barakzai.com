@@ -431,16 +431,13 @@ class AccountLedgerService {
 
             // Calculate adjusted opening balance from ledger entries before startDate
             // SINGLE SOURCE OF TRUTH: Read from account_ledger table only
-            // Filter by AR account code (1100) or if it's a Sale Return
+            // Only AR (1100) entries affect customer receivable balance. Sale Return Cr AR is in 1100.
             if (start) {
               const openingLedgerEntries = await transactionRepository.findAll({
                 customerId,
                 transactionDate: { $lt: start },
                 status: 'completed',
-                $or: [
-                  { accountCode: '1100' },
-                  { referenceType: 'Sale Return' }
-                ]
+                accountCode: '1100'
               }, { lean: true });
 
               // For AR accounts: debit increases balance, credit decreases balance
@@ -453,14 +450,11 @@ class AccountLedgerService {
 
             // Get period transactions from ledger (within date range)
             // SINGLE SOURCE OF TRUTH: Read from account_ledger table only
-            // Filter by AR account code (1100) or if it's a Sale Return
+            // Only AR (1100) entries - Sale Return posts Cr AR to 1100, which correctly reduces balance
             const periodLedgerFilter = {
               customerId,
               status: 'completed',
-              $or: [
-                { accountCode: '1100' },
-                { referenceType: 'Sale Return' }
-              ]
+              accountCode: '1100'
             };
             if (start) periodLedgerFilter.transactionDate = { $gte: start };
             if (end) {

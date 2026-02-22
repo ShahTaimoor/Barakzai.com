@@ -125,6 +125,23 @@ export const saleReturnsApi = api.injectEndpoints({
       ],
     }),
 
+    // Issue refund for deferred sale return (when refund was not paid at creation)
+    issueRefund: builder.mutation({
+      query: ({ returnId, amount, method = 'cash', bankId, date }) => ({
+        url: `sale-returns/${returnId}/issue-refund`,
+        method: 'post',
+        data: { amount, method, bankId, date },
+      }),
+      invalidatesTags: (_r, _e, { returnId }) => [
+        { type: 'SaleReturns', id: returnId },
+        { type: 'SaleReturns', id: 'LIST' },
+        { type: 'Returns', id: returnId },
+        { type: 'Returns', id: 'LIST' },
+        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+      ],
+    }),
+
     // Get sale return statistics
     getSaleReturnStats: builder.query({
       query: (params) => ({
@@ -148,6 +165,7 @@ export const {
   useApproveSaleReturnMutation,
   useRejectSaleReturnMutation,
   useProcessSaleReturnMutation,
+  useIssueRefundMutation,
   useGetSaleReturnStatsQuery,
   useLazyGetSaleReturnQuery,
 } = saleReturnsApi;
