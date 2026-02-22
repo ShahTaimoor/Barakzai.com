@@ -11,6 +11,9 @@ const inventoryService = require('../services/inventoryService');
 const salesService = require('../services/salesService');
 const salesOrderRepository = require('../repositories/postgres/SalesOrderRepository');
 const customerRepository = require('../repositories/postgres/CustomerRepository');
+const productRepository = require('../repositories/postgres/ProductRepository');
+const productVariantRepository = require('../repositories/postgres/ProductVariantRepository');
+const inventoryRepository = require('../repositories/InventoryRepository');
 
 const router = express.Router();
 
@@ -294,6 +297,65 @@ router.put('/:id', [
     });
   } catch (error) {
     console.error('Update sales order error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/sales-orders/:id/stock-status
+// @desc    Check which items have insufficient/out-of-stock before confirm
+// @access  Private
+router.get('/:id/stock-status', auth, async (req, res) => {
+  try {
+    const salesOrder = await salesOrderRepository.findById(req.params.id);
+    if (!salesOrder) {
+      return res.status(404).json({ message: 'Sales order not found' });
+    }
+    const items = Array.isArray(salesOrder.items) ? salesOrder.items : (typeof salesOrder.items === 'string' ? JSON.parse(salesOrder.items || '[]') : []);
+    const outOfStock = [];
+
+    for (const item of items) {
+      const productId = item.product || item.product_id;
+      if (!productId) continue;
+
+      let currentStock = 0;
+      try {
+        const inv = await inventoryRepository.findByProduct(productId);
+        if (inv) {
+          currentStock = Number(inv.current_stock ?? inv.currentStock ?? 0);
+        } else {
+          const product = await productRepository.findById(productId);
+          if (product) currentStock = Number(product.stock_quantity ?? product.stockQuantity ?? 0);
+        }
+      } catch {
+        currentStock = 0;
+      }
+
+      const requestedQty = Number(item.quantity) || 0;
+      if (requestedQty > 0 && currentStock < requestedQty) {
+        let productName = 'Unknown';
+        try {
+          let p = await productRepository.findById(productId);
+          if (p) productName = p.name || p.displayName || 'Product';
+          else {
+            p = await productVariantRepository.findById(productId);
+            if (p) productName = (p.display_name ?? p.displayName) || (p.variant_name ?? p.variantName) || 'Variant';
+          }
+        } catch {}
+        outOfStock.push({
+          productId,
+          productName,
+          requestedQty,
+          availableStock: currentStock
+        });
+      }
+    }
+
+    res.json({
+      outOfStock,
+      canConfirm: outOfStock.length === 0
+    });
+  } catch (error) {
+    console.error('Stock status check error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

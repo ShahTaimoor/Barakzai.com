@@ -41,6 +41,7 @@ import { useGetVariantsQuery } from '../store/services/productVariantsApi';
 import { useGetSalesQuery, useLazyGetLastPricesQuery } from '../store/services/salesApi';
 import {
   useGetSalesOrdersQuery,
+  useLazyGetStockStatusQuery,
   useCreateSalesOrderMutation,
   useUpdateSalesOrderMutation,
   useDeleteSalesOrderMutation,
@@ -106,6 +107,11 @@ const SalesOrders = () => {
 
   const [showNotes, setShowNotes] = useState(false);
   const [notesEntity, setNotesEntity] = useState(null);
+
+  // Out-of-stock warning modal (shown before confirm when items lack stock)
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+  const [outOfStockItems, setOutOfStockItems] = useState([]);
+  const [pendingConfirmId, setPendingConfirmId] = useState(null);
 
   // State for modals
   const [showEditModal, setShowEditModal] = useState(false);
@@ -436,6 +442,8 @@ const SalesOrders = () => {
   );
   const modalProductsLoading = productsLoading || variantsLoading;
 
+  const [getStockStatus] = useLazyGetStockStatusQuery();
+
   // Mutations (RTK Query)
   const [createSalesOrderMutation, { isLoading: creating }] = useCreateSalesOrderMutation();
   const [updateSalesOrderMutation, { isLoading: updating }] = useUpdateSalesOrderMutation();
@@ -728,19 +736,7 @@ const SalesOrders = () => {
       ? (selectedProduct.displayName || selectedProduct.variantName || selectedProduct.name)
       : selectedProduct.name;
 
-    // Check if product/variant is out of stock
-    const currentStock = selectedProduct.inventory?.currentStock || 0;
-    if (currentStock === 0) {
-      showErrorToast(`${displayName} is out of stock and cannot be added to the order.`);
-      return;
-    }
-
-    // Check if requested quantity exceeds available stock
-    if (quantity > currentStock) {
-      showErrorToast(`Cannot add ${quantity} units. Only ${currentStock} units available in stock.`);
-      return;
-    }
-
+    // Allow adding products even when out of stock (user will be warned on confirm)
     setIsAddingToCart(true);
     try {
       // Use the rate from the input field
@@ -1169,30 +1165,57 @@ const SalesOrders = () => {
     }
   };
 
-  const handleConfirm = (id) => {
+  const doConfirm = (id) => {
+    confirmSalesOrderMutation(id)
+      .unwrap()
+      .then((response) => {
+        setShowOutOfStockModal(false);
+        setOutOfStockItems([]);
+        setPendingConfirmId(null);
+        if (response.invoiceError) {
+          showSuccessToast(`Sales order confirmed but failed to generate invoice: ${response.invoiceError}`);
+        } else {
+          showSuccessToast('Sales order confirmed and invoice generated successfully');
+          openTab({
+            path: '/orders',
+            title: 'Sales Invoices'
+          });
+        }
+        refetch();
+        if (refetchProducts && typeof refetchProducts === 'function') {
+          refetchProducts();
+        }
+      })
+      .catch((error) => {
+        setShowOutOfStockModal(false);
+        setOutOfStockItems([]);
+        setPendingConfirmId(null);
+        showErrorToast(handleApiError(error));
+      });
+  };
+
+  const handleConfirm = async (id) => {
+    try {
+      const result = await getStockStatus(id).unwrap();
+      const res = result?.data ?? result;
+      const outOfStock = res?.outOfStock ?? [];
+      if (outOfStock.length > 0) {
+        setOutOfStockItems(outOfStock);
+        setPendingConfirmId(id);
+        setShowOutOfStockModal(true);
+        return;
+      }
+    } catch {
+      // If stock check fails, proceed with normal confirm
+    }
     if (window.confirm('Confirm this sales order? This will create a Sales Invoice (it will appear under Sales Invoices) and update inventory.')) {
-      confirmSalesOrderMutation(id)
-        .unwrap()
-        .then((response) => {
-          if (response.invoiceError) {
-            showSuccessToast(`Sales order confirmed but failed to generate invoice: ${response.invoiceError}`);
-          } else {
-            showSuccessToast('Sales order confirmed and invoice generated successfully');
-            // Automatically navigate to the Sales Invoices page to show the generated record
-            openTab({
-              path: '/orders',
-              title: 'Sales Invoices'
-            });
-          }
-          refetch(); // Refetch sales orders list
-          // Immediately refetch products to update stock levels
-          if (refetchProducts && typeof refetchProducts === 'function') {
-            refetchProducts();
-          }
-        })
-        .catch((error) => {
-          showErrorToast(handleApiError(error));
-        });
+      doConfirm(id);
+    }
+  };
+
+  const handleConfirmProceedAnyway = () => {
+    if (pendingConfirmId && window.confirm('The following products are out of stock or have insufficient quantity. Confirmation will likely fail. Do you want to try anyway?')) {
+      doConfirm(pendingConfirmId);
     }
   };
 
@@ -1918,7 +1941,7 @@ const SalesOrders = () => {
                       type="number"
                       min="1"
                       autoComplete="off"
-                      max={selectedProduct?.inventory?.currentStock}
+                      max={selectedProduct?.inventory?.currentStock > 0 ? selectedProduct.inventory.currentStock : undefined}
                       value={quantity}
                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                       onKeyDown={handleInputKeyDown}
@@ -3617,6 +3640,55 @@ const SalesOrders = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Out-of-stock warning modal (before confirm) */}
+      {showOutOfStockModal && outOfStockItems.length > 0 && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-lg bg-white">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Products out of stock
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              The following products have insufficient stock. Confirmation will fail unless you add stock first.
+            </p>
+            <ul className="space-y-2 mb-6 max-h-48 overflow-y-auto">
+              {outOfStockItems.map((item, idx) => (
+                <li key={idx} className="flex justify-between text-sm bg-red-50 px-3 py-2 rounded border border-red-100">
+                  <span className="font-medium text-gray-900">{item.productName}</span>
+                  <span className="text-red-600">
+                    Need: {item.requestedQty} | Available: {item.availableStock}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOutOfStockModal(false);
+                  setOutOfStockItems([]);
+                  setPendingConfirmId(null);
+                }}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmProceedAnyway}
+                className="btn bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                Proceed anyway
+              </button>
             </div>
           </div>
         </div>

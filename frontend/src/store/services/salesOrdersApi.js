@@ -26,6 +26,12 @@ export const salesOrdersApi = api.injectEndpoints({
       }),
       providesTags: (_res, _err, id) => [{ type: 'Orders', id }],
     }),
+    getStockStatus: builder.query({
+      query: (id) => ({
+        url: `sales-orders/${id}/stock-status`,
+        method: 'get',
+      }),
+    }),
     createSalesOrder: builder.mutation({
       query: (data) => ({
         url: 'sales-orders',
@@ -139,6 +145,7 @@ export const salesOrdersApi = api.injectEndpoints({
 export const {
   useGetSalesOrdersQuery,
   useGetSalesOrderQuery,
+  useLazyGetStockStatusQuery,
   useCreateSalesOrderMutation,
   useUpdateSalesOrderMutation,
   useDeleteSalesOrderMutation,
