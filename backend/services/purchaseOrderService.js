@@ -1,5 +1,6 @@
 const purchaseOrderRepository = require('../repositories/postgres/PurchaseRepository');
 const supplierRepository = require('../repositories/postgres/SupplierRepository');
+const productRepository = require('../repositories/postgres/ProductRepository');
 const AccountingService = require('./accountingService');
 
 class PurchaseOrderService {
@@ -11,9 +12,12 @@ class PurchaseOrderService {
   transformSupplierToUppercase(supplier) {
     if (!supplier) return supplier;
     if (supplier.toObject) supplier = supplier.toObject();
-    if (supplier.companyName) supplier.companyName = supplier.companyName.toUpperCase();
-    if (supplier.contactPerson && supplier.contactPerson.name) {
-      supplier.contactPerson.name = supplier.contactPerson.name.toUpperCase();
+    const name = supplier.companyName || supplier.company_name;
+    if (name) supplier.companyName = (typeof name === 'string' ? name : '').toUpperCase();
+    const cp = supplier.contactPerson || supplier.contact_person;
+    if (cp && (typeof cp === 'object' ? cp.name : cp)) {
+      if (!supplier.contactPerson) supplier.contactPerson = {};
+      supplier.contactPerson.name = String(cp.name || cp).toUpperCase();
     }
     return supplier;
   }
@@ -96,12 +100,11 @@ class PurchaseOrderService {
     if (filter.supplier) pgFilter.supplierId = filter.supplier;
     if (filter.status) pgFilter.status = filter.status;
     if (filter.poNumber) pgFilter.purchaseOrderNumber = filter.poNumber;
-    // Handle date filters
-    if (filter.dateFilter) {
-      if (filter.dateFilter.orderDate) {
-        if (filter.dateFilter.orderDate.$gte) pgFilter.dateFrom = filter.dateFilter.orderDate.$gte;
-        if (filter.dateFilter.orderDate.$lte) pgFilter.dateTo = filter.dateFilter.orderDate.$lte;
-      }
+    if (queryParams.dateFrom) pgFilter.dateFrom = queryParams.dateFrom;
+    if (queryParams.dateTo) pgFilter.dateTo = queryParams.dateTo;
+    if (filter.dateFilter?.orderDate) {
+      if (filter.dateFilter.orderDate.$gte) pgFilter.dateFrom = filter.dateFilter.orderDate.$gte;
+      if (filter.dateFilter.orderDate.$lte) pgFilter.dateTo = filter.dateFilter.orderDate.$lte;
     }
 
     const result = await purchaseOrderRepository.findWithPagination(pgFilter, {
@@ -144,7 +147,10 @@ class PurchaseOrderService {
 
     return {
       purchaseOrders: result.purchases,
-      pagination: result.pagination
+      pagination: {
+        ...result.pagination,
+        totalItems: result.pagination.total
+      }
     };
   }
 
@@ -175,11 +181,18 @@ class PurchaseOrderService {
       }
     }
     if (purchaseOrder.items && Array.isArray(purchaseOrder.items)) {
-      purchaseOrder.items.forEach(item => {
-        if (item.product) {
+      for (const item of purchaseOrder.items) {
+        const productId = item.product_id || item.product;
+        if (productId && (typeof productId === 'string' || typeof productId === 'object')) {
+          const id = typeof productId === 'object' ? (productId.id || productId._id) : productId;
+          const product = await productRepository.findById(id);
+          if (product) {
+            item.product = this.transformProductToUppercase(product);
+          }
+        } else if (item.product) {
           item.product = this.transformProductToUppercase(item.product);
         }
-      });
+      }
     }
 
     return purchaseOrder;

@@ -51,12 +51,12 @@ class PurchaseRepository {
     }
 
     if (filters.dateFrom) {
-      sql += ` AND purchase_date >= $${paramCount++}`;
+      sql += ` AND purchase_date::date >= $${paramCount++}::date`;
       params.push(filters.dateFrom);
     }
 
     if (filters.dateTo) {
-      sql += ` AND purchase_date <= $${paramCount++}`;
+      sql += ` AND purchase_date::date <= $${paramCount++}::date`;
       params.push(filters.dateTo);
     }
 
@@ -105,6 +105,14 @@ class PurchaseRepository {
     if (filters.paymentStatus) {
       countSql += ` AND payment_status = $${paramCount++}`;
       countParams.push(filters.paymentStatus);
+    }
+    if (filters.dateFrom) {
+      countSql += ` AND purchase_date::date >= $${paramCount++}::date`;
+      countParams.push(filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      countSql += ` AND purchase_date::date <= $${paramCount++}::date`;
+      countParams.push(filters.dateTo);
     }
 
     const countResult = await query(countSql, countParams);
@@ -313,12 +321,12 @@ class PurchaseRepository {
     let paramCount = 1;
 
     if (filters.dateFrom) {
-      sql += ` AND purchase_date >= $${paramCount++}`;
+      sql += ` AND purchase_date::date >= $${paramCount++}::date`;
       params.push(filters.dateFrom);
     }
 
     if (filters.dateTo) {
-      sql += ` AND purchase_date <= $${paramCount++}`;
+      sql += ` AND purchase_date::date <= $${paramCount++}::date`;
       params.push(filters.dateTo);
     }
 

@@ -272,116 +272,69 @@ router.put('/:id/confirm', [
 ], async (req, res) => {
   try {
     const purchaseOrder = await purchaseOrderService.confirmPurchaseOrder(req.params.id);
+    const poId = purchaseOrder.id || purchaseOrder._id;
+    const poNumber = purchaseOrder.purchase_order_number || purchaseOrder.poNumber || poId;
 
     // Update inventory for each item in the purchase order
     const inventoryUpdates = [];
-    for (const item of purchaseOrder.items) {
+    const items = Array.isArray(purchaseOrder.items) ? purchaseOrder.items : [];
+    for (const item of items) {
+      const productId = item.product_id || item.product;
+      if (!productId) continue;
       try {
         const inventoryUpdate = await inventoryService.updateStock({
-          productId: item.product,
+          productId,
           type: 'in',
           quantity: item.quantity,
-          cost: item.costPerUnit, // Pass cost price from purchase order
+          cost: item.costPerUnit || item.cost_per_unit || item.unitCost,
           reason: 'Purchase Order Confirmation',
           reference: 'Purchase Order',
-          referenceId: purchaseOrder._id,
+          referenceId: poId,
           referenceModel: 'PurchaseOrder',
           performedBy: req.user?.id || req.user?._id,
-          notes: `Stock increased due to purchase order confirmation - PO: ${purchaseOrder.poNumber}`
+          notes: `Stock increased due to purchase order confirmation - PO: ${poNumber}`
         });
 
         inventoryUpdates.push({
-          productId: item.product,
+          productId,
           quantity: item.quantity,
           newStock: inventoryUpdate.currentStock,
           success: true
         });
-
       } catch (inventoryError) {
-        console.error(`Failed to update inventory for product ${item.product}:`, inventoryError.message);
+        console.error(`Failed to update inventory for product ${productId}:`, inventoryError.message);
         inventoryUpdates.push({
-          productId: item.product,
+          productId,
           quantity: item.quantity,
           success: false,
           error: inventoryError.message
         });
-
-        // If inventory update fails, return error but don't rollback (since this is stock increase)
         return res.status(400).json({
-          message: `Failed to update inventory for product ${item.product}. Cannot confirm purchase order.`,
+          message: `Failed to update inventory for product. Cannot confirm purchase order.`,
           details: inventoryError.message,
-          inventoryUpdates: inventoryUpdates
+          inventoryUpdates
         });
       }
     }
 
-    // Update supplier balance: move from pendingBalance to currentBalance
-    if (purchaseOrder.supplier && purchaseOrder.total > 0) {
-      try {
-        const supplier = await supplierRepository.findById(purchaseOrder.supplier);
-        if (supplier) {
-          // Move amount from pendingBalance to currentBalance (outstanding amount we owe to supplier)
-          await supplierRepository.updateById(purchaseOrder.supplier, {
-            $inc: {
-              pendingBalance: -purchaseOrder.total,  // Remove from pending
-              currentBalance: purchaseOrder.total    // Add to current (outstanding)
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error updating supplier balance on PO confirmation:', error);
-        // Don't fail the confirmation if supplier update fails
-      }
-    }
+    // Supplier balance is now handled by ledger when purchase invoice is created (AccountingService.recordPurchaseInvoice)
 
-    // Update purchase order status only after successful inventory updates
-    purchaseOrder.status = 'confirmed';
-    purchaseOrder.confirmedDate = new Date();
-    purchaseOrder.lastModifiedBy = req.user?.id || req.user?._id;
-
-    await purchaseOrder.save();
-
-    // Automatically create a Purchase Invoice from this confirmed order
+    // Automatically create a Purchase Invoice from this confirmed order (posts to ledger)
     try {
-      const invoice = await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, req.user?.id || req.user?._id);
-
-      // Track conversion in purchase order
-      purchaseOrder.conversions = purchaseOrder.conversions || [];
-      purchaseOrder.conversions.push({
-        invoiceId: invoice._id,
-        convertedBy: req.user?.id || req.user?._id,
-        convertedAt: new Date(),
-        items: (purchaseOrder.items || []).map(item => ({
-          product: item.product,
-          quantity: item.quantity,
-          costPerUnit: item.costPerUnit,
-          status: 'success'
-        })),
-        notes: `Automatically converted to invoice PI: ${invoice.invoiceNumber} on confirmation`
-      });
-
-      // Update PO status to fully_received since confirmation in this system increases stock immediately
-      purchaseOrder.status = 'fully_received';
-      purchaseOrder.lastReceivedDate = new Date();
+      await purchaseOrderService.createInvoiceFromPurchaseOrder(purchaseOrder, req.user?.id || req.user?._id);
+      await purchaseOrderRepository.update(poId, { status: 'received', updatedBy: req.user?.id || req.user?._id });
     } catch (createInvoiceError) {
       console.error('Failed to automatically create purchase invoice during PO confirmation:', createInvoiceError);
       // Don't fail the confirmation if invoice creation fails
     }
 
-
-    await purchaseOrder.populate([
-      { path: 'supplier', select: 'companyName contactPerson email phone businessType' },
-      { path: 'items.product', select: 'name description pricing inventory' },
-      { path: 'createdBy', select: 'firstName lastName email' },
-      { path: 'lastModifiedBy', select: 'firstName lastName email' }
-    ]);
-
-    // Transform names to uppercase
-    if (purchaseOrder.supplier) {
-      purchaseOrder.supplier = transformSupplierToUppercase(purchaseOrder.supplier);
+    // Refetch purchase order with supplier for response
+    const purchaseOrderResult = await purchaseOrderService.getPurchaseOrderById(poId);
+    if (purchaseOrderResult.supplier) {
+      purchaseOrderResult.supplier = transformSupplierToUppercase(purchaseOrderResult.supplier);
     }
-    if (purchaseOrder.items && Array.isArray(purchaseOrder.items)) {
-      purchaseOrder.items.forEach(item => {
+    if (purchaseOrderResult.items && Array.isArray(purchaseOrderResult.items)) {
+      purchaseOrderResult.items.forEach(item => {
         if (item.product) {
           item.product = transformProductToUppercase(item.product);
         }
@@ -390,8 +343,8 @@ router.put('/:id/confirm', [
 
     res.json({
       message: 'Purchase order confirmed and converted to invoice successfully',
-      purchaseOrder,
-      inventoryUpdates: inventoryUpdates
+      purchaseOrder: purchaseOrderResult,
+      inventoryUpdates
     });
   } catch (error) {
     console.error('Confirm purchase order error:', error);
@@ -415,81 +368,51 @@ router.put('/:id/cancel', [
 
     // If the purchase order was confirmed, reduce inventory
     const inventoryUpdates = [];
-    if (wasConfirmed) {
+    const poId = purchaseOrder.id || purchaseOrder._id;
+    const poNumber = purchaseOrder.purchase_order_number || purchaseOrder.poNumber || poId;
+    if (wasConfirmed && Array.isArray(purchaseOrder.items)) {
       for (const item of purchaseOrder.items) {
+        const productId = item.product_id || item.product;
+        if (!productId) continue;
         try {
           const inventoryUpdate = await inventoryService.updateStock({
-            productId: item.product,
+            productId,
             type: 'out',
             quantity: item.quantity,
             reason: 'Purchase Order Cancellation',
             reference: 'Purchase Order',
-            referenceId: purchaseOrder._id,
+            referenceId: poId,
             referenceModel: 'PurchaseOrder',
             performedBy: req.user?.id || req.user?._id,
-            notes: `Stock reduced due to purchase order cancellation - PO: ${purchaseOrder.poNumber}`
+            notes: `Stock reduced due to purchase order cancellation - PO: ${poNumber}`
           });
-
           inventoryUpdates.push({
-            productId: item.product,
+            productId,
             quantity: item.quantity,
             newStock: inventoryUpdate.currentStock,
             success: true
           });
-
         } catch (inventoryError) {
-          console.error(`Failed to reduce inventory for product ${item.product}:`, inventoryError.message);
-          inventoryUpdates.push({
-            productId: item.product,
-            quantity: item.quantity,
-            success: false,
-            error: inventoryError.message
-          });
-
-          // If inventory update fails, check if it's due to insufficient stock
+          console.error(`Failed to reduce inventory for product ${productId}:`, inventoryError.message);
+          inventoryUpdates.push({ productId, quantity: item.quantity, success: false, error: inventoryError.message });
           if (inventoryError.message.includes('Insufficient stock')) {
             return res.status(400).json({
-              message: `Insufficient stock to cancel purchase order for product ${item.product}. Stock may have been used in other transactions.`,
+              message: 'Insufficient stock to cancel purchase order. Stock may have been used in other transactions.',
               details: inventoryError.message,
-              inventoryUpdates: inventoryUpdates
+              inventoryUpdates
             });
           }
-
-          // Continue with cancellation for other errors
-          console.warn(`Continuing with purchase order cancellation despite inventory reduction failure for product ${item.product}`);
-        }
-      }
-
-      // Reverse supplier balance: move from currentBalance back to pendingBalance
-      if (purchaseOrder.supplier && purchaseOrder.total > 0) {
-        try {
-          const supplier = await supplierRepository.findById(purchaseOrder.supplier);
-          if (supplier) {
-            // Move amount from currentBalance back to pendingBalance (reverse the confirmation)
-            await supplierRepository.updateById(purchaseOrder.supplier, {
-              $inc: {
-                pendingBalance: purchaseOrder.total,  // Add back to pending
-                currentBalance: -purchaseOrder.total  // Remove from current
-              }
-            });
-          }
-        } catch (error) {
-          console.error('Error reversing supplier balance on PO cancellation:', error);
-          // Don't fail the cancellation if supplier update fails
+          console.warn(`Continuing with cancellation despite inventory reduction failure for product ${productId}`);
         }
       }
     }
 
-    purchaseOrder.status = 'cancelled';
-    purchaseOrder.lastModifiedBy = req.user?.id || req.user?._id;
-
-    await purchaseOrder.save();
-
+    const cancelledPO = await purchaseOrderService.getPurchaseOrderById(req.params.id);
     res.json({
-      message: purchaseOrder.status === 'confirmed'
+      message: wasConfirmed
         ? 'Purchase order cancelled successfully and inventory reduced'
         : 'Purchase order cancelled successfully',
-      purchaseOrder,
+      purchaseOrder: cancelledPO,
       inventoryUpdates: inventoryUpdates.length > 0 ? inventoryUpdates : undefined
     });
   } catch (error) {

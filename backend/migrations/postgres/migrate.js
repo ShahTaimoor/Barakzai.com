@@ -47,7 +47,8 @@ const MIGRATIONS = [
   '026_add_bank_account.sql',
   '027_sales_order_type.sql',
   '028_suppliers_type_rating.sql',
-  '029_backfill_supplier_opening_balance_to_ledger.sql'
+  '029_backfill_supplier_opening_balance_to_ledger.sql',
+  '030_purchases_allow_draft_status.sql'
 ];
 
 async function ensureMigrationsTable() {

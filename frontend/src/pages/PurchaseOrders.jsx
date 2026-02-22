@@ -31,6 +31,7 @@ import { useGetProductsQuery } from '../store/services/productsApi';
 import { useGetVariantsQuery } from '../store/services/productVariantsApi';
 import {
   useGetPurchaseOrdersQuery,
+  useGetPurchaseOrderQuery,
   useCreatePurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
   useDeletePurchaseOrderMutation,
@@ -50,12 +51,40 @@ import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan, getDateDaysAgo } from '../utils/dateUtils';
 import PrintModal from '../components/PrintModal';
 
-// Helper function to safely render values
+// Helper to get product display name (handles object with name/displayName or UUID string)
+const getProductDisplayName = (product) => {
+  if (!product) return 'Unknown Product';
+  if (typeof product === 'object') {
+    const name = product.displayName || product.variantName || product.name || product.company_name || '';
+    return name || 'Product';
+  }
+  // UUID-like string - don't show raw ID
+  if (typeof product === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(product)) {
+    return 'Product';
+  }
+  return product;
+};
+
+// Helper function to safely render values (supports both camelCase and snake_case)
 const safeRender = (value) => {
   if (value === null || value === undefined) return '';
-  if (typeof value === 'string' || typeof value === 'number') return value;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    // Handle JSON string (e.g. supplier stored as stringified object)
+    if (value.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed.businessName || parsed.business_name || parsed.companyName || parsed.company_name || parsed.name || parsed.contact_person || parsed.contactPerson?.name || parsed.contactPerson || '';
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  }
   if (typeof value === 'object') {
-    return value.businessName || value.business_name || value.name || value.title || value.fullName || value.companyName || JSON.stringify(value);
+    const cp = value.contactPerson ?? value.contact_person;
+    const cpVal = typeof cp === 'object' ? (cp?.name ?? cp?.title) : cp;
+    return value.businessName || value.business_name || value.companyName || value.company_name || value.name || value.title || value.fullName || value.contact_person || (typeof cpVal === 'string' ? cpVal : '') || '';
   }
   return String(value);
 };
@@ -391,6 +420,11 @@ export const PurchaseOrders = ({ tabId }) => {
       setSelectedSupplier(completeSupplierData.data);
     }
   }, [completeSupplierData]);
+
+  // Fetch full order (with populated products) when view modal is open
+  const viewOrderId = showViewModal && selectedOrder ? (selectedOrder.id || selectedOrder._id) : null;
+  const { data: viewOrderData } = useGetPurchaseOrderQuery(viewOrderId, { skip: !viewOrderId });
+  const viewOrder = viewOrderData?.data?.purchaseOrder || viewOrderData?.purchaseOrder || selectedOrder;
 
   // Fetch all active products for client-side fuzzy search
   const { data: allProductsData, isLoading: productsLoading } = useGetProductsQuery(
@@ -836,7 +870,7 @@ export const PurchaseOrders = ({ tabId }) => {
       }))
     };
 
-    updatePurchaseOrderMutation({ id: selectedOrder._id, ...cleanedData })
+    updatePurchaseOrderMutation({ id: selectedOrder.id || selectedOrder._id, ...cleanedData })
       .unwrap()
       .then(() => {
         setShowEditModal(false);
@@ -1003,9 +1037,7 @@ export const PurchaseOrders = ({ tabId }) => {
     const supplier = order.supplier || {};
     const items = (order.items || []).map((item) => {
       const product = item.product || {};
-      const name = product.isVariant
-        ? product.displayName || product.variantName || product.name || 'Product'
-        : product.name || 'Product';
+      const name = getProductDisplayName(product);
       const qty = Number(item.quantity) || 0;
       // costPerUnit is the actual field name used in purchase orders
       const unitCost = Number(item.costPerUnit ?? item.unitCost ?? item.cost ?? 0) || 0;
@@ -2571,7 +2603,7 @@ export const PurchaseOrders = ({ tabId }) => {
             </h3>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500">
-                {paginationInfo.totalItems || 0} records
+                {paginationInfo.total ?? paginationInfo.totalItems ?? purchaseOrders.length ?? 0} records
               </span>
               <button
                 onClick={() => refetch()}
@@ -2624,12 +2656,12 @@ export const PurchaseOrders = ({ tabId }) => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {purchaseOrders.map((order, index) => (
-                    <tr key={order._id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={order.id || order._id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(order.createdAt)}
+                        {formatDate(order.purchase_date || order.order_date || order.created_at || order.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {order.poNumber}
+                        {order.purchase_order_number || order.poNumber || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {safeRender(order.supplier) || 'Unknown'}
@@ -2668,14 +2700,14 @@ export const PurchaseOrders = ({ tabId }) => {
                           {order.status === 'draft' && (
                             <>
                               <button
-                                onClick={() => handleConfirm(order._id)}
+                                onClick={() => handleConfirm(order.id || order._id)}
                                 className="text-green-600 hover:text-green-900"
                                 title="Confirm Order"
                               >
                                 <CheckCircle className="h-4 w-4" />
                               </button>
                               <button
-                                onClick={() => handleCancel(order._id)}
+                                onClick={() => handleCancel(order.id || order._id)}
                                 className="text-red-600 hover:text-red-900"
                                 title="Cancel Order"
                               >
@@ -2685,7 +2717,7 @@ export const PurchaseOrders = ({ tabId }) => {
                           )}
                           {(order.status === 'draft' || order.status === 'cancelled' || order.status === 'confirmed' || order.status === 'partially_received' || !order.supplier) && (
                             <button
-                              onClick={() => handleDelete(order._id)}
+                              onClick={() => handleDelete(order.id || order._id)}
                               className="text-red-600 hover:text-red-900"
                               title="Delete"
                             >
@@ -2704,7 +2736,7 @@ export const PurchaseOrders = ({ tabId }) => {
       </div>
 
       {/* View Modal - Bill Format */}
-      {showViewModal && selectedOrder && (
+      {showViewModal && (viewOrder || selectedOrder) && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white">
             <div className="mt-3">
@@ -2740,21 +2772,21 @@ export const PurchaseOrders = ({ tabId }) => {
                 <div>
                   <h5 className="font-semibold text-gray-900 mb-2">Purchase Order Details</h5>
                   <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">PO Number:</span> {selectedOrder.poNumber}</p>
-                    <p><span className="font-medium">Date:</span> {formatDate(selectedOrder.createdAt)}</p>
+                    <p><span className="font-medium">PO Number:</span> {viewOrder.purchase_order_number || viewOrder.poNumber || '-'}</p>
+                    <p><span className="font-medium">Date:</span> {formatDate(viewOrder.purchase_date || viewOrder.order_date || viewOrder.created_at || viewOrder.createdAt)}</p>
                     <p><span className="font-medium">Status:</span>
-                      <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${selectedOrder.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                        selectedOrder.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                          selectedOrder.status === 'partially_received' ? 'bg-yellow-100 text-yellow-800' :
-                            selectedOrder.status === 'fully_received' ? 'bg-green-100 text-green-800' :
-                              selectedOrder.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${viewOrder.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                        viewOrder.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                          viewOrder.status === 'partially_received' ? 'bg-yellow-100 text-yellow-800' :
+                            viewOrder.status === 'fully_received' ? 'bg-green-100 text-green-800' :
+                              viewOrder.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                                 'bg-gray-100 text-gray-800'
                         }`}>
-                        {selectedOrder.status === 'draft' ? 'Pending' : selectedOrder.status.replace('_', ' ')}
+                        {viewOrder.status === 'draft' ? 'Pending' : (viewOrder.status || '').replace('_', ' ')}
                       </span>
                     </p>
-                    {selectedOrder.expectedDelivery && (
-                      <p><span className="font-medium">Expected Delivery:</span> {formatDate(selectedOrder.expectedDelivery)}</p>
+                    {viewOrder.expectedDelivery && (
+                      <p><span className="font-medium">Expected Delivery:</span> {formatDate(viewOrder.expectedDelivery)}</p>
                     )}
                   </div>
                 </div>
@@ -2764,19 +2796,19 @@ export const PurchaseOrders = ({ tabId }) => {
                 <div className="text-right">
                   <h5 className="font-semibold text-gray-900 mb-2">Supplier Details</h5>
                   <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Company:</span> {safeRender(selectedOrder.supplier) || 'Unknown'}</p>
-                    {selectedOrder.supplier?.email && (
-                      <p><span className="font-medium">Email:</span> {safeRender(selectedOrder.supplier.email)}</p>
+                    <p><span className="font-medium">Company:</span> {safeRender(viewOrder.supplier) || 'Unknown'}</p>
+                    {viewOrder.supplier?.email && (
+                      <p><span className="font-medium">Email:</span> {safeRender(viewOrder.supplier.email)}</p>
                     )}
-                    {selectedOrder.supplier?.phone && (
-                      <p><span className="font-medium">Phone:</span> {safeRender(selectedOrder.supplier.phone)}</p>
+                    {viewOrder.supplier?.phone && (
+                      <p><span className="font-medium">Phone:</span> {safeRender(viewOrder.supplier.phone)}</p>
                     )}
-                    {selectedOrder.supplier?.contactPerson && (
-                      <p><span className="font-medium">Contact:</span> {safeRender(selectedOrder.supplier.contactPerson)}</p>
+                    {(viewOrder.supplier?.contact_person || viewOrder.supplier?.contactPerson) && (
+                      <p><span className="font-medium">Contact:</span> {safeRender(viewOrder.supplier.contact_person || viewOrder.supplier.contactPerson)}</p>
                     )}
                     <div className="mt-3 pt-2 border-t border-gray-200">
                       <p className="font-semibold text-red-600">
-                        <span className="font-medium">Outstanding Balance:</span> {Math.round(selectedOrder.supplier?.pendingBalance || 0)}
+                        <span className="font-medium">Outstanding Balance:</span> {Math.round((viewOrder.supplier?.pendingBalance ?? viewOrder.supplier?.currentBalance) || 0)}
                       </p>
                     </div>
                   </div>
@@ -2808,7 +2840,7 @@ export const PurchaseOrders = ({ tabId }) => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {selectedOrder.items && selectedOrder.items.map((item, index) => (
+                      {viewOrder.items && viewOrder.items.map((item, index) => (
                         <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                           <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-200">
                             {index + 1}
@@ -2816,9 +2848,9 @@ export const PurchaseOrders = ({ tabId }) => {
                           <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-200">
                             <div>
                               <div className="font-medium">
-                                {safeRender(item.product) || 'Unknown Product'}
+                                {getProductDisplayName(item.product) || 'Unknown Product'}
                               </div>
-                              {item.product?.description && (
+                              {item.product?.description && typeof item.product === 'object' && (
                                 <div className="text-gray-500 text-xs">{safeRender(item.product.description)}</div>
                               )}
                             </div>
@@ -2845,46 +2877,46 @@ export const PurchaseOrders = ({ tabId }) => {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal:</span>
-                      <span className="font-medium">{Math.round(selectedOrder.subtotal || 0)}</span>
+                      <span className="font-medium">{Math.round(Number(viewOrder.subtotal) || 0)}</span>
                     </div>
-                    {selectedOrder.tax && selectedOrder.tax > 0 && (
+                    {viewOrder.tax && viewOrder.tax > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Tax:</span>
-                        <span className="font-medium">{Math.round(selectedOrder.tax)}</span>
+                        <span className="font-medium">{Math.round(Number(viewOrder.tax))}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">PO Total:</span>
-                      <span className="font-medium">{Math.round(selectedOrder.total || 0)}</span>
+                      <span className="font-medium">{Math.round(Number(viewOrder.total) || 0)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Previous Outstanding:</span>
-                      <span className="font-medium text-red-600">{Math.round(selectedOrder.supplier?.pendingBalance || 0)}</span>
+                      <span className="font-medium text-red-600">{Math.round((Number((viewOrder.supplier?.pendingBalance ?? viewOrder.supplier?.currentBalance)) || 0))}</span>
                     </div>
                     <div className="flex justify-between text-lg font-bold border-t pt-2">
                       <span>Total Payables:</span>
-                      <span className="text-red-600">{Math.round((selectedOrder.total || 0) + (selectedOrder.supplier?.pendingBalance || 0))}</span>
+                      <span className="text-red-600">{Math.round((Number(viewOrder.total) || 0) + (Number((viewOrder.supplier?.pendingBalance ?? viewOrder.supplier?.currentBalance)) || 0))}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Notes */}
-              {selectedOrder.notes && (
+              {viewOrder.notes && (
                 <div className="mb-6">
                   <h5 className="font-semibold text-gray-900 mb-2">Notes</h5>
                   <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded border">
-                    {safeRender(selectedOrder.notes)}
+                    {safeRender(viewOrder.notes)}
                   </p>
                 </div>
               )}
 
               {/* Terms */}
-              {selectedOrder.terms && (
+              {viewOrder.terms && (
                 <div className="mb-6">
                   <h5 className="font-semibold text-gray-900 mb-2">Terms & Conditions</h5>
                   <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded border">
-                    {safeRender(selectedOrder.terms)}
+                    {safeRender(viewOrder.terms)}
                   </p>
                 </div>
               )}
@@ -2896,7 +2928,7 @@ export const PurchaseOrders = ({ tabId }) => {
                 </div>
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => handlePrint(selectedOrder)}
+                    onClick={() => handlePrint(viewOrder)}
                     className="btn btn-primary flex items-center"
                   >
                     <Printer className="h-4 w-4 mr-2" />
