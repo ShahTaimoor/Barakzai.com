@@ -75,7 +75,7 @@ const safeRender = (value) => {
 };
 
 const SalesOrders = () => {
-  const { updateTabTitle, tabs, activeTabId, openTab } = useTab();
+  const { updateTabTitle, tabs, activeTabId } = useTab();
   const { companyInfo: companySettings } = useCompanyInfo();
   const resolvedCompanyName = companySettings.companyName || 'Company Name';
   const resolvedCompanyAddress = companySettings.address || companySettings.billingAddress || '';
@@ -1176,10 +1176,6 @@ const SalesOrders = () => {
           showSuccessToast(`Sales order confirmed but failed to generate invoice: ${response.invoiceError}`);
         } else {
           showSuccessToast('Sales order confirmed and invoice generated successfully');
-          openTab({
-            path: '/orders',
-            title: 'Sales Invoices'
-          });
         }
         refetch();
         if (refetchProducts && typeof refetchProducts === 'function') {
