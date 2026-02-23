@@ -823,9 +823,12 @@ export const Sales = ({ tabId, editData }) => {
         }
       }
 
-      // Set order type and bill date
+      // Set price type from order type (so user can see and change it in edit mode)
       if (editData.orderType) {
-        // Order type is handled by customer selection
+        const ot = String(editData.orderType).toLowerCase();
+        if (ot === 'retail' || ot === 'wholesale' || ot === 'distributor' || ot === 'custom') {
+          setPriceType(ot);
+        }
       }
       if (editData.billDate) {
         const d = editData.billDate;
