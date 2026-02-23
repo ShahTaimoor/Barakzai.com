@@ -1,7 +1,25 @@
 const purchaseOrderRepository = require('../repositories/postgres/PurchaseRepository');
 const supplierRepository = require('../repositories/postgres/SupplierRepository');
 const productRepository = require('../repositories/postgres/ProductRepository');
+const productVariantRepository = require('../repositories/postgres/ProductVariantRepository');
 const AccountingService = require('./accountingService');
+
+// Format supplier address for print/display
+function formatSupplierAddress(supplierData) {
+  if (!supplierData) return '';
+  if (supplierData.address && typeof supplierData.address === 'string') return supplierData.address.trim();
+  const addrRaw = supplierData.address ?? supplierData.addresses;
+  if (Array.isArray(addrRaw) && addrRaw.length > 0) {
+    const a = addrRaw.find(x => x.isDefault) || addrRaw.find(x => x.type === 'billing' || x.type === 'both') || addrRaw[0];
+    const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+    return parts.join(', ');
+  }
+  if (addrRaw && typeof addrRaw === 'object' && !Array.isArray(addrRaw)) {
+    const parts = [addrRaw.street || addrRaw.address_line1 || addrRaw.addressLine1 || addrRaw.line1, addrRaw.city, addrRaw.state || addrRaw.province, addrRaw.country, addrRaw.zipCode || addrRaw.zip || addrRaw.postalCode || addrRaw.postal_code].filter(Boolean);
+    return parts.join(', ');
+  }
+  return '';
+}
 
 class PurchaseOrderService {
   /**
@@ -122,12 +140,13 @@ class PurchaseOrderService {
       ? await AccountingService.getBulkSupplierBalances(supplierIds)
       : new Map();
 
-    // Fetch supplier details and transform
+    // Fetch supplier details, enrich items with products, and transform
     for (const purchase of result.purchases) {
       if (purchase.supplier_id) {
         const supplier = await supplierRepository.findById(purchase.supplier_id);
         if (supplier) {
           purchase.supplier = this.transformSupplierToUppercase(supplier);
+          purchase.supplierInfo = { ...purchase.supplierInfo, address: formatSupplierAddress(supplier) || purchase.supplierInfo?.address };
           const ledgerBalance = balanceMap.get(purchase.supplier_id) || 0;
           const netBalance = (supplier.opening_balance || 0) + ledgerBalance;
 
@@ -137,11 +156,27 @@ class PurchaseOrderService {
         }
       }
       if (purchase.items && Array.isArray(purchase.items)) {
-        purchase.items.forEach(item => {
-          if (item.product) {
-            item.product = this.transformProductToUppercase(item.product);
+        for (const item of purchase.items) {
+          const productId = item.product_id || item.product;
+          if (!productId) continue;
+          const id = typeof productId === 'object' ? (productId.id || productId._id) : productId;
+          if (typeof id !== 'string') continue;
+          if (typeof item.product === 'object' && item.product && (item.product.name || item.product.displayName)) continue;
+          try {
+            let p = await productRepository.findById(id);
+            if (p) {
+              item.product = { ...p, name: p.name || p.displayName };
+            } else {
+              p = await productVariantRepository.findById(id);
+              if (p) {
+                item.product = { name: p.display_name ?? p.displayName ?? p.variant_name ?? p.variantName ?? 'Product' };
+              }
+            }
+            if (item.product) item.product = this.transformProductToUppercase(item.product);
+          } catch (e) {
+            // Keep item.product as-is on error
           }
-        });
+        }
       }
     }
 
@@ -174,6 +209,7 @@ class PurchaseOrderService {
       const supplier = await supplierRepository.findById(purchaseOrder.supplier_id);
       if (supplier) {
         purchaseOrder.supplier = this.transformSupplierToUppercase(supplier);
+        purchaseOrder.supplierInfo = { ...purchaseOrder.supplierInfo, address: formatSupplierAddress(supplier) || purchaseOrder.supplierInfo?.address };
         const balance = await AccountingService.getSupplierBalance(purchaseOrder.supplier_id);
         purchaseOrder.supplier.currentBalance = balance;
         purchaseOrder.supplier.pendingBalance = balance > 0 ? balance : 0;

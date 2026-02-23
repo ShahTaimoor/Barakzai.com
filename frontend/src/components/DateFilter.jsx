@@ -95,8 +95,8 @@ const DateFilter = ({
 
   if (compact) {
     return (
-      <div className={`flex items-center gap-2 ${className}`}>
-        <div className="flex items-center h-10 w-full bg-white border border-gray-300 rounded-md px-3 gap-2 focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500 transition-all">
+      <div className={`flex items-center gap-2 min-w-0 ${className}`}>
+        <div className="flex items-center h-10 w-full min-w-0 bg-white border border-gray-300 rounded-md px-3 gap-2 focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500 transition-all">
           <Calendar className="h-4 w-4 text-gray-400 shrink-0" />
           <div className="flex items-center gap-1 w-full translate-y-[1px]">
             <input

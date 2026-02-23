@@ -65,6 +65,25 @@ const getProductDisplayName = (product) => {
   return product;
 };
 
+// Format supplier/customer address for display (avoids showing raw JSON)
+const formatAddressForDisplay = (party) => {
+  if (!party) return '';
+  if (typeof party.address === 'string' && party.address.trim()) return party.address.trim();
+  const addrRaw = party.address ?? party.addresses;
+  if (Array.isArray(addrRaw) && addrRaw.length > 0) {
+    const a = addrRaw.find(x => x.isDefault) || addrRaw.find(x => x.type === 'billing' || x.type === 'both') || addrRaw[0];
+    const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1 || a.address, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+    return parts.join(', ') || '—';
+  }
+  if (addrRaw && typeof addrRaw === 'object' && !Array.isArray(addrRaw)) {
+    const parts = [addrRaw.street || addrRaw.address_line1 || addrRaw.addressLine1 || addrRaw.line1 || addrRaw.address, addrRaw.city, addrRaw.state || addrRaw.province, addrRaw.country, addrRaw.zipCode || addrRaw.zip || addrRaw.postalCode || addrRaw.postal_code].filter(Boolean);
+    return parts.join(', ') || '—';
+  }
+  if (typeof party.location === 'string' && party.location.trim()) return party.location.trim();
+  if (typeof party.companyAddress === 'string' && party.companyAddress.trim()) return party.companyAddress.trim();
+  return '';
+};
+
 // Helper function to safely render values (supports both camelCase and snake_case)
 const safeRender = (value) => {
   if (value === null || value === undefined) return '';
@@ -1035,11 +1054,19 @@ export const PurchaseOrders = ({ tabId }) => {
   const formatPurchaseOrderForPrint = (order) => {
     if (!order) return null;
     const supplier = order.supplier || {};
+    const supplierInfo = {
+      ...order.supplierInfo,
+      address: order.supplierInfo?.address && typeof order.supplierInfo.address === 'string'
+        ? order.supplierInfo.address
+        : formatAddressForDisplay(supplier) || ''
+    };
     const items = (order.items || []).map((item) => {
-      const product = item.product || {};
-      const name = getProductDisplayName(product);
+      const product = item.product || item.productData || {};
+      const productName = typeof product === 'object' && product !== null
+        ? (product.name || product.displayName || product.display_name || product.variantName || product.variant_name)
+        : getProductDisplayName(product);
+      const name = productName || 'Product';
       const qty = Number(item.quantity) || 0;
-      // costPerUnit is the actual field name used in purchase orders
       const unitCost = Number(item.costPerUnit ?? item.unitCost ?? item.cost ?? 0) || 0;
       const totalCost = Number(item.totalCost) || qty * unitCost;
       return {
@@ -1058,6 +1085,7 @@ export const PurchaseOrders = ({ tabId }) => {
     return {
       ...order,
       supplier,
+      supplierInfo,
       items,
       subtotal,
       tax,
@@ -1926,7 +1954,7 @@ export const PurchaseOrders = ({ tabId }) => {
                       poNumber: `PO-${Date.now()}`,
                       supplier: selectedSupplier,
                       items: formData.items.map(item => {
-                        const product = productsData?.find(p => p._id === item.product);
+                        const product = item.productData || productsData?.find(p => p._id === item.product);
                         return {
                           product: product,
                           quantity: item.quantity,
@@ -2493,9 +2521,12 @@ export const PurchaseOrders = ({ tabId }) => {
           </div>
         </div>
         <div className="card-content">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
-            {/* Date Range */}
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+            {/* Date Range - spans more columns to prevent overlap */}
+            <div className="sm:col-span-2 lg:col-span-5">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date Range
+              </label>
               <DateFilter
                 startDate={filters.fromDate}
                 endDate={filters.toDate}
@@ -2509,7 +2540,7 @@ export const PurchaseOrders = ({ tabId }) => {
             </div>
 
             {/* PO Number Filter */}
-            <div>
+            <div className="sm:col-span-2 lg:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 PO Number
               </label>
@@ -2519,19 +2550,19 @@ export const PurchaseOrders = ({ tabId }) => {
                 placeholder="Contains..."
                 value={filters.poNumber}
                 onChange={(e) => handleFilterChange('poNumber', e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] w-full"
               />
             </div>
 
             {/* Status Filter */}
-            <div>
+            <div className="sm:col-span-2 lg:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
               <select
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] w-full"
               >
                 <option value="">All Statuses</option>
                 <option value="draft">Pending</option>
@@ -2544,14 +2575,14 @@ export const PurchaseOrders = ({ tabId }) => {
             </div>
 
             {/* Supplier Filter */}
-            <div>
+            <div className="sm:col-span-2 lg:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Supplier
               </label>
               <select
                 value={filters.supplier}
                 onChange={(e) => handleFilterChange('supplier', e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] w-full"
               >
                 <option value="">All Suppliers</option>
                 {suppliers?.map((supplier) => (
@@ -2563,16 +2594,16 @@ export const PurchaseOrders = ({ tabId }) => {
             </div>
 
             {/* Payment Status Filter */}
-            <div>
+            <div className="sm:col-span-2 lg:col-span-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Payment Status
+                Payment
               </label>
               <select
                 value={filters.paymentStatus}
                 onChange={(e) => handleFilterChange('paymentStatus', e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] w-full"
               >
-                <option value="">All Payment Statuses</option>
+                <option value="">All</option>
                 <option value="pending">Pending</option>
                 <option value="paid">Paid</option>
                 <option value="partial">Partial</option>
@@ -2581,7 +2612,7 @@ export const PurchaseOrders = ({ tabId }) => {
             </div>
 
             {/* Search Button */}
-            <div className="flex items-end">
+            <div className="sm:col-span-2 lg:col-span-2 flex items-end">
               <button
                 onClick={() => refetch()}
                 className="btn btn-primary w-full flex items-center justify-center space-x-2 h-[42px]"
@@ -2803,6 +2834,7 @@ export const PurchaseOrders = ({ tabId }) => {
                     {viewOrder.supplier?.phone && (
                       <p><span className="font-medium">Phone:</span> {safeRender(viewOrder.supplier.phone)}</p>
                     )}
+                    <p><span className="font-medium">Address:</span> {formatAddressForDisplay(viewOrder.supplier) || '—'}</p>
                     {(viewOrder.supplier?.contact_person || viewOrder.supplier?.contactPerson) && (
                       <p><span className="font-medium">Contact:</span> {safeRender(viewOrder.supplier.contact_person || viewOrder.supplier.contactPerson)}</p>
                     )}
@@ -2848,7 +2880,9 @@ export const PurchaseOrders = ({ tabId }) => {
                           <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-200">
                             <div>
                               <div className="font-medium">
-                                {getProductDisplayName(item.product) || 'Unknown Product'}
+                                {typeof item.product === 'object' && item.product !== null
+                                  ? (item.product.name || item.product.displayName || item.product.display_name || item.product.variantName || item.product.variant_name || 'Unknown Product')
+                                  : (getProductDisplayName(item.product) || item.productData?.name || 'Unknown Product')}
                               </div>
                               {item.product?.description && typeof item.product === 'object' && (
                                 <div className="text-gray-500 text-xs">{safeRender(item.product.description)}</div>

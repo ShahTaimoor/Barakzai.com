@@ -74,6 +74,25 @@ const safeRender = (value) => {
   return String(value);
 };
 
+// Format customer address for display (avoids showing raw JSON)
+const formatAddressForDisplay = (customer) => {
+  if (!customer) return '';
+  if (typeof customer.address === 'string' && customer.address.trim()) return customer.address.trim();
+  const addrRaw = customer.address ?? customer.addresses;
+  if (Array.isArray(addrRaw) && addrRaw.length > 0) {
+    const a = addrRaw.find(x => x.isDefault) || addrRaw.find(x => x.type === 'billing' || x.type === 'both') || addrRaw[0];
+    const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1 || a.address, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+    return parts.join(', ') || '—';
+  }
+  if (addrRaw && typeof addrRaw === 'object' && !Array.isArray(addrRaw)) {
+    const parts = [addrRaw.street || addrRaw.address_line1 || addrRaw.addressLine1 || addrRaw.line1 || addrRaw.address, addrRaw.city, addrRaw.state || addrRaw.province, addrRaw.country, addrRaw.zipCode || addrRaw.zip || addrRaw.postalCode || addrRaw.postal_code].filter(Boolean);
+    return parts.join(', ') || '—';
+  }
+  if (typeof customer.location === 'string' && customer.location.trim()) return customer.location.trim();
+  if (typeof customer.companyAddress === 'string' && customer.companyAddress.trim()) return customer.companyAddress.trim();
+  return '';
+};
+
 const SalesOrders = () => {
   const { updateTabTitle, tabs, activeTabId } = useTab();
   const { companyInfo: companySettings } = useCompanyInfo();
@@ -1511,6 +1530,24 @@ const SalesOrders = () => {
           }
           : null);
 
+      const formatAddressForPrint = (cust) => {
+        if (!cust) return '';
+        if (typeof cust.address === 'string' && cust.address.trim()) return cust.address.trim();
+        const addrRaw = cust.address ?? cust.addresses;
+        if (Array.isArray(addrRaw) && addrRaw.length > 0) {
+          const a = addrRaw.find(x => x.isDefault) || addrRaw.find(x => x.type === 'billing' || x.type === 'both') || addrRaw[0];
+          const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+          return parts.join(', ');
+        }
+        if (addrRaw && typeof addrRaw === 'object' && !Array.isArray(addrRaw)) {
+          const parts = [addrRaw.street || addrRaw.address_line1 || addrRaw.addressLine1 || addrRaw.line1, addrRaw.city, addrRaw.state || addrRaw.province, addrRaw.country, addrRaw.zipCode || addrRaw.zip || addrRaw.postalCode || addrRaw.postal_code].filter(Boolean);
+          return parts.join(', ');
+        }
+        if (typeof cust.location === 'string' && cust.location.trim()) return cust.location.trim();
+        if (typeof cust.companyAddress === 'string' && cust.companyAddress.trim()) return cust.companyAddress.trim();
+        return '';
+      };
+
       const customerInfo =
         order.customerInfo ||
         (customerData
@@ -1523,10 +1560,13 @@ const SalesOrders = () => {
             email: customerData.email || '',
             phone: customerData.phone || '',
             address:
-              customerData.address ||
-              customerData.location ||
-              customerData.companyAddress ||
-              ''
+              (order.customerInfo?.address && typeof order.customerInfo.address === 'string')
+                ? order.customerInfo.address
+                : formatAddressForPrint(customerData) ||
+                  customerData.address ||
+                  customerData.location ||
+                  customerData.companyAddress ||
+                  ''
           }
           : null);
 
@@ -1538,14 +1578,20 @@ const SalesOrders = () => {
           item.productInfo ||
           item.productDetails ||
           {};
+        const productName =
+          (typeof productData === 'object' && productData !== null)
+            ? (productData.name ||
+               productData.displayName ||
+               productData.display_name ||
+               productData.variantName ||
+               productData.variant_name ||
+               productData.title ||
+               item.productName)
+            : item.productName;
         return {
           ...item,
           product: {
-            name:
-              productData.name ||
-              item.productName ||
-              productData.title ||
-              'Product'
+            name: productName || 'Product'
           },
           quantity: Number(item.quantity) || 0,
           unitPrice:
@@ -3010,9 +3056,9 @@ const SalesOrders = () => {
           </div>
         </div>
         <div className="card-content">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            {/* Date Range */}
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+            {/* Date Range - spans more columns to prevent overlap */}
+            <div className="sm:col-span-2 lg:col-span-5">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Date Range
               </label>
@@ -3029,7 +3075,7 @@ const SalesOrders = () => {
             </div>
 
             {/* Order Number Filter */}
-            <div>
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Order Number
               </label>
@@ -3038,19 +3084,19 @@ const SalesOrders = () => {
                 placeholder="Contains..."
                 value={filters.orderNumber}
                 onChange={(e) => handleFilterChange('orderNumber', e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] w-full"
               />
             </div>
 
             {/* Status Filter */}
-            <div>
+            <div className="sm:col-span-2 lg:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
               <select
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="input h-[42px]"
+                className="input h-[42px] w-full"
               >
                 <option value="">All Statuses</option>
                 <option value="draft">Pending</option>
@@ -3062,9 +3108,8 @@ const SalesOrders = () => {
               </select>
             </div>
 
-
             {/* Search Button */}
-            <div className="flex items-end">
+            <div className="sm:col-span-2 lg:col-span-2 flex items-end">
               <button
                 onClick={() => refetch()}
                 className="btn btn-primary w-full flex items-center justify-center space-x-2 h-[42px]"
@@ -3309,9 +3354,7 @@ const SalesOrders = () => {
                     {selectedOrder.customer?.phone && (
                       <p><span className="font-medium">Phone:</span> {safeRender(selectedOrder.customer.phone)}</p>
                     )}
-                    {selectedOrder.customer?.address && (
-                      <p><span className="font-medium">Address:</span> {safeRender(selectedOrder.customer.address)}</p>
-                    )}
+                    <p><span className="font-medium">Address:</span> {formatAddressForDisplay(selectedOrder.customer) || '—'}</p>
                     {selectedOrder.customer?.contactPerson && (
                       <p><span className="font-medium">Contact:</span> {safeRender(selectedOrder.customer.contactPerson)}</p>
                     )}
@@ -3373,7 +3416,11 @@ const SalesOrders = () => {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900 border-b border-gray-200">
                             <div>
-                              <div className="font-medium">{safeRender(item.product) || 'Unknown Product'}</div>
+                              <div className="font-medium">
+                                {typeof item.product === 'object' && item.product !== null
+                                  ? (item.product.name || item.product.displayName || item.product.display_name || item.product.variantName || item.product.variant_name || 'Unknown Product')
+                                  : (safeRender(item.product) || item.productData?.name || 'Unknown Product')}
+                              </div>
                               {item.product?.description && (
                                 <div className="text-gray-500 text-xs">{safeRender(item.product.description)}</div>
                               )}

@@ -43,6 +43,50 @@ const transformProductToUppercase = (product) => {
   return product;
 };
 
+// Format customer address for print (handles string, array, object)
+const formatCustomerAddress = (customerData) => {
+  if (!customerData) return '';
+  if (typeof customerData.address === 'string' && customerData.address.trim()) return customerData.address.trim();
+  const addrRaw = customerData.address ?? customerData.addresses;
+  if (Array.isArray(addrRaw) && addrRaw.length > 0) {
+    const a = addrRaw.find(x => x.isDefault) || addrRaw.find(x => x.type === 'billing' || x.type === 'both') || addrRaw[0];
+    const parts = [a.street || a.address_line1 || a.addressLine1 || a.line1, a.city, a.state || a.province, a.country, a.zipCode || a.zip || a.postalCode || a.postal_code].filter(Boolean);
+    return parts.join(', ');
+  }
+  if (addrRaw && typeof addrRaw === 'object' && !Array.isArray(addrRaw)) {
+    const parts = [addrRaw.street || addrRaw.address_line1 || addrRaw.addressLine1 || addrRaw.line1, addrRaw.city, addrRaw.state || addrRaw.province, addrRaw.country, addrRaw.zipCode || addrRaw.zip || addrRaw.postalCode || addrRaw.postal_code].filter(Boolean);
+    return parts.join(', ');
+  }
+  if (typeof customerData.location === 'string' && customerData.location.trim()) return customerData.location.trim();
+  if (typeof customerData.companyAddress === 'string' && customerData.companyAddress.trim()) return customerData.companyAddress.trim();
+  return '';
+};
+
+// Enrich items with product objects when product is just an ID (for print)
+const enrichItemsWithProducts = async (items) => {
+  if (!items || !Array.isArray(items)) return;
+  for (const item of items) {
+    const productId = item.product || item.product_id;
+    if (!productId) continue;
+    const id = typeof productId === 'object' ? (productId.id || productId._id) : productId;
+    if (typeof id !== 'string') continue;
+    if (typeof item.product === 'object' && item.product && (item.product.name || item.product.displayName)) continue; // Already populated
+    try {
+      let p = await productRepository.findById(id);
+      if (p) {
+        item.product = { ...p, name: p.name || p.displayName };
+      } else {
+        p = await productVariantRepository.findById(id);
+        if (p) {
+          item.product = { name: p.display_name ?? p.displayName ?? p.variant_name ?? p.variantName ?? 'Product' };
+        }
+      }
+    } catch (e) {
+      // Keep item.product as-is on error
+    }
+  }
+};
+
 // @route   GET /api/sales-orders
 // @desc    Get all sales orders with filtering and pagination
 // @access  Private
@@ -125,16 +169,21 @@ router.get('/', [
         customerMap[cid] = c;
       }
     }
+    await enrichItemsWithProducts(salesOrders.flatMap(so => so.items || []));
     salesOrders.forEach(so => {
       so.customer = so.customer_id ? customerMap[so.customer_id] : null;
       if (so.customer) {
         so.customer = transformCustomerToUppercase(so.customer);
         const custName = (so.customer.business_name ?? so.customer.businessName) || so.customer.name || `${(so.customer.first_name || so.customer.firstName || '')} ${(so.customer.last_name || so.customer.lastName || '')}`.trim() || so.customer.email || 'Unknown Customer';
         so.customer.displayName = custName.toUpperCase();
+        so.customerInfo = {
+          ...so.customerInfo,
+          address: formatCustomerAddress(so.customer) || so.customerInfo?.address
+        };
       }
       if (so.items && Array.isArray(so.items)) {
         so.items.forEach(item => {
-          if (item.product) {
+          if (item.product && typeof item.product === 'object') {
             item.product = transformProductToUppercase(item.product);
           }
         });
@@ -175,10 +224,15 @@ router.get('/:id', auth, async (req, res) => {
       salesOrder.customer = transformCustomerToUppercase(salesOrder.customer);
       const custName = (salesOrder.customer.business_name ?? salesOrder.customer.businessName) || salesOrder.customer.name || `${(salesOrder.customer.first_name || salesOrder.customer.firstName || '')} ${(salesOrder.customer.last_name || salesOrder.customer.lastName || '')}`.trim() || salesOrder.customer.email || 'Unknown Customer';
       salesOrder.customer.displayName = custName.toUpperCase();
+      salesOrder.customerInfo = {
+        ...salesOrder.customerInfo,
+        address: formatCustomerAddress(salesOrder.customer) || salesOrder.customerInfo?.address
+      };
     }
     if (salesOrder.items && Array.isArray(salesOrder.items)) {
+      await enrichItemsWithProducts(salesOrder.items);
       salesOrder.items.forEach(item => {
-        if (item.product) {
+        if (item.product && typeof item.product === 'object') {
           item.product = transformProductToUppercase(item.product);
         }
       });
