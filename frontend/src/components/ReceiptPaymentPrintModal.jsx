@@ -94,8 +94,8 @@ const ReceiptPaymentPrintModal = ({
           <style>
             @media print {
               @page {
-                size: A4 landscape;
-                margin: 10mm;
+                size: A4 portrait;
+                margin: 12mm;
               }
               body {
                 font-family: 'Inter', Arial, sans-serif;
@@ -189,6 +189,7 @@ const ReceiptPaymentPrintModal = ({
             .border-l { border-left-width: 1px; }
             .border-r { border-right-width: 1px; }
             .border-b { border-bottom-width: 1px; }
+            .border-t-2 { border-top-width: 2px; }
             .border-b-2 { border-bottom-width: 2px; }
             .font-bold { font-weight: 700; }
             .font-medium { font-weight: 500; }
@@ -211,6 +212,27 @@ const ReceiptPaymentPrintModal = ({
             .object-contain { object-fit: contain; }
             .uppercase { text-transform: uppercase; }
             .underline { text-decoration: underline; }
+
+            .flex { display: flex; }
+            .flex-1 { flex: 1 1 0%; }
+            .w-1\/3 { width: 33.333333%; }
+            .mx-auto { margin-left: auto; margin-right: auto; }
+            .text-gray-600 { color: #4b5563; }
+
+            /* Receipt / Payment Voucher Layout */
+            .print-document--receipt .receipt-voucher { max-width: 400px; margin: 0 auto; padding: 0 10px; }
+            .print-document--receipt .receipt-voucher__header { padding-bottom: 8px; }
+            .print-document--receipt .receipt-voucher__logo { max-height: 48px; }
+            .print-document--receipt .receipt-voucher__company-name { font-size: 1.25rem; margin: 0 0 4px 0; }
+            .print-document--receipt .receipt-voucher__company-address,
+            .print-document--receipt .receipt-voucher__company-phone { margin: 0; font-size: 0.75rem; }
+            .print-document--receipt .receipt-voucher__title { margin: 12px 0; padding: 8px 0; }
+            .print-document--receipt .receipt-voucher__title h2 { margin: 0; font-size: 1.25rem; }
+            .print-document--receipt .receipt-voucher__body { margin-top: 16px; }
+            .print-document--receipt .receipt-voucher__row { min-height: 36px; }
+            .print-document--receipt .receipt-voucher__label { background: #f9fafb; }
+            .print-document--receipt .receipt-voucher__value { min-height: 36px; }
+            .print-document--receipt .receipt-voucher__footer { font-size: 0.75rem; padding-top: 16px; border-top: 1px solid #e5e7eb; }
           </style>
         </head>
         <body>${printContent.innerHTML}</body>
@@ -228,7 +250,10 @@ const ReceiptPaymentPrintModal = ({
 
   const partyLabel =
     receiptData?.supplier && !receiptData?.customer ? 'Supplier' : 'Customer';
-  const printSettings = companySettings?.printSettings || {};
+  const printSettings = {
+    ...companySettings?.printSettings,
+    invoiceLayout: 'receipt' // Use receipt/voucher style for receipts and payments
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 p-4 overflow-hidden">

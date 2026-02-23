@@ -40,7 +40,7 @@ const PrintDocument = ({
     const isMobileLayout =
         (printSettings?.mobilePrintPreview ?? false) ||
         (typeof window !== 'undefined' && window.innerWidth <= 768);
-    const printClassName = `print-document${invoiceLayout === 'layout2' ? ' print-document--layout2' : ''}${isMobileLayout ? ' print-document--mobile' : ''}`;
+    const printClassName = `print-document${invoiceLayout === 'layout2' ? ' print-document--layout2' : ''}${invoiceLayout === 'receipt' ? ' print-document--receipt' : ''}${isMobileLayout ? ' print-document--mobile' : ''}`;
 
     const formatDate = (date) =>
         new Date(date || new Date()).toLocaleDateString('en-GB', {
@@ -354,6 +354,73 @@ const PrintDocument = ({
     const receivedAmount = rawReceived > 0 ? rawReceived : (isPaid ? toNumber(totalValue, 0) : 0);
     const invoiceBalance = toNumber(totalValue, 0) - toNumber(receivedAmount, 0);
     const previousBalance = ledgerBalance - invoiceBalance;
+
+    // ==========================================
+    // Layout: Receipt / Payment Voucher (for Cash Receipt, Bank Receipt, Cash Payment, Bank Payment)
+    // ==========================================
+    if (invoiceLayout === 'receipt') {
+        const isPayment = resolvedDocumentTitle.toLowerCase().includes('payment');
+        const partyLabelReceipt = isPayment ? 'Paid To' : 'Received From';
+        const amount = toNumber(orderData?.total ?? orderData?.payment?.amountPaid, 0);
+        const particular = items[0]?.name || items[0]?.product?.name || items[0]?.description || resolvedDocumentTitle;
+
+        return (
+            <div className={printClassName}>
+                {children}
+
+                <div className="receipt-voucher">
+                    {/* Company Header */}
+                    <div className="receipt-voucher__header text-center mb-6">
+                        {showLogo && safeCompanySettings.logo && (
+                            <img src={safeCompanySettings.logo} alt="Logo" className="receipt-voucher__logo max-h-16 mx-auto mb-2" />
+                        )}
+                        <h1 className="receipt-voucher__company-name font-bold text-xl">{resolvedCompanyName}</h1>
+                        {resolvedCompanyAddress && <p className="receipt-voucher__company-address text-sm text-gray-600">{resolvedCompanyAddress}</p>}
+                        {resolvedCompanyPhone && <p className="receipt-voucher__company-phone text-sm text-gray-600">Phone: {resolvedCompanyPhone}</p>}
+                    </div>
+
+                    {/* Document Title */}
+                    <div className="receipt-voucher__title border-t-2 border-b-2 border-black py-3 my-4 text-center">
+                        <h2 className="font-bold text-2xl uppercase">{resolvedDocumentTitle}</h2>
+                    </div>
+
+                    {/* Voucher Details */}
+                    <div className="receipt-voucher__body border border-black">
+                        <div className="receipt-voucher__row flex border-b border-black">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">Voucher No.</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{documentNumber}</div>
+                        </div>
+                        <div className="receipt-voucher__row flex border-b border-black">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">Date</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{formatDate(orderData?.createdAt)}</div>
+                        </div>
+                        <div className="receipt-voucher__row flex border-b border-black">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">{partyLabelReceipt}</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black font-medium">{partyInfo.name}</div>
+                        </div>
+                        <div className="receipt-voucher__row flex border-b border-black">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">Amount</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black font-bold text-lg">{formatCurrency(amount)}</div>
+                        </div>
+                        <div className="receipt-voucher__row flex border-b border-black">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">Particular</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{particular}</div>
+                        </div>
+                        <div className="receipt-voucher__row flex">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">Payment Mode</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{resolvedDocumentTitle.toLowerCase().includes('bank') ? 'Bank' : 'Cash'}</div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="receipt-voucher__footer mt-8 text-center text-sm text-gray-600">
+                        <p>Print Date: {formatDateTime(new Date())}</p>
+                        {showFooter && resolvedCompanyAddress && <p className="mt-1">{resolvedCompanyAddress}</p>}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // ==========================================
     // Layout 2 (Professional Boxed Layout)
