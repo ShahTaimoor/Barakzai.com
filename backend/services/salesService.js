@@ -171,32 +171,16 @@ class SalesService {
     if (queryParams.paymentStatus) filter.paymentStatus = queryParams.paymentStatus;
     if (queryParams.customerId) filter.customerId = queryParams.customerId;
 
-    let dateFrom = queryParams.dateFrom;
-    let dateTo = queryParams.dateTo;
-    if (queryParams.dateFilter && typeof queryParams.dateFilter === 'object' && Object.keys(queryParams.dateFilter).length > 0) {
-      const df = queryParams.dateFilter;
-      if (df.sale_date) {
-        if (df.sale_date.$gte) dateFrom = dateFrom || df.sale_date.$gte;
-        if (df.sale_date.$lte) dateTo = dateTo || df.sale_date.$lte;
-      }
-      if (df.$or && Array.isArray(df.$or)) {
-        const range = df.$or.find(r => r.sale_date && (r.sale_date.$gte || r.sale_date.$lte));
-        if (range && range.sale_date) {
-          if (range.sale_date.$gte) dateFrom = dateFrom || range.sale_date.$gte;
-          if (range.sale_date.$lte) dateTo = dateTo || range.sale_date.$lte;
-        }
-      }
-    }
+    const { parseDateParams } = require('../utils/dateFilter');
+    const { getStartOfDayPakistan, getEndOfDayPakistan } = require('../utils/dateFilter');
+    const { startDate, endDate } = parseDateParams(queryParams);
+    const dateFrom = startDate || queryParams.dateFrom;
+    const dateTo = endDate || queryParams.dateTo;
     if (dateFrom) {
-      const d = new Date(dateFrom);
-      d.setHours(0, 0, 0, 0);
-      filter.dateFrom = d;
+      filter.dateFrom = getStartOfDayPakistan(dateFrom);
     }
     if (dateTo) {
-      const d = new Date(dateTo);
-      d.setDate(d.getDate() + 1);
-      d.setHours(0, 0, 0, 0);
-      filter.dateTo = d;
+      filter.dateTo = getEndOfDayPakistan(dateTo);
     }
 
     return filter;
