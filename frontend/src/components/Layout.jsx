@@ -32,7 +32,6 @@ import {
   HelpCircle,
   Wallet,
   FolderTree,
-  Download,
   Camera
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,8 +40,6 @@ import ErrorBoundary from './ErrorBoundary';
 import MobileNavigation from './MobileNavigation';
 import { useResponsive } from './ResponsiveContainer';
 import { WhatsAppFloat } from './WhatsAppFloat';
-import { usePWAInstall } from '../hooks/usePWAInstall';
-
 export const navigation = [
   // Dashboard
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, allowMultiple: true },
@@ -174,8 +171,6 @@ export const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile, isTablet } = useResponsive();
-  const { isInstallable, handleInstallClick } = usePWAInstall();
-
   // Sidebar visibility state
   const [sidebarConfig, setSidebarConfig] = useState(() => {
     const saved = localStorage.getItem('sidebarConfig');
@@ -502,19 +497,6 @@ export const Layout = ({ children }) => {
             </div>
             <div className="flex flex-1 min-w-0"></div>
             <div className="flex items-center gap-x-4 lg:gap-x-6">
-              {/* PWA Install Button */}
-              {isInstallable && (
-                <button
-                  onClick={handleInstallClick}
-                  className="flex items-center gap-x-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors shadow-sm"
-                  title="Install App"
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Install App</span>
-                </button>
-              )}
-
-
               {/* User menu */}
               <div className="flex items-center gap-x-2">
                 <div className="flex items-center gap-x-2">

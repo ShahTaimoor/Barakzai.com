@@ -33,8 +33,7 @@ import {
   ChevronDown,
   Camera,
   Eye,
-  EyeOff,
-  Download
+  EyeOff
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTab } from '../contexts/TabContext';
@@ -46,8 +45,6 @@ import ErrorBoundary from './ErrorBoundary';
 import MobileNavigation from './MobileNavigation';
 import { useResponsive } from './ResponsiveContainer';
 import { useGetAlertSummaryQuery } from '../store/services/inventoryAlertsApi';
-import { usePWAInstall } from '../hooks/usePWAInstall';
-
 export const navigation = [
   // Dashboard
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: null, allowMultiple: true },
@@ -230,9 +227,6 @@ export const MultiTabLayout = ({ children }) => {
     window.addEventListener('sidebarConfigChanged', handleSidebarChange);
     return () => window.removeEventListener('sidebarConfigChanged', handleSidebarChange);
   }, []);
-
-  // PWA install (show in user menu)
-  const { isInstallable, isInstalled, handleInstallClick } = usePWAInstall();
 
   // Get alert summary for mobile bottom navbar
   const { data: summaryData } = useGetAlertSummaryQuery(undefined, {
@@ -748,33 +742,6 @@ export const MultiTabLayout = ({ children }) => {
                       <Settings className="h-4 w-4 flex-shrink-0" />
                       <span>Settings</span>
                     </button>
-                    {!isInstalled && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setUserMenuOpen(false);
-                          try {
-                            const didPrompt = await handleInstallClick();
-                            if (didPrompt) {
-                              toast.success('Check the install dialog to complete.');
-                            } else {
-                              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                              if (isIOS) {
-                                toast('Tap the Share button (□↑) then "Add to Home Screen" to install.', { duration: 5000, icon: '📲' });
-                              } else {
-                                toast('Use the install icon (⊕) in the browser address bar to install.', { duration: 4000, icon: '📲' });
-                              }
-                            }
-                          } catch (e) {
-                            toast.error('Install failed. Try the install icon in the address bar.');
-                          }
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
-                      >
-                        <Download className="h-4 w-4 flex-shrink-0" />
-                        <span>Install App</span>
-                      </button>
-                    )}
                     <button
                       type="button"
                       onClick={() => {
