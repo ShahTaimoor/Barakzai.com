@@ -20,6 +20,17 @@ const queryClient = new QueryClient({
   },
 });
 
+// Capture PWA install prompt as early as possible so the Install App menu button can use it
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.__pwaDeferredPrompt__ = e;
+  window.dispatchEvent(new CustomEvent('pwa-install-available'));
+});
+
+window.addEventListener('appinstalled', () => {
+  window.__pwaDeferredPrompt__ = null;
+});
+
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

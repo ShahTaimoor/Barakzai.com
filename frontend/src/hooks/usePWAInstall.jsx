@@ -29,20 +29,37 @@ export const usePWAInstall = () => {
 
     updateInstalled();
 
+    // Use prompt captured at app load (e.g. before this hook mounted)
+    const stored = window.__pwaDeferredPrompt__;
+    if (stored && !getIsStandalone()) {
+      setDeferredPrompt(stored);
+      setIsInstallable(true);
+    }
+
+    const onStoredPrompt = () => {
+      if (window.__pwaDeferredPrompt__ && !getIsStandalone()) {
+        setDeferredPrompt(window.__pwaDeferredPrompt__);
+        setIsInstallable(true);
+      }
+    };
+
     const mql = window.matchMedia('(display-mode: standalone)');
     const onDisplayChange = () => {
       updateInstalled();
     };
     mql.addEventListener('change', onDisplayChange);
+    window.addEventListener('pwa-install-available', onStoredPrompt);
 
     const handleBeforeInstallPrompt = (e) => {
       if (getIsStandalone()) return;
       e.preventDefault();
+      window.__pwaDeferredPrompt__ = e;
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
 
     const handleAppInstalled = () => {
+      window.__pwaDeferredPrompt__ = null;
       setDeferredPrompt(null);
       setIsInstallable(false);
       updateInstalled();
@@ -53,15 +70,18 @@ export const usePWAInstall = () => {
 
     return () => {
       mql.removeEventListener('change', onDisplayChange);
+      window.removeEventListener('pwa-install-available', onStoredPrompt);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
   const handleInstallClick = useCallback(async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
+    const promptToUse = deferredPrompt || window.__pwaDeferredPrompt__;
+    if (!promptToUse) return;
+    promptToUse.prompt();
+    await promptToUse.userChoice;
+    window.__pwaDeferredPrompt__ = null;
     setDeferredPrompt(null);
     setIsInstallable(false);
     setIsInstalled(getIsStandalone());
