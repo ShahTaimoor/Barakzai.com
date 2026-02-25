@@ -72,6 +72,20 @@ const AccountLedgerSummary = () => {
     search: ''
   });
 
+  const [showReturnColumn, setShowReturnColumn] = useState(() => {
+    const saved = localStorage.getItem('accountLedgerShowReturnColumn');
+    return saved === null ? true : saved === 'true';
+  });
+
+  useEffect(() => {
+    const handler = () => {
+      const saved = localStorage.getItem('accountLedgerShowReturnColumn');
+      setShowReturnColumn(saved === null ? true : saved === 'true');
+    };
+    window.addEventListener('accountLedgerConfigChanged', handler);
+    return () => window.removeEventListener('accountLedgerConfigChanged', handler);
+  }, []);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -737,9 +751,11 @@ const AccountLedgerSummary = () => {
                           Period: {formatDate(filters.startDate)} to {formatDate(filters.endDate)}
                         </p>
                       )}
-                      <p className="text-sm font-medium text-gray-700 mt-2">
-                        Return Total: {formatCurrency(customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0)}
-                      </p>
+                      {showReturnColumn && (
+                        <p className="text-sm font-medium text-gray-700 mt-2">
+                          Return Total: {formatCurrency(customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -763,9 +779,11 @@ const AccountLedgerSummary = () => {
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
                           Particular
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider w-20">
-                          Return
-                        </th>
+                        {showReturnColumn && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider w-20">
+                            Return
+                          </th>
+                        )}
                         <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                           Debits
                         </th>
@@ -786,7 +804,7 @@ const AccountLedgerSummary = () => {
                         <td className="px-4 py-3 text-sm text-gray-900"></td>
                         <td className="px-4 py-3 text-sm text-gray-900"></td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">Opening Balance:</td>
-                        <td className="px-4 py-3 text-sm text-gray-900"></td>
+                        {showReturnColumn && <td className="px-4 py-3 text-sm text-gray-900"></td>}
                         <td className="px-4 py-3 text-sm text-right text-gray-900"></td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900"></td>
                         <td className={`px-4 py-3 text-sm text-right font-bold ${((customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance) || 0) < 0 ? 'text-red-600' : 'text-gray-900'
@@ -799,7 +817,7 @@ const AccountLedgerSummary = () => {
                       {/* Transaction Rows */}
                       {(customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                          <td colSpan={showReturnColumn ? 8 : 7} className="px-4 py-8 text-center text-gray-500">
                             <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                             <p>No transactions found for this period</p>
                           </td>
@@ -816,9 +834,11 @@ const AccountLedgerSummary = () => {
                             <td className="px-4 py-3 text-sm text-gray-900">
                               {entry.particular || '-'}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {entry.source === 'Sale Return' ? 'Return' : ''}
-                            </td>
+                            {showReturnColumn && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {entry.source === 'Sale Return' ? 'Return' : ''}
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-sm text-right text-gray-900">
                               {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
                             </td>
@@ -846,8 +866,9 @@ const AccountLedgerSummary = () => {
                         ))
                       )}
 
-                      {/* Return Total Row - shows when there are returns */}
-                      {((customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0) &&
+                      {/* Return Total Row - shows when there are returns and return column is visible */}
+                      {showReturnColumn &&
+                        ((customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0) &&
                         (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
                         <tr className="bg-blue-50 font-medium">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
@@ -869,7 +890,7 @@ const AccountLedgerSummary = () => {
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Total</td>
-                          <td className="px-4 py-3 text-sm text-gray-900"></td>
+                          {showReturnColumn && <td className="px-4 py-3 text-sm text-gray-900"></td>}
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
                             {formatCurrency(sumDebits(customerDetail?.entries ?? detailedTransactionsData?.data?.entries))}
                           </td>
@@ -1075,8 +1096,10 @@ const AccountLedgerSummary = () => {
             <tr>
               <th style={{ width: '4%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>S.NO</th>
               <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>DATE</th>
-              <th style={{ width: '52%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
-              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>RETURN</th>
+              <th style={{ width: showReturnColumn ? '52%' : '60%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
+              {showReturnColumn && (
+                <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>RETURN</th>
+              )}
               <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>DEBITS</th>
               <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>CREDITS</th>
               <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>BALANCE</th>
@@ -1088,7 +1111,9 @@ const AccountLedgerSummary = () => {
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>-</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
               <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: 'bold', fontSize: '11px' }}>Opening Balance</td>
-              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}></td>
+              {showReturnColumn && (
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}></td>
+              )}
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right', fontWeight: 'bold' }}>
@@ -1111,9 +1136,11 @@ const AccountLedgerSummary = () => {
                     </span>
                   )}
                 </td>
-                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>
-                  {selectedCustomerId && entry.source === 'Sale Return' ? 'Return' : ''}
-                </td>
+                {showReturnColumn && (
+                  <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>
+                    {selectedCustomerId && entry.source === 'Sale Return' ? 'Return' : ''}
+                  </td>
+                )}
                 <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                   {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
                 </td>
@@ -1126,8 +1153,8 @@ const AccountLedgerSummary = () => {
               </tr>
             ))}
 
-            {/* Return Total Row - customer only, when there are returns */}
-            {selectedCustomerId && (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
+            {/* Return Total Row - customer only, when there are returns and return column visible */}
+            {showReturnColumn && selectedCustomerId && (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
               <tr style={{ backgroundColor: '#eff6ff', fontWeight: '600' }}>
                 <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}></td>
                 <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
@@ -1143,7 +1170,7 @@ const AccountLedgerSummary = () => {
 
             {/* Total Row */}
             <tr style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>
-              <td colSpan="4" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>Total</td>
+              <td colSpan={showReturnColumn ? 4 : 3} style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>Total</td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                 {formatCurrency(sumDebits(selectedCustomerId ? (customerDetail?.entries ?? detailedTransactionsData?.data?.entries) : (supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)))}
               </td>

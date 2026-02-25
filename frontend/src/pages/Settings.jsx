@@ -1274,10 +1274,16 @@ export const Settings2 = () => {
     refetchSettings();
   }, [refetchSettings]);
 
+  const [accountLedgerShowReturn, setAccountLedgerShowReturn] = useState(() => {
+    const saved = localStorage.getItem('accountLedgerShowReturnColumn');
+    return saved === null ? true : saved === 'true';
+  });
+
   const tabs = [
     { id: 'company', name: 'Company Information', shortName: 'Company', icon: Building },
     { id: 'users', name: 'Users Control', shortName: 'Users', icon: Users },
     { id: 'print', name: 'Print Preview Settings', shortName: 'Print', icon: Printer },
+    { id: 'other', name: 'Other', shortName: 'Other', icon: BarChart3 },
     { id: 'sidebar', name: 'Sidebar Configuration', shortName: 'Sidebar', icon: LayoutDashboard }
   ];
 
@@ -2356,6 +2362,43 @@ export const Settings2 = () => {
                     Save Print Settings
                   </LoadingButton>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Other Tab */}
+        {activeTab === 'other' && (
+          <div className="card">
+            <div className="card-header">
+              <div className="flex items-center space-x-2">
+                <BarChart3 className="h-5 w-5 text-gray-600" />
+                <h2 className="text-lg font-semibold">Other Settings</h2>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Display options and miscellaneous settings
+              </p>
+            </div>
+            <div className="card-content">
+              <div className="space-y-4">
+                <label className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={accountLedgerShowReturn}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setAccountLedgerShowReturn(checked);
+                      localStorage.setItem('accountLedgerShowReturnColumn', String(checked));
+                      toast.success(`Return column ${checked ? 'shown' : 'hidden'} in Account Ledger Summary`);
+                      window.dispatchEvent(new Event('accountLedgerConfigChanged'));
+                    }}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Show Return Column in Account Ledger Summary</div>
+                    <div className="text-xs text-gray-500">Display the Return column in the Account Ledger Summary customer ledger table</div>
+                  </div>
+                </label>
               </div>
             </div>
           </div>
