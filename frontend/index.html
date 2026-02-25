@@ -27,6 +27,17 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png" />
 
     <title>POS System - Wholesale & Retail</title>
+    <script>
+      window.__pwaDeferredPrompt__ = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__pwaDeferredPrompt__ = e;
+        window.dispatchEvent(new CustomEvent('pwa-install-available'));
+      });
+      window.addEventListener('appinstalled', function() {
+        window.__pwaDeferredPrompt__ = null;
+      });
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

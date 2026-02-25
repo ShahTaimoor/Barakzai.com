@@ -78,13 +78,17 @@ export const usePWAInstall = () => {
 
   const handleInstallClick = useCallback(async () => {
     const promptToUse = deferredPrompt || window.__pwaDeferredPrompt__;
-    if (!promptToUse) return;
-    promptToUse.prompt();
-    await promptToUse.userChoice;
-    window.__pwaDeferredPrompt__ = null;
-    setDeferredPrompt(null);
-    setIsInstallable(false);
-    setIsInstalled(getIsStandalone());
+    if (!promptToUse) return false;
+    try {
+      promptToUse.prompt();
+      await promptToUse.userChoice;
+    } finally {
+      window.__pwaDeferredPrompt__ = null;
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+      setIsInstalled(getIsStandalone());
+    }
+    return true;
   }, [deferredPrompt]);
 
   return {

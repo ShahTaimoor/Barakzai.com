@@ -753,15 +753,20 @@ export const MultiTabLayout = ({ children }) => {
                         type="button"
                         onClick={async () => {
                           setUserMenuOpen(false);
-                          if (isInstallable) {
-                            try {
-                              await handleInstallClick();
-                              toast.success('App installed successfully!');
-                            } catch (e) {
-                              toast.error('Install failed. Use the install icon in the address bar if needed.');
+                          try {
+                            const didPrompt = await handleInstallClick();
+                            if (didPrompt) {
+                              toast.success('Check the install dialog to complete.');
+                            } else {
+                              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                              if (isIOS) {
+                                toast('Tap the Share button (□↑) then "Add to Home Screen" to install.', { duration: 5000, icon: '📲' });
+                              } else {
+                                toast('Use the install icon (⊕) in the browser address bar to install.', { duration: 4000, icon: '📲' });
+                              }
                             }
-                          } else {
-                            toast('Use the install icon (monitor with +) in the browser address bar to install the app.', { duration: 4000, icon: '📲' });
+                          } catch (e) {
+                            toast.error('Install failed. Try the install icon in the address bar.');
                           }
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition-colors"
