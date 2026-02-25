@@ -10,7 +10,7 @@ export default defineConfig({
       filename: 'manifest.webmanifest',
       strategies: 'generateSW',
       injectRegister: 'auto',
-      includeAssets: ['favicon.ico', 'robots.txt', 'offline.html', 'icon-192x192.png'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'offline.html', 'icon-ws-192x192.png', 'icon-ws-512x512.png'],
       workbox: {
         globPatterns: ['**/*.{js,css,ico,png,svg,webmanifest,woff,woff2}'],
         navigateFallback: null,
@@ -61,13 +61,13 @@ export default defineConfig({
         orientation: 'portrait-primary',
         icons: [
           {
-            src: '/icon-192x192.png',
+            src: '/icon-ws-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable',
           },
           {
-            src: '/icon-192x192.png',
+            src: '/icon-ws-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
