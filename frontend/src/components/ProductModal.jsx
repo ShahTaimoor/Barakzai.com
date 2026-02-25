@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import BaseModal from './BaseModal';
 import { Camera } from 'lucide-react';
 import { LoadingButton } from './LoadingSpinner';
 import ValidationSummary from './ValidationSummary';
@@ -241,18 +242,16 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={onClose} />
-        
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <form onSubmit={onSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {product ? 'Edit Product' : 'Add New Product'}
-              </h3>
-              
-              <div className="space-y-4">
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={product ? 'Edit Product' : 'Add New Product'}
+      maxWidth="lg"
+      variant="centered"
+      contentClassName="px-4 pt-5 pb-4 sm:p-6 sm:pb-4"
+    >
+      <form onSubmit={onSubmit}>
+        <div className="space-y-4">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                     Product Name
@@ -591,7 +590,6 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
                   }}
                 />
               )}
-            </div>
             
             <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <LoadingButton
@@ -611,10 +609,8 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
                 Cancel
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </BaseModal>
   );
 };
 

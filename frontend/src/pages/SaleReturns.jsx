@@ -202,7 +202,9 @@ const SaleReturns = () => {
   }, {
     onError: (error) => {
       handleApiError(error, 'Fetch Sale Returns');
-    }
+    },
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
   });
 
   const returns = returnsData?.data || [];
@@ -292,24 +294,26 @@ const SaleReturns = () => {
       };
 
       await createSaleReturn(returnData).unwrap();
+      await refetchReturns();
+      window.dispatchEvent(new CustomEvent('accountLedgerInvalidate'));
       showSuccessToast('Sale return created successfully');
       setShowProductModal(false);
       setProductSearchTerm('');
       setSelectedCustomer(null);
       setStep('customer');
-      refetchReturns();
     } catch (error) {
       handleApiError(error, 'Create Sale Return');
     }
   };
 
   // Handle return creation success (for old modal)
-  const handleReturnCreated = () => {
+  const handleReturnCreated = async () => {
+    await refetchReturns();
+    window.dispatchEvent(new CustomEvent('accountLedgerInvalidate'));
     setShowCreateModal(false);
     setSelectedSale(null);
     setSelectedCustomer(null);
     setStep('customer');
-    refetchReturns();
     showSuccessToast('Sale return created successfully');
   };
 
@@ -464,7 +468,7 @@ const SaleReturns = () => {
                   items={customers}
                   onSelect={handleCustomerSelect}
                   displayKey={(customer) => {
-                    const name = customer.displayName || customer.businessName || customer.name ||
+                    const name = customer.businessName || customer.business_name || customer.displayName || customer.name ||
                       `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown';
                     return (
                       <div>
@@ -502,7 +506,7 @@ const SaleReturns = () => {
                 </h2>
                 <p className="text-sm text-gray-600">
                   Customer: <span className="font-medium">
-                    {selectedCustomer.displayName || selectedCustomer.businessName || selectedCustomer.name ||
+                    {selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name ||
                       `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim()}
                   </span>
                 </p>
@@ -649,8 +653,8 @@ const SaleReturns = () => {
                         {returnItem.returnNumber}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {returnItem.customer?.displayName || returnItem.customer?.businessName ||
-                          returnItem.customer?.name || 'N/A'}
+                        {returnItem.customer?.businessName || returnItem.customer?.business_name ||
+                          returnItem.customer?.displayName || returnItem.customer?.name || 'N/A'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                         {returnItem.originalOrder?.orderNumber ||

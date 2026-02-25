@@ -467,6 +467,9 @@ class AccountLedgerService {
             // Calculate totals from ledger entries
             const totalDebits = periodLedgerEntries.reduce((sum, entry) => sum + (entry.debitAmount || 0), 0);
             const totalCredits = periodLedgerEntries.reduce((sum, entry) => sum + (entry.creditAmount || 0), 0);
+            const returnTotal = periodLedgerEntries
+              .filter(e => (e.referenceType || e.source) === 'Sale Return')
+              .reduce((sum, entry) => sum + (entry.creditAmount || 0), 0);
 
             // Total debits includes all debit entries (sales, payments to customer, etc.)
             const totalDebitsWithPayments = totalDebits;
@@ -529,6 +532,7 @@ class AccountLedgerService {
               openingBalance,
               totalDebits: totalDebitsWithPayments,
               totalCredits,
+              returnTotal,
               closingBalance,
               transactionCount,
               particular,
@@ -551,6 +555,7 @@ class AccountLedgerService {
               openingBalance: parseFloat(customer.opening_balance ?? customer.openingBalance ?? 0) || 0,
               totalDebits: 0,
               totalCredits: 0,
+              returnTotal: 0,
               closingBalance: parseFloat(customer.opening_balance ?? customer.openingBalance ?? 0) || 0,
               transactionCount: 0,
               particular: 'Error loading transactions',
@@ -738,6 +743,7 @@ class AccountLedgerService {
         openingBalance: filteredCustomerSummaries.reduce((sum, c) => sum + (c.openingBalance || 0), 0),
         totalDebits: filteredCustomerSummaries.reduce((sum, c) => sum + (c.totalDebits || 0), 0),
         totalCredits: filteredCustomerSummaries.reduce((sum, c) => sum + (c.totalCredits || 0), 0),
+        returnTotal: filteredCustomerSummaries.reduce((sum, c) => sum + (c.returnTotal || 0), 0),
         closingBalance: filteredCustomerSummaries.reduce((sum, c) => sum + (c.closingBalance || 0), 0)
       };
 
@@ -770,6 +776,7 @@ class AccountLedgerService {
         const one = filteredCustomerSummaries[0];
         data.openingBalance = one.openingBalance ?? 0;
         data.closingBalance = one.closingBalance ?? one.openingBalance ?? 0;
+        data.returnTotal = one.returnTotal ?? 0;
         data.customer = {
           id: one.id,
           name: (one.business_name ?? one.businessName ?? one.name) || '',

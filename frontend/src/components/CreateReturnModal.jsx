@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Plus, Minus, AlertCircle } from 'lucide-react';
+import { Search, Plus, Minus, AlertCircle } from 'lucide-react';
+import BaseModal from './BaseModal';
 import { 
   useGetEligibleItemsQuery,
   useCreateReturnMutation 
@@ -112,9 +113,15 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
   const handleItemChange = (index, field, value) => {
     setFormData(prev => ({
       ...prev,
-      items: prev.items.map((item, i) => 
-        i === index ? { ...item, [field]: value } : item
-      )
+      items: prev.items.map((item, i) => {
+        if (i !== index) return item;
+        if (field === 'quantity') {
+          const parsed = parseInt(value, 10);
+          const num = isNaN(parsed) ? 1 : Math.max(1, Math.min(parsed, item.maxQuantity ?? parsed));
+          return { ...item, quantity: num };
+        }
+        return { ...item, [field]: value };
+      })
     }));
   };
 
@@ -179,21 +186,31 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className={`relative top-20 mx-auto p-0 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white flex flex-col ${selectedOrder ? 'max-h-[90vh]' : ''}`}>
-        {/* Header - Fixed */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-200 flex-shrink-0">
-          <h3 className="text-lg font-medium text-gray-900">Create Return Request</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        {/* Scrollable Content - Only scroll when order is selected */}
-        <div className={`${selectedOrder ? 'overflow-y-auto flex-1' : ''} p-5`}>
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create Return Request"
+      maxWidth="xl"
+      variant="scrollable"
+      contentClassName="p-5"
+      footer={
+        selectedOrder ? (
+          <div className="flex justify-end space-x-3">
+            <button type="button" onClick={onClose} className="btn btn-secondary">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="return-form"
+              disabled={isCreatingReturn || !selectedOrder || formData.items.length === 0}
+              className="btn btn-primary"
+            >
+              {isCreatingReturn ? <LoadingSpinner size="sm" /> : 'Create Return Request'}
+            </button>
+          </div>
+        ) : null
+      }
+    >
           <form id="return-form" onSubmit={handleSubmit} className="space-y-6">
           {/* Order Selection */}
           <div>
@@ -438,7 +455,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                                     min="1"
                                     max={item.maxQuantity}
                                     value={item.quantity}
-                                    onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                                     className="input"
                                     required
                                   />
@@ -545,34 +562,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
           )}
 
           </form>
-        </div>
-
-        {/* Footer - Fixed - Only show when order is selected */}
-        {selectedOrder && (
-          <div className="flex justify-end space-x-3 p-5 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-secondary"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="return-form"
-            disabled={isCreatingReturn || !selectedOrder || formData.items.length === 0}
-            className="btn btn-primary"
-          >
-            {isCreatingReturn ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              'Create Return Request'
-            )}
-          </button>
-          </div>
-        )}
-      </div>
-    </div>
+    </BaseModal>
   );
 };
 

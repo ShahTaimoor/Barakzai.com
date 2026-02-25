@@ -387,16 +387,16 @@ const PrintDocument = ({
                     {/* Voucher Details */}
                     <div className="receipt-voucher__body border border-black">
                         <div className="receipt-voucher__row flex border-b border-black">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">{partyLabelReceipt}</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black font-medium">{partyInfo.name}</div>
+                        </div>
+                        <div className="receipt-voucher__row flex border-b border-black">
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Voucher No.</div>
                             <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{documentNumber}</div>
                         </div>
                         <div className="receipt-voucher__row flex border-b border-black">
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Date</div>
                             <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{formatDate(orderData?.createdAt)}</div>
-                        </div>
-                        <div className="receipt-voucher__row flex border-b border-black">
-                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">{partyLabelReceipt}</div>
-                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black font-medium">{partyInfo.name}</div>
                         </div>
                         <div className="receipt-voucher__row flex border-b border-black">
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Amount</div>

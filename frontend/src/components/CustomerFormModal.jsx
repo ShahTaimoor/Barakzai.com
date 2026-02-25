@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import BaseModal from './BaseModal';
 import { useForm } from 'react-hook-form';
-import { X, Building, Mail, Phone } from 'lucide-react';
+import { Building, Mail, Phone } from 'lucide-react';
 import {
   useLazyCheckEmailQuery,
   useLazyCheckBusinessNameQuery,
@@ -315,22 +316,15 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {customer ? 'Edit Customer' : 'Add New Customer'}
-            </h2>
-            <button
-              onClick={onCancel}
-              className="p-2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <BaseModal
+      isOpen={true}
+      onClose={onCancel}
+      title={customer ? 'Edit Customer' : 'Add New Customer'}
+      maxWidth="lg"
+      variant="scrollable"
+      contentClassName="p-6"
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Business Name *
@@ -637,35 +631,27 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
               </button>
             </div>
           </form>
-        </div>
-      </div>
 
       {isCityModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Add New City
-                </h2>
-                <button
-                  onClick={() => {
-                    setIsCityModalOpen(false);
-                    setCityFormData({
-                      name: '',
-                      state: '',
-                      country: 'US',
-                      description: '',
-                      isActive: true
-                    });
-                  }}
-                  className="p-2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCitySubmit} className="space-y-4">
+        <BaseModal
+          isOpen={true}
+          onClose={() => {
+            setIsCityModalOpen(false);
+            setCityFormData({
+              name: '',
+              state: '',
+              country: 'US',
+              description: '',
+              isActive: true
+            });
+          }}
+          title="Add New City"
+          maxWidth="md"
+          variant="centered"
+          zIndex={60}
+          contentClassName="p-6"
+        >
+          <form onSubmit={handleCitySubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     City Name *
@@ -749,11 +735,9 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        </div>
+        </BaseModal>
       )}
-    </div>
+    </BaseModal>
   );
 };
 

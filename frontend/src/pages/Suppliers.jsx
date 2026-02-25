@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import BaseModal from '../components/BaseModal';
 import {
   Building,
   Plus,
@@ -12,7 +13,6 @@ import {
   Clock,
   TrendingUp,
   User,
-  X,
   MessageSquare
 } from 'lucide-react';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
@@ -352,22 +352,15 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {supplier ? 'Edit Supplier' : 'Add New Supplier'}
-            </h2>
-            <button
-              onClick={onCancel}
-              className="p-2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onCancel}
+      title={supplier ? 'Edit Supplier' : 'Add New Supplier'}
+      maxWidth="2xl"
+      variant="scrollable"
+      contentClassName="p-6"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
             {/* Company Information */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Company Information</h3>
@@ -807,10 +800,8 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                 {supplier ? 'Update Supplier' : 'Add Supplier'}
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </BaseModal>
   );
 };
 

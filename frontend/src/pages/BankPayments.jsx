@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BaseModal from '../components/BaseModal';
 import {
   Search,
   Filter,
@@ -1869,25 +1870,19 @@ const BankPayments = () => {
       )}
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Edit Bank Payment</h3>
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedPayment(null);
-                    resetForm();
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="space-y-4">
+        <BaseModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedPayment(null);
+            resetForm();
+          }}
+          title="Edit Bank Payment"
+          maxWidth="md"
+          variant="centered"
+          contentClassName="p-5"
+        >
+          <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Date
@@ -1994,31 +1989,23 @@ const BankPayments = () => {
                   {updating ? 'Updating...' : 'Update'}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
+        </BaseModal>
       )}
 
       {/* View Modal */}
       {showViewModal && selectedPayment && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Bank Payment Details</h3>
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedPayment(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="space-y-3">
+        <BaseModal
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false);
+            setSelectedPayment(null);
+          }}
+          title="Bank Payment Details"
+          maxWidth="md"
+          variant="centered"
+          contentClassName="p-5"
+        >
+          <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Voucher Code:</span>
                   <span className="text-gray-900">{selectedPayment.voucherCode}</span>
@@ -2083,9 +2070,7 @@ const BankPayments = () => {
                   Close
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
+        </BaseModal>
       )}
     </div>
   );

@@ -14,6 +14,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
 import CityImportExport from '../components/CityImportExport';
+import BaseModal from '../components/BaseModal';
 import {
   useGetCitiesQuery,
   useCreateCityMutation,
@@ -82,22 +83,15 @@ const CityFormModal = ({ city, onSave, onCancel, isSubmitting }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {city ? 'Edit City' : 'Add New City'}
-            </h2>
-            <button
-              onClick={onCancel}
-              className="p-2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <BaseModal
+      isOpen={true}
+      onClose={onCancel}
+      title={city ? 'Edit City' : 'Add New City'}
+      maxWidth="md"
+      variant="centered"
+      contentClassName="p-6"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Country
@@ -186,9 +180,7 @@ const CityFormModal = ({ city, onSave, onCancel, isSubmitting }) => {
               </button>
             </div>
           </form>
-        </div>
-      </div>
-    </div>
+    </BaseModal>
   );
 };
 

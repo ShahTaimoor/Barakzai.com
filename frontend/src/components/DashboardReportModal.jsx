@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, RefreshCw, Calendar, ArrowUpDown } from 'lucide-react';
+import { Search, ArrowUpDown, RefreshCw } from 'lucide-react';
+import BaseModal from './BaseModal';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import DateFilter from './DateFilter';
 
@@ -54,6 +55,8 @@ const DashboardReportModal = ({
 
   if (!isOpen) return null;
 
+  const subtitle = `From: ${formatDate(localDateFrom)} To: ${formatDate(localDateTo)}`;
+
   const handleSearch = () => {
     if (onDateChange) {
       onDateChange(localDateFrom, localDateTo);
@@ -102,25 +105,15 @@ const DashboardReportModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-2 sm:top-4 md:top-10 mx-auto p-3 sm:p-4 md:p-6 border w-[98%] sm:w-[95%] max-w-7xl shadow-lg rounded-lg bg-white my-2 sm:my-4 md:my-10">
-        {/* Header */}
-        <div className="mb-4 sm:mb-5 md:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 break-words">{title}</h3>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
-              From: {formatDate(localDateFrom)} To: {formatDate(localDateTo)}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 p-1"
-            title="Close"
-          >
-            <X className="h-5 w-5 sm:h-6 sm:w-6" />
-          </button>
-        </div>
-
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      subtitle={subtitle}
+      maxWidth="2xl"
+      variant="scrollable"
+      contentClassName="p-3 sm:p-4 md:p-6"
+    >
         {/* Date Range and Filters */}
         <div className="mb-3 sm:mb-4 space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 md:gap-4">
@@ -228,8 +221,7 @@ const DashboardReportModal = ({
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </BaseModal>
   );
 };
 

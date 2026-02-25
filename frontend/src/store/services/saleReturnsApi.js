@@ -48,11 +48,13 @@ export const saleReturnsApi = api.injectEndpoints({
       }),
       invalidatesTags: [
         { type: 'SaleReturns', id: 'LIST' },
+        { type: 'SaleReturns', id: 'STATS' },
         { type: 'Returns', id: 'LIST' },
         { type: 'Sales', id: 'LIST' },
         { type: 'Inventory', id: 'LIST' },
         { type: 'Accounting', id: 'LEDGER_SUMMARY' },
         { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+        { type: 'Accounting', id: 'ALL_ENTRIES' },
         { type: 'ChartOfAccounts', id: 'LIST' },
       ],
     }),

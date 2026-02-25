@@ -34,6 +34,7 @@ import { useAppDispatch } from '../store/hooks';
 import { api } from '../store/api';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
 import DateFilter from '../components/DateFilter';
+import PaginationControls from '../components/PaginationControls';
 import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
 
 const CashReceipts = () => {
@@ -1458,76 +1459,13 @@ const CashReceipts = () => {
               </div>
 
               {/* Pagination */}
-              {paginationInfo.totalPages > 1 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                      disabled={pagination.page === 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                      disabled={pagination.page === paginationInfo.totalPages}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing{' '}
-                        <span className="font-medium">
-                          {(pagination.page - 1) * pagination.limit + 1}
-                        </span>{' '}
-                        to{' '}
-                        <span className="font-medium">
-                          {Math.min(pagination.page * pagination.limit, paginationInfo.totalItems)}
-                        </span>{' '}
-                        of{' '}
-                        <span className="font-medium">{paginationInfo.totalItems}</span>{' '}
-                        results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                        <button
-                          onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                          disabled={pagination.page === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          Previous
-                        </button>
-                        {Array.from({ length: Math.min(5, paginationInfo.totalPages) }, (_, i) => {
-                          const pageNum = i + 1;
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
-                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${pagination.page === pageNum
-                                ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                }`}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        })}
-                        <button
-                          onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                          disabled={pagination.page === paginationInfo.totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <PaginationControls
+                page={pagination.page}
+                totalPages={paginationInfo.totalPages}
+                totalItems={paginationInfo.totalItems}
+                limit={pagination.limit}
+                onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+              />
             </>
           )}
         </div>

@@ -202,7 +202,9 @@ const PurchaseReturns = () => {
   }, {
     onError: (error) => {
       handleApiError(error, 'Fetch Purchase Returns');
-    }
+    },
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
   });
 
   const returns = returnsData?.data || [];
@@ -292,24 +294,26 @@ const PurchaseReturns = () => {
       };
 
       await createPurchaseReturn(returnData).unwrap();
+      await refetchReturns();
+      window.dispatchEvent(new CustomEvent('accountLedgerInvalidate'));
       showSuccessToast('Purchase return created successfully');
       setShowProductModal(false);
       setProductSearchTerm('');
       setSelectedSupplier(null);
       setStep('supplier');
-      refetchReturns();
     } catch (error) {
       handleApiError(error, 'Create Purchase Return');
     }
   };
 
   // Handle return creation success (for old modal)
-  const handleReturnCreated = () => {
+  const handleReturnCreated = async () => {
+    await refetchReturns();
+    window.dispatchEvent(new CustomEvent('accountLedgerInvalidate'));
     setShowCreateModal(false);
     setSelectedPurchase(null);
     setSelectedSupplier(null);
     setStep('supplier');
-    refetchReturns();
     showSuccessToast('Purchase return created successfully');
   };
 

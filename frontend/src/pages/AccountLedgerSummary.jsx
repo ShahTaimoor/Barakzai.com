@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { Users, Building2, Search, Calendar, Download, FileText, ChevronDown, Printer } from 'lucide-react';
 import { useGetLedgerSummaryQuery, useGetCustomerDetailedTransactionsQuery, useGetSupplierDetailedTransactionsQuery } from '../store/services/accountLedgerApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
@@ -131,6 +132,13 @@ const AccountLedgerSummary = () => {
     onError: (error) => handleApiError(error, 'Error fetching ledger summary')
   });
 
+  // Refetch when sale return or other ledger-affecting action happens (e.g. from another tab)
+  useEffect(() => {
+    const handler = () => refetch();
+    window.addEventListener('accountLedgerInvalidate', handler);
+    return () => window.removeEventListener('accountLedgerInvalidate', handler);
+  }, [refetch]);
+
   // Fetch detailed transactions for selected customer
   const { data: detailedTransactionsData, isLoading: detailedLoading } = useGetCustomerDetailedTransactionsQuery(
     {
@@ -165,6 +173,7 @@ const AccountLedgerSummary = () => {
       return {
         openingBalance: d.openingBalance ?? 0,
         closingBalance: d.closingBalance ?? d.openingBalance ?? 0,
+        returnTotal: d.returnTotal ?? 0,
         customer: d.customer ?? {},
         entries: Array.isArray(d.entries) ? d.entries : []
       };
@@ -175,6 +184,7 @@ const AccountLedgerSummary = () => {
     return {
       openingBalance: one.openingBalance ?? 0,
       closingBalance: one.closingBalance ?? one.openingBalance ?? 0,
+      returnTotal: one.returnTotal ?? 0,
       customer: { id: one.id ?? one._id, name: one.name ?? '', accountCode: one.accountCode ?? '' },
       entries: []
     };
@@ -450,149 +460,28 @@ const AccountLedgerSummary = () => {
     }
   };
 
-  const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent) {
-      toast.error('No content to print. Please select a customer or supplier.');
-      return;
-    }
+  const customerName = selectedCustomerId
+    ? (customerDetail?.customer?.name || detailedTransactionsData?.data?.customer?.name || 'Customer Receivables')
+    : (supplierDetail?.supplier?.name || detailedSupplierTransactionsData?.data?.supplier?.name || 'Supplier Payables');
 
-    const customerName = selectedCustomerId
-      ? (customerDetail?.customer?.name || detailedTransactionsData?.data?.customer?.name || 'Customer Receivables')
-      : (supplierDetail?.supplier?.name || detailedSupplierTransactionsData?.data?.supplier?.name || 'Supplier Payables');
-    const accountCode = selectedCustomerId
-      ? (customerDetail?.customer?.accountCode ?? detailedTransactionsData?.data?.customer?.accountCode ?? '')
-      : (supplierDetail?.supplier?.accountCode ?? detailedSupplierTransactionsData?.data?.supplier?.accountCode ?? '');
-
-    const html = `
-      <html>
-        <head>
-          <title>Account Ledger Summary - ${customerName}</title>
-          <style>
-            @page {
-              size: portrait;
-              margin: 10mm;
-            }
-            @media print {
-              body { 
-                margin: 0; 
-                padding: 0;
-                font-family: 'Inter', Arial, sans-serif;
-                font-size: 10px;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .no-print { display: none !important; }
-              table { width: 100% !important; border: 1px solid #000 !important; }
-              th, td { border: 1px solid #000 !important; }
-            }
-            body {
-              font-family: 'Inter', Arial, sans-serif;
-              font-size: 10px;
-              color: #000;
-              margin: 0;
-              padding: 0;
-            }
-            .print-header {
-              text-align: center;
-              margin-bottom: 10px;
-              border-bottom: 1px solid #000;
-             
-            }
-            .print-header h1 {
-              font-size: 16px;
-              font-weight: 700;
-              margin: 0;
-              text-transform: uppercase;
-            }
-            .print-header p {
-              font-size: 10px;
-              margin: 2px 0;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th {
-              background-color: #eee !important;
-              text-align: center;
-              padding: 3px;
-              font-size: 9px;
-              font-weight: 700;
-              text-transform: uppercase;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            td {
-              padding: 2px 4px;
-              font-size: 9.5px;
-              vertical-align: middle;
-            }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
-            .font-bold { font-weight: 700; }
-            .bg-gray-50 { background-color: #fafafa !important; -webkit-print-color-adjust: exact !important; }
-            .bg-gray-100 { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact !important; }
-            .print-amount { font-size: 10.5px; }
-            .print-footer {
-              margin-top: 10px;
-              text-align: right;
-              font-size: 8px;
-              border-top: 1px solid #000;
-              padding-top: 4px;
-            }
-          </style>
-        </head>
-        <body>
-
-          ${printContent.innerHTML}
-          <div class="print-footer">
-            <p>Generated on ${new Date().toLocaleString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })}</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-    if (isMobile) {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      const doc = iframe.contentWindow?.document;
-      if (!doc) {
-        iframe.remove();
-        toast.error('Unable to open print preview on mobile.');
-        return;
+  const handleLedgerPrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Account Ledger Summary - ${customerName}`,
+    onBeforeGetContent: () => {
+      if (!printRef.current) {
+        toast.error('No content to print. Please select a customer or supplier.');
+        return Promise.reject();
       }
-      doc.open();
-      doc.write(html);
-      doc.close();
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => iframe.remove(), 1000);
-      }, 300);
-      return;
+      return Promise.resolve();
     }
+  });
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Please allow popups to print.');
+  const handlePrint = () => {
+    if (!selectedCustomerId && !selectedSupplierId) {
+      toast.error('Please select a customer or supplier to print.');
       return;
     }
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
+    handleLedgerPrint();
   };
 
   // Early return for error (after all hooks)
@@ -848,6 +737,9 @@ const AccountLedgerSummary = () => {
                           Period: {formatDate(filters.startDate)} to {formatDate(filters.endDate)}
                         </p>
                       )}
+                      <p className="text-sm font-medium text-gray-700 mt-2">
+                        Return Total: {formatCurrency(customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -860,27 +752,30 @@ const AccountLedgerSummary = () => {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-blue-600">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
                           Date
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
                           Voucher No
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
                           Particular
                         </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider w-20">
+                          Return
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                           Debits
                         </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                           Credits
                         </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
                           Balance
                         </th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-20 no-print">
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider w-20 no-print">
                           Print
                         </th>
                       </tr>
@@ -891,6 +786,7 @@ const AccountLedgerSummary = () => {
                         <td className="px-4 py-3 text-sm text-gray-900"></td>
                         <td className="px-4 py-3 text-sm text-gray-900"></td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">Opening Balance:</td>
+                        <td className="px-4 py-3 text-sm text-gray-900"></td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900"></td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900"></td>
                         <td className={`px-4 py-3 text-sm text-right font-bold ${((customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance) || 0) < 0 ? 'text-red-600' : 'text-gray-900'
@@ -903,7 +799,7 @@ const AccountLedgerSummary = () => {
                       {/* Transaction Rows */}
                       {(customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length === 0 ? (
                         <tr>
-                          <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                          <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
                             <FileText className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                             <p>No transactions found for this period</p>
                           </td>
@@ -920,6 +816,9 @@ const AccountLedgerSummary = () => {
                             <td className="px-4 py-3 text-sm text-gray-900">
                               {entry.particular || '-'}
                             </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {entry.source === 'Sale Return' ? 'Return' : ''}
+                            </td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">
                               {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
                             </td>
@@ -931,13 +830,13 @@ const AccountLedgerSummary = () => {
                               {formatCurrency(entry.balance || 0)}
                             </td>
                             <td className="px-4 py-3 text-center no-print">
-                              {entry.referenceId && entry.source && entry.source === 'Sale' ? (
+                              {entry.referenceId && entry.source && (entry.source === 'Sale' || entry.source === 'Sale Return') ? (
                                 <button
                                   type="button"
                                   onClick={() => handlePrintEntry(entry)}
                                   disabled={printLoading}
                                   className="inline-flex items-center justify-center p-1.5 rounded-md text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
-                                  title="Print this bill"
+                                  title={entry.source === 'Sale Return' ? 'Print sale return' : 'Print this bill'}
                                 >
                                   <Printer className="h-4 w-4" />
                                 </button>
@@ -947,19 +846,37 @@ const AccountLedgerSummary = () => {
                         ))
                       )}
 
+                      {/* Return Total Row - shows when there are returns */}
+                      {((customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0) &&
+                        (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
+                        <tr className="bg-blue-50 font-medium">
+                          <td className="px-4 py-3 text-sm text-gray-900"></td>
+                          <td className="px-4 py-3 text-sm text-gray-900"></td>
+                          <td className="px-4 py-3 text-sm text-gray-900">Return Total</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">Return</td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">0</td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900">
+                            {formatCurrency(customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900"></td>
+                          <td className="px-4 py-3 text-center no-print"></td>
+                        </tr>
+                      )}
+
                       {/* Total Row */}
                       {(customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0 && (
-                        <tr className="bg-gray-100 font-bold">
+                        <tr className="bg-blue-100 font-bold border-t-2 border-blue-200">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Total</td>
+                          <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
                             {formatCurrency(sumDebits(customerDetail?.entries ?? detailedTransactionsData?.data?.entries))}
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
                             {formatCurrency(sumCredits(customerDetail?.entries ?? detailedTransactionsData?.data?.entries))}
                           </td>
-                          <td className={`px-4 py-3 text-sm text-right text-gray-900 ${closingBalanceFromEntries(customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance ?? 0, customerDetail?.entries ?? detailedTransactionsData?.data?.entries, false) < 0 ? 'text-red-600' : ''
+                          <td className={`px-4 py-3 text-sm text-right font-bold ${closingBalanceFromEntries(customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance ?? 0, customerDetail?.entries ?? detailedTransactionsData?.data?.entries, false) < 0 ? 'text-red-600' : 'text-green-700'
                             }`}>
                             {formatCurrency(closingBalanceFromEntries(customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance ?? 0, customerDetail?.entries ?? detailedTransactionsData?.data?.entries, false))}
                           </td>
@@ -1005,15 +922,15 @@ const AccountLedgerSummary = () => {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-orange-600">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Voucher No</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Particular</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Debits</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Credits</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">Balance</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider w-20 no-print">Print</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Voucher No</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Particular</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Debits</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Credits</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Balance</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider w-20 no-print">Print</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -1078,7 +995,7 @@ const AccountLedgerSummary = () => {
 
                       {/* Total Row */}
                       {(supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)?.length > 0 && (
-                        <tr className="bg-gray-100 font-bold">
+                        <tr className="bg-orange-100 font-bold border-t-2 border-orange-200">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Total</td>
@@ -1088,7 +1005,7 @@ const AccountLedgerSummary = () => {
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
                             {formatCurrency(sumCredits(supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries))}
                           </td>
-                          <td className={`px-4 py-3 text-sm text-right text-gray-900 ${closingBalanceFromEntries(supplierDetail?.openingBalance ?? detailedSupplierTransactionsData?.data?.openingBalance ?? 0, supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries, true) < 0 ? 'text-red-600' : ''
+                          <td className={`px-4 py-3 text-sm text-right font-bold ${closingBalanceFromEntries(supplierDetail?.openingBalance ?? detailedSupplierTransactionsData?.data?.openingBalance ?? 0, supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries, true) < 0 ? 'text-red-600' : 'text-green-700'
                             }`}>
                             {formatCurrency(closingBalanceFromEntries(supplierDetail?.openingBalance ?? detailedSupplierTransactionsData?.data?.openingBalance ?? 0, supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries, true))}
                           </td>
@@ -1158,7 +1075,8 @@ const AccountLedgerSummary = () => {
             <tr>
               <th style={{ width: '4%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>S.NO</th>
               <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>DATE</th>
-              <th style={{ width: '60%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
+              <th style={{ width: '52%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
+              <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>RETURN</th>
               <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>DEBITS</th>
               <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>CREDITS</th>
               <th className="print-amount" style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>BALANCE</th>
@@ -1170,6 +1088,7 @@ const AccountLedgerSummary = () => {
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>-</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
               <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: 'bold', fontSize: '11px' }}>Opening Balance</td>
+              <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}></td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right', fontWeight: 'bold' }}>
@@ -1192,6 +1111,9 @@ const AccountLedgerSummary = () => {
                     </span>
                   )}
                 </td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>
+                  {selectedCustomerId && entry.source === 'Sale Return' ? 'Return' : ''}
+                </td>
                 <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                   {entry.debitAmount > 0 ? formatCurrency(entry.debitAmount) : '0'}
                 </td>
@@ -1204,9 +1126,24 @@ const AccountLedgerSummary = () => {
               </tr>
             ))}
 
+            {/* Return Total Row - customer only, when there are returns */}
+            {selectedCustomerId && (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
+              <tr style={{ backgroundColor: '#eff6ff', fontWeight: '600' }}>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}></td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: '600' }}>Return Total</td>
+                <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center', fontWeight: '600' }}>Return</td>
+                <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>0</td>
+                <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
+                  {formatCurrency(customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0)}
+                </td>
+                <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}></td>
+              </tr>
+            )}
+
             {/* Total Row */}
             <tr style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>
-              <td colSpan="3" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>Total</td>
+              <td colSpan="4" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>Total</td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right' }}>
                 {formatCurrency(sumDebits(selectedCustomerId ? (customerDetail?.entries ?? detailedTransactionsData?.data?.entries) : (supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)))}
               </td>

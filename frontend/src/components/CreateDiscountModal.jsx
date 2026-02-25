@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import BaseModal from './BaseModal';
 import { 
-  X, 
   Tag, 
   Percent, 
   TrendingUp, 
@@ -442,25 +442,16 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-              Create New Discount
-            </h2>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-widest mt-1">Fill in the required information below</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-            disabled={isCreating}
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <div className="p-8 overflow-y-auto flex-1">
+    <BaseModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create New Discount"
+      subtitle="Fill in the required information below"
+      maxWidth="xl"
+      variant="scrollable"
+      contentClassName="p-8"
+      className="rounded-2xl"
+    >
           {/* Tabs */}
           <div className="border-b border-slate-200 mb-6">
             <nav className="-mb-px flex space-x-8">
@@ -1238,9 +1229,7 @@ const CreateDiscountModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
           </div>
         </form>
-        </div>
-      </div>
-    </div>
+    </BaseModal>
   );
 };
 

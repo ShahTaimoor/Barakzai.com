@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
+import BaseModal from './BaseModal';
 import { 
   Download, 
   Upload, 
   FileSpreadsheet, 
   AlertCircle,
   CheckCircle,
-  X,
   HelpCircle
 } from 'lucide-react';
 import {
@@ -172,16 +172,14 @@ const CityImportExport = ({ onImportComplete, filters = {} }) => {
       </div>
 
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Import Cities</h3>
-              <button onClick={resetImport} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6">
+        <BaseModal
+          isOpen={showImportModal}
+          onClose={resetImport}
+          title="Import Cities"
+          maxWidth="md"
+          variant="centered"
+          contentClassName="p-6"
+        >
               {!importResults ? (
                 <div>
                   <div className="mb-4">
@@ -253,9 +251,7 @@ const CityImportExport = ({ onImportComplete, filters = {} }) => {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+        </BaseModal>
       )}
     </div>
   );

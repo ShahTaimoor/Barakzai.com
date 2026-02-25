@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BaseModal from './BaseModal';
 import { 
   Download, 
   Upload, 
@@ -6,7 +7,6 @@ import {
   FileSpreadsheet, 
   AlertCircle,
   CheckCircle,
-  X,
   HelpCircle,
   ChevronDown,
   ChevronUp,
@@ -313,19 +313,14 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Import Products</h3>
-              <button
-                onClick={resetImport}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-4 sm:p-6">
+        <BaseModal
+          isOpen={showImportModal}
+          onClose={resetImport}
+          title="Import Products"
+          maxWidth="md"
+          variant="centered"
+          contentClassName="p-4 sm:p-6"
+        >
               {!importResults ? (
                 <div>
                   <div className="mb-4">
@@ -421,9 +416,7 @@ const ProductImportExport = ({ onImportComplete, filters = {} }) => {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+        </BaseModal>
       )}
         </div>
       )}

@@ -32,6 +32,8 @@ import {
 } from '../store/services/bankReceiptsApi';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
 import DateFilter from '../components/DateFilter';
+import BaseModal from '../components/BaseModal';
+import FormField from '../components/FormField';
 import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
 
 const BankReceipts = () => {
@@ -1252,154 +1254,115 @@ const BankReceipts = () => {
         </div>
       )}
       {/* Edit Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Edit Bank Receipt</h3>
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedReceipt(null);
-                    resetForm();
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Account
-                  </label>
-                  <select
-                    value={formData.bank}
-                    onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-                    className="input w-full"
-                  >
-                    <option value="">Select bank account...</option>
-                    {banks?.map((bank) => (
-                      <option key={bank._id} value={bank._id}>
-                        {bank.bankName} - {bank.accountNumber}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.amount}
-                    onChange={(e) => {
-                      const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
-                      setFormData(prev => ({ ...prev, amount: value }));
-                    }}
-                    className="input w-full"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Transaction Reference
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.transactionReference}
-                    onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
-                    className="input w-full"
-                    placeholder="Enter reference..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Particular
-                  </label>
-                  <textarea
-                    value={formData.particular}
-                    onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
-                    className="input w-full"
-                    rows="3"
-                    placeholder="Enter transaction details..."
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes (Optional)
-                  </label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    className="input w-full"
-                    rows="2"
-                    placeholder="Additional notes..."
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedReceipt(null);
-                    resetForm();
-                  }}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdate}
-                  disabled={updating}
-                  className="btn btn-primary"
-                >
-                  {updating ? 'Updating...' : 'Update'}
-                </button>
-              </div>
-            </div>
+      <BaseModal
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); setSelectedReceipt(null); resetForm(); }}
+        title="Edit Bank Receipt"
+        maxWidth="sm"
+        variant="centered"
+        contentClassName="p-5"
+        footer={
+          <div className="flex justify-end space-x-3">
+            <button onClick={() => { setShowEditModal(false); setSelectedReceipt(null); resetForm(); }} className="btn btn-secondary">
+              Cancel
+            </button>
+            <button onClick={handleUpdate} disabled={updating} className="btn btn-primary">
+              {updating ? 'Updating...' : 'Update'}
+            </button>
           </div>
+        }
+      >
+        <div className="space-y-4">
+          <FormField label="Date" htmlFor="edit-date">
+            <input
+              id="edit-date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              className="input w-full"
+            />
+          </FormField>
+          <FormField label="Bank Account" htmlFor="edit-bank">
+            <select
+              id="edit-bank"
+              value={formData.bank}
+              onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
+              className="input w-full"
+            >
+              <option value="">Select bank account...</option>
+              {banks?.map((bank) => (
+                <option key={bank._id} value={bank._id}>{bank.bankName} - {bank.accountNumber}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Amount" htmlFor="edit-amount" required>
+            <input
+              id="edit-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.amount}
+              onChange={(e) => {
+                const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                setFormData(prev => ({ ...prev, amount: value }));
+              }}
+              className="input w-full"
+              placeholder="0.00"
+              required
+            />
+          </FormField>
+          <FormField label="Transaction Reference" htmlFor="edit-ref">
+            <input
+              id="edit-ref"
+              type="text"
+              value={formData.transactionReference}
+              onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
+              className="input w-full"
+              placeholder="Enter reference..."
+            />
+          </FormField>
+          <FormField label="Particular" htmlFor="edit-particular" required>
+            <textarea
+              id="edit-particular"
+              value={formData.particular}
+              onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
+              className="input w-full"
+              rows={3}
+              placeholder="Enter transaction details..."
+              required
+            />
+          </FormField>
+          <FormField label="Notes (Optional)" htmlFor="edit-notes">
+            <textarea
+              id="edit-notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              className="input w-full"
+              rows={2}
+              placeholder="Additional notes..."
+            />
+          </FormField>
         </div>
-      )}
+      </BaseModal>
 
       {/* View Modal */}
-      {showViewModal && selectedReceipt && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Bank Receipt Details</h3>
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedReceipt(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="space-y-3">
+      <BaseModal
+        isOpen={showViewModal && !!selectedReceipt}
+        onClose={() => { setShowViewModal(false); setSelectedReceipt(null); }}
+        title="Bank Receipt Details"
+        maxWidth="sm"
+        variant="centered"
+        contentClassName="p-5"
+        footer={
+          <div className="flex justify-end">
+            <button onClick={() => { setShowViewModal(false); setSelectedReceipt(null); }} className="btn btn-secondary w-full">
+              Close
+            </button>
+          </div>
+        }
+      >
+        {selectedReceipt && (
+          <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Voucher Code:</span>
                   <span className="text-gray-900">{selectedReceipt.voucherCode}</span>
@@ -1446,22 +1409,9 @@ const BankReceipts = () => {
                   <span>Created By:</span>
                   <span>{selectedReceipt.createdBy?.prefix} {selectedReceipt.createdBy?.firstName}</span>
                 </div>
-              </div>
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedReceipt(null);
-                  }}
-                  className="btn btn-secondary w-full"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </BaseModal>
     </div>
   );
 };

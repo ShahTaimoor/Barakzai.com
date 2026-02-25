@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from 'react-hot-toast';
 import { Provider } from 'react-redux';
 import './index.css';
+import './components/print/printStyles.css';
 import App from './App';
 import { store } from './store/store';
 

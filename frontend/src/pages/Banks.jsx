@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
+import BaseModal from '../components/BaseModal';
 
 const BankFormModal = ({ bank, onSave, onCancel, isSubmitting }) => {
   const { register, handleSubmit, formState: { errors }, reset } = useForm({
@@ -101,22 +102,15 @@ const BankFormModal = ({ bank, onSave, onCancel, isSubmitting }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {bank ? 'Edit Bank Account' : 'Add New Bank Account'}
-            </h2>
-            <button
-              onClick={onCancel}
-              className="p-2 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <BaseModal
+      isOpen={true}
+      onClose={onCancel}
+      title={bank ? 'Edit Bank Account' : 'Add New Bank Account'}
+      maxWidth="lg"
+      variant="scrollable"
+      contentClassName="p-6"
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Bank Information */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -346,9 +340,7 @@ const BankFormModal = ({ bank, onSave, onCancel, isSubmitting }) => {
               </LoadingButton>
             </div>
           </form>
-        </div>
-      </div>
-    </div>
+    </BaseModal>
   );
 };
 

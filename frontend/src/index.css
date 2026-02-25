@@ -176,6 +176,12 @@
   transition: transform 0.2s ease;
 }
 
+/* In-modal print preview: no scale so full content fits and centers */
+.print-modal-preview {
+  transform: none;
+  transform-origin: unset;
+}
+
 @media (max-width: 1024px) {
   .print-preview-scale {
     transform: scale(1);

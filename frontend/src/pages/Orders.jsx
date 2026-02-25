@@ -261,7 +261,7 @@ export const Orders = () => {
             totalPrice: item.total ?? (item.quantity * (item.unitPrice ?? item.unit_price ?? 0))
           };
         }),
-        isTaxExempt: freshOrder.isTaxExempt ?? freshOrder.is_tax_exempt ?? false,
+        isTaxExempt: freshOrder.isTaxExempt ?? freshOrder.is_tax_exempt ?? true,
         payment: freshOrder.payment || {},
         orderType: freshOrder.orderType ?? freshOrder.order_type ?? 'retail',
         billDate: freshOrder.sale_date ?? freshOrder.billDate ?? freshOrder.order_date ?? freshOrder.created_at ?? freshOrder.createdAt

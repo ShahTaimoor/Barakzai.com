@@ -93,7 +93,7 @@ router.get('/', [
         if (sale.customer_id) {
           customerCache[sale.customer_id] = customerCache[sale.customer_id] || await CustomerRepository.findById(sale.customer_id);
           const c = customerCache[sale.customer_id];
-          customerName = c?.business_name || c?.businessName || c?.name || customerName;
+          customerName = c?.business_name || c?.businessName || c?.displayName || c?.name || customerName;
         }
         const saleId = sale.id || sale._id;
         const invoiceDate = sale.sale_date || sale.created_at || sale.createdAt;
@@ -134,7 +134,7 @@ router.get('/', [
         if (purchase.supplier_id) {
           supplierCache[purchase.supplier_id] = supplierCache[purchase.supplier_id] || await SupplierRepository.findById(purchase.supplier_id);
           const s = supplierCache[purchase.supplier_id];
-          supplierName = s?.company_name || s?.companyName || s?.business_name || s?.name || supplierName;
+          supplierName = s?.company_name || s?.companyName || s?.business_name || s?.displayName || s?.name || supplierName;
         }
         const purchaseId = purchase.id || purchase._id;
         const invDate = purchase.invoice_date || purchase.created_at || purchase.createdAt;
@@ -178,7 +178,7 @@ router.get('/', [
         let customerName = 'Unknown Customer';
         if (returnDoc.customer_id) {
           const c = await CustomerRepository.findById(returnDoc.customer_id);
-          customerName = c?.business_name || c?.businessName || c?.name || customerName;
+          customerName = c?.business_name || c?.businessName || c?.displayName || c?.name || customerName;
         }
         const retDate = returnDoc.return_date || returnDoc.returnDate || returnDoc.created_at || returnDoc.createdAt;
         for (const item of items) {
@@ -214,7 +214,7 @@ router.get('/', [
         let supplierName = 'Unknown Supplier';
         if (returnDoc.supplier_id) {
           const s = await SupplierRepository.findById(returnDoc.supplier_id);
-          supplierName = s?.company_name || s?.companyName || s?.name || supplierName;
+          supplierName = s?.company_name || s?.companyName || s?.business_name || s?.displayName || s?.name || supplierName;
         }
         const refId = returnDoc.reference_id || returnDoc.originalOrder;
         const originalPurchase = refId ? await PurchaseInvoiceRepository.findById(refId) : null;
@@ -252,10 +252,10 @@ router.get('/', [
         let customerSupplier = 'N/A';
         if (damage.customer_id) {
           const c = await CustomerRepository.findById(damage.customer_id);
-          customerSupplier = c?.business_name || c?.businessName || c?.name || 'Unknown Customer';
+          customerSupplier = c?.business_name || c?.businessName || c?.displayName || c?.name || 'Unknown Customer';
         } else if (damage.supplier_id) {
           const s = await SupplierRepository.findById(damage.supplier_id);
-          customerSupplier = s?.company_name || s?.companyName || s?.name || 'Unknown Supplier';
+          customerSupplier = s?.company_name || s?.companyName || s?.business_name || s?.displayName || s?.name || 'Unknown Supplier';
         }
         const prod = productId ? await ProductRepository.findById(productId) : null;
         addEntry({

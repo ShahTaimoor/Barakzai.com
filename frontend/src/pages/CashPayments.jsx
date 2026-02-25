@@ -39,6 +39,8 @@ import { useGetAccountsQuery } from '../store/services/chartOfAccountsApi';
 import { useAppDispatch } from '../store/hooks';
 import { api } from '../store/api';
 import DateFilter from '../components/DateFilter';
+import BaseModal from '../components/BaseModal';
+import FormField from '../components/FormField';
 import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
 
 const CashPayments = () => {
@@ -1392,163 +1394,111 @@ const CashPayments = () => {
       />
 
       {/* Edit Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Edit Cash Payment</h3>
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedPayment(null);
-                    resetForm();
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    autoComplete="off"
-                    value={formData.date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount
-                  </label>
-                  <input
-                    type="number"
-                    autoComplete="off"
-                    step="0.01"
-                    min="0"
-                    value={formData.amount}
-                    onChange={(e) => {
-                      const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
-                      setFormData(prev => ({ ...prev, amount: value }));
-                    }}
-                    className="input w-full"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Particular
-                  </label>
-                  <textarea
-                    value={formData.particular}
-                    onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
-                    className="input w-full"
-                    rows="3"
-                    placeholder="Enter transaction details..."
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {paymentType === 'supplier' ? 'Supplier' : 'Customer'} (Optional)
-                  </label>
-                  <select
-                    value={paymentType === 'supplier' ? formData.supplier : formData.customer}
-                    onChange={(e) => setFormData(prev => ({ ...prev, [paymentType === 'supplier' ? 'supplier' : 'customer']: e.target.value }))}
-                    className="input w-full"
-                    disabled={paymentType === 'supplier' ? suppliersLoading : customersLoading}
-                  >
-                    <option value="">
-                      {paymentType === 'supplier'
-                        ? (suppliersLoading ? 'Loading suppliers...' : 'Select Supplier')
-                        : (customersLoading ? 'Loading customers...' : 'Select Customer')
-                      }
-                    </option>
-                    {paymentType === 'supplier'
-                      ? suppliers?.map((s) => {
-                        const supplierId = s.id || s._id;
-                        return (
-                          <option key={supplierId} value={supplierId}>
-                            {s.businessName || s.business_name || s.displayName || s.companyName || s.name}
-                          </option>
-                        );
-                      })
-                      : customers?.map((c) => {
-                        const customerId = c.id || c._id;
-                        return (
-                          <option key={customerId} value={customerId}>
-                            {c.businessName || c.business_name || c.displayName || c.name}
-                          </option>
-                        );
-                      })
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes (Optional)
-                  </label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    className="input w-full"
-                    rows="2"
-                    placeholder="Additional notes..."
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedPayment(null);
-                    resetForm();
-                  }}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdate}
-                  disabled={updating}
-                  className="btn btn-primary"
-                >
-                  {updating ? 'Updating...' : 'Update'}
-                </button>
-              </div>
-            </div>
+      <BaseModal
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); setSelectedPayment(null); resetForm(); }}
+        title="Edit Cash Payment"
+        maxWidth="sm"
+        variant="centered"
+        contentClassName="p-5"
+        footer={
+          <div className="flex justify-end space-x-3">
+            <button onClick={() => { setShowEditModal(false); setSelectedPayment(null); resetForm(); }} className="btn btn-secondary">
+              Cancel
+            </button>
+            <button onClick={handleUpdate} disabled={updating} className="btn btn-primary">
+              {updating ? 'Updating...' : 'Update'}
+            </button>
           </div>
+        }
+      >
+        <div className="space-y-4">
+          <FormField label="Date" htmlFor="edit-date">
+            <input
+              id="edit-date"
+              type="date"
+              autoComplete="off"
+              value={formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+              className="input w-full"
+            />
+          </FormField>
+          <FormField label="Amount" htmlFor="edit-amount" required>
+            <input
+              id="edit-amount"
+              type="number"
+              autoComplete="off"
+              step="0.01"
+              min="0"
+              value={formData.amount}
+              onChange={(e) => {
+                const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
+                setFormData(prev => ({ ...prev, amount: value }));
+              }}
+              className="input w-full"
+              placeholder="0.00"
+              required
+            />
+          </FormField>
+          <FormField label="Particular" htmlFor="edit-particular" required>
+            <textarea
+              id="edit-particular"
+              value={formData.particular}
+              onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
+              className="input w-full"
+              rows={3}
+              placeholder="Enter transaction details..."
+              required
+            />
+          </FormField>
+          <FormField label={`${paymentType === 'supplier' ? 'Supplier' : 'Customer'} (Optional)`} htmlFor="edit-party">
+            <select
+              id="edit-party"
+              value={paymentType === 'supplier' ? formData.supplier : formData.customer}
+              onChange={(e) => setFormData(prev => ({ ...prev, [paymentType === 'supplier' ? 'supplier' : 'customer']: e.target.value }))}
+              className="input w-full"
+              disabled={paymentType === 'supplier' ? suppliersLoading : customersLoading}
+            >
+              <option value="">
+                {paymentType === 'supplier' ? (suppliersLoading ? 'Loading suppliers...' : 'Select Supplier') : (customersLoading ? 'Loading customers...' : 'Select Customer')}
+              </option>
+              {paymentType === 'supplier'
+                ? suppliers?.map((s) => <option key={s.id || s._id} value={s.id || s._id}>{s.businessName || s.business_name || s.displayName || s.companyName || s.name}</option>)
+                : customers?.map((c) => <option key={c.id || c._id} value={c.id || c._id}>{c.businessName || c.business_name || c.displayName || c.name}</option>)
+              }
+            </select>
+          </FormField>
+          <FormField label="Notes (Optional)" htmlFor="edit-notes">
+            <textarea
+              id="edit-notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              className="input w-full"
+              rows={2}
+              placeholder="Additional notes..."
+            />
+          </FormField>
         </div>
-      )}
+      </BaseModal>
 
       {/* View Modal */}
-      {showViewModal && selectedPayment && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Cash Payment Details</h3>
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedPayment(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="space-y-4">
+      <BaseModal
+        isOpen={showViewModal && !!selectedPayment}
+        onClose={() => { setShowViewModal(false); setSelectedPayment(null); }}
+        title="Cash Payment Details"
+        maxWidth="sm"
+        variant="centered"
+        contentClassName="p-5"
+        footer={
+          <div className="flex justify-end">
+            <button onClick={() => { setShowViewModal(false); setSelectedPayment(null); }} className="btn btn-secondary w-full">
+              Close
+            </button>
+          </div>
+        }
+      >
+        {selectedPayment && (
+          <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Voucher Code
@@ -1612,21 +1562,8 @@ const CashPayments = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => {
-                    setShowViewModal(false);
-                    setSelectedPayment(null);
-                  }}
-                  className="btn btn-secondary"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </BaseModal>
     </div>
   );
 };
