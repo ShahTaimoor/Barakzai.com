@@ -1,72 +1,71 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
+/** Detect if app is currently running as installed PWA (standalone), not in browser tab. */
+const getIsStandalone = () => {
+  if (typeof window === 'undefined') return false;
+  const m = window.matchMedia;
+  if (m('(display-mode: standalone)').matches) return true;
+  if (m('(display-mode: fullscreen)').matches) return true;
+  if (m('(display-mode: minimal-ui)').matches) return true;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS && ('standalone' in window.navigator) && window.navigator.standalone) return true;
+  return false;
+};
 
 export const usePWAInstall = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(getIsStandalone);
 
   useEffect(() => {
-    // Check if app is already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
-      setIsInstallable(false);
-      return;
-    }
+    const updateInstalled = () => {
+      const standalone = getIsStandalone();
+      setIsInstalled(standalone);
+      if (standalone) {
+        setDeferredPrompt(null);
+        setIsInstallable(false);
+      }
+    };
 
-    // Check if running on iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isInStandaloneMode = ('standalone' in window.navigator) && window.navigator.standalone;
+    updateInstalled();
 
-    if (isIOS && isInStandaloneMode) {
-      setIsInstalled(true);
-      setIsInstallable(false);
-      return;
-    }
+    const mql = window.matchMedia('(display-mode: standalone)');
+    const onDisplayChange = () => {
+      updateInstalled();
+    };
+    mql.addEventListener('change', onDisplayChange);
 
-    // Listen for beforeinstallprompt event
     const handleBeforeInstallPrompt = (e) => {
-      // Prevent the mini-infobar from appearing
+      if (getIsStandalone()) return;
       e.preventDefault();
-      // Stash the event so it can be triggered later
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
 
-    // Listen for app installed event
     const handleAppInstalled = () => {
-      setIsInstalled(true);
-      setIsInstallable(false);
       setDeferredPrompt(null);
+      setIsInstallable(false);
+      updateInstalled();
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      mql.removeEventListener('change', onDisplayChange);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      return;
-    }
-
-    // Show the install prompt
+  const handleInstallClick = useCallback(async () => {
+    if (!deferredPrompt) return;
     deferredPrompt.prompt();
-
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-
-    if (outcome === 'accepted') {
-      setIsInstalled(true);
-    }
-
-    // Clear the deferredPrompt
+    await deferredPrompt.userChoice;
     setDeferredPrompt(null);
     setIsInstallable(false);
-  };
+    setIsInstalled(getIsStandalone());
+  }, [deferredPrompt]);
 
   return {
     isInstallable,
