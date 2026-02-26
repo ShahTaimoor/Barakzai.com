@@ -433,26 +433,22 @@ router.put('/:id/process', [
 // @access  Private
 router.get('/stats/summary', [
   auth,
-  query('startDate').optional().isISO8601(),
-  query('endDate').optional().isISO8601(),
+  query('startDate').optional().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('startDate must be YYYY-MM-DD'),
+  query('endDate').optional().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('endDate must be YYYY-MM-DD'),
   handleValidationErrors,
 ], async (req, res) => {
   try {
+    const { getStartOfDayPakistan, getEndOfDayPakistan } = require('../utils/dateFilter');
     const period = {};
-    if (req.query.startDate) period.startDate = new Date(req.query.startDate);
-    if (req.query.endDate) period.endDate = new Date(req.query.endDate);
+    if (req.query.startDate) period.startDate = getStartOfDayPakistan(req.query.startDate);
+    if (req.query.endDate) period.endDate = getEndOfDayPakistan(req.query.endDate);
+    period.origin = 'sales'; // Only sale returns
 
     const stats = await returnManagementService.getReturnStats(period);
 
-    // Filter to only sale returns
-    const saleReturnStats = {
-      ...stats,
-      origin: 'sales'
-    };
-
     res.json({
       success: true,
-      data: saleReturnStats
+      data: { ...stats, origin: 'sales' }
     });
   } catch (error) {
     console.error('Error fetching sale return stats:', error);

@@ -1142,27 +1142,21 @@ class ReturnManagementService {
   // Get return statistics
   async getReturnStats(period = {}) {
     try {
+      const returnTypeFilter = period.origin === 'sales' ? 'sale_return' : (period.origin === 'purchase' ? 'purchase_return' : null);
+
       const stats = await ReturnRepository.getStats(period);
 
-      // Get additional metrics
-      const filter = period.startDate && period.endDate ? {
-        returnDate: {
-          $gte: period.startDate,
-          $lte: period.endDate
-        }
-      } : {};
+      // Get additional metrics - use dateFrom/dateTo for ReturnRepository (expects Date objects)
+      const filter = {};
+      if (returnTypeFilter) filter.returnType = returnTypeFilter;
+      if (period.startDate && period.endDate) {
+        filter.dateFrom = period.startDate;
+        filter.dateTo = period.endDate;
+      }
 
       const totalReturns = await ReturnRepository.count(filter);
 
-      const pendingFilter = {
-        status: 'pending',
-        ...(period.startDate && period.endDate ? {
-          returnDate: {
-            $gte: period.startDate,
-            $lte: period.endDate
-          }
-        } : {})
-      };
+      const pendingFilter = { status: 'pending', ...filter };
       const pendingReturns = await ReturnRepository.count(pendingFilter);
 
       const averageProcessingTime = await this.calculateAverageProcessingTime(period);

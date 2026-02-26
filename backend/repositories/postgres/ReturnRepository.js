@@ -386,9 +386,11 @@ class ReturnRepository {
   async getStats(period = {}) {
     const startDate = period.startDate || null;
     const endDate = period.endDate || null;
+    const returnType = period.origin === 'sales' ? 'sale_return' : (period.origin === 'purchase' ? 'purchase_return' : null);
     const filters = {};
     if (startDate) filters.dateFrom = startDate;
     if (endDate) filters.dateTo = endDate;
+    if (returnType) filters.returnType = returnType;
 
     const summaryRows = await this.getSummary(filters);
     let totalRefundAmount = 0;
@@ -436,6 +438,11 @@ class ReturnRepository {
     if (filters.dateTo) {
       sql += ` AND return_date <= $${paramCount++}`;
       params.push(filters.dateTo);
+    }
+
+    if (filters.returnType) {
+      sql += ` AND return_type = $${paramCount++}`;
+      params.push(filters.returnType);
     }
 
     sql += ' GROUP BY return_type, status';

@@ -9,7 +9,8 @@ const ProductSelectionModal = ({
   products, 
   isLoading,
   type = 'sale', // 'sale' or 'purchase'
-  onConfirm 
+  onConfirm,
+  confirmLabel = 'Create Return' // e.g. "Add to Return" for cart flow
 }) => {
   const [selectedProducts, setSelectedProducts] = useState({}); // { productId: { quantity, sale/purchase data } }
 
@@ -132,7 +133,7 @@ const ProductSelectionModal = ({
               disabled={Object.keys(selectedProducts).length === 0}
               className="btn btn-primary"
             >
-              Create Return
+              {confirmLabel}
             </button>
           </div>
         </div>
