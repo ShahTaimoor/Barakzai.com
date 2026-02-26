@@ -27,6 +27,12 @@ function versionedIndexHtml() {
 
 export default defineConfig({
   plugins: [react(), versionedIndexHtml()],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
+  },
   server: {
     port: 5173,
     // Adjust proxy target/path as needed for your backend
