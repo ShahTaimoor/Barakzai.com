@@ -25,7 +25,16 @@ import {
 import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery, useGetLastPurchasePricesMutation } from '../store/services/productsApi';
 import { useGetVariantsQuery, useGetVariantsByBaseProductQuery } from '../store/services/productVariantsApi';
 import { useGetCustomersQuery, useGetCustomerQuery, useLazySearchCustomersQuery } from '../store/services/customersApi';
-import { useCreateSaleMutation, useUpdateOrderMutation, useLazyGetLastPricesQuery } from '../store/services/salesApi';
+import {
+  useCreateSaleMutation,
+  useUpdateOrderMutation,
+  useLazyGetLastPricesQuery,
+  useExportExcelMutation,
+  useExportCSVMutation,
+  useExportPDFMutation,
+  useExportJSONMutation,
+  useLazyDownloadExportFileQuery,
+} from '../store/services/salesApi';
 import { useCheckApplicableDiscountsMutation } from '../store/services/discountsApi';
 import { useGetBanksQuery } from '../store/services/banksApi';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
@@ -862,6 +871,11 @@ export const Sales = ({ tabId, editData }) => {
   const [createSale, { isLoading: isCreatingSale }] = useCreateSaleMutation();
   const [updateOrder, { isLoading: isUpdatingOrder }] = useUpdateOrderMutation();
   const [getLastPrices] = useLazyGetLastPricesQuery();
+  const [exportExcel] = useExportExcelMutation();
+  const [exportCSV] = useExportCSVMutation();
+  const [exportPDF] = useExportPDFMutation();
+  const [exportJSON] = useExportJSONMutation();
+  const [downloadExportFile] = useLazyDownloadExportFileQuery();
   const [checkApplicableDiscounts, { isLoading: checkingDiscount }] = useCheckApplicableDiscountsMutation();
 
   const [discountCodeInput, setDiscountCodeInput] = useState('');
@@ -1497,17 +1511,17 @@ export const Sales = ({ tabId, editData }) => {
 
       let response;
       if (exportFormat === 'excel') {
-        response = await salesAPI.exportExcel(filters);
+        response = await exportExcel(filters).unwrap();
       } else if (exportFormat === 'csv') {
-        response = await salesAPI.exportCSV(filters);
+        response = await exportCSV(filters).unwrap();
       } else if (exportFormat === 'json') {
-        response = await salesAPI.exportJSON(filters);
+        response = await exportJSON(filters).unwrap();
       } else if (exportFormat === 'pdf') {
-        response = await salesAPI.exportPDF(filters);
+        response = await exportPDF(filters).unwrap();
       }
 
-      if (response?.data?.filename) {
-        const filename = response.data.filename;
+      if (response?.filename) {
+        const filename = response.filename;
 
         try {
           // Add a small delay to ensure file is written (PDF generation is async)
@@ -1516,61 +1530,25 @@ export const Sales = ({ tabId, editData }) => {
           }
 
           // Download the file
-          let downloadResponse;
-          try {
-            downloadResponse = await salesAPI.downloadFile(filename);
-          } catch (downloadErr) {
-            // Handle axios errors
-            if (downloadErr.response) {
-              // Server returned an error status
-              const errorData = downloadErr.response.data;
-              if (errorData instanceof Blob) {
-                // Error response is a blob, try to read it
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const text = reader.result;
-                  try {
-                    const parsedError = JSON.parse(text);
-                    showErrorToast(parsedError.message || `Download failed: ${downloadErr.response.status}`);
-                  } catch {
-                    showErrorToast(`Download failed: ${downloadErr.response.status}`);
-                  }
-                };
-                reader.readAsText(errorData);
-              } else if (typeof errorData === 'object' && errorData !== null) {
-                showErrorToast(errorData.message || `Download failed: ${downloadErr.response.status}`);
-              } else {
-                showErrorToast(`Download failed: ${downloadErr.response.status}`);
-              }
-            } else {
-              showErrorToast('Download failed: ' + (downloadErr.message || 'Network error'));
-            }
+          const downloadResult = await downloadExportFile(filename);
+
+          if (downloadResult.error) {
+            const err = downloadResult.error;
+            const msg = err?.data?.message || err?.data?.error || err?.message || 'Download failed';
+            showErrorToast(typeof msg === 'string' ? msg : 'Download failed');
             return;
           }
 
-          // Check if response is successful
-          if (!downloadResponse) {
-            showErrorToast('Download failed: No response received');
-            return;
-          }
-
-          if (downloadResponse.status !== 200) {
-            showErrorToast(`Download failed with status ${downloadResponse.status}`);
-            return;
-          }
-
-          // Check if data exists
-          if (!downloadResponse.data) {
+          const blob = downloadResult.data;
+          if (!blob) {
             showErrorToast('Download failed: No data received from server');
             return;
           }
 
-          // Check content type from headers
-          const contentType = downloadResponse.headers?.['content-type'] || downloadResponse.headers?.['Content-Type'] || '';
+          const contentType = blob.type || '';
 
           if (exportFormat === 'pdf') {
             // For PDF, open in new tab for preview
-            const blob = downloadResponse.data;
 
             // Check if blob is valid
             if (!blob || !(blob instanceof Blob)) {
@@ -1677,14 +1655,7 @@ export const Sales = ({ tabId, editData }) => {
             // Revoke URL after a delay to ensure it loads
             setTimeout(() => URL.revokeObjectURL(url), 10000);
           } else {
-            // For other formats, download directly
-            const blob = new Blob([downloadResponse.data], {
-              type: exportFormat === 'excel'
-                ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                : exportFormat === 'csv'
-                  ? 'text/csv'
-                  : 'application/json'
-            });
+            // For other formats, download directly (blob from server has correct type)
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
