@@ -20,13 +20,6 @@
     <title>POS System - Wholesale & Retail</title>
   </head>
   <body>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let reg of registrations) { reg.unregister(); }
-        });
-      }
-    </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/index.jsx"></script>
