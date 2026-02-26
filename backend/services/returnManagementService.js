@@ -1308,6 +1308,10 @@ class ReturnManagementService {
   async populateReturnData(returnRow) {
     if (!returnRow) return null;
 
+    const returnType = returnRow.return_type || returnRow.returnType || '';
+    const isPurchase = (returnType + '').toLowerCase().includes('purchase');
+    const origin = isPurchase ? 'purchase' : 'sales';
+
     // Transform snake_case to camelCase and ensure essential fields
     const returnObj = {
       ...returnRow,
@@ -1318,7 +1322,8 @@ class ReturnManagementService {
       customerId: returnRow.customer_id || returnRow.customerId,
       supplierId: returnRow.supplier_id || returnRow.supplierId,
       referenceId: returnRow.reference_id || returnRow.referenceId,
-      returnType: returnRow.return_type || returnRow.returnType,
+      returnType: returnType,
+      origin,
       netRefundAmount: typeof returnRow.total_amount !== 'undefined' ? returnRow.total_amount : (returnRow.netRefundAmount || 0),
       totalAmount: typeof returnRow.total_amount !== 'undefined' ? returnRow.total_amount : (returnRow.totalAmount || 0),
       status: returnRow.status,
