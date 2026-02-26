@@ -1996,7 +1996,7 @@ export const Sales = ({ tabId, editData }) => {
       <div className="space-y-4 lg:space-y-6">
         <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'items-start justify-between'}`}>
           <div>
-            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-gray-900`}>Point of Sale</h1>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-gray-900`}>Point of Sales</h1>
             <p className="text-gray-600">Process sales transactions</p>
           </div>
           <div className="flex items-center space-x-2">

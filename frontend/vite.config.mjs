@@ -9,7 +9,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       filename: 'manifest.webmanifest',
       strategies: 'generateSW',
-      injectRegister: 'auto',
+      injectRegister: null, // Disable SW registration - avoids SecurityError, allows updates without hard refresh
       includeAssets: ['favicon.ico', 'robots.txt', 'offline.html', 'icon-ws-192x192.png', 'icon-ws-512x512.png'],
       workbox: {
         globPatterns: ['**/*.{js,css,ico,png,svg,webmanifest,woff,woff2}'],
