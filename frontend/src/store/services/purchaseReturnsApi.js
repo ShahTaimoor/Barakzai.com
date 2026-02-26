@@ -143,6 +143,7 @@ export const purchaseReturnsApi = api.injectEndpoints({
 export const {
   useGetPurchaseReturnsQuery,
   useGetPurchaseReturnQuery,
+  useLazyGetPurchaseReturnQuery,
   useCreatePurchaseReturnMutation,
   useGetSupplierInvoicesQuery,
   useSearchSupplierProductsQuery,

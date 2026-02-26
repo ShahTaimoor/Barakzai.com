@@ -392,26 +392,22 @@ router.put('/:id/process', [
 // @access  Private
 router.get('/stats/summary', [
   auth,
-  ...validateDateParams,
+  query('startDate').optional().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('startDate must be YYYY-MM-DD'),
+  query('endDate').optional().custom((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)).withMessage('endDate must be YYYY-MM-DD'),
   handleValidationErrors,
-  processDateFilter('createdAt'),
 ], async (req, res) => {
   try {
+    const { getStartOfDayPakistan, getEndOfDayPakistan } = require('../utils/dateFilter');
     const period = {};
-    if (req.dateRange.startDate) period.startDate = req.dateRange.startDate;
-    if (req.dateRange.endDate) period.endDate = req.dateRange.endDate;
+    if (req.query.startDate) period.startDate = getStartOfDayPakistan(req.query.startDate);
+    if (req.query.endDate) period.endDate = getEndOfDayPakistan(req.query.endDate);
+    period.origin = 'purchase'; // Only purchase returns
 
     const stats = await returnManagementService.getReturnStats(period);
-    
-    // Filter to only purchase returns
-    const purchaseReturnStats = {
-      ...stats,
-      origin: 'purchase'
-    };
 
     res.json({
       success: true,
-      data: purchaseReturnStats
+      data: { ...stats, origin: 'purchase' }
     });
   } catch (error) {
     console.error('Error fetching purchase return stats:', error);

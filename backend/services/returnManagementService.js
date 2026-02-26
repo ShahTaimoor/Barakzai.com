@@ -1142,27 +1142,21 @@ class ReturnManagementService {
   // Get return statistics
   async getReturnStats(period = {}) {
     try {
+      const returnTypeFilter = period.origin === 'sales' ? 'sale_return' : (period.origin === 'purchase' ? 'purchase_return' : null);
+
       const stats = await ReturnRepository.getStats(period);
 
-      // Get additional metrics
-      const filter = period.startDate && period.endDate ? {
-        returnDate: {
-          $gte: period.startDate,
-          $lte: period.endDate
-        }
-      } : {};
+      // Get additional metrics - use dateFrom/dateTo for ReturnRepository (expects Date objects)
+      const filter = {};
+      if (returnTypeFilter) filter.returnType = returnTypeFilter;
+      if (period.startDate && period.endDate) {
+        filter.dateFrom = period.startDate;
+        filter.dateTo = period.endDate;
+      }
 
       const totalReturns = await ReturnRepository.count(filter);
 
-      const pendingFilter = {
-        status: 'pending',
-        ...(period.startDate && period.endDate ? {
-          returnDate: {
-            $gte: period.startDate,
-            $lte: period.endDate
-          }
-        } : {})
-      };
+      const pendingFilter = { status: 'pending', ...filter };
       const pendingReturns = await ReturnRepository.count(pendingFilter);
 
       const averageProcessingTime = await this.calculateAverageProcessingTime(period);
@@ -1314,6 +1308,10 @@ class ReturnManagementService {
   async populateReturnData(returnRow) {
     if (!returnRow) return null;
 
+    const returnType = returnRow.return_type || returnRow.returnType || '';
+    const isPurchase = (returnType + '').toLowerCase().includes('purchase');
+    const origin = isPurchase ? 'purchase' : 'sales';
+
     // Transform snake_case to camelCase and ensure essential fields
     const returnObj = {
       ...returnRow,
@@ -1324,7 +1322,8 @@ class ReturnManagementService {
       customerId: returnRow.customer_id || returnRow.customerId,
       supplierId: returnRow.supplier_id || returnRow.supplierId,
       referenceId: returnRow.reference_id || returnRow.referenceId,
-      returnType: returnRow.return_type || returnRow.returnType,
+      returnType: returnType,
+      origin,
       netRefundAmount: typeof returnRow.total_amount !== 'undefined' ? returnRow.total_amount : (returnRow.netRefundAmount || 0),
       totalAmount: typeof returnRow.total_amount !== 'undefined' ? returnRow.total_amount : (returnRow.totalAmount || 0),
       status: returnRow.status,

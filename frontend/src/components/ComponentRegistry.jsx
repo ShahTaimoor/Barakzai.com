@@ -103,7 +103,8 @@ export const componentRegistry = {
   },
   '/sale-returns': {
     title: 'Sale Returns',
-    icon: 'RotateCcw'
+    icon: 'RotateCcw',
+    allowMultiple: true
   },
   '/sales-orders': {
     title: 'Sales Orders',
