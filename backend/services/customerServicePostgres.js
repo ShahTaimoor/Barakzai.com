@@ -1,5 +1,6 @@
 const customerRepository = require('../repositories/postgres/CustomerRepository');
 const AccountingService = require('./accountingService');
+const chartOfAccountsRepository = require('../repositories/postgres/ChartOfAccountsRepository');
 
 /** Normalize customer row: add camelCase aliases for businessType, customerTier (frontend expects these) */
 function normalizeCustomer(c) {
@@ -103,6 +104,35 @@ class CustomerService {
     const data = { ...customerData, createdBy: userId };
     if (options.openingBalance != null) data.openingBalance = options.openingBalance;
     const customer = await customerRepository.create(data);
+    
+    // Auto-create Chart of Accounts entry for this customer
+    try {
+      const accountCode = `CUST-${customer.id}`;
+      const accountName = customer.business_name || customer.name || 'Unknown Customer';
+      
+      // Check if account already exists
+      const existingAccount = await chartOfAccountsRepository.findByAccountCode(accountCode);
+      if (!existingAccount) {
+        await chartOfAccountsRepository.create({
+          accountCode: accountCode,
+          accountName: accountName,
+          accountType: 'asset',
+          accountCategory: 'Trade Receivables',
+          normalBalance: 'debit',
+          openingBalance: 0,
+          currentBalance: 0,
+          allowDirectPosting: false,
+          isSystemAccount: false,
+          isActive: true,
+          description: `Customer Account: ${accountName}`,
+          createdBy: userId
+        });
+      }
+    } catch (chartError) {
+      console.error('Failed to create Chart of Accounts entry for customer:', chartError);
+      // Don't fail the customer creation if chart account creation fails
+    }
+    
     const withBalance = await this.getCustomerById(customer.id);
     return { customer: withBalance, message: 'Customer created successfully' };
   }

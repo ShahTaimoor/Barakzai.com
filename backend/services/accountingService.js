@@ -190,31 +190,44 @@ class AccountingService {
 
   /**
    * Update account current_balance from ledger
+   * Ensures balance is calculated correctly based on normal balance type
    */
   static async updateAccountBalance(client, accountCode) {
+    if (!accountCode) {
+      throw new Error('Account code is required for balance update');
+    }
+
     const result = await client.query(
       `UPDATE chart_of_accounts 
        SET current_balance = (
-         SELECT opening_balance + COALESCE(SUM(
+         SELECT COALESCE(opening_balance, 0) + COALESCE(SUM(
            CASE 
-             WHEN normal_balance = 'debit' THEN (ledger.debit_amount - ledger.credit_amount)
-             ELSE (ledger.credit_amount - ledger.debit_amount)
+             WHEN normal_balance = 'debit' THEN (COALESCE(ledger.debit_amount, 0) - COALESCE(ledger.credit_amount, 0))
+             WHEN normal_balance = 'credit' THEN (COALESCE(ledger.credit_amount, 0) - COALESCE(ledger.debit_amount, 0))
+             ELSE 0
            END
          ), 0)
          FROM account_ledger ledger
          WHERE ledger.account_code = chart_of_accounts.account_code
            AND ledger.status = 'completed'
            AND ledger.reversed_at IS NULL
-       )
-       WHERE account_code = $1
-       RETURNING current_balance`,
+       ),
+       updated_at = CURRENT_TIMESTAMP
+       WHERE account_code = $1 AND deleted_at IS NULL
+       RETURNING current_balance, normal_balance, opening_balance`,
       [accountCode.toUpperCase()]
     );
-    return result.rows[0]?.current_balance || 0;
+    
+    if (!result.rows[0]) {
+      throw new Error(`Account ${accountCode} not found or inactive`);
+    }
+    
+    return parseFloat(result.rows[0]?.current_balance || 0);
   }
 
   /**
    * Get account balance from ledger
+   * Returns 0 if account doesn't exist (with warning)
    */
   static async getAccountBalance(accountCode, asOfDate = null) {
     const dateFilter = asOfDate
@@ -226,12 +239,17 @@ class AccountingService {
 
     const result = await query(
       `SELECT 
+        coa.account_code,
+        coa.account_name,
         coa.opening_balance,
+        coa.current_balance,
         coa.normal_balance,
+        coa.is_active,
         COALESCE(SUM(
           CASE 
             WHEN coa.normal_balance = 'debit' THEN (ledger.debit_amount - ledger.credit_amount)
-            ELSE (ledger.credit_amount - ledger.debit_amount)
+            WHEN coa.normal_balance = 'credit' THEN (ledger.credit_amount - ledger.debit_amount)
+            ELSE 0
           END
         ), 0) AS ledger_balance
        FROM chart_of_accounts coa
@@ -242,16 +260,28 @@ class AccountingService {
        WHERE coa.account_code = $1
          AND coa.is_active = TRUE
          AND coa.deleted_at IS NULL
-       GROUP BY coa.id, coa.opening_balance, coa.normal_balance`,
+       GROUP BY coa.id, coa.account_code, coa.account_name, coa.opening_balance, coa.current_balance, coa.normal_balance, coa.is_active`,
       params
     );
 
     if (result.rows.length === 0) {
+      console.warn(`⚠️  Account ${accountCode} not found or inactive. Balance will show as 0.`);
+      console.warn(`   Please ensure account ${accountCode} exists in Chart of Accounts.`);
       return 0;
     }
 
     const row = result.rows[0];
-    return parseFloat(row.opening_balance) + parseFloat(row.ledger_balance);
+    const calculatedBalance = parseFloat(row.opening_balance || 0) + parseFloat(row.ledger_balance || 0);
+    
+    // Log if there's a discrepancy between current_balance and calculated balance
+    if (Math.abs(parseFloat(row.current_balance || 0) - calculatedBalance) > 0.01) {
+      console.warn(`⚠️  Balance mismatch for account ${accountCode} (${row.account_name})`);
+      console.warn(`   Current Balance in DB: ${row.current_balance}`);
+      console.warn(`   Calculated Balance: ${calculatedBalance}`);
+      console.warn(`   This may indicate the account balance needs to be recalculated.`);
+    }
+    
+    return calculatedBalance;
   }
 
   /**

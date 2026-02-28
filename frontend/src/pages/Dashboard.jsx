@@ -391,10 +391,17 @@ export const Dashboard = () => {
   const totalBankPayments = bankPaymentsTotal;
   const totalPayments = totalCashPayments + totalBankPayments; // Includes both supplier payments and expenses
 
+  // Calculate payments received from Sales Invoices (amount_paid field)
+  const salesInvoicePayments = salesInvoicesArray.reduce((sum, order) => {
+    const amountPaid = Number(order.amount_paid || order.amountPaid || 0);
+    return sum + (isNaN(amountPaid) ? 0 : amountPaid);
+  }, 0);
+
   // Cash Flow Calculations
   const totalCashReceipts = cashReceiptsTotal;
   const totalBankReceipts = bankReceiptsTotal;
-  const totalReceipts = totalCashReceipts + totalBankReceipts;
+  // Total Receipts includes: Cash Receipts + Bank Receipts + Sales Invoice Payments
+  const totalReceipts = totalCashReceipts + totalBankReceipts + salesInvoicePayments;
   const netCashFlow = totalReceipts - totalPayments;
 
   // Financial Performance Calculations
@@ -500,10 +507,25 @@ export const Dashboard = () => {
   const bankReceiptsDataArray = bankReceiptsData?.data?.bankReceipts || [];
   const bankPaymentsDataArray = bankPaymentsArray;
 
-  // Combined receipts and payments data (cash + bank)
+  // Combined receipts and payments data (cash + bank + sales invoice payments)
+  const salesInvoiceReceiptsArray = salesInvoicesArray
+    .filter(sale => {
+      const amountPaid = Number(sale.amount_paid || sale.amountPaid || 0);
+      return amountPaid > 0; // Only include sales with payments
+    })
+    .map(sale => ({
+      voucherCode: sale.order_number || sale.orderNumber || '-',
+      receiptType: 'Sales Invoice',
+      customer: sale.customer || sale.customerInfo,
+      date: sale.sale_date || sale.saleDate || sale.created_at || sale.createdAt,
+      particular: `Payment for Sale: ${sale.order_number || sale.orderNumber || 'N/A'}`,
+      amount: Number(sale.amount_paid || sale.amountPaid || 0)
+    }));
+
   const allReceiptsDataArray = [
     ...cashReceiptsArray.map(r => ({ ...r, receiptType: 'Cash' })),
-    ...bankReceiptsArray.map(r => ({ ...r, receiptType: 'Bank' }))
+    ...bankReceiptsArray.map(r => ({ ...r, receiptType: 'Bank' })),
+    ...salesInvoiceReceiptsArray
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const allPaymentsDataArray = [
@@ -805,7 +827,7 @@ export const Dashboard = () => {
                   {isNaN(totalReceipts) ? '0' : Math.round(totalReceipts).toLocaleString()}
                 </p>
                 <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">
-                  Cash: {isNaN(totalCashReceipts) ? '0' : Math.round(totalCashReceipts)} | Bank: {isNaN(totalBankReceipts) ? '0' : Math.round(totalBankReceipts)}
+                  Cash: {isNaN(totalCashReceipts) ? '0' : Math.round(totalCashReceipts)} | Bank: {isNaN(totalBankReceipts) ? '0' : Math.round(totalBankReceipts)} | Sales: {isNaN(salesInvoicePayments) ? '0' : Math.round(salesInvoicePayments)}
                 </p>
               </div>
 
@@ -1058,7 +1080,7 @@ export const Dashboard = () => {
             <div><strong>Net Revenue:</strong> Sales minus discounts given</div>
             <div><strong>Purchase (COGS):</strong> Cost of goods purchased from suppliers</div>
             <div><strong>Gross Profit:</strong> Net Revenue - COGS (your margin)</div>
-            <div><strong>Receipts:</strong> Cash/Bank money received (includes sales + customer payments)</div>
+            <div><strong>Receipts:</strong> Total money received (Cash Receipts + Bank Receipts + Sales Invoice Payments)</div>
             <div><strong>Payments:</strong> Cash/Bank money paid (includes supplier payments + expenses)</div>
             <div><strong>Net Cash Flow:</strong> Total receipts minus total payments (cash position)</div>
             <div className="md:col-span-2 lg:col-span-3 mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded">
@@ -1192,10 +1214,10 @@ export const Dashboard = () => {
       <DashboardReportModal
         isOpen={showAllReceiptsModal}
         onClose={() => setShowAllReceiptsModal(false)}
-        title="All Receipts (Cash + Bank)"
+        title="All Receipts (Cash + Bank + Sales)"
         columns={allReceiptsColumns}
         data={allReceiptsDataArray}
-        isLoading={cashReceiptsLoading || bankReceiptsLoading}
+        isLoading={cashReceiptsLoading || bankReceiptsLoading || salesInvoicesLoading}
         dateFrom={startDate}
         dateTo={endDate}
         onDateChange={(from, to) => {

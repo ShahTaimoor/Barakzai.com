@@ -1,5 +1,6 @@
 const supplierRepository = require('../repositories/postgres/SupplierRepository');
 const AccountingService = require('./accountingService');
+const chartOfAccountsRepository = require('../repositories/postgres/ChartOfAccountsRepository');
 
 /**
  * Map DB supplier row to API response format (contactPerson, status, businessType, rating)
@@ -96,6 +97,34 @@ class SupplierService {
       ...supplierData,
       createdBy: userId
     });
+
+    // Auto-create Chart of Accounts entry for this supplier
+    try {
+      const accountCode = `SUPP-${supplier.id}`;
+      const accountName = supplier.company_name || supplier.business_name || supplier.name || 'Unknown Supplier';
+      
+      // Check if account already exists
+      const existingAccount = await chartOfAccountsRepository.findByAccountCode(accountCode);
+      if (!existingAccount) {
+        await chartOfAccountsRepository.create({
+          accountCode: accountCode,
+          accountName: accountName,
+          accountType: 'liability',
+          accountCategory: 'Trade Payables',
+          normalBalance: 'credit',
+          openingBalance: 0,
+          currentBalance: 0,
+          allowDirectPosting: false,
+          isSystemAccount: false,
+          isActive: true,
+          description: `Supplier Account: ${accountName}`,
+          createdBy: userId
+        });
+      }
+    } catch (chartError) {
+      console.error('Failed to create Chart of Accounts entry for supplier:', chartError);
+      // Don't fail the supplier creation if chart account creation fails
+    }
 
     return mapSupplierForResponse(supplier);
   }

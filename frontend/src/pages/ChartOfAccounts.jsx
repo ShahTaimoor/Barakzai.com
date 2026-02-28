@@ -12,7 +12,8 @@ import {
   Save,
   X,
   Eye,
-  EyeOff
+  EyeOff,
+  RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -110,33 +111,54 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
   // Generate next available account code based on account type
   const generateAccountCode = (accountType) => {
     const range = accountCodeRanges[accountType];
-    if (!range) return '1000';
+    if (!range) {
+      console.error(`Invalid account type: ${accountType}`);
+      return '1000';
+    }
 
     const accountList = extractAccountArray(existingAccounts);
     if (!accountList.length) {
       return range.start?.toString() || '1000';
     }
 
-    // Get all account codes for this type
+    // Get all account codes for this type, with better validation
     const existingCodes = accountList
-      .filter(acc => acc.accountType === accountType)
-      .map(acc => parseInt(acc.accountCode))
-      .filter(code => !isNaN(code) && code >= range.start && code <= range.end)
+      .filter(acc => {
+        // Filter by account type
+        if (acc.accountType !== accountType) return false;
+        // Ensure account code exists and is a string
+        if (!acc.accountCode || typeof acc.accountCode !== 'string') return false;
+        return true;
+      })
+      .map(acc => {
+        // Parse account code, handling both string and number formats
+        const code = parseInt(acc.accountCode.toString().trim());
+        return code;
+      })
+      .filter(code => {
+        // Only include valid numeric codes within the expected range
+        return !isNaN(code) && code >= range.start && code <= range.end;
+      })
       .sort((a, b) => a - b);
 
-    // Find next available code
+    // Remove duplicates
+    const uniqueCodes = [...new Set(existingCodes)];
+
+    // Find next available code (first gap or next sequential)
     let nextCode = range.start;
-    for (const code of existingCodes) {
+    for (const code of uniqueCodes) {
       if (code === nextCode) {
         nextCode++;
       } else if (code > nextCode) {
+        // Found a gap, use it
         break;
       }
     }
 
     // Make sure we don't exceed the range
     if (nextCode > range.end) {
-      toast.error(`No more account codes available for ${accountType}. Range: ${range.start}-${range.end}`);
+      toast.error(`No more account codes available for ${accountType}. Range: ${range.start}-${range.end}. Please contact administrator.`);
+      // Return the start of range as fallback, but user will need to manually adjust
       return range.start.toString();
     }
 
