@@ -125,6 +125,8 @@ export const Dashboard = () => {
   const [showCashPaymentsModal, setShowCashPaymentsModal] = useState(false);
   const [showBankReceiptsModal, setShowBankReceiptsModal] = useState(false);
   const [showBankPaymentsModal, setShowBankPaymentsModal] = useState(false);
+  const [showAllReceiptsModal, setShowAllReceiptsModal] = useState(false);
+  const [showAllPaymentsModal, setShowAllPaymentsModal] = useState(false);
 
   // Lazy query for period summary
   const [getPeriodSummary] = useLazyGetPeriodSummaryQuery();
@@ -443,8 +445,27 @@ export const Dashboard = () => {
     { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
   ];
 
+  const allReceiptsColumns = [
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.receipt_number || '-' },
+    { key: 'type', label: 'Type', sortable: true, render: (val, row) => row.receiptType || 'Cash' },
+    { key: 'customer', label: 'Customer/Supplier', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
+    { key: 'date', label: 'Date', sortable: true, format: 'date' },
+    { key: 'particular', label: 'Particular', sortable: true },
+    { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
+  ];
+
   const cashPaymentsColumns = [
     { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.payment_number || '-' },
+    { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
+    { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
+    { key: 'date', label: 'Date', sortable: true, format: 'date' },
+    { key: 'particular', label: 'Particular', sortable: true },
+    { key: 'amount', label: 'Amount', sortable: true, format: 'currency' }
+  ];
+
+  const allPaymentsColumns = [
+    { key: 'voucherCode', label: 'Voucher Code', sortable: true, render: (val, row) => val || row.payment_number || '-' },
+    { key: 'type', label: 'Type', sortable: true, render: (val, row) => row.paymentType || 'Cash' },
     { key: 'supplier', label: 'Supplier', sortable: true, render: (val, row) => row.supplier?.businessName || row.supplier?.business_name || row.supplier?.companyName || row.supplier?.displayName || row.supplier?.name || '-' },
     { key: 'customer', label: 'Customer', sortable: true, render: (val, row) => row.customer?.businessName || row.customer?.business_name || row.customer?.displayName || row.customer?.name || '-' },
     { key: 'date', label: 'Date', sortable: true, format: 'date' },
@@ -478,6 +499,17 @@ export const Dashboard = () => {
   const cashPaymentsDataArray = cashPaymentsArray;
   const bankReceiptsDataArray = bankReceiptsData?.data?.bankReceipts || [];
   const bankPaymentsDataArray = bankPaymentsArray;
+
+  // Combined receipts and payments data (cash + bank)
+  const allReceiptsDataArray = [
+    ...cashReceiptsArray.map(r => ({ ...r, receiptType: 'Cash' })),
+    ...bankReceiptsArray.map(r => ({ ...r, receiptType: 'Bank' }))
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const allPaymentsDataArray = [
+    ...cashPaymentsArray.map(p => ({ ...p, paymentType: 'Cash' })),
+    ...bankPaymentsArray.map(p => ({ ...p, paymentType: 'Bank' }))
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const companyInfo = companySettingsData?.data || {};
   const companyFromApi = companyData?.data || companyData || {};
@@ -758,7 +790,7 @@ export const Dashboard = () => {
               {/* Total Receipts */}
               <div
                 className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm"
-                onClick={() => setShowCashReceiptsModal(true)}
+                onClick={() => setShowAllReceiptsModal(true)}
               >
                 <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
@@ -780,7 +812,7 @@ export const Dashboard = () => {
               {/* Total Payments */}
               <div
                 className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm"
-                onClick={() => setShowCashPaymentsModal(true)}
+                onClick={() => setShowAllPaymentsModal(true)}
               >
                 <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
@@ -1149,6 +1181,36 @@ export const Dashboard = () => {
         columns={bankPaymentsColumns}
         data={bankPaymentsDataArray}
         isLoading={bankPaymentsLoading}
+        dateFrom={startDate}
+        dateTo={endDate}
+        onDateChange={(from, to) => {
+          setStartDate(from);
+          setEndDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showAllReceiptsModal}
+        onClose={() => setShowAllReceiptsModal(false)}
+        title="All Receipts (Cash + Bank)"
+        columns={allReceiptsColumns}
+        data={allReceiptsDataArray}
+        isLoading={cashReceiptsLoading || bankReceiptsLoading}
+        dateFrom={startDate}
+        dateTo={endDate}
+        onDateChange={(from, to) => {
+          setStartDate(from);
+          setEndDate(to);
+        }}
+      />
+
+      <DashboardReportModal
+        isOpen={showAllPaymentsModal}
+        onClose={() => setShowAllPaymentsModal(false)}
+        title="All Payments (Cash + Bank)"
+        columns={allPaymentsColumns}
+        data={allPaymentsDataArray}
+        isLoading={cashPaymentsLoading || bankPaymentsLoading}
         dateFrom={startDate}
         dateTo={endDate}
         onDateChange={(from, to) => {

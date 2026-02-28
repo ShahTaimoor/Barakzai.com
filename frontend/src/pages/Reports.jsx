@@ -14,7 +14,10 @@ import {
   RefreshCcw,
   MapPin,
   DollarSign,
-  ShoppingBag
+  ShoppingBag,
+  CheckCircle,
+  AlertTriangle,
+  XCircle
 } from 'lucide-react';
 import {
   useGetSalesReportQuery,
@@ -349,7 +352,7 @@ export const Reports = () => {
       const base = {
         'Total Items': inventoryReportData?.summary?.totalItems || 0,
         'Total Valuation': inventoryReportData?.summary?.totalValuation || 0,
-        'Low Stock Items': inventoryReportData?.summary?.lowStockCount || 0,
+        'In Stock': inventoryReportData?.summary?.inStockCount || 0,
         'Out of Stock': inventoryReportData?.summary?.outOfStockCount || 0
       };
       if (inventoryType === 'stock-summary') {
@@ -470,18 +473,20 @@ export const Reports = () => {
           const getIcon = () => {
             if (title === 'Wholesale Valuation') return <DollarSign className="h-6 w-6 text-amber-600" />;
             if (title === 'Retail Valuation') return <ShoppingBag className="h-6 w-6 text-teal-600" />;
+            if (title === 'In Stock') return <CheckCircle className="h-6 w-6 text-green-600" />;
+            if (title === 'Out of Stock') return <XCircle className="h-6 w-6 text-red-600" />;
             return idx === 0 ? <Users className="h-6 w-6 text-blue-600" /> :
               idx === 1 ? <TrendingUp className="h-6 w-6 text-purple-600" /> :
-              idx === 2 ? <Package className="h-6 w-6 text-green-600" /> :
-              <Wallet className="h-6 w-6 text-red-600" />;
+              <Package className="h-6 w-6 text-gray-600" />;
           };
           const getBgColor = () => {
             if (title === 'Wholesale Valuation') return "bg-amber-50";
             if (title === 'Retail Valuation') return "bg-teal-50";
+            if (title === 'In Stock') return "bg-green-50";
+            if (title === 'Out of Stock') return "bg-red-50";
             return idx === 0 ? "bg-blue-50" :
               idx === 1 ? "bg-purple-50" :
-              idx === 2 ? "bg-green-50" :
-              "bg-red-50";
+              "bg-gray-50";
           };
           return (
             <SummaryCard

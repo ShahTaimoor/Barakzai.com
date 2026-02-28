@@ -298,29 +298,38 @@ class AccountingService {
   /**
    * Get supplier balance from ledger
    * Only includes AP account (2000) entries - single source of truth
-   * Opening balance is posted to ledger, so no separate addition
+   * Includes opening balance from suppliers table + ledger entries
    */
   static async getSupplierBalance(supplierId, asOfDate = null) {
     const dateFilter = asOfDate
-      ? 'AND transaction_date <= $2'
+      ? 'AND l.transaction_date <= $2'
       : '';
 
     const params = [supplierId];
     if (asOfDate) params.push(asOfDate);
 
-    // Ledger balance from AP account (2000) - includes opening balance entry if posted
-    const ledgerResult = await query(
-      `SELECT COALESCE(SUM(credit_amount - debit_amount), 0) AS balance
-       FROM account_ledger
-       WHERE supplier_id = $1
-         AND account_code = '2000'
-         AND status = 'completed'
-         AND reversed_at IS NULL
-         ${dateFilter}`,
+    // Get opening balance + ledger balance from AP account (2000)
+    const result = await query(
+      `SELECT 
+        s.opening_balance,
+        COALESCE(SUM(l.credit_amount - l.debit_amount), 0) AS ledger_balance
+       FROM suppliers s
+       LEFT JOIN account_ledger l ON s.id = l.supplier_id
+         AND l.account_code = '2000'
+         AND l.status = 'completed'
+         AND l.reversed_at IS NULL
+         ${dateFilter}
+       WHERE s.id = $1
+       GROUP BY s.id, s.opening_balance`,
       params
     );
 
-    return parseFloat(ledgerResult.rows[0]?.balance || 0);
+    if (result.rows.length === 0) {
+      return 0;
+    }
+
+    const row = result.rows[0];
+    return parseFloat(row.opening_balance || 0) + parseFloat(row.ledger_balance || 0);
   }
 
   /**
@@ -1303,7 +1312,7 @@ class AccountingService {
   /**
    * Get bulk supplier balances
    * Only includes AP account (2000) entries - single source of truth
-   * Opening balance is posted to ledger, so ledger sum is the full balance
+   * Includes opening balance from suppliers table + ledger entries
    */
   static async getBulkSupplierBalances(supplierIds, asOfDate = null) {
     const dateFilter = asOfDate
@@ -1316,6 +1325,7 @@ class AccountingService {
     const result = await query(
       `SELECT 
         s.id,
+        s.opening_balance,
         COALESCE(SUM(ledger.credit_amount - ledger.debit_amount), 0) AS ledger_balance
        FROM suppliers s
        LEFT JOIN account_ledger ledger ON s.id = ledger.supplier_id
@@ -1325,13 +1335,14 @@ class AccountingService {
          ${dateFilter}
        WHERE s.id = ANY($1::uuid[])
          AND s.is_deleted = FALSE
-       GROUP BY s.id`,
+       GROUP BY s.id, s.opening_balance`,
       params
     );
 
     const balanceMap = new Map();
     result.rows.forEach(row => {
-      balanceMap.set(row.id, parseFloat(row.ledger_balance || 0));
+      const balance = parseFloat(row.opening_balance || 0) + parseFloat(row.ledger_balance || 0);
+      balanceMap.set(row.id, balance);
     });
 
     return balanceMap;

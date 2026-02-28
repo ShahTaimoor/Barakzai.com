@@ -418,14 +418,6 @@ class ReportsService {
         LEFT JOIN inventory i ON i.product_id = p.id AND i.deleted_at IS NULL
         WHERE p.is_deleted = FALSE AND p.is_active = TRUE ${prodFilter}
       ),
-      opening AS (
-        SELECT product_id, product_name, product_sku,
-          SUM(CASE WHEN movement_type IN (${stockInTypes}) THEN quantity ELSE -quantity END) as qty,
-          SUM(CASE WHEN movement_type IN (${stockInTypes}) THEN total_value ELSE -total_value END) as amount
-        FROM stock_movements
-        WHERE created_at < $1 AND status = 'completed'
-        GROUP BY product_id, product_name, product_sku
-      ),
       period_act AS (
         SELECT product_id,
           SUM(CASE WHEN movement_type = 'purchase' THEN quantity ELSE 0 END) as purchase_qty,
@@ -437,7 +429,8 @@ class ReportsService {
           SUM(CASE WHEN movement_type = 'return_in' THEN quantity ELSE 0 END) as sale_return_qty,
           SUM(CASE WHEN movement_type = 'return_in' THEN total_value ELSE 0 END) as sale_return_amt,
           SUM(CASE WHEN movement_type = 'damage' THEN quantity ELSE 0 END) as damage_qty,
-          SUM(CASE WHEN movement_type = 'damage' THEN total_value ELSE 0 END) as damage_amt
+          SUM(CASE WHEN movement_type = 'damage' THEN total_value ELSE 0 END) as damage_amt,
+          SUM(CASE WHEN movement_type IN (${stockInTypes}) THEN quantity ELSE -quantity END) as net_qty
         FROM stock_movements
         WHERE created_at >= $1 AND created_at <= $2 AND status = 'completed'
         GROUP BY product_id
@@ -459,8 +452,7 @@ class ReportsService {
         pb.id, pb.name, pb.sku, pb.unit, pb."categoryName", pb.cost_price, pb.selling_price, pb.wholesale_price,
         pb."currentStock",
         pb.min_stock_level,
-        CASE WHEN o.qty IS NOT NULL THEN COALESCE(o.qty, 0) ELSE pb."currentStock" END::decimal as "openingQty",
-        CASE WHEN o.amount IS NOT NULL THEN COALESCE(o.amount, 0) ELSE (pb."currentStock" * pb.cost_price) END::decimal as "openingAmount",
+        (pb."currentStock" - COALESCE(pa.net_qty, 0))::decimal as "openingQty",
         COALESCE(pa.purchase_qty, 0)::decimal as "purchaseQty",
         COALESCE(pa.purchase_amt, 0)::decimal as "purchaseAmount",
         COALESCE(pa.purchase_return_qty, 0)::decimal as "purchaseReturnQty",
@@ -474,7 +466,6 @@ class ReportsService {
         COALESCE(lp.last_purchase_price, pb.cost_price, 0)::decimal as "lastPurchasePrice",
         COALESCE(ac.avg_purchase_price, pb.cost_price, 0)::decimal as "avgPurchasePrice"
       FROM products_base pb
-      LEFT JOIN opening o ON o.product_id = pb.id
       LEFT JOIN period_act pa ON pa.product_id = pb.id
       LEFT JOIN last_pur lp ON lp.product_id = pb.id
       LEFT JOIN avg_cost ac ON ac.product_id = pb.id
@@ -484,7 +475,6 @@ class ReportsService {
     const result = await query(sql, params);
     const rows = result.rows.map(r => {
       const openingQty = parseFloat(r.openingQty || 0);
-      const openingAmount = parseFloat(r.openingAmount || 0);
       const purchaseQty = parseFloat(r.purchaseQty || 0);
       const purchaseAmount = parseFloat(r.purchaseAmount || 0);
       const purchaseReturnQty = parseFloat(r.purchaseReturnQty || 0);
@@ -495,10 +485,11 @@ class ReportsService {
       const saleReturnAmount = parseFloat(r.saleReturnAmount || 0);
       const damageQty = parseFloat(r.damageQty || 0);
       const damageAmount = parseFloat(r.damageAmount || 0);
-      const closingQty = openingQty + purchaseQty - purchaseReturnQty - saleQty + saleReturnQty - damageQty;
       const lastPurchasePrice = parseFloat(r.lastPurchasePrice || 0);
       const avgPurchasePrice = parseFloat(r.avgPurchasePrice || 0);
       const costPrice = avgPurchasePrice || lastPurchasePrice || parseFloat(r.cost_price || 0);
+      const openingAmount = openingQty * costPrice;
+      const closingQty = openingQty + purchaseQty - purchaseReturnQty - saleQty + saleReturnQty - damageQty;
       const sellingPriceRaw = parseFloat(r.sellingPrice || r.selling_price || 0);
       const wholesalePriceRaw = parseFloat(r.wholesalePrice || r.wholesale_price || 0);
       const sellingPrice = sellingPriceRaw || costPrice;
@@ -558,8 +549,19 @@ class ReportsService {
       zakatAvgAmount: acc.zakatAvgAmount + r.zakatAvgAmount
     }), { openingQty: 0, openingAmount: 0, purchaseQty: 0, purchaseAmount: 0, purchaseReturnQty: 0, purchaseReturnAmount: 0, saleQty: 0, saleAmount: 0, saleReturnQty: 0, saleReturnAmount: 0, damageQty: 0, damageAmount: 0, closingQty: 0, closingAmount: 0, wholesaleValuation: 0, zakatAmount: 0, zakatAvgAmount: 0 });
 
-    const lowStockCount = rows.filter(r => (r.closingQty ?? 0) <= (r.minStockLevel ?? 0)).length;
     const outOfStockCount = rows.filter(r => (r.closingQty || 0) === 0).length;
+    const lowStockCount = rows.filter(r => {
+      const qty = r.closingQty ?? 0;
+      const minLevel = r.minStockLevel ?? 0;
+      // Low stock: has stock but below or at minimum level (and minimum > 0)
+      return qty > 0 && minLevel > 0 && qty <= minLevel;
+    }).length;
+    const inStockCount = rows.filter(r => {
+      const qty = r.closingQty ?? 0;
+      const minLevel = r.minStockLevel ?? 0;
+      // In stock: has stock AND (above minimum level OR no minimum set)
+      return qty > 0 && (minLevel === 0 || qty > minLevel);
+    }).length;
 
     return {
       data: rows,
@@ -571,7 +573,8 @@ class ReportsService {
         totalRetailValuation: totals.zakatAmount,
         totalStock: totals.closingQty,
         lowStockCount,
-        outOfStockCount
+        outOfStockCount,
+        inStockCount
       },
       reportType: 'stock-summary',
       filters: { categoryId, dateFrom: filters.dateFrom, dateTo: filters.dateTo }
@@ -613,30 +616,39 @@ class ReportsService {
         p.sku,
         p.barcode,
         cat.name as "categoryName",
-        p.stock_quantity as "stockQuantity",
+        COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) as "stockQuantity",
         p.min_stock_level as "minStockLevel",
         p.cost_price as "costPrice",
         p.selling_price as "sellingPrice",
-        (p.stock_quantity * p.cost_price) as "valuation",
+        (COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) * p.cost_price) as "valuation",
         p.unit
       FROM products p
       LEFT JOIN categories cat ON p.category_id = cat.id
+      LEFT JOIN inventory_balance ib ON ib.product_id = p.id
+      LEFT JOIN inventory i ON i.product_id = p.id AND i.deleted_at IS NULL
       ${whereClause}
       ORDER BY p.name ASC
     `;
 
     const result = await query(sql, params);
 
-    // Calculate summary
+    // Calculate summary using correct stock source (inventory_balance > inventory > products.stock_quantity)
     const summarySql = `
       SELECT 
         COUNT(*) as "totalItems",
-        SUM(stock_quantity * cost_price) as "totalValuation",
-        COUNT(*) FILTER (WHERE stock_quantity <= min_stock_level) as "lowStockCount",
-        COUNT(*) FILTER (WHERE stock_quantity = 0) as "outOfStockCount"
-      FROM products
-      WHERE is_deleted = FALSE AND is_active = TRUE
-      ${categoryId ? ` AND category_id = $1` : ''}
+        SUM(COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) * p.cost_price) as "totalValuation",
+        COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) = 0) as "outOfStockCount",
+        COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0 
+                         AND COALESCE(p.min_stock_level, 0) > 0
+                         AND COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) <= p.min_stock_level) as "lowStockCount",
+        COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0
+                         AND (COALESCE(p.min_stock_level, 0) = 0 
+                              OR COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > p.min_stock_level)) as "inStockCount"
+      FROM products p
+      LEFT JOIN inventory_balance ib ON ib.product_id = p.id
+      LEFT JOIN inventory i ON i.product_id = p.id AND i.deleted_at IS NULL
+      WHERE p.is_deleted = FALSE AND p.is_active = TRUE
+      ${categoryId ? ` AND p.category_id = $1` : ''}
     `;
     const summaryResult = await query(summarySql, categoryId ? [categoryId] : []);
     const summary = summaryResult.rows[0];
@@ -654,7 +666,8 @@ class ReportsService {
         totalItems: parseInt(summary.totalItems || 0),
         totalValuation: parseFloat(summary.totalValuation || 0),
         lowStockCount: parseInt(summary.lowStockCount || 0),
-        outOfStockCount: parseInt(summary.outOfStockCount || 0)
+        outOfStockCount: parseInt(summary.outOfStockCount || 0),
+        inStockCount: parseInt(summary.inStockCount || 0)
       },
       reportType,
       filters: { categoryId }
@@ -836,10 +849,10 @@ class ReportsService {
     `;
     const customerBalance = await query(customerBalanceQuery, city ? [city] : []);
 
-    // 2. Total Supplier Balance (Current) - opening balance is posted to ledger
+    // 2. Total Supplier Balance (Current)
     const supplierBalanceQuery = `
       SELECT SUM(balance) as total FROM (
-        SELECT COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance
+        SELECT s.opening_balance + COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance
         FROM suppliers s
         LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000' AND l.reversed_at IS NULL
         WHERE s.deleted_at IS NULL
@@ -847,7 +860,7 @@ class ReportsService {
           (jsonb_typeof(s.address) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.address) addr WHERE addr->>'city' = $1))
           OR (jsonb_typeof(s.address) = 'object' AND s.address->>'city' = $1)
         )` : ''}
-        GROUP BY s.id
+        GROUP BY s.id, s.opening_balance
       ) as sub
     `;
     const supplierBalance = await query(supplierBalanceQuery, city ? [city] : []);
@@ -1050,7 +1063,7 @@ class ReportsService {
             END,
             'N/A'
           ) as city,
-          COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance,
+          (s.opening_balance + COALESCE(SUM(l.credit_amount - l.debit_amount), 0)) as balance,
           COALESCE(SUM(l.debit_amount), 0) as "totalDebit",
           COALESCE(SUM(l.credit_amount), 0) as "totalCredit"
         FROM suppliers s
@@ -1064,7 +1077,7 @@ class ReportsService {
         )`;
         params.push(city);
       }
-      sql += ` GROUP BY s.id, s.company_name, s.business_name, s.name, s.contact_person, s.address ORDER BY balance DESC`;
+      sql += ` GROUP BY s.id, s.company_name, s.business_name, s.name, s.contact_person, s.address, s.opening_balance ORDER BY balance DESC`;
     }
 
     const result = await query(sql, params);

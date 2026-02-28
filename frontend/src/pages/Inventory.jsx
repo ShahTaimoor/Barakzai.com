@@ -345,13 +345,15 @@ export const Inventory = () => {
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => setShowAdjustmentModal(true)}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Stock Adjustment
-          </button>
+          {!lowStockFilter && (
+            <button
+              onClick={() => setShowAdjustmentModal(true)}
+              className="btn btn-primary btn-md flex items-center justify-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Stock Adjustment
+            </button>
+          )}
           <button
             onClick={() => refetch()}
             className="btn btn-secondary btn-md flex items-center justify-center gap-2"
