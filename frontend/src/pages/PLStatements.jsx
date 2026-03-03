@@ -678,6 +678,14 @@ export const PLStatements = () => {
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
                 <li className="text-xs text-slate-600 flex items-start">
                   <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mr-2 mt-1 flex-shrink-0" />
+                  <strong>Sales Revenue</strong> here is the same as the total of your Sales Invoices for the selected period (same dates).
+                </li>
+                <li className="text-xs text-slate-600 flex items-start">
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mr-2 mt-1 flex-shrink-0" />
+                  <strong>Net Profit / Loss</strong> is revenue minus COGS and all expenses. It is not the same as your invoice total.
+                </li>
+                <li className="text-xs text-slate-600 flex items-start">
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mr-2 mt-1 flex-shrink-0" />
                   Values are calculated based on all approved transactions within the selected dates.
                 </li>
                 <li className="text-xs text-slate-600 flex items-start">

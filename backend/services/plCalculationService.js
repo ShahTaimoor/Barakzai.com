@@ -1,5 +1,6 @@
 const { query } = require('../config/postgres');
 const AccountingService = require('./accountingService');
+const { getStartOfDayPakistan, getEndOfDayPakistan } = require('../utils/dateFilter');
 
 /**
  * Profit & Loss Calculation Service - PostgreSQL Implementation
@@ -12,18 +13,22 @@ class PLCalculationService {
    * Used as primary source for P&L sales revenue so it matches Sale Invoice totals.
    */
   async getRevenueAndCOGSFromSales(startDate, endDate) {
+    // Use Pakistan date range so P&L matches Sales Invoices list (same dates)
+    const start = startDate ? getStartOfDayPakistan(startDate) : null;
+    const end = endDate ? getEndOfDayPakistan(endDate) : null;
+    if (!start || !end) return { revenue: 0, cogs: 0 };
     const baseWhere = `deleted_at IS NULL AND sale_date >= $1 AND sale_date <= $2
        AND (status IS NULL OR status NOT IN ('cancelled', 'returned'))`;
     const revenueResult = await query(
       `SELECT COALESCE(SUM(total), 0) AS revenue
        FROM sales
        WHERE ${baseWhere}`,
-      [startDate, endDate]
+      [start, end]
     );
     const revenue = parseFloat(revenueResult.rows[0]?.revenue || 0);
     const salesRows = await query(
       `SELECT items FROM sales WHERE ${baseWhere}`,
-      [startDate, endDate]
+      [start, end]
     );
     let cogs = 0;
     for (const r of salesRows.rows || []) {
