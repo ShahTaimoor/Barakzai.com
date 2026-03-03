@@ -7,18 +7,22 @@ const AccountingService = require('./accountingService');
  */
 class PLCalculationService {
   /**
-   * Get revenue and COGS from sales table for period (fallback when ledger has no data)
+   * Get revenue and COGS from sales table for period.
+   * Excludes cancelled/returned so it matches Sales Invoices list.
+   * Used as primary source for P&L sales revenue so it matches Sale Invoice totals.
    */
   async getRevenueAndCOGSFromSales(startDate, endDate) {
+    const baseWhere = `deleted_at IS NULL AND sale_date >= $1 AND sale_date <= $2
+       AND (status IS NULL OR status NOT IN ('cancelled', 'returned'))`;
     const revenueResult = await query(
       `SELECT COALESCE(SUM(total), 0) AS revenue
        FROM sales
-       WHERE deleted_at IS NULL AND sale_date >= $1 AND sale_date <= $2`,
+       WHERE ${baseWhere}`,
       [startDate, endDate]
     );
     const revenue = parseFloat(revenueResult.rows[0]?.revenue || 0);
     const salesRows = await query(
-      `SELECT items FROM sales WHERE deleted_at IS NULL AND sale_date >= $1 AND sale_date <= $2`,
+      `SELECT items FROM sales WHERE ${baseWhere}`,
       [startDate, endDate]
     );
     let cogs = 0;
@@ -145,18 +149,24 @@ class PLCalculationService {
   }
 
   /**
-   * Calculate net income (includes all expense accounts so Record Expense impacts P&L)
+   * Calculate net income (includes all expense accounts so Record Expense impacts P&L).
+   * Uses sales table for revenue (matches Sale Invoices) and ledger for returns, other income, expenses.
    */
   async calculateNetIncome(startDate, endDate) {
-    const revenue = await this.calculateRevenue(startDate, endDate);
-    const cogs = await this.calculateCOGS(startDate, endDate);
+    const fromSales = await this.getRevenueAndCOGSFromSales(startDate, endDate);
+    let salesRevenue = fromSales.revenue;
+    let cogs = fromSales.cogs;
+    const salesReturns = await this.calculateAccountRevenue('4100', startDate, endDate);
+    const otherIncome = await this.calculateAccountRevenue('4200', startDate, endDate);
+    const totalRevenue = salesRevenue - salesReturns + otherIncome;
+    if (cogs === 0) cogs = await this.calculateCOGS(startDate, endDate);
     const totalExpenses = await this.calculateTotalExpensesFromLedger(startDate, endDate);
-    return revenue - cogs - totalExpenses;
+    return totalRevenue - cogs - totalExpenses;
   }
 
   /**
    * Generate complete P&L statement
-   * Uses account_ledger when populated; falls back to sales table for revenue/COGS when ledger is empty
+   * Uses sales table for revenue (matches Sale Invoice totals); ledger for returns, other income, COGS fallback, expenses
    */
   async generatePLStatement(startDate, endDate) {
     const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), 0, 1);
@@ -164,26 +174,18 @@ class PLCalculationService {
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
-    // Revenue from ledger
-    let salesRevenue = await this.calculateAccountRevenue('4000', start, end);
+    // Sales revenue: use sales table as primary source so P&L matches Sale Invoice totals
+    const fromSales = await this.getRevenueAndCOGSFromSales(start, end);
+    let salesRevenue = fromSales.revenue;
+    let cogs = fromSales.cogs;
+
+    // Sales returns and other income from ledger (not in sales table)
     const salesReturns = await this.calculateAccountRevenue('4100', start, end);
     const otherIncome = await this.calculateAccountRevenue('4200', start, end);
 
-    // COGS from ledger
-    let cogs = await this.calculateCOGS(start, end);
-
-    // Fallback: when ledger has no revenue/COGS, use sales table so P&L shows real data
-    if (salesRevenue === 0 && cogs === 0) {
-      const fromSales = await this.getRevenueAndCOGSFromSales(start, end);
-      if (fromSales.revenue > 0 || fromSales.cogs > 0) {
-        salesRevenue = fromSales.revenue;
-        cogs = fromSales.cogs;
-      }
-    }
-    // When ledger has revenue but no COGS posted, still get COGS from sales items (cost) so P&L shows expense
+    // COGS fallback: when sales table has no COGS, use ledger
     if (cogs === 0) {
-      const fromSales = await this.getRevenueAndCOGSFromSales(start, end);
-      if (fromSales.cogs > 0) cogs = fromSales.cogs;
+      cogs = await this.calculateCOGS(start, end);
     }
 
     const totalRevenue = salesRevenue - salesReturns + otherIncome;
