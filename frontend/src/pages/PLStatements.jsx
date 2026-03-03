@@ -271,7 +271,7 @@ export const PLStatements = () => {
       </div>
     `;
 
-    // Build formatted table HTML
+    const pdfSalesReturns = salesReturns || 0;
     const tableHTML = `
       <table>
         <tbody>
@@ -280,10 +280,33 @@ export const PLStatements = () => {
           </tr>
           <tr class="data-row">
             <td class="label-cell">Operating Revenue / Sales</td>
-            <td class="value-cell">${formatCurrency(totalRevenue)}</td>
+            <td class="value-cell">${formatCurrency(salesRevenue || totalRevenue)}</td>
           </tr>
           <tr class="summary-row">
             <td class="label-cell">Total Gross Revenue</td>
+            <td class="value-cell">${formatCurrency(salesRevenue || totalRevenue)}</td>
+          </tr>
+          ${pdfSalesReturns > 0 ? `
+          <tr class="section-header" style="background-color: #fffbeb;">
+            <td colspan="2">Returns</td>
+          </tr>
+          <tr class="data-row">
+            <td class="label-cell">Sales Returns</td>
+            <td class="value-cell value-negative">(${formatCurrency(pdfSalesReturns)})</td>
+          </tr>
+          <tr class="summary-row" style="background-color: #fffbeb;">
+            <td class="label-cell">Total Returns</td>
+            <td class="value-cell value-negative">(${formatCurrency(pdfSalesReturns)})</td>
+          </tr>
+          ` : ''}
+          ${otherIncome > 0 ? `
+          <tr class="data-row">
+            <td class="label-cell">Other Income</td>
+            <td class="value-cell">${formatCurrency(otherIncome)}</td>
+          </tr>
+          ` : ''}
+          <tr class="summary-row" style="font-weight: 700;">
+            <td class="label-cell">Total Revenue (Net of Returns)</td>
             <td class="value-cell">${formatCurrency(totalRevenue)}</td>
           </tr>
           <tr class="section-header">
@@ -354,8 +377,11 @@ export const PLStatements = () => {
   const summary = summaryData?.data || summaryData;
   
   // Extract values from summary - handle both direct values and nested structure
-  // Backend pl-statements/summary returns: revenue.total, grossProfit, operatingExpenses.total, netIncome
-  const totalRevenue = (summary?.revenue?.totalRevenue?.amount ?? summary?.revenue?.total) ?? (summary?.statement?.revenue?.totalRevenue?.amount ?? summary?.totalRevenue) ?? 0;
+  // Backend pl-statements/summary returns: revenue, returns, grossProfit, operatingExpenses, netIncome
+  const salesRevenue = summary?.revenue?.salesRevenue ?? summary?.statement?.revenue?.salesRevenue ?? 0;
+  const salesReturns = summary?.returns?.salesReturns ?? summary?.revenue?.salesReturns ?? summary?.statement?.returns?.salesReturns ?? 0;
+  const otherIncome = summary?.revenue?.otherIncome ?? summary?.statement?.revenue?.otherIncome ?? 0;
+  const totalRevenue = (summary?.revenue?.totalRevenue?.amount ?? summary?.revenue?.total) ?? (summary?.statement?.revenue?.totalRevenue?.amount ?? summary?.totalRevenue) ?? (salesRevenue - salesReturns + otherIncome);
   const grossProfit = (summary?.grossProfit?.amount ?? summary?.grossProfit) ?? summary?.statement?.grossProfit?.amount ?? 0;
   const operatingExpensesTotal = (summary?.operatingExpenses?.total ?? summary?.operatingExpenses) ?? 0;
   const operatingIncome = (summary?.operatingIncome?.amount ?? (typeof summary?.operatingIncome === 'number' ? summary.operatingIncome : (grossProfit - operatingExpensesTotal))) ?? summary?.statement?.operatingIncome?.amount ?? (grossProfit - operatingExpensesTotal);
@@ -565,11 +591,40 @@ export const PLStatements = () => {
                   </tr>
                   <tr className="border-b border-slate-50">
                     <td className="px-6 py-4 text-slate-600 font-medium">Operating Revenue / Sales</td>
-                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatCurrency(totalRevenue)}</td>
+                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatCurrency(salesRevenue || totalRevenue)}</td>
                   </tr>
                   <tr className="border-b border-slate-100 bg-slate-50/30">
                     <td className="px-6 py-4 text-slate-800 font-bold">Total Gross Revenue</td>
-                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatCurrency(totalRevenue)}</td>
+                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatCurrency(salesRevenue || totalRevenue)}</td>
+                  </tr>
+
+                  {/* Returns Section */}
+                  {(salesReturns > 0 || (summary?.returns?.totalReturns ?? 0) > 0) && (
+                    <>
+                      <tr className="bg-amber-50/80">
+                        <td colSpan="2" className="px-6 py-3 font-bold text-slate-800 uppercase text-xs tracking-wider">Returns</td>
+                      </tr>
+                      <tr className="border-b border-slate-50">
+                        <td className="px-6 py-4 text-slate-600 font-medium">Sales Returns</td>
+                        <td className="px-6 py-4 text-right font-bold text-rose-600">({formatCurrency(salesReturns || summary?.returns?.salesReturns || 0)})</td>
+                      </tr>
+                      <tr className="border-b border-slate-100 bg-amber-50/30">
+                        <td className="px-6 py-4 text-slate-800 font-bold">Total Returns</td>
+                        <td className="px-6 py-4 text-right font-bold text-rose-600">({formatCurrency(summary?.returns?.totalReturns ?? salesReturns ?? 0)})</td>
+                      </tr>
+                    </>
+                  )}
+
+                  {otherIncome > 0 && (
+                    <tr className="border-b border-slate-50">
+                      <td className="px-6 py-4 text-slate-600 font-medium">Other Income</td>
+                      <td className="px-6 py-4 text-right font-bold text-slate-900">{formatCurrency(otherIncome)}</td>
+                    </tr>
+                  )}
+
+                  <tr className="border-b border-slate-200 bg-slate-100/50">
+                    <td className="px-6 py-4 text-slate-900 font-extrabold text-base">Total Revenue (Net of Returns)</td>
+                    <td className="px-6 py-4 text-right font-extrabold text-slate-900 text-base">{formatCurrency(totalRevenue)}</td>
                   </tr>
 
                   {/* Expenses Section */}

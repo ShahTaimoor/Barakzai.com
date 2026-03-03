@@ -214,6 +214,10 @@ class PLCalculationService {
         startDate: start,
         endDate: end
       },
+      returns: {
+        salesReturns: salesReturns,
+        totalReturns: salesReturns
+      },
       revenue: {
         salesRevenue: salesRevenue,
         salesReturns: salesReturns,

@@ -15,7 +15,8 @@ const DashboardReportModal = ({
   dateTo,
   onDateChange,
   filters = {},
-  onFilterChange
+  onFilterChange,
+  summary = null
 }) => {
   const [localFilters, setLocalFilters] = useState(() => filters || {});
   const [localDateFrom, setLocalDateFrom] = useState(() => dateFrom);
@@ -140,6 +141,22 @@ const DashboardReportModal = ({
           </div>
 
         </div>
+
+        {/* Summary Section (e.g. Sales, Returns, Total) */}
+        {summary && summary.length > 0 && (
+          <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+              {summary.map((item, idx) => (
+                <div key={idx} className="text-center sm:text-left">
+                  <p className="text-xs text-gray-500">{item.label}</p>
+                  <p className={`text-sm sm:text-base font-semibold ${item.highlight ? 'text-primary-600' : 'text-gray-900'}`}>
+                    {typeof item.value === 'number' ? formatCurrency(item.value) : item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Grouping Hint */}
         <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-50 border border-gray-200 rounded text-xs sm:text-sm text-gray-600 break-words">

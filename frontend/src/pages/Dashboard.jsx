@@ -42,6 +42,7 @@ import { useGetBankReceiptsQuery } from '../store/services/bankReceiptsApi';
 import { useGetBankPaymentsQuery } from '../store/services/bankPaymentsApi';
 import { useGetUpcomingExpensesQuery } from '../store/services/expensesApi';
 import { useGetCompanySettingsQuery } from '../store/services/settingsApi';
+import { useGetSummaryQuery } from '../store/services/plStatementsApi';
 import { useFetchCompanyQuery } from '../store/services/companyApi';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
@@ -244,6 +245,11 @@ export const Dashboard = () => {
     { pollingInterval: 60000 }
   );
 
+  const { data: plSummaryData } = useGetSummaryQuery(
+    { startDate, endDate },
+    { skip: !startDate || !endDate }
+  );
+
   const { data: companySettingsData } = useGetCompanySettingsQuery();
   const { data: companyData } = useFetchCompanyQuery();
 
@@ -369,6 +375,9 @@ export const Dashboard = () => {
     salesInvoicesData?.orders?.reduce((sum, order) => sum + (order.discountAmount || 0), 0) || 0;
   const totalDiscounts = salesOrdersDiscounts + salesInvoicesDiscounts;
 
+  // Sales Returns from P&L (account 4100)
+  const totalSalesReturns = plSummaryData?.data?.returns?.salesReturns ?? plSummaryData?.returns?.salesReturns ?? 0;
+
   // Separate Cash/Bank Payments into Supplier Payments vs Operating Expenses
   // Operating expenses are payments that don't have a supplier or customer (general expenses)
   const cashOperatingExpenses = cashPaymentsArray
@@ -406,7 +415,7 @@ export const Dashboard = () => {
 
   // Financial Performance Calculations
   const grossRevenue = totalSales; // Total sales before discounts
-  const netRevenue = totalSales - totalDiscounts; // Sales after discounts
+  const netRevenue = totalSales - totalDiscounts - totalSalesReturns; // Sales after discounts and returns
   const costOfGoodsSold = totalPurchases; // COGS
   const grossProfit = netRevenue - costOfGoodsSold; // Gross Profit
   const netProfit = grossProfit - operatingExpenses;
@@ -731,6 +740,7 @@ export const Dashboard = () => {
                 <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Sales (Revenue)</p>
                 <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{Math.round(totalSales).toLocaleString()}</p>
                 <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
+                <p className="text-[10px] sm:text-xs text-primary-600 font-medium mt-0.5">Net: {Math.round(netRevenue).toLocaleString()}</p>
               </div>
 
               {/* Purchase (COGS) */}
@@ -1136,6 +1146,11 @@ export const Dashboard = () => {
           setStartDate(from);
           setEndDate(to);
         }}
+        summary={[
+          { label: 'Sales Total', value: totalSales },
+          { label: 'Returns', value: totalSalesReturns },
+          { label: 'Net Total', value: totalSales - totalSalesReturns - totalDiscounts, highlight: true }
+        ]}
       />
 
       <DashboardReportModal
