@@ -218,6 +218,7 @@ class SalesOrderRepository {
     const params = [];
     let paramCount = 1;
     const map = {
+      customer: 'customer_id', customerId: 'customer_id',
       items: 'items', subtotal: 'subtotal', tax: 'tax', isTaxExempt: 'is_tax_exempt', total: 'total',
       status: 'status', orderDate: 'order_date', expectedDelivery: 'expected_delivery',
       confirmedDate: 'confirmed_date', lastInvoicedDate: 'last_invoiced_date', notes: 'notes', terms: 'terms',

@@ -273,6 +273,21 @@ class ProductServicePostgres {
 
     const product = await productRepository.update(id, data);
     if (!product) throw new Error('Product not found');
+
+    // Sync reorder point to inventory table (source of truth for display)
+    const invData = updateData.inventory;
+    if (invData && (invData.reorderPoint !== undefined || invData.minStock !== undefined)) {
+      const reorderPoint = invData.reorderPoint ?? invData.minStock ?? product.min_stock_level ?? 10;
+      try {
+        const existingInv = await inventoryRepository.findOne({ productId: id, product: id });
+        if (existingInv) {
+          await inventoryRepository.updateByProductId(id, { reorderPoint: Number(reorderPoint) });
+        }
+      } catch (invErr) {
+        console.error('Inventory reorder point sync on product update:', invErr);
+      }
+    }
+
     const categoryMap = product.category_id ? await getCategoryMap([product.category_id]) : null;
     return {
       product: toApiProduct(product, categoryMap),

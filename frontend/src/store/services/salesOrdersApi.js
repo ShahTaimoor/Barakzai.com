@@ -49,6 +49,7 @@ export const salesOrdersApi = api.injectEndpoints({
       invalidatesTags: (_res, _err, { id }) => [
         { type: 'Orders', id },
         { type: 'Orders', id: 'LIST' },
+        { type: 'Customers', id: 'LIST' },
       ],
     }),
     deleteSalesOrder: builder.mutation({

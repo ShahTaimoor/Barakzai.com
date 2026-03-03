@@ -5,10 +5,12 @@ class BankReceiptRepository {
     const result = await query(
       `SELECT 
         br.*,
+        b.bank_name as "bankName",
         c.id as joined_customer_id,
         c.name as customer_name,
         c.business_name as customer_business_name
       FROM bank_receipts br
+      LEFT JOIN banks b ON br.bank_id = b.id AND b.deleted_at IS NULL
       LEFT JOIN customers c ON br.customer_id = c.id AND c.deleted_at IS NULL
       WHERE br.id = $1 AND br.deleted_at IS NULL`,
       [id]
@@ -60,6 +62,7 @@ class BankReceiptRepository {
     let sql = `
       SELECT 
         br.*,
+        b.bank_name as "bankName",
         s.id as joined_supplier_id,
         s.company_name as supplier_company_name,
         s.business_name as supplier_business_name,
@@ -68,6 +71,7 @@ class BankReceiptRepository {
         c.name as customer_name,
         c.business_name as customer_business_name
       FROM bank_receipts br
+      LEFT JOIN banks b ON br.bank_id = b.id AND b.deleted_at IS NULL
       LEFT JOIN suppliers s ON br.supplier_id = s.id AND s.deleted_at IS NULL
       LEFT JOIN customers c ON br.customer_id = c.id AND c.deleted_at IS NULL
       WHERE br.deleted_at IS NULL
@@ -185,10 +189,12 @@ class BankReceiptRepository {
     let sql = `
       SELECT 
         br.*,
+        b.bank_name as "bankName",
         c.id as joined_customer_id,
         c.name as customer_name,
         c.business_name as customer_business_name
       FROM bank_receipts br
+      LEFT JOIN banks b ON br.bank_id = b.id AND b.deleted_at IS NULL
       LEFT JOIN customers c ON br.customer_id = c.id AND c.deleted_at IS NULL
       WHERE br.deleted_at IS NULL
     `;

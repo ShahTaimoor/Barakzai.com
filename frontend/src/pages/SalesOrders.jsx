@@ -132,8 +132,7 @@ const SalesOrders = () => {
   const [outOfStockItems, setOutOfStockItems] = useState([]);
   const [pendingConfirmId, setPendingConfirmId] = useState(null);
 
-  // State for modals
-  const [showEditModal, setShowEditModal] = useState(false);
+  // State for modals (edit uses inline form, not a modal)
   const [showViewModal, setShowViewModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printOrderData, setPrintOrderData] = useState(null);
@@ -274,6 +273,8 @@ const SalesOrders = () => {
   // Refs
   const productSearchRef = useRef(null);
   const customerSearchRef = useRef(null);
+  const modalCustomerSearchRef = useRef(null);
+  const modalProductSearchRef = useRef(null);
 
   useEffect(() => {
     if (autoGenerateOrderNumber) {
@@ -284,33 +285,14 @@ const SalesOrders = () => {
     }
   }, [autoGenerateOrderNumber, selectedCustomer, generateOrderNumber]);
 
-  // Focus management for edit modal
+  // Clear modal product state when cancelling edit
   useEffect(() => {
-    if (showEditModal) {
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
-
-      // Focus on the first input field in the modal after a short delay
-      const timer = setTimeout(() => {
-        const modalInput = document.querySelector('.modal-product-search');
-        if (modalInput) {
-          modalInput.focus();
-        }
-      }, 100);
-
-      return () => {
-        clearTimeout(timer);
-        document.body.style.overflow = 'unset';
-      };
-    } else {
-      // Ensure body scroll is restored when modal is closed
-      document.body.style.overflow = 'unset';
-      // Clear modal state when modal is closed
+    if (!selectedOrder) {
       setModalProductSearchTerm('');
       setModalSelectedProduct(null);
       setModalSelectedSuggestionIndex(-1);
     }
-  }, [showEditModal]);
+  }, [selectedOrder]);
 
   // Safety mechanism: Always restore scroll on component unmount
   useEffect(() => {
@@ -323,21 +305,12 @@ const SalesOrders = () => {
   useEffect(() => {
     if (!updateTabTitle || !activeTabId) return;
 
-    let newTitle;
-    if (selectedCustomer) {
-      newTitle = `SO - ${selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name || 'Unknown'}`;
-    } else if (!showEditModal) {
-      // Only reset to 'SO' if not in edit modal
-      newTitle = 'SO';
-    } else {
-      return; // Don't update title when in edit modal
-    }
+    const newTitle = selectedCustomer
+      ? `SO - ${selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name || 'Unknown'}`
+      : 'SO';
 
-    // Only update if we have a valid tab ID
-    if (activeTabId) {
-      updateTabTitle(activeTabId, newTitle);
-    }
-  }, [selectedCustomer, updateTabTitle, activeTabId, showEditModal]);
+    updateTabTitle(activeTabId, newTitle);
+  }, [selectedCustomer, updateTabTitle, activeTabId]);
 
   // Fetch sales orders
   const {
@@ -676,6 +649,24 @@ const SalesOrders = () => {
     }
   };
 
+  const handleModalProductSearch = (searchTerm) => {
+    setModalProductSearchTerm(searchTerm);
+    setModalSelectedSuggestionIndex(-1);
+    if (searchTerm === '') {
+      setModalSelectedProduct(null);
+      setCustomRate('');
+    }
+  };
+
+  const handleModalProductSelect = (product) => {
+    if (!product) return;
+    setModalSelectedProduct(product);
+    setCustomRate(calculatePrice(product, priceType));
+    setQuantity(1);
+    const displayName = product.isVariant ? (product.displayName || product.variantName || product.name) : product.name;
+    setModalProductSearchTerm(displayName);
+  };
+
   const handleProductKeyDown = (e) => {
     if (e.key === 'Enter' && isAddingProduct) {
       e.preventDefault();
@@ -793,23 +784,53 @@ const SalesOrders = () => {
         }));
       }
 
-      const newItem = {
-        product: selectedProduct._id,
-        productData: selectedProduct, // Store full product/variant data for display
-        quantity,
-        unitPrice: unitPrice,
-        discountPercent: 0,
-        taxRate: taxRate,
-        subtotal,
-        discountAmount,
-        taxAmount,
-        total
-      };
+      const productId = selectedProduct._id;
+      const getItemProductId = (item) => (typeof item.product === 'string' ? item.product : item.product?._id)?.toString?.() || item.product;
+      const existingIndex = formData.items.findIndex(item => getItemProductId(item) === productId);
 
-      setFormData(prev => ({
-        ...prev,
-        items: [...prev.items, newItem]
-      }));
+      if (existingIndex >= 0) {
+        // Product already in cart - increase quantity instead of adding a new row
+        const existingItem = formData.items[existingIndex];
+        const newQuantity = (existingItem.quantity || 0) + quantity;
+        const newSubtotal = newQuantity * unitPrice;
+        const newTaxAmount = formData.isTaxExempt ? 0 : (newSubtotal * (existingItem.taxRate || 0) / 100);
+        const newTotal = newSubtotal - (existingItem.discountAmount || 0) + newTaxAmount;
+
+        setFormData(prev => ({
+          ...prev,
+          items: prev.items.map((item, i) =>
+            i === existingIndex
+              ? {
+                  ...item,
+                  quantity: newQuantity,
+                  unitPrice: unitPrice,
+                  subtotal: newSubtotal,
+                  taxAmount: newTaxAmount,
+                  total: newTotal
+                }
+              : item
+          )
+        }));
+      } else {
+        // New product - add as new row
+        const newItem = {
+          product: selectedProduct._id,
+          productData: selectedProduct,
+          quantity,
+          unitPrice: unitPrice,
+          discountPercent: 0,
+          taxRate: taxRate,
+          subtotal,
+          discountAmount,
+          taxAmount,
+          total
+        };
+
+        setFormData(prev => ({
+          ...prev,
+          items: [...prev.items, newItem]
+        }));
+      }
 
       // Reset form
       setSelectedProduct(null);
@@ -839,6 +860,61 @@ const SalesOrders = () => {
     } finally {
       setIsAddingToCart(false);
     }
+  };
+
+  const handleAddModalItem = async () => {
+    if (!modalSelectedProduct) return;
+    const unitPrice = parseFloat(customRate) || 0;
+    if (unitPrice < 0) {
+      showErrorToast('Please enter a valid rate');
+      return;
+    }
+    const displayName = modalSelectedProduct.isVariant
+      ? (modalSelectedProduct.displayName || modalSelectedProduct.variantName || modalSelectedProduct.name)
+      : modalSelectedProduct.name;
+    const productIdForPrice = modalSelectedProduct.isVariant ? modalSelectedProduct.baseProductId : modalSelectedProduct._id;
+    let lastPrice = null;
+    if (productIdForPrice) {
+      try {
+        const resp = await getLastPurchasePrice(productIdForPrice).unwrap();
+        lastPrice = resp?.lastPurchasePrice ?? null;
+      } catch {
+        lastPrice = null;
+      }
+    }
+    if (lastPrice !== null && unitPrice < lastPrice) {
+      const ok = window.confirm(
+        `⚠️ WARNING: Sale price (${unitPrice}) is below cost price (${Math.round(lastPrice)}).\n\nDo you want to proceed?`
+      );
+      if (!ok) return;
+    }
+    const taxRate = modalSelectedProduct.isVariant
+      ? (modalSelectedProduct.baseProduct?.taxSettings?.taxRate || 0)
+      : (modalSelectedProduct.taxSettings?.taxRate || 0);
+    const subtotal = unitPrice * quantity;
+    const taxAmount = formData.isTaxExempt ? 0 : (subtotal * taxRate / 100);
+    const newItem = {
+      product: modalSelectedProduct._id,
+      productData: modalSelectedProduct,
+      quantity,
+      unitPrice,
+      discountPercent: 0,
+      taxRate,
+      subtotal,
+      discountAmount: 0,
+      taxAmount,
+      total: subtotal + taxAmount
+    };
+    setFormData(prev => ({ ...prev, items: [...prev.items, newItem] }));
+    if (lastPrice !== null) {
+      setLastPurchasePrices(prev => ({ ...prev, [modalSelectedProduct._id]: lastPrice }));
+    }
+    setModalSelectedProduct(null);
+    setModalProductSearchTerm('');
+    setQuantity(1);
+    setCustomRate('');
+    setModalSelectedSuggestionIndex(-1);
+    setTimeout(() => modalProductSearchRef?.current?.focus(), 100);
   };
 
   const handleRemoveItem = (index) => {
@@ -1138,30 +1214,42 @@ const SalesOrders = () => {
   };
 
   const handleUpdate = () => {
-    // Clean the form data before sending to backend
+    // Extract product ID (backend expects UUID string, not object)
+    const getProductId = (item) => {
+      const p = item.product;
+      if (!p) return null;
+      if (typeof p === 'string') return p;
+      return p.id || p._id || null;
+    };
+    // Extract customer ID (backend expects UUID string)
+    const customerId = formData.customer
+      ? (typeof formData.customer === 'object'
+        ? (formData.customer?.id || formData.customer?._id)
+        : formData.customer)
+      : null;
+
     const cleanedData = {
       ...formData,
+      customer: customerId || undefined,
       items: formData.items.map(item => ({
-        product: item.product,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.total,
-        invoicedQuantity: item.invoicedQuantity || 0,
-        remainingQuantity: item.remainingQuantity || item.quantity
-      }))
+        product: getProductId(item),
+        quantity: Math.max(1, parseInt(item.quantity, 10) || 1),
+        unitPrice: parseFloat(item.unitPrice) || 0,
+        totalPrice: parseFloat(item.total) || parseFloat(item.unitPrice) * (parseInt(item.quantity, 10) || 1),
+        invoicedQuantity: parseInt(item.invoicedQuantity, 10) || 0,
+        remainingQuantity: parseInt(item.remainingQuantity, 10) ?? (parseInt(item.quantity, 10) || 1)
+      })).filter(item => item.product)
     };
 
-    updateSalesOrderMutation({ id: selectedOrder._id, ...cleanedData })
+    updateSalesOrderMutation({ id: selectedOrder._id || selectedOrder.id, ...cleanedData })
       .unwrap()
       .then(() => {
-        setShowEditModal(false);
         setSelectedOrder(null);
         setModalProductSearchTerm('');
         setModalSelectedProduct(null);
         setModalSelectedSuggestionIndex(-1);
         resetForm();
         showSuccessToast('Sales order updated successfully');
-        // Tab title will be updated by useEffect when selectedCustomer is reset
         refetch();
       })
       .catch((error) => {
@@ -1475,7 +1563,6 @@ const SalesOrders = () => {
 
   const handleEdit = (order) => {
     setSelectedOrder(order);
-    setShowEditModal(true);
 
     // Process items to ensure productData is available
     const processedItems = (order.items || []).map(item => ({
@@ -1485,7 +1572,7 @@ const SalesOrders = () => {
 
     setFormData({
       orderType: order.orderType,
-      customer: order.customer?._id || '',
+      customer: order.customer?.id || order.customer?._id || '',
       items: processedItems,
       notes: order.notes || '',
       terms: order.terms || '',
@@ -1498,14 +1585,18 @@ const SalesOrders = () => {
     if (order.customer) {
       setSelectedCustomer(order.customer);
       setCustomerSearchTerm(order.customer.businessName || order.customer.name || '');
-      // Tab title will be updated by useEffect when selectedCustomer changes
     } else {
       setSelectedCustomer(null);
       setCustomerSearchTerm('');
-      // Tab title will be updated by useEffect when selectedCustomer changes
     }
+  };
 
-    setShowEditModal(true);
+  const cancelEdit = () => {
+    setSelectedOrder(null);
+    setModalProductSearchTerm('');
+    setModalSelectedProduct(null);
+    setModalSelectedSuggestionIndex(-1);
+    resetForm();
   };
 
   const handleView = (order) => {
@@ -2178,10 +2269,12 @@ const SalesOrders = () => {
                       {/* Purchase Price (Cost) - 1 column (conditional) - Between Quantity and Rate */}
                       {showCostPrice && canViewCostPrice && (
                         <div className="col-span-1">
-                          <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-8 flex items-center justify-center" title="Last Purchase Price">
+                          <span className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200 block text-center h-8 flex items-center justify-center" title={lastPurchasePrices[item.product?.toString()] !== undefined ? 'Last Purchase Price' : 'Product Cost (from pricing)'}>
                             {lastPurchasePrices[item.product?.toString()] !== undefined
                               ? `${Math.round(lastPurchasePrices[item.product?.toString()])}`
-                              : 'N/A'}
+                              : (product?.pricing?.cost != null && product?.pricing?.cost !== '')
+                                ? `${Math.round(Number(product.pricing.cost))}`
+                                : 'N/A'}
                           </span>
                         </div>
                       )}
@@ -2359,11 +2452,13 @@ const SalesOrders = () => {
                       {/* Cost Price (if shown) */}
                       {showCostPrice && canViewCostPrice && (
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Last Purchase Price</p>
+                          <p className="text-xs text-gray-500 mb-1">{lastPurchasePrices[item.product?.toString()] !== undefined ? 'Last Purchase Price' : 'Cost'}</p>
                           <p className="text-sm font-semibold text-red-700 bg-red-50 px-2 py-1 rounded border border-red-200">
                             {lastPurchasePrices[item.product?.toString()] !== undefined
                               ? `${Math.round(lastPurchasePrices[item.product?.toString()])}`
-                              : 'N/A'}
+                              : (product?.pricing?.cost != null && product?.pricing?.cost !== '')
+                                ? `${Math.round(Number(product.pricing.cost))}`
+                                : 'N/A'}
                           </p>
                         </div>
                       )}
@@ -2377,7 +2472,7 @@ const SalesOrders = () => {
       </div>
 
       {/* Sales Order Details */}
-      {formData.items.length > 0 && !showEditModal && (
+      {formData.items.length > 0 && (
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg max-w-5xl ml-auto mt-4 w-full overflow-x-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-blue-200">
             <h3 className="text-base sm:text-lg font-medium text-gray-900 text-right mb-4">
@@ -2608,441 +2703,37 @@ const SalesOrders = () => {
               <span className="hidden sm:inline">Print Preview</span>
               <span className="sm:hidden">Print</span>
             </button>
-            <button
-              onClick={handleCreate}
-              disabled={creating || formData.items.length === 0}
-              className="btn btn-primary btn-md sm:btn-lg flex-2 w-full sm:w-auto"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">{creating ? 'Creating...' : 'Create Sales Order'}</span>
-              <span className="sm:hidden">{creating ? 'Creating...' : 'Create Order'}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Sales Order Modal */}
-      {showEditModal && selectedOrder && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowEditModal(false);
-              setSelectedOrder(null);
-              setModalProductSearchTerm('');
-              setModalSelectedProduct(null);
-              setModalSelectedSuggestionIndex(-1);
-              resetForm();
-            }
-          }}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Edit Sales Order Details</h2>
+            {selectedOrder ? (
+              <>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="btn btn-secondary flex-1 w-full sm:w-auto"
+                >
+                  Cancel Edit
+                </button>
+                <LoadingButton
+                  onClick={handleUpdate}
+                  isLoading={updating}
+                  disabled={updating || formData.items.length === 0}
+                  className="btn btn-primary btn-md sm:btn-lg flex-2 w-full sm:w-auto"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">{updating ? 'Updating...' : 'Update Sales Order'}</span>
+                  <span className="sm:hidden">{updating ? 'Updating...' : 'Update'}</span>
+                </LoadingButton>
+              </>
+            ) : (
               <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedOrder(null);
-                  setModalProductSearchTerm('');
-                  setModalSelectedProduct(null);
-                  setModalSelectedSuggestionIndex(-1);
-                  resetForm();
-                }}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={handleCreate}
+                disabled={creating || formData.items.length === 0}
+                className="btn btn-primary btn-md sm:btn-lg flex-2 w-full sm:w-auto"
               >
-                <X className="h-6 w-6" />
+                <Save className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">{creating ? 'Creating...' : 'Create Sales Order'}</span>
+                <span className="sm:hidden">{creating ? 'Creating...' : 'Create Order'}</span>
               </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              {/* Customer Selection */}
-              <div className="mb-4">
-                <div className="flex flex-col">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Selection</label>
-                  <input
-                    type="text"
-                    placeholder="Search customers..."
-                    value={customerSearchTerm}
-                    onChange={(e) => setCustomerSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {/* Customer Suggestions */}
-                  {customerSearchTerm && customersData?.customers?.length > 0 && (
-                    <div className="mt-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                      {customersData.customers.slice(0, 5).map((customer) => {
-                        // Get city from addresses
-                        const defaultAddress = customer.addresses?.find(addr => addr.isDefault) || customer.addresses?.[0];
-                        const city = defaultAddress?.city || '';
-
-                        return (
-                          <div
-                            key={customer._id}
-                            onClick={() => {
-                              setFormData(prev => ({ ...prev, customer: customer._id }));
-                              setCustomerSearchTerm(customer.businessName || customer.name);
-                            }}
-                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-center justify-between"
-                          >
-                            <div className="flex-1">
-                              <div className="font-medium">{customer.businessName || customer.name}</div>
-                              <div className="text-sm text-gray-600">{customer.email}</div>
-                            </div>
-                            {city && (
-                              <div className="text-xs text-gray-500 ml-2">{city}</div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Order Details */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                {/* Order Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Order Type</label>
-                  <select
-                    value={formData.orderType}
-                    onChange={(e) => setFormData(prev => ({ ...prev, orderType: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="retail">Retail</option>
-                    <option value="wholesale">Wholesale</option>
-                    <option value="return">Return</option>
-                    <option value="exchange">Exchange</option>
-                  </select>
-                </div>
-
-                {/* Tax Status */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tax Status</label>
-                  <div className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md">
-                    <input
-                      type="checkbox"
-                      id="taxExempt"
-                      checked={formData.isTaxExempt}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isTaxExempt: e.target.checked }))}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="taxExempt" className="text-sm font-medium text-gray-700 cursor-pointer">
-                      Tax Exempt
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes and Terms */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                {/* Notes */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Add any notes or comments..."
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Terms & Conditions */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Terms & Conditions</label>
-                  <textarea
-                    value={formData.terms}
-                    onChange={(e) => setFormData(prev => ({ ...prev, terms: e.target.value }))}
-                    placeholder="Add terms and conditions..."
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Product Selection & Cart Items */}
-              <div className="px-6 py-4 border-t border-blue-200">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Product Selection & Cart Items</h4>
-                <div className="mb-4">
-                  <div className="grid grid-cols-12 gap-4 items-end">
-                    {/* Product Search - 6 columns */}
-                    <div className="col-span-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Product Search</label>
-                      <input
-                        type="text"
-                        placeholder="Search or type product name..."
-                        value={modalProductSearchTerm}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          setModalProductSearchTerm(e.target.value);
-                          setModalSelectedSuggestionIndex(-1); // Reset selection when typing
-                        }}
-                        onFocus={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          e.stopPropagation();
-
-                          if (!modalProductsData?.length) return;
-
-                          const maxIndex = Math.min(modalProductsData.length - 1, 4); // Max 5 suggestions
-
-                          switch (e.key) {
-                            case 'ArrowDown':
-                              e.preventDefault();
-                              setModalSelectedSuggestionIndex(prev =>
-                                prev < maxIndex ? prev + 1 : 0
-                              );
-                              break;
-                            case 'ArrowUp':
-                              e.preventDefault();
-                              setModalSelectedSuggestionIndex(prev =>
-                                prev > 0 ? prev - 1 : maxIndex
-                              );
-                              break;
-                            case 'Enter':
-                              e.preventDefault();
-                              if (modalSelectedSuggestionIndex >= 0 && modalProductsData[modalSelectedSuggestionIndex]) {
-                                const product = modalProductsData[modalSelectedSuggestionIndex];
-                                setModalSelectedProduct(product);
-                                setCustomRate(product.pricing?.retail || 0);
-                                setQuantity(1);
-                                setModalProductSearchTerm(product.name);
-                                setModalSelectedSuggestionIndex(-1);
-
-                                // Move focus to quantity field after selecting product
-                                setTimeout(() => {
-                                  const quantityInput = document.querySelector('.modal-quantity-input');
-                                  if (quantityInput) {
-                                    quantityInput.focus();
-                                  }
-                                }, 100);
-                              }
-                              break;
-                            case 'Escape':
-                              e.preventDefault();
-                              setModalSelectedSuggestionIndex(-1);
-                              break;
-                          }
-                        }}
-                        className="modal-product-search w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      {/* Product Suggestions */}
-                      {modalProductSearchTerm && modalProductsData?.length > 0 && (
-                        <div className="mt-2 max-h-96 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-lg">
-                          {modalProductsData
-                            .map((product, index) => (
-                              <div
-                                key={product._id}
-                                onClick={() => {
-                                  setModalSelectedProduct(product);
-                                  setCustomRate(product.pricing?.retail || 0);
-                                  setQuantity(1);
-                                  setModalProductSearchTerm(product.name);
-                                  setModalSelectedSuggestionIndex(-1);
-
-                                  // Move focus to quantity field after selecting product
-                                  setTimeout(() => {
-                                    const quantityInput = document.querySelector('.modal-quantity-input');
-                                    if (quantityInput) {
-                                      quantityInput.focus();
-                                    }
-                                  }, 100);
-                                }}
-                                className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 ${modalSelectedSuggestionIndex === index
-                                  ? 'bg-blue-100 border-blue-200'
-                                  : 'hover:bg-gray-100'
-                                  }`}
-                              >
-                                <div className="flex flex-col">
-                                  <div className="font-medium">
-                                    {product.isVariant
-                                      ? (product.displayName || product.variantName || product.name)
-                                      : product.name}
-                                  </div>
-                                  {product.isVariant && (
-                                    <div className="text-xs text-gray-500">
-                                      {product.variantType}: {product.variantValue}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                  Stock: {product.inventory?.currentStock || 0} |
-                                  Price: {product.pricing?.retail || 0}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quantity - 2 columns */}
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={quantity}
-                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                        className="modal-quantity-input w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="1"
-                      />
-                    </div>
-
-                    {/* Sale Price Per Unit - 2 columns */}
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Sale Price Per Unit</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={customRate}
-                        onChange={(e) => setCustomRate(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="0.00"
-                      />
-                    </div>
-
-                    {/* Add Button - 2 columns */}
-                    <div className="col-span-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (modalSelectedProduct && quantity > 0 && customRate >= 0) {
-                            const newItem = {
-                              product: modalSelectedProduct._id,
-                              quantity: quantity,
-                              unitPrice: customRate,
-                              subtotal: quantity * customRate,
-                              productData: modalSelectedProduct
-                            };
-                            setFormData(prev => ({ ...prev, items: [...prev.items, newItem] }));
-                            setModalSelectedProduct(null);
-                            setModalProductSearchTerm('');
-                            setQuantity(1);
-                            setCustomRate('');
-                            setModalSelectedSuggestionIndex(-1);
-                          }
-                        }}
-                        disabled={!modalSelectedProduct || quantity <= 0 || customRate < 0}
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                      >
-                        Add Product
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Current Items */}
-              <div className="space-y-2">
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Current Items:</h5>
-                {formData.items.length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">No items in this order</p>
-                ) : (
-                  formData.items.map((item, index) => (
-                    <div key={index} className="flex items-center p-3 bg-white border border-gray-200 rounded-lg">
-                      {/* Product Name */}
-                      <div className="font-medium text-gray-900 min-w-[200px] mr-4">
-                        {item.productData?.name || 'Unknown Product'}
-                      </div>
-
-                      {/* Quantity, Price, Total and Delete - Grouped Together */}
-                      <div className="flex items-center space-x-3 ml-auto">
-                        {/* Quantity Field */}
-                        <div className="flex items-center space-x-1">
-                          <label className="text-xs text-gray-600">Qty:</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const newItems = [...formData.items];
-                              const newQuantity = Math.max(1, parseInt(e.target.value) || 1);
-                              newItems[index].quantity = newQuantity;
-                              newItems[index].subtotal = newQuantity * newItems[index].unitPrice;
-                              setFormData(prev => ({ ...prev, items: newItems }));
-                            }}
-                            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-
-                        {/* Sale Price Field */}
-                        <div className="flex items-center space-x-1">
-                          <label className="text-xs text-gray-600">× Sale Price:</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.unitPrice}
-                            onChange={(e) => {
-                              const newItems = [...formData.items];
-                              const newPrice = parseFloat(e.target.value) || 0;
-                              newItems[index].unitPrice = newPrice;
-                              newItems[index].subtotal = newItems[index].quantity * newPrice;
-                              setFormData(prev => ({ ...prev, items: newItems }));
-                            }}
-                            className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-
-                        {/* Total Display */}
-                        <div className="flex items-center space-x-1">
-                          <label className="text-xs text-gray-600">=</label>
-                          <span className="text-sm font-medium text-gray-900 min-w-[60px]">
-                            {item.subtotal?.toFixed(2) || (item.quantity * item.unitPrice).toFixed(2)}
-                          </span>
-                        </div>
-
-                        {/* Remove Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newItems = formData.items.filter((_, i) => i !== index);
-                            setFormData(prev => ({ ...prev, items: newItems }));
-                          }}
-                          className="px-2 py-1 text-sm bg-red-200 text-red-700 rounded hover:bg-red-300 ml-2"
-                          title="Remove item"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedOrder(null);
-                  setModalProductSearchTerm('');
-                  setModalSelectedProduct(null);
-                  setModalSelectedSuggestionIndex(-1);
-                  resetForm();
-                }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-              >
-                Cancel
-              </button>
-              <LoadingButton
-                onClick={handleUpdate}
-                isLoading={updating}
-                disabled={updating || formData.items.length === 0}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Update Sales Order
-              </LoadingButton>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -3209,7 +2900,14 @@ const SalesOrders = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {Math.round(order?.total ?? order?.pricing?.total ?? 0)}
+                        {(() => {
+                          const items = Array.isArray(order?.items) ? order.items : [];
+                          const fromItems = items.length > 0
+                            ? items.reduce((sum, i) => sum + (Number(i.totalPrice ?? i.total ?? 0) || (Number(i.quantity || 0) * Number(i.unitPrice ?? i.unit_price ?? 0))), 0)
+                            : null;
+                          const stored = order?.total ?? order?.pricing?.total ?? 0;
+                          return Math.round(fromItems != null && fromItems > 0 ? fromItems : stored);
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">

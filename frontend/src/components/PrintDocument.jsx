@@ -321,6 +321,8 @@ const PrintDocument = ({
         : toNumber(partyInfo.balance, 0);
 
     const generatedAt = new Date();
+    // Bill creation date: sale_date/billDate when bill was created; Print Date = generatedAt (when printing)
+    const invoiceDate = orderData?.sale_date || orderData?.saleDate || orderData?.billDate || orderData?.order_date || orderData?.createdAt || orderData?.invoiceDate;
 
     const billToLines = [
         showPrintContactName ? { label: 'Name:', value: partyInfo.name } : null,
@@ -335,7 +337,7 @@ const PrintDocument = ({
 
     const invoiceDetailLines = [
         showPrintInvoiceNumber ? { label: 'Invoice #:', value: formatText(documentNumber) } : null,
-        (showPrintInvoiceDate && showDate) ? { label: 'Date:', value: formatDate(orderData?.createdAt || orderData?.invoiceDate) } : null,
+        (showPrintInvoiceDate && showDate) ? { label: 'Date:', value: formatDate(invoiceDate) } : null,
         showPrintInvoiceStatus ? { label: 'Status:', value: formatText(documentStatus) } : null,
         showPrintInvoiceType ? { label: 'Type:', value: formatText(documentType) } : null
     ].filter(Boolean);
@@ -396,7 +398,7 @@ const PrintDocument = ({
                         </div>
                         <div className="receipt-voucher__row flex border-b border-black">
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Date</div>
-                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{formatDate(orderData?.createdAt)}</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{formatDate(invoiceDate)}</div>
                         </div>
                         <div className="receipt-voucher__row flex border-b border-black">
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Amount</div>
@@ -466,7 +468,7 @@ const PrintDocument = ({
                         Customer: <span className="uppercase">{partyInfo.name}</span> {partyInfo.phone !== 'N/A' && partyInfo.phone}
                     </div>
                     <div className="col-span-4 p-2 border-r border-b border-black font-medium text-right">
-                        Invoice Date: {formatDate(orderData?.createdAt || orderData?.invoiceDate)}
+                        Invoice Date: {formatDate(invoiceDate)}
                     </div>
                     <div className="col-span-8 p-2 border-r border-b border-black font-medium min-h-[40px]">
                         Address: {partyInfo.address}
@@ -520,7 +522,7 @@ const PrintDocument = ({
                             Printed By: <span className="underline font-bold uppercase">{orderData?.createdBy?.firstName || (orderData?.createdBy?.name ? orderData.createdBy.name.split(' ')[0] : 'ADMIN')}</span>
                         </div>
                         <div>
-                            Entry Date Time: {formatDateTime(orderData?.createdAt || orderData?.invoiceDate)}
+                            Entry Date Time: {formatDateTime(invoiceDate)}
                         </div>
                         <div className="mb-6">
                             Print Date Time: {formatDateTime(generatedAt)}

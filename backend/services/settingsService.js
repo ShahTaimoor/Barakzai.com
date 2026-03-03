@@ -16,14 +16,10 @@ class SettingsService {
    * @returns {Promise<object>}
    */
   async updateCompanySettings(updateData) {
-    // Validation - check both camelCase and snake_case for robustness
-    const companyName = updateData.companyName || updateData.company_name;
-    const contactNumber = updateData.contactNumber || updateData.contact_number;
-    const address = updateData.address;
-
-    if (!companyName || !contactNumber || !address) {
-      throw new Error('Company name, contact number, and address are required');
-    }
+    // Accept both camelCase and snake_case for robustness; allow empty values for print settings
+    const companyName = updateData.companyName ?? updateData.company_name ?? '';
+    const contactNumber = updateData.contactNumber ?? updateData.contact_number ?? '';
+    const address = updateData.address ?? '';
 
     // Ensure we send the data in the format the repository expects (camelCase)
     const dataToUpdate = {
