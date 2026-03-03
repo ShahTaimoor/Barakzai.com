@@ -244,11 +244,15 @@ class PLCalculationService {
   }
 
   /**
-   * Calculate revenue for a specific account
+   * Calculate revenue for a specific account.
+   * For Sales Revenue (4000), Other Income (4200): credit - debit (credits increase revenue).
+   * For Sales Returns (4100) contra-revenue: debit - credit (debits = returns, we need positive amount to subtract).
    */
   async calculateAccountRevenue(accountCode, startDate, endDate) {
+    const isContraRevenue = accountCode === '4100'; // Sales Returns
+    const sign = isContraRevenue ? 'debit_amount - credit_amount' : 'credit_amount - debit_amount';
     const result = await query(
-      `SELECT COALESCE(SUM(credit_amount - debit_amount), 0) AS revenue
+      `SELECT COALESCE(SUM(${sign}), 0) AS revenue
        FROM account_ledger
        WHERE account_code = $1
          AND transaction_date >= $2
