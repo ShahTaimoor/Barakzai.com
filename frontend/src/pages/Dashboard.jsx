@@ -344,7 +344,6 @@ export const Dashboard = () => {
     }, 0);
     return sum + orderCOGS;
   }, 0);
-  const salesInvoicesNetProfit = salesInvoicesTotal - salesInvoicesCOGS;
 
   // Purchase Invoices (from Purchase page)
   const purchaseInvoicesTotal = purchaseInvoicesData?.data?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) ||
@@ -390,6 +389,13 @@ export const Dashboard = () => {
   // Sales Returns from P&L (account 4100)
   const totalSalesReturns = plSummaryData?.data?.returns?.salesReturns ?? plSummaryData?.returns?.salesReturns ?? 0;
 
+  // Total Revenue = Sales Revenue - Sales Returns + Other Income (matches P&L)
+  const salesRevenue = plSummaryData?.data?.revenue?.salesRevenue ?? plSummaryData?.revenue?.salesRevenue ?? totalSales;
+  const otherIncome = plSummaryData?.data?.revenue?.otherIncome ?? plSummaryData?.revenue?.otherIncome ?? 0;
+  const totalRevenue = salesRevenue - totalSalesReturns + otherIncome;
+  // Total Sale Net Profit = Total Revenue - COGS (matches P&L; must subtract returns before COGS)
+  const salesInvoicesNetProfit = totalRevenue - salesInvoicesCOGS;
+
   // Separate Cash/Bank Payments into Supplier Payments vs Operating Expenses
   // Operating expenses are payments that don't have a supplier or customer (general expenses)
   const cashOperatingExpenses = cashPaymentsArray
@@ -428,7 +434,8 @@ export const Dashboard = () => {
   // Financial Performance Calculations
   const grossRevenue = totalSales; // Total sales before discounts
   const netRevenue = totalSales - totalDiscounts - totalSalesReturns; // Sales after discounts and returns
-  const costOfGoodsSold = totalPurchases; // COGS
+  // Use COGS from P&L (cost of goods SOLD) - NOT totalPurchases (cost of goods bought). Purchases ≠ COGS.
+  const costOfGoodsSold = plSummaryData?.data?.costOfGoodsSold?.total ?? plSummaryData?.costOfGoodsSold?.total ?? totalPurchases;
   const grossProfit = netRevenue - costOfGoodsSold; // Gross Profit
   const netProfit = grossProfit - operatingExpenses;
 
@@ -1159,8 +1166,11 @@ export const Dashboard = () => {
           setEndDate(to);
         }}
         summary={[
-          { label: 'Sales Total', value: totalSales },
-          { label: 'Returns', value: totalSalesReturns },
+          { label: 'Sales Revenue', value: salesRevenue },
+          { label: 'Sales Returns', value: totalSalesReturns },
+          { label: 'Other Income', value: otherIncome },
+          { label: 'Total Revenue', value: totalRevenue },
+          { label: 'COGS', value: salesInvoicesCOGS },
           { label: 'Net Total', value: totalSales - totalSalesReturns - totalDiscounts },
           { label: 'Total Sale Net Profit', value: salesInvoicesNetProfit, highlight: true }
         ]}
