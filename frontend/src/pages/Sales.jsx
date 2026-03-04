@@ -839,11 +839,8 @@ export const Sales = ({ tabId, editData }) => {
           setPriceType(ot);
         }
       }
-      if (editData.billDate) {
-        const d = editData.billDate;
-        const dateStr = typeof d === 'string' ? d.split('T')[0] : (d ? getLocalDateString(new Date(d)) : null);
-        if (dateStr) setBillDate(dateStr);
-      }
+      // Bill date: when editing, always show today's date (not the original/previous date)
+      setBillDate(getLocalDateString());
 
       // Data loaded successfully (no toast needed as Orders already shows opening message)
     }

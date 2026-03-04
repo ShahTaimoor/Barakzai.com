@@ -35,7 +35,7 @@ class PLCalculationService {
       const items = typeof r.items === 'string' ? JSON.parse(r.items || '[]') : (r.items || []);
       for (const it of items) {
         const qty = Number(it.quantity) || 0;
-        const cost = Number(it.cost_price ?? it.costPrice ?? 0);
+        const cost = Number(it.cost_price ?? it.costPrice ?? it.unitCost ?? 0);
         cogs += qty * cost;
       }
     }

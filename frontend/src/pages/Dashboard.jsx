@@ -334,6 +334,18 @@ export const Dashboard = () => {
     return sum + Number(orderTotal);
   }, 0);
 
+  // COGS for sales invoices (from items: quantity * unitCost/cost_price)
+  const salesInvoicesCOGS = salesInvoicesArray.reduce((sum, order) => {
+    const items = Array.isArray(order.items) ? order.items : (typeof order.items === 'string' ? (() => { try { return JSON.parse(order.items || '[]'); } catch { return []; } })() : []);
+    const orderCOGS = items.reduce((s, it) => {
+      const qty = Number(it.quantity) || 0;
+      const cost = Number(it.unitCost ?? it.cost_price ?? it.costPrice ?? 0);
+      return s + qty * cost;
+    }, 0);
+    return sum + orderCOGS;
+  }, 0);
+  const salesInvoicesNetProfit = salesInvoicesTotal - salesInvoicesCOGS;
+
   // Purchase Invoices (from Purchase page)
   const purchaseInvoicesTotal = purchaseInvoicesData?.data?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) ||
     purchaseInvoicesData?.invoices?.reduce((sum, invoice) => sum + (invoice.pricing?.total || 0), 0) || 0;
@@ -1149,7 +1161,8 @@ export const Dashboard = () => {
         summary={[
           { label: 'Sales Total', value: totalSales },
           { label: 'Returns', value: totalSalesReturns },
-          { label: 'Net Total', value: totalSales - totalSalesReturns - totalDiscounts, highlight: true }
+          { label: 'Net Total', value: totalSales - totalSalesReturns - totalDiscounts },
+          { label: 'Total Sale Net Profit', value: salesInvoicesNetProfit, highlight: true }
         ]}
       />
 
