@@ -1168,11 +1168,7 @@ export const Dashboard = () => {
         summary={[
           { label: 'Sales Revenue', value: salesRevenue },
           { label: 'Sales Returns', value: totalSalesReturns },
-          { label: 'Other Income', value: otherIncome },
-          { label: 'Total Revenue', value: totalRevenue },
-          { label: 'COGS', value: salesInvoicesCOGS },
-          { label: 'Net Total', value: totalSales - totalSalesReturns - totalDiscounts },
-          { label: 'Total Sale Net Profit', value: salesInvoicesNetProfit, highlight: true }
+          { label: 'Net Total', value: totalSales - totalSalesReturns - totalDiscounts }
         ]}
       />
 
