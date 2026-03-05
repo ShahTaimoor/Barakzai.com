@@ -43,7 +43,7 @@ const formatOrderDate = (order) => {
   return d.toLocaleDateString();
 };
 
-const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
+const OrderCard = ({ order, onView, onEdit, onPrint }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed':
@@ -130,13 +130,6 @@ const OrderCard = ({ order, onDelete, onView, onEdit, onPrint }) => {
               title="Edit Invoice"
             >
               <Edit className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => onDelete(order)}
-              className="shrink-0 text-red-600 hover:text-red-800"
-              title="Delete Invoice"
-            >
-              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -551,13 +544,6 @@ export const Orders = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(order)}
-                          className="shrink-0 text-red-600 hover:text-red-800 p-1"
-                          title="Delete Invoice"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -657,13 +643,6 @@ export const Orders = () => {
                           title="Edit Invoice"
                         >
                           <Edit className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(order)}
-                          className="shrink-0 text-red-600 hover:text-red-800 p-2 rounded hover:bg-red-50 transition-colors"
-                          title="Delete Invoice"
-                        >
-                          <Trash2 className="h-5 w-5" />
                         </button>
                       </div>
                     </div>

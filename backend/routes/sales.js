@@ -9,6 +9,7 @@ const salesService = require('../services/salesService');
 const AccountingService = require('../services/accountingService');
 const salesRepository = require('../repositories/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
+const inventoryRepository = require('../repositories/postgres/InventoryRepository');
 const productVariantRepository = require('../repositories/ProductVariantRepository');
 const customerRepository = require('../repositories/CustomerRepository');
 const cashReceiptRepository = require('../repositories/postgres/CashReceiptRepository');
@@ -626,7 +627,7 @@ router.put('/:id', [
       const newOrderItems = [];
 
       for (const item of req.body.items) {
-        // Try to find as product first, then as variant (for tax rate)
+        // Try to find as product first, then as variant (for tax rate and cost)
         let productForTax = await productRepository.findById(item.product);
         let isVariantForTax = false;
         if (!productForTax) {
@@ -647,10 +648,24 @@ router.put('/:id', [
             : (productForTax?.taxSettings?.taxRate || 0));
         const itemTax = order.pricing.isTaxExempt ? 0 : itemTaxable * taxRate;
 
+        // Get unit cost for P&L (COGS) - same logic as createSale
+        let unitCost = 0;
+        const productId = productForTax?.id || productForTax?._id;
+        if (productId) {
+          const inv = await inventoryRepository.findByProduct(productId);
+          if (inv && inv.cost) {
+            const costObj = typeof inv.cost === 'string' ? JSON.parse(inv.cost) : inv.cost;
+            unitCost = costObj.average ?? costObj.lastPurchase ?? 0;
+          }
+          if (unitCost === 0) unitCost = productForTax?.pricing?.cost ?? productForTax?.cost_price ?? 0;
+        }
+
         newOrderItems.push({
           product: item.product,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          unitCost,
+          cost_price: unitCost,
           discountPercent: item.discountPercent || 0,
           taxRate: item.taxRate || 0,
           subtotal: itemSubtotal,
@@ -734,6 +749,8 @@ router.put('/:id', [
         product: it.product_id || it.product,
         quantity: it.quantity,
         unitPrice: it.unitPrice,
+        unitCost: it.unitCost ?? it.cost_price ?? 0,
+        cost_price: it.cost_price ?? it.unitCost ?? 0,
         subtotal: it.subtotal,
         total: it.total
       }));
