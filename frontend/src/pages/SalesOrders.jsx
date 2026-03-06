@@ -2938,7 +2938,7 @@ const SalesOrders = () => {
                         })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => {
                               setNotesEntity({ type: 'SalesOrder', id: order?.id ?? order?._id, name: order?.so_number ?? order?.soNumber });
@@ -2975,7 +2975,10 @@ const SalesOrders = () => {
                               <LoadingButton
                                 onClick={() => handleConfirm(order?.id ?? order?._id)}
                                 isLoading={confirming}
-                                className="text-green-600 hover:text-green-900"
+                                size="icon-sm"
+                                iconOnly
+                                variant="ghost"
+                                className="text-green-600 hover:text-green-900 shrink-0"
                                 title="Confirm & create sales invoice (this becomes a Sale)"
                                 disabled={confirming}
                               >
@@ -2984,7 +2987,10 @@ const SalesOrders = () => {
                               <LoadingButton
                                 onClick={() => handleCancel(order?.id ?? order?._id)}
                                 isLoading={cancelling}
-                                className="text-red-600 hover:text-red-900"
+                                size="icon-sm"
+                                iconOnly
+                                variant="ghost"
+                                className="text-red-600 hover:text-red-900 shrink-0"
                                 title="Cancel Order"
                                 disabled={cancelling}
                               >
@@ -2996,7 +3002,10 @@ const SalesOrders = () => {
                             <LoadingButton
                               onClick={() => handleDelete(order?.id ?? order?._id)}
                               isLoading={deleting}
-                              className="text-red-600 hover:text-red-900"
+                              size="icon-sm"
+                              iconOnly
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-900 shrink-0"
                               title="Delete"
                               disabled={deleting}
                             >
