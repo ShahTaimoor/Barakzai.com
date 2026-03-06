@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { Users, Building2, Search, Calendar, Download, FileText, ChevronDown, Printer } from 'lucide-react';
+import { Users, Building2, Calendar, Download, FileText, ChevronDown, Printer } from 'lucide-react';
 import { useGetLedgerSummaryQuery, useGetCustomerDetailedTransactionsQuery, useGetSupplierDetailedTransactionsQuery } from '../store/services/accountLedgerApi';
 import { useGetCustomersQuery } from '../store/services/customersApi';
 import { useGetSuppliersQuery } from '../store/services/suppliersApi';
@@ -308,7 +308,8 @@ const AccountLedgerSummary = () => {
 
   const handleCustomerSelect = (customer) => {
     setSelectedCustomerId(getId(customer));
-    setCustomerSearchQuery(customer.businessName || customer.name || '');
+    const businessName = customer.businessName || customer.business_name || customer.companyName || customer.company_name || '';
+    setCustomerSearchQuery(businessName || customer.name || '');
     setShowCustomerDropdown(false);
     // Clear supplier selection when customer is selected
     setSelectedSupplierId('');
@@ -535,104 +536,106 @@ const AccountLedgerSummary = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Account Ledger Summary</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Customer Receivables and Supplier Payables</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Header - professional card */}
+      <header className="bg-white border border-gray-200 rounded-lg shadow-sm px-6 py-5">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight">Account Ledger Summary</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Customer receivables and supplier payables</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={handleSyncPurchaseLedger}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+              disabled={isSyncPurchaseLoading}
+              title="Sync purchase invoices ledger for this date range"
+            >
+              <FileText className="h-4 w-4" />
+              {isSyncPurchaseLoading ? 'Syncing...' : 'Sync Purchase Ledger'}
+            </Button>
+            <Button
+              onClick={handleSyncSalesLedger}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+              disabled={isSyncLoading}
+              title="Sync sales ledger for edited invoices in this date range"
+            >
+              <FileText className="h-4 w-4" />
+              {isSyncLoading ? 'Syncing...' : 'Sync Sales Ledger'}
+            </Button>
+            <Button
+              onClick={handleBackfillSales}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+              disabled={isBackfillLoading}
+              title="Post missing sales to ledger for the selected date range"
+            >
+              <FileText className="h-4 w-4" />
+              {isBackfillLoading ? 'Backfilling...' : 'Backfill Sales'}
+            </Button>
+            <Button
+              onClick={handlePrint}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+              disabled={!selectedCustomerId && !selectedSupplierId}
+              title={!selectedCustomerId && !selectedSupplierId ? 'Select a customer or supplier to print' : 'Print ledger summary'}
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleSyncPurchaseLedger}
-            variant="secondary"
-            size="default"
-            className="flex items-center gap-2"
-            disabled={isSyncPurchaseLoading}
-            title="Sync purchase invoices ledger for this date range"
-          >
-            <FileText className="h-4 w-4" />
-            {isSyncPurchaseLoading ? 'Syncing PI...' : 'Sync Purchase Ledger'}
-          </Button>
-          <Button
-            onClick={handleSyncSalesLedger}
-            variant="secondary"
-            size="default"
-            className="flex items-center gap-2"
-            disabled={isSyncLoading}
-            title="Sync sales ledger for edited invoices in this date range"
-          >
-            <FileText className="h-4 w-4" />
-            {isSyncLoading ? 'Syncing...' : 'Sync Sales Ledger'}
-          </Button>
-          <Button
-            onClick={handleBackfillSales}
-            variant="secondary"
-            size="default"
-            className="flex items-center gap-2"
-            disabled={isBackfillLoading}
-            title="Post missing sales to ledger for the selected date range"
-          >
-            <FileText className="h-4 w-4" />
-            {isBackfillLoading ? 'Backfilling...' : 'Backfill Sales'}
-          </Button>
-          <Button
-            onClick={handlePrint}
-            variant="secondary"
-            size="default"
-            className="flex items-center gap-2"
-            disabled={!selectedCustomerId && !selectedSupplierId}
-            title={!selectedCustomerId && !selectedSupplierId ? 'Please select a customer or supplier to print' : 'Print ledger summary'}
-          >
-            <Printer className="h-4 w-4" />
-            Print
-          </Button>
-          <Button
-            onClick={handleExport}
-            variant="secondary"
-            size="default"
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-        </div>
-      </div>
+      </header>
 
-      {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4">
+      {/* Filters - clean card */}
+      <section className="bg-white border border-gray-200 rounded-lg shadow-sm p-5">
+        <h2 className="text-sm font-medium text-gray-700 mb-4 uppercase tracking-wide">Filters</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Customer Dropdown */}
           <div className="relative" ref={customerDropdownRef}>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-              Select Customer
-            </label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Customer</label>
             <div className="relative">
               <Input
                 type="text"
-                placeholder="Select customer..."
+                placeholder="Search or select..."
                 value={customerSearchQuery}
                 onChange={(e) => {
                   setCustomerSearchQuery(e.target.value);
                   setShowCustomerDropdown(true);
                 }}
                 onFocus={() => setShowCustomerDropdown(true)}
-                className="w-full"
+                className="w-full h-9 border-gray-300 text-sm"
               />
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               {showCustomerDropdown && filteredCustomers.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
                   {filteredCustomers.map((customer) => {
-                    const displayName = customer.businessName || customer.business_name || customer.name || 'Unknown Customer';
+                    const businessName = customer.businessName || customer.business_name || customer.companyName || customer.company_name || '';
+                    const displayName = businessName || customer.name || 'Unknown Customer';
                     return (
                       <button
                         key={getId(customer) ?? displayName}
                         onClick={() => handleCustomerSelect(customer)}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-50 ${selectedCustomerId == getId(customer) ? 'bg-blue-50' : ''
-                          }`}
+                        className={`w-full text-left px-3 py-2.5 text-sm border-b border-gray-100 last:border-0 hover:bg-gray-50 ${selectedCustomerId == getId(customer) ? 'bg-gray-100' : ''}`}
                       >
                         <div className="text-sm font-medium text-gray-900">{displayName}</div>
-                        {customer.name && customer.name !== displayName && (
+                        {businessName && customer.name && customer.name !== businessName && (
                           <div className="text-xs text-gray-500">{customer.name}</div>
                         )}
                         {customer.email && (
@@ -648,32 +651,29 @@ const AccountLedgerSummary = () => {
 
           {/* Supplier Dropdown */}
           <div className="relative" ref={supplierDropdownRef}>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-              Select Supplier
-            </label>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Supplier</label>
             <div className="relative">
               <Input
                 type="text"
-                placeholder="Select supplier..."
+                placeholder="Search or select..."
                 value={supplierSearchQuery}
                 onChange={(e) => {
                   setSupplierSearchQuery(e.target.value);
                   setShowSupplierDropdown(true);
                 }}
                 onFocus={() => setShowSupplierDropdown(true)}
-                className="w-full"
+                className="w-full h-9 border-gray-300 text-sm"
               />
-              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               {showSupplierDropdown && filteredSuppliers.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
                   {filteredSuppliers.map((supplier) => {
                     const displayName = supplier.companyName || supplier.company_name || supplier.name || 'Unknown Supplier';
                     return (
                       <button
                         key={getId(supplier) ?? displayName}
                         onClick={() => handleSupplierSelect(supplier)}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-50 ${selectedSupplierId == getId(supplier) ? 'bg-blue-50' : ''
-                          }`}
+                        className={`w-full text-left px-3 py-2.5 text-sm border-b border-gray-100 last:border-0 hover:bg-gray-50 ${selectedSupplierId == getId(supplier) ? 'bg-gray-100' : ''}`}
                       >
                         <div className="text-sm font-medium text-gray-900">{displayName}</div>
                         {supplier.name && supplier.name !== displayName && (
@@ -690,75 +690,39 @@ const AccountLedgerSummary = () => {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-              Search
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="Search by name, email, phone..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="w-full pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Start Date */}
+          {/* Date range */}
           <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-              From Date
-            </label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Date range</label>
+            <div className="flex items-center gap-2">
               <Input
                 type="date"
                 value={filters.startDate}
                 onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="w-full pl-10"
+                className="flex-1 min-w-0 h-9 border-gray-300 text-sm relative [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
               />
-            </div>
-          </div>
-
-          {/* End Date */}
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-              To Date
-            </label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <span className="text-gray-400 shrink-0">–</span>
               <Input
                 type="date"
                 value={filters.endDate}
                 onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="w-full pl-10"
+                className="flex-1 min-w-0 h-9 border-gray-300 text-sm relative [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
               />
             </div>
           </div>
 
-          {/* Clear Button */}
+          {/* Clear */}
           <div className="flex items-end">
             <Button
               onClick={handleClearFilters}
               variant="outline"
-              size="default"
-              className="w-full"
+              size="sm"
+              className="w-full h-9 border-gray-300 text-gray-700"
             >
-              Clear Filters
+              Clear
             </Button>
           </div>
         </div>
-
-        {/* Period Display */}
-        {period.startDate && period.endDate && (
-          <div className="mt-4 text-sm text-gray-600">
-            <span className="font-medium">Period:</span> {formatDate(period.startDate)} to {formatDate(period.endDate)}
-          </div>
-        )}
-      </div>
+      </section>
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
@@ -768,71 +732,54 @@ const AccountLedgerSummary = () => {
         <div className="space-y-6">
           {/* Customers Section - Show only if customer is selected and supplier is not */}
           {selectedCustomerId && !selectedSupplierId && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Users className="h-6 w-6 text-blue-600" />
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-200">
+                    <Users className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                      <h2 className="text-lg font-semibold text-gray-900">
                         {customerDetail?.customer?.name || detailedTransactionsData?.data?.customer?.name || 'Customer Receivables'}
                       </h2>
-                      <p className="text-sm text-gray-600">
-                        Account Code: {customerDetail?.customer?.accountCode ?? detailedTransactionsData?.data?.customer?.accountCode ?? ''}
-                      </p>
-                      {filters.startDate && filters.endDate && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Period: {formatDate(filters.startDate)} to {formatDate(filters.endDate)}
-                        </p>
-                      )}
                       {showReturnColumn && (
-                        <p className="text-sm font-medium text-gray-700 mt-2">
-                          Return Total: {formatCurrency(customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0)}
-                        </p>
+                        <span className="text-sm text-gray-600">
+                          Return total: {formatCurrency(customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0)}
+                        </span>
                       )}
                     </div>
+                    {filters.startDate && filters.endDate && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDate(filters.startDate)} – {formatDate(filters.endDate)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
 
               {detailedLoading ? (
-                <div className="flex justify-center items-center py-12">
+                <div className="flex justify-center items-center py-16">
                   <LoadingSpinner />
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-blue-600">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                          Voucher No
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                          Particular
-                        </th>
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="bg-gray-800 border-b border-gray-700">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Voucher No</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Particular</th>
                         {showReturnColumn && (
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider w-20">
-                            Return
-                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider w-20">Return</th>
                         )}
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                          Debits
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                          Credits
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                          Balance
-                        </th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider w-20 no-print">
-                          Print
-                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Debits</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Credits</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Balance</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider w-20 no-print">Print</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200 bg-white">
                       {/* Opening Balance Row */}
                       <tr className="bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-900"></td>
@@ -901,10 +848,10 @@ const AccountLedgerSummary = () => {
                       )}
 
                       {/* Return Total Row - shows when there are returns and return column is visible */}
-                      {showReturnColumn &&
+                        {showReturnColumn &&
                         ((customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0) &&
                         (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
-                        <tr className="bg-blue-50 font-medium">
+                        <tr className="bg-gray-100 font-medium">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Return Total</td>
@@ -920,7 +867,7 @@ const AccountLedgerSummary = () => {
 
                       {/* Total Row */}
                       {(customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0 && (
-                        <tr className="bg-blue-100 font-bold border-t-2 border-blue-200">
+                        <tr className="bg-gray-200 font-semibold border-t-2 border-gray-300">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Total</td>
@@ -931,8 +878,7 @@ const AccountLedgerSummary = () => {
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
                             {formatCurrency(sumCredits(customerDetail?.entries ?? detailedTransactionsData?.data?.entries))}
                           </td>
-                          <td className={`px-4 py-3 text-sm text-right font-bold ${closingBalanceFromEntries(customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance ?? 0, customerDetail?.entries ?? detailedTransactionsData?.data?.entries, false) < 0 ? 'text-red-600' : 'text-green-700'
-                            }`}>
+                          <td className={`px-4 py-3 text-sm text-right font-bold ${closingBalanceFromEntries(customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance ?? 0, customerDetail?.entries ?? detailedTransactionsData?.data?.entries, false) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                             {formatCurrency(closingBalanceFromEntries(customerDetail?.openingBalance ?? detailedTransactionsData?.data?.openingBalance ?? 0, customerDetail?.entries ?? detailedTransactionsData?.data?.entries, false))}
                           </td>
                           <td className="px-4 py-3 text-sm text-center no-print"></td>
@@ -947,48 +893,44 @@ const AccountLedgerSummary = () => {
 
           {/* Suppliers Section - Show only if supplier is selected and customer is not */}
           {selectedSupplierId && !selectedCustomerId && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Building2 className="h-6 w-6 text-orange-600" />
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">
-                        {supplierDetail?.supplier?.name || detailedSupplierTransactionsData?.data?.supplier?.name || 'Supplier Payables'}
-                      </h2>
-                      <p className="text-sm text-gray-600">
-                        Account Code: {supplierDetail?.supplier?.accountCode ?? detailedSupplierTransactionsData?.data?.supplier?.accountCode ?? ''}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-200">
+                    <Building2 className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {supplierDetail?.supplier?.name || detailedSupplierTransactionsData?.data?.supplier?.name || 'Supplier Payables'}
+                    </h2>
+                    {filters.startDate && filters.endDate && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDate(filters.startDate)} – {formatDate(filters.endDate)}
                       </p>
-                      {filters.startDate && filters.endDate && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Period: {formatDate(filters.startDate)} to {formatDate(filters.endDate)}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Summary Table */}
               {detailedSupplierLoading ? (
-                <div className="flex justify-center items-center py-12">
+                <div className="flex justify-center items-center py-16">
                   <LoadingSpinner />
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-orange-600">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Voucher No</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Particular</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Debits</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Credits</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Balance</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider w-20 no-print">Print</th>
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="bg-gray-800 border-b border-gray-700">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Voucher No</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Particular</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Debits</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Credits</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Balance</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider w-20 no-print">Print</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200 bg-white">
                       {/* Opening Balance Row */}
                       <tr className="bg-gray-50">
                         <td colSpan="3" className="px-4 py-3 text-sm font-medium text-gray-900">Opening Balance:</td>
@@ -1050,7 +992,7 @@ const AccountLedgerSummary = () => {
 
                       {/* Total Row */}
                       {(supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)?.length > 0 && (
-                        <tr className="bg-orange-100 font-bold border-t-2 border-orange-200">
+                        <tr className="bg-gray-200 font-semibold border-t-2 border-gray-300">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Total</td>
@@ -1060,8 +1002,7 @@ const AccountLedgerSummary = () => {
                           <td className="px-4 py-3 text-sm text-right text-gray-900">
                             {formatCurrency(sumCredits(supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries))}
                           </td>
-                          <td className={`px-4 py-3 text-sm text-right font-bold ${closingBalanceFromEntries(supplierDetail?.openingBalance ?? detailedSupplierTransactionsData?.data?.openingBalance ?? 0, supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries, true) < 0 ? 'text-red-600' : 'text-green-700'
-                            }`}>
+                          <td className={`px-4 py-3 text-sm text-right font-bold ${closingBalanceFromEntries(supplierDetail?.openingBalance ?? detailedSupplierTransactionsData?.data?.openingBalance ?? 0, supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries, true) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                             {formatCurrency(closingBalanceFromEntries(supplierDetail?.openingBalance ?? detailedSupplierTransactionsData?.data?.openingBalance ?? 0, supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries, true))}
                           </td>
                           <td className="px-4 py-3 text-center no-print"></td>
@@ -1074,14 +1015,15 @@ const AccountLedgerSummary = () => {
             </div>
           )}
 
-          {/* Empty State - Show only if neither customer nor supplier is selected */}
           {!selectedCustomerId && !selectedSupplierId && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-12 text-center">
-              <div className="flex justify-center gap-4 mb-4">
-                <Users className="h-12 w-12 text-gray-400" />
-                <Building2 className="h-12 w-12 text-gray-400" />
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-20 px-6 text-center">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 mb-4">
+                <FileText className="h-7 w-7 text-gray-400" />
               </div>
-              <p className="text-gray-500 text-lg">Please select a customer or supplier from the dropdown above to view their ledger summary</p>
+              <h3 className="text-base font-medium text-gray-900 mb-1">No ledger selected</h3>
+              <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                Select a customer or supplier above to view their account ledger and transaction history.
+              </p>
             </div>
           )}
         </div>
@@ -1207,7 +1149,7 @@ const AccountLedgerSummary = () => {
 
             {/* Return Total Row - customer only, when there are returns and return column visible */}
             {showReturnColumn && selectedCustomerId && (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
-              <tr style={{ backgroundColor: '#eff6ff', fontWeight: '600' }}>
+              <tr style={{ backgroundColor: '#f3f4f6', fontWeight: '600' }}>
                 <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}></td>
                 <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
                 <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: '600' }}>Return Total</td>
@@ -1239,6 +1181,7 @@ const AccountLedgerSummary = () => {
             </tr>
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );
