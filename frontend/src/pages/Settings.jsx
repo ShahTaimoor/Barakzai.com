@@ -25,7 +25,7 @@ import {
   TrendingUp,
   LayoutDashboard
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import {
   useGetCompanySettingsQuery,
   useUpdateCompanySettingsMutation,
@@ -47,6 +47,9 @@ import PrintDocument from '../components/PrintDocument';
 import { CompanySettingsForm } from '../components/CompanySettingsForm';
 import { handleApiError } from '../utils/errorHandler';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 export const Settings2 = () => {
   const { user } = useAuth();
@@ -1353,7 +1356,7 @@ export const Settings2 = () => {
                     <h2 className="text-lg font-semibold">System Users ({users.length})</h2>
                   </div>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2">
-                    <button
+                    <Button
                       onClick={() => {
                         resetNewUserForm();
                         const form = document.getElementById('add-edit-user-form');
@@ -1367,12 +1370,13 @@ export const Settings2 = () => {
                           }, 300);
                         }
                       }}
-                      className="btn btn-primary btn-sm"
+                      variant="default"
+                      size="sm"
                       title="Add New User"
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add New User
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 mt-1">
@@ -1400,13 +1404,14 @@ export const Settings2 = () => {
                             ? 'Authentication required. Please refresh the page and log in again.'
                             : usersError.message || 'An error occurred while loading users.'}
                       </p>
-                      <button
+                      <Button
                         onClick={() => refetchUsers()}
-                        className="btn btn-primary btn-sm"
+                        variant="default"
+                        size="sm"
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Try Again
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : users.length > 0 ? (
@@ -1467,35 +1472,39 @@ export const Settings2 = () => {
                             )}
                           </div>
                           <div className="flex flex-wrap sm:flex-nowrap gap-2">
-                            <button
+                            <Button
                               onClick={() => openActivityModal(systemUser)}
-                              className="btn btn-primary btn-sm"
+                              variant="default"
+                              size="sm"
                               title="View Activity"
                             >
                               <BarChart3 className="h-4 w-4" />
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={() => openPasswordModal(systemUser)}
-                              className="btn btn-secondary btn-sm"
+                              variant="secondary"
+                              size="sm"
                               title="Change Password"
                             >
                               <Lock className="h-4 w-4" />
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={() => handleEditUser(systemUser)}
-                              className="btn btn-secondary btn-sm"
+                              variant="secondary"
+                              size="sm"
                               title="Edit User"
                             >
                               <Edit className="h-4 w-4" />
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               onClick={() => handleDeleteUserClick(systemUser._id)}
-                              className="btn btn-danger btn-sm"
+                              variant="destructive"
+                              size="sm"
                               disabled={systemUser._id === user?._id}
                               title="Delete User"
                             >
                               <Trash2 className="h-4 w-4" />
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -1508,12 +1517,11 @@ export const Settings2 = () => {
                     <p className="text-sm text-gray-500 mb-4">
                       The system has no users registered yet. Use the form below to create your first user.
                     </p>
-                    <button
+                    <Button
                       onClick={() => {
                         const form = document.getElementById('add-edit-user-form');
                         if (form) {
                           form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          // Focus on first input field
                           setTimeout(() => {
                             const firstInput = form.querySelector('input[type="text"]');
                             if (firstInput) {
@@ -1522,11 +1530,12 @@ export const Settings2 = () => {
                           }, 300);
                         }
                       }}
-                      className="btn btn-primary btn-sm"
+                      variant="default"
+                      size="sm"
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Create First User
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -1543,13 +1552,14 @@ export const Settings2 = () => {
                     </h2>
                   </div>
                   {editingUser && (
-                    <button
+                    <Button
                       onClick={resetNewUserForm}
-                      className="btn btn-secondary btn-sm"
+                      variant="secondary"
+                      size="sm"
                     >
                       <X className="h-4 w-4 mr-2" />
                       Cancel Edit
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <p className="text-sm text-gray-600 mt-1">
@@ -1565,12 +1575,11 @@ export const Settings2 = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         First Name *
                       </label>
-                      <input
+                      <Input
                         type="text"
                         name="firstName"
                         value={newUserData.firstName}
                         onChange={handleNewUserChange}
-                        className="input"
                         placeholder="Enter first name"
                         autoComplete="off"
                         required
@@ -1582,12 +1591,11 @@ export const Settings2 = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Last Name *
                       </label>
-                      <input
+                      <Input
                         type="text"
                         name="lastName"
                         value={newUserData.lastName}
                         onChange={handleNewUserChange}
-                        className="input"
                         placeholder="Enter last name"
                         autoComplete="off"
                         required
@@ -1599,12 +1607,11 @@ export const Settings2 = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Email Address *
                       </label>
-                      <input
+                      <Input
                         type="email"
                         name="email"
                         value={newUserData.email}
                         onChange={handleNewUserChange}
-                        className="input"
                         placeholder="Enter email address"
                         autoComplete="off"
                         required
@@ -1618,12 +1625,12 @@ export const Settings2 = () => {
                           Password *
                         </label>
                         <div className="relative">
-                          <input
+                          <Input
                             type={showNewUserPassword ? 'text' : 'password'}
                             name="password"
                             value={newUserData.password}
                             onChange={handleNewUserChange}
-                            className="input pr-10"
+                            className="pr-10"
                             placeholder="Enter password"
                             autoComplete="new-password"
                             required
@@ -1649,14 +1656,15 @@ export const Settings2 = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Password
                         </label>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => openPasswordModal()}
-                          className="btn btn-secondary w-full"
+                          variant="secondary"
+                          className="w-full"
                         >
                           <Lock className="h-4 w-4 mr-2" />
                           Change Password
-                        </button>
+                        </Button>
                         <p className="text-xs text-gray-500 mt-1">
                           Click to reset the user's password
                         </p>
@@ -1701,7 +1709,8 @@ export const Settings2 = () => {
                               type="button"
                               onClick={() => handleUpdateRolePermissions(newUserData.role)}
                               disabled={isUpdatingRolePermissions}
-                              className="btn btn-warning btn-sm"
+                              variant="warning"
+                              size="sm"
                             >
                               {isUpdatingRolePermissions ? (
                                 <>
@@ -1763,7 +1772,8 @@ export const Settings2 = () => {
                           <LoadingButton
                             type="submit"
                             isLoading={isCreatingUser}
-                            className="btn btn-primary w-full px-6 py-2.5"
+                            variant="default"
+                            className="w-full px-6 py-2.5"
                           >
                             <Plus className="h-4 w-4 mr-2" />
                             Create User
@@ -1843,7 +1853,7 @@ export const Settings2 = () => {
                       <LoadingButton
                         type="submit"
                         isLoading={isUpdatingUser}
-                        className="btn btn-primary"
+                        variant="default"
                       >
                         <Edit className="h-4 w-4 mr-2" />
                         Update User
@@ -1943,13 +1953,12 @@ export const Settings2 = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Header Text (Optional)
                       </label>
-                      <textarea
+                      <Textarea
                         name="headerText"
                         value={printSettings.headerText}
                         onChange={handlePrintSettingsChange}
-                        className="input"
                         placeholder="Enter custom header text"
-                        rows="3"
+                        rows={3}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         This text will appear at the top of printed documents
@@ -1960,13 +1969,12 @@ export const Settings2 = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Footer Text (Optional)
                       </label>
-                      <textarea
+                      <Textarea
                         name="footerText"
                         value={printSettings.footerText}
                         onChange={handlePrintSettingsChange}
-                        className="input"
                         placeholder="Enter custom footer text"
-                        rows="3"
+                        rows={3}
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         This text will appear at the bottom of printed documents
@@ -2356,7 +2364,7 @@ export const Settings2 = () => {
                       };
                       handleSaveCompanySettings(dataToSend);
                     }}
-                    className="btn btn-primary"
+                    variant="default"
                   >
                     <Save className="h-4 w-4 mr-2" />
                     Save Print Settings
@@ -2663,11 +2671,11 @@ export const Settings2 = () => {
                     New Password *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type={showPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="input pr-10"
+                      className="pr-10"
                       placeholder="Enter new password"
                     />
                     <button
@@ -2689,11 +2697,11 @@ export const Settings2 = () => {
                     Confirm Password *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="input pr-10"
+                      className="pr-10"
                       placeholder="Confirm new password"
                     />
                     <button
@@ -2717,14 +2725,14 @@ export const Settings2 = () => {
                     setShowPasswordModal(false);
                     setPasswordResetUser(null);
                   }}
-                  className="btn btn-secondary"
+                  variant="secondary"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handlePasswordReset}
                   disabled={isResettingPassword || !(passwordResetUser || editingUser)}
-                  className="btn btn-primary"
+                  variant="default"
                 >
                   {isResettingPassword ? 'Resetting...' : 'Reset Password'}
                 </button>
@@ -2758,11 +2766,11 @@ export const Settings2 = () => {
                     Current Password *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="input pr-10"
+                      className="pr-10"
                       placeholder="Enter current password"
                     />
                     <button
@@ -2784,11 +2792,11 @@ export const Settings2 = () => {
                     New Password *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type={showPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="input pr-10"
+                      className="pr-10"
                       placeholder="Enter new password"
                     />
                     <button
@@ -2810,11 +2818,11 @@ export const Settings2 = () => {
                     Confirm New Password *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="input pr-10"
+                      className="pr-10"
                       placeholder="Confirm new password"
                     />
                     <button
@@ -2839,19 +2847,19 @@ export const Settings2 = () => {
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
-                <button
+                <Button
                   onClick={() => setShowMyPasswordModal(false)}
-                  className="btn btn-secondary"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleChangeMyPassword}
                   disabled={isChangingMyPassword}
-                  className="btn btn-primary"
+                  variant="default"
                 >
                   {isChangingMyPassword ? 'Changing...' : 'Change Password'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

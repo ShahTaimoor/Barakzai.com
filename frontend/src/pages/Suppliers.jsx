@@ -16,8 +16,11 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import SupplierImportExport from '../components/SupplierImportExport';
 import SupplierFilters from '../components/SupplierFilters';
 import NotesPanel from '../components/NotesPanel';
@@ -370,13 +373,13 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     Company Name *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       required
                       autoComplete="off"
                       value={formData.companyName}
                       onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                      className={`input ${companyNameExists ? 'border-red-500' : ''}`}
+                      className={companyNameExists ? 'border-red-500' : ''}
                       placeholder="Enter company name"
                     />
                     {companyNameChecking && (
@@ -428,11 +431,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
 
                     return (
                       <>
-                        <input
+                        <Input
                           type="text"
                           value={displayValue}
                           autoComplete="off"
-                          className="input bg-gray-50 text-gray-700 cursor-not-allowed"
+                          className="bg-gray-50 text-gray-700 cursor-not-allowed"
                           readOnly
                           disabled
                         />
@@ -459,7 +462,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     Name *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       required
                       autoComplete="off"
@@ -468,7 +471,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         ...formData,
                         contactPerson: { ...(formData.contactPerson || {}), name: e.target.value }
                       })}
-                      className={`input ${contactNameExists ? 'border-red-500' : ''}`}
+                      className={contactNameExists ? 'border-red-500' : ''}
                       placeholder="Enter full name"
                     />
                     {contactNameChecking && (
@@ -485,7 +488,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Title
                   </label>
-                  <input
+                  <Input
                     type="text"
                     autoComplete="off"
                     value={formData.contactPerson?.title || ''}
@@ -493,7 +496,6 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                       ...formData,
                       contactPerson: { ...(formData.contactPerson || {}), title: e.target.value }
                     })}
-                    className="input"
                     placeholder="Job title"
                   />
                 </div>
@@ -509,12 +511,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     Email
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="email"
                       autoComplete="off"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className={`input ${emailExists ? 'border-red-500' : ''}`}
+                      className={emailExists ? 'border-red-500' : ''}
                       placeholder="email@company.com (optional)"
                     />
                     {emailChecking && (
@@ -531,12 +533,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Phone
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     autoComplete="off"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="input"
                     placeholder="(555) 123-4567"
                   />
                 </div>
@@ -544,12 +545,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Website
                   </label>
-                  <input
+                  <Input
                     type="url"
                     autoComplete="off"
                     value={formData.website}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className="input"
                     placeholder="https://company.com"
                   />
                 </div>
@@ -581,13 +581,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Credit Limit
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     autoComplete="off"
                     value={formData.creditLimit}
                     onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
-                    className="input"
                     placeholder="0"
                   />
                 </div>
@@ -595,13 +594,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Opening Balance
                   </label>
-                  <input
+                  <Input
                     type="number"
                     step="0.01"
                     autoComplete="off"
                     value={formData.openingBalance}
                     onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
-                    className="input"
                     placeholder="0.00"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -612,13 +610,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Lead Time (days)
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     autoComplete="off"
                     value={formData.leadTime}
                     onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
-                    className="input"
                     placeholder="7"
                   />
                 </div>
@@ -626,13 +623,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Min Order Amount
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     autoComplete="off"
                     value={formData.minOrderAmount}
                     onChange={(e) => setFormData({ ...formData, minOrderAmount: parseFloat(e.target.value) || 0 })}
-                    className="input"
                     placeholder="0"
                   />
                 </div>
@@ -681,12 +677,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Street Address
                         </label>
-                        <input
+                        <Input
                           type="text"
                           autoComplete="off"
                           value={address.street}
                           onChange={(e) => handleAddressChange(index, 'street', e.target.value)}
-                          className="input"
                           placeholder="123 Main St"
                         />
                       </div>
@@ -721,12 +716,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           State
                         </label>
-                        <input
+                        <Input
                           type="text"
                           autoComplete="off"
                           value={address.state}
                           onChange={(e) => handleAddressChange(index, 'state', e.target.value)}
-                          className="input"
                           placeholder="State"
                         />
                       </div>
@@ -734,12 +728,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           ZIP Code
                         </label>
-                        <input
+                        <Input
                           type="text"
                           autoComplete="off"
                           value={address.zipCode}
                           onChange={(e) => handleAddressChange(index, 'zipCode', e.target.value)}
-                          className="input"
                           placeholder="12345"
                         />
                       </div>
@@ -772,12 +765,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Notes
                   </label>
-                  <textarea
+                  <Textarea
                     value={formData.notes}
                     autoComplete="off"
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="input"
-                    rows="3"
+                    rows={3}
                     placeholder="Additional notes about this supplier..."
                   />
                 </div>
@@ -786,19 +778,19 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
 
             {/* Form Actions */}
             <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-              <button
+              <Button
                 type="button"
                 onClick={onCancel}
-                className="btn btn-secondary"
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="btn btn-primary"
+                variant="default"
               >
                 {supplier ? 'Update Supplier' : 'Add Supplier'}
-              </button>
+              </Button>
             </div>
       </form>
     </BaseModal>
@@ -965,13 +957,15 @@ export const Suppliers = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your supplier relationships and information</p>
         </div>
         <div className="flex-shrink-0 w-full sm:w-auto">
-          <button
+          <Button
             onClick={handleAddNew}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Add Supplier
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -979,12 +973,12 @@ export const Suppliers = () => {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="flex-1 relative min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+          <Input
             type="text"
             placeholder="Search suppliers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10 w-full"
+            className="pl-10 w-full"
           />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -1265,23 +1259,27 @@ export const Suppliers = () => {
             {' suppliers'}
           </p>
           <nav className="flex items-center gap-2">
-            <button
+            <Button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={!(pagination.hasPrev)}
-              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              size="sm"
+              className="disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
-            </button>
+            </Button>
             <span className="text-sm text-gray-600 px-2">
               Page {pagination.current || 1} of {pagination.pages || 1}
             </span>
-            <button
+            <Button
               onClick={() => setCurrentPage((p) => Math.min(pagination.pages || 1, p + 1))}
               disabled={!(pagination.hasNext)}
-              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              size="sm"
+              className="disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
-            </button>
+            </Button>
           </nav>
         </div>
       )}
@@ -1298,12 +1296,13 @@ export const Suppliers = () => {
               }
             </p>
             {!searchTerm && (
-              <button
+              <Button
                 onClick={handleAddNew}
-                className="mt-4 btn btn-primary"
+                variant="default"
+                className="mt-4"
               >
                 Add Your First Supplier
-              </button>
+              </Button>
             )}
           </div>
         </div>

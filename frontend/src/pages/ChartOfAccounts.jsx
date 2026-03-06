@@ -15,7 +15,7 @@ import {
   EyeOff,
   RefreshCw
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import {
   useGetAccountsQuery,
   useGetCategoriesGroupedQuery,
@@ -25,6 +25,9 @@ import {
 } from '../store/services/chartOfAccountsApi';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import { handleApiError } from '../utils/errorHandler';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const AccountTypeBadge = ({ type }) => {
   const config = {
@@ -237,11 +240,11 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
                 )}
               </div>
               <div className="relative">
-                <input
+                <Input
                   type="text"
                   value={formData.accountCode}
                   onChange={(e) => setFormData({ ...formData, accountCode: e.target.value.toUpperCase() })}
-                  className="input pr-20"
+                  className="pr-20"
                   placeholder={autoGenerateCode ? "Auto-generated" : "e.g., 1000, 2000, 3000"}
                   required
                   disabled={!!account || autoGenerateCode} // Can't change code after creation or when auto-generating
@@ -270,11 +273,10 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Account Name *
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.accountName}
                 onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
-                className="input"
                 placeholder="e.g., Cash in Hand"
                 required
               />
@@ -349,12 +351,11 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Opening Balance
                 </label>
-                <input
+                <Input
                   type="number"
                   step="0.01"
                   value={formData.openingBalance}
                   onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
-                  className="input"
                   placeholder="0.00"
                 />
               </div>
@@ -366,10 +367,9 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Description
             </label>
-            <textarea
+            <Textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="input"
               rows={3}
               placeholder="Account description..."
             />
@@ -419,20 +419,20 @@ const AccountForm = ({ account, onSave, onCancel, isOpen, existingAccounts, pres
 
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button
+            <Button
               type="button"
               onClick={onCancel}
-              className="btn btn-secondary"
+              variant="secondary"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="btn btn-primary"
+              variant="default"
             >
               <Save className="h-4 w-4 mr-2" />
               {account ? 'Update Account' : 'Create Account'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -532,7 +532,7 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-gray-900">Account Categories</h3>
-        <button
+        <Button
           onClick={() => {
             setSelectedCategory(null);
             setAutoGenerateCode(true); // Enable auto-generation for new categories
@@ -546,11 +546,12 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
             });
             setIsFormOpen(true);
           }}
-          className="btn btn-primary btn-sm"
+          variant="default"
+          size="sm"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Category
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -611,7 +612,7 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category Name *
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={formData.name}
                     onChange={(e) => {
@@ -625,7 +626,6 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
                       
                       setFormData(newFormData);
                     }}
-                    className="input"
                     placeholder="e.g., Current Assets"
                     required
                   />
@@ -636,11 +636,11 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
                     Category Code *
                   </label>
                   <div className="flex items-center space-x-2">
-                    <input
+                    <Input
                       type="text"
                       value={formData.code}
                       onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                      className="input flex-1"
+                      className="flex-1"
                       placeholder="e.g., CUR_ASSETS"
                       required
                     />
@@ -695,11 +695,10 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Display Order
                   </label>
-                  <input
+                  <Input
                     type="number"
                     value={formData.displayOrder}
                     onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
-                    className="input"
                     min="0"
                   />
                 </div>
@@ -709,10 +708,9 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
                 </label>
-                <textarea
+                <Textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="input"
                   rows={3}
                   placeholder="Category description..."
                 />
@@ -729,31 +727,31 @@ const CategoryManagement = ({ categories, onCategoryCreated, onCategoryUpdated, 
                     onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                     className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
                   />
-                  <input
+                  <Input
                     type="text"
                     value={formData.color}
                     onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="input flex-1"
+                    className="flex-1"
                     placeholder="#6B7280"
                   />
                 </div>
               </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t">
-                <button
+                <Button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="btn btn-secondary"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="btn btn-primary"
+                  variant="default"
                 >
                   <Save className="h-4 w-4 mr-2" />
                   {selectedCategory ? 'Update Category' : 'Create Category'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -963,12 +961,12 @@ export const ChartOfAccounts = () => {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Accounts</h3>
             <p className="text-gray-600 mb-4">Failed to load chart of accounts. Please try again.</p>
-            <button
+            <Button
               onClick={() => window.location.reload()}
-              className="btn btn-primary"
+              variant="default"
             >
               Retry
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -984,21 +982,25 @@ export const ChartOfAccounts = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your accounting structure and account heads</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
+          <Button
             onClick={() => setShowCategoryManagement(!showCategoryManagement)}
-            className="btn btn-secondary btn-md flex items-center justify-center gap-2"
+            variant="secondary"
+            size="default"
+            className="flex items-center justify-center gap-2"
           >
             <FolderTree className="h-4 w-4" />
             <span className="hidden sm:inline">{showCategoryManagement ? 'Hide Categories' : 'Manage Categories'}</span>
             <span className="sm:hidden">Categories</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleAddNew}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2"
           >
             <Plus className="h-4 w-4" />
             Create Account
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1104,13 +1106,15 @@ export const ChartOfAccounts = () => {
           <option value="expense">Expenses</option>
         </select>
 
-        <button
+        <Button
           onClick={() => setShowInactive(!showInactive)}
-          className={`btn btn-md ${showInactive ? 'btn-primary' : 'btn-secondary'} flex items-center justify-center gap-2 w-full sm:w-auto`}
+          variant={showInactive ? 'default' : 'secondary'}
+          size="default"
+          className="flex items-center justify-center gap-2 w-full sm:w-auto"
         >
           {showInactive ? <Eye className="h-4 w-4 mr-2" /> : <EyeOff className="h-4 w-4 mr-2" />}
           {showInactive ? 'Show Active' : 'Show All'}
-        </button>
+        </Button>
       </div>
 
       {/* Accounts Table */}

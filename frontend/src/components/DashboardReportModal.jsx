@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, ArrowUpDown, RefreshCw } from 'lucide-react';
 import BaseModal from './BaseModal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import DateFilter from './DateFilter';
 
@@ -74,31 +76,31 @@ const DashboardReportModal = ({
   const getFilterInput = (column) => {
     if (column.filterType === 'date') {
       return (
-        <input
+        <Input
           type="date"
           value={localFilters[column.key] || ''}
           onChange={(e) => handleFilterChange(column.key, e.target.value)}
-          className="input text-xs w-full"
+          className="text-xs w-full"
           placeholder="Equals:"
         />
       );
     } else if (column.filterType === 'number') {
       return (
-        <input
+        <Input
           type="number"
           value={localFilters[column.key] || ''}
           onChange={(e) => handleFilterChange(column.key, e.target.value)}
-          className="input text-xs w-full"
+          className="text-xs w-full"
           placeholder="Equals:"
         />
       );
     } else {
       return (
-        <input
+        <Input
           type="text"
           value={localFilters[column.key] || ''}
           onChange={(e) => handleFilterChange(column.key, e.target.value)}
-          className="input text-xs w-full"
+          className="text-xs w-full"
           placeholder="Contains:"
         />
       );
@@ -131,13 +133,14 @@ const DashboardReportModal = ({
                 className="w-full"
               />
             </div>
-            <button
+            <Button
               onClick={handleSearch}
-              className="btn btn-primary flex items-center justify-center gap-x-1 sm:gap-x-2 px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto whitespace-nowrap"
+              variant="default"
+              className="flex items-center justify-center gap-x-1 sm:gap-x-2 px-3 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto whitespace-nowrap"
             >
               <Search className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
               <span className="text-xs sm:text-sm">Search</span>
-            </button>
+            </Button>
           </div>
 
         </div>
@@ -231,12 +234,13 @@ const DashboardReportModal = ({
           <p className="text-xs sm:text-sm text-gray-600 break-words text-center sm:text-left">
             Showing {data.length} record{data.length !== 1 ? 's' : ''}
           </p>
-          <button
+          <Button
             onClick={onClose}
-            className="btn btn-secondary w-full sm:w-auto px-4 py-2 text-xs sm:text-sm"
+            variant="secondary"
+            className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm"
           >
             Close
-          </button>
+          </Button>
         </div>
     </BaseModal>
   );

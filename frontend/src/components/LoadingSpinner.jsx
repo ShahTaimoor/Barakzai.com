@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@/components/ui/button';
 
 export const LoadingSpinner = ({ size = 'md', className = '', inline = false }) => {
   const sizeClasses = {
@@ -15,13 +16,15 @@ export const LoadingSpinner = ({ size = 'md', className = '', inline = false }) 
   );
 };
 
-export const LoadingButton = ({ isLoading, loading, children, disabled, className = '', ...props }) => {
+export const LoadingButton = ({ isLoading, loading, children, disabled, className = '', variant = 'default', size, ...props }) => {
   const busy = isLoading || loading;
   return (
-    <button
+    <Button
       {...props}
       disabled={disabled || busy}
-      className={`${className} ${(disabled || busy) ? 'opacity-50 cursor-not-allowed' : ''}`}
+      variant={variant}
+      size={size}
+      className={className}
     >
       {busy ? (
         <div className="flex items-center justify-center">
@@ -31,7 +34,7 @@ export const LoadingButton = ({ isLoading, loading, children, disabled, classNam
       ) : (
         children
       )}
-    </button>
+    </Button>
   );
 };
 

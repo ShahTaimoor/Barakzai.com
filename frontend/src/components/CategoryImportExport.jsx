@@ -14,9 +14,11 @@ import {
   useDownloadCategoryTemplateQuery,
   useLazyDownloadCategoryExportFileQuery,
 } from '../store/services/categoriesApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { LoadingButton } from './LoadingSpinner';
 import { handleApiError, showSuccessToast, showErrorToast, showWarningToast } from '../utils/errorHandler';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const CategoryImportExport = ({ onImportComplete, filters = {} }) => {
   const [importFile, setImportFile] = useState(null);
@@ -141,32 +143,38 @@ const CategoryImportExport = ({ onImportComplete, filters = {} }) => {
         <h3 className="text-base sm:text-lg font-semibold text-gray-900">Import / Export Categories</h3>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <div className="relative group">
-            <button
+            <Button
               onClick={handleDownloadTemplate}
-              className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="outline"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Download className="h-4 w-4" />
               Template
-            </button>
+            </Button>
           </div>
           <div className="relative group">
             <LoadingButton
               onClick={handleExportExcel}
               isLoading={isExporting}
-              className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="secondary"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Download className="h-4 w-4" />
               Export Excel
             </LoadingButton>
           </div>
           <div className="relative group">
-            <button
+            <Button
               onClick={() => setShowImportModal(true)}
-              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Upload className="h-4 w-4" />
               Import Categories
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -184,11 +192,11 @@ const CategoryImportExport = ({ onImportComplete, filters = {} }) => {
                 <div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Excel File</label>
-                    <input
+                    <Input
                       type="file"
                       accept=".xlsx,.xls"
                       onChange={handleFileSelect}
-                      className="input w-full"
+                      className="w-full"
                     />
                   </div>
 
@@ -205,12 +213,14 @@ const CategoryImportExport = ({ onImportComplete, filters = {} }) => {
                   )}
 
                   <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
-                    <button onClick={resetImport} className="btn btn-secondary btn-md w-full sm:w-auto">Cancel</button>
+                    <Button onClick={resetImport} variant="secondary" size="default" className="w-full sm:w-auto">Cancel</Button>
                     <LoadingButton
                       onClick={handleImport}
                       isLoading={isImporting}
                       disabled={!importFile}
-                      className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+                      variant="default"
+                      size="default"
+                      className="flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
                       Import Categories
                     </LoadingButton>
@@ -247,7 +257,7 @@ const CategoryImportExport = ({ onImportComplete, filters = {} }) => {
                     )}
                   </div>
                   <div className="flex justify-end">
-                    <button onClick={resetImport} className="btn btn-primary btn-md w-full sm:w-auto">Close</button>
+                    <Button onClick={resetImport} variant="default" size="default" className="w-full sm:w-auto">Close</Button>
                   </div>
                 </div>
               )}

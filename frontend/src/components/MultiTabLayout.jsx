@@ -40,11 +40,12 @@ import { useTab } from '../contexts/TabContext';
 import { getComponentInfo } from '../utils/componentUtils';
 import TabBar from './TabBar';
 import TabContent from './TabContent';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import ErrorBoundary from './ErrorBoundary';
 import MobileNavigation from './MobileNavigation';
 import { useResponsive } from './ResponsiveContainer';
 import { useGetAlertSummaryQuery } from '../store/services/inventoryAlertsApi';
+import { Button } from '@/components/ui/button';
 export const navigation = [
   // Dashboard
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: null, allowMultiple: true },
@@ -629,13 +630,15 @@ export const MultiTabLayout = ({ children }) => {
             {/* Action Buttons Container - Center/Mid-Left with Horizontal Scroll - Hidden on Mobile */}
             <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
               {/* Cash Receiving Button - Left side, desktop only (opens in tab) */}
-              <button
+              <Button
                 onClick={() => handleNavigationClick({ href: '/cash-receiving', name: 'Cash Receiving' })}
-                className="btn btn-primary items-center justify-center gap-1.5 px-2.5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                variant="success"
+                size="sm"
+                className="items-center justify-center gap-1.5 px-2.5 py-2 flex text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
               >
                 <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span>Cash Receiving</span>
-              </button>
+              </Button>
               
               {/* Green Buttons - Receipt related */}
               {sidebarConfig['Cash Receipts'] !== false && (
@@ -767,11 +770,13 @@ export const MultiTabLayout = ({ children }) => {
         <main className={`${isMobile ? 'py-2 pb-20' : 'py-4'} overflow-x-hidden max-w-full`}>
           <div className={`mx-auto max-w-full w-full overflow-x-hidden ${isMobile ? 'px-2' : 'px-2 sm:px-4 lg:px-6'}`}>
             <ErrorBoundary>
-              {tabs.length > 0 ? (
-                <TabContent />
-              ) : (
-                children
-              )}
+              {(() => {
+                const pathname = location.pathname;
+                const isFormPage = pathname === '/customers/new' ||
+                  /^\/customers\/[^/]+\/edit$/.test(pathname);
+                const showRoutes = tabs.length === 0 || isFormPage;
+                return showRoutes ? children : <TabContent />;
+              })()}
             </ErrorBoundary>
           </div>
         </main>

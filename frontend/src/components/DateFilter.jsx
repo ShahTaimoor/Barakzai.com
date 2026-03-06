@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Calendar, X } from 'lucide-react';
 import {
   formatDateForInput,
@@ -142,11 +144,11 @@ const DateFilter = ({
           </label>
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <Input
               type="date"
               value={startDate}
               onChange={handleStartDateChange}
-              className="input pl-10"
+              className="pl-10"
               max={endDate || undefined}
               required={required}
             />
@@ -159,11 +161,11 @@ const DateFilter = ({
           </label>
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <Input
               type="date"
               value={endDate}
               onChange={handleEndDateChange}
-              className="input pl-10"
+              className="pl-10"
               min={startDate || undefined}
               required={required}
             />
@@ -175,14 +177,15 @@ const DateFilter = ({
             <label className="block text-sm font-medium text-gray-700 mb-1.5 opacity-0 pointer-events-none">
               Clear
             </label>
-            <button
+            <Button
               onClick={handleClear}
-              className="w-full sm:w-auto btn btn-secondary h-[42px] flex items-center justify-center gap-2 px-4"
+              variant="secondary"
+              className="w-full sm:w-auto h-[42px] flex items-center justify-center gap-2 px-4"
               type="button"
             >
               <X className="h-4 w-4" />
               <span className="hidden sm:inline">Clear</span>
-            </button>
+            </Button>
           </div>
         )}
       </div>

@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, Minus, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import BaseModal from './BaseModal';
 import { 
   useGetEligibleItemsQuery,
@@ -196,17 +199,17 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
       footer={
         selectedOrder ? (
           <div className="flex justify-end space-x-3">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+            <Button type="button" onClick={onClose} variant="secondary">
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               form="return-form"
               disabled={isCreatingReturn || !selectedOrder || formData.items.length === 0}
-              className="btn btn-primary"
+              variant="default"
             >
               {isCreatingReturn ? <LoadingSpinner size="sm" /> : 'Create Return Request'}
-            </button>
+            </Button>
           </div>
         ) : null
       }
@@ -221,7 +224,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
             {!selectedOrder ? (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
+                <Input
                   type="text"
                   placeholder={
                     isPurchaseReturn
@@ -234,7 +237,7 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                     setShowOrderSearch(true);
                   }}
                   onFocus={() => setShowOrderSearch(true)}
-                  className="input pl-10"
+                  className="pl-10"
                 />
                 
                 {showOrderSearch && orderSearch && (
@@ -406,15 +409,16 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                                 Price: ${(item.orderItem.price || item.orderItem.unitPrice || item.orderItem.unitCost || 0).toFixed(2)}
                               </div>
                             </div>
-                            <button
+                            <Button
                               type="button"
                               onClick={() => handleAddItem(item.orderItem, item.availableQuantity)}
-                              className="btn btn-primary btn-sm"
+                              variant="default"
+                              size="sm"
                               disabled={formData.items.some(i => i.originalOrderItem === item.orderItem._id)}
                             >
                               <Plus className="h-4 w-4 mr-1" />
                               Add
-                            </button>
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -450,13 +454,12 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                                   <label className="block text-xs font-medium text-gray-700 mb-1">
                                     Quantity *
                                   </label>
-                                  <input
+                                  <Input
                                     type="number"
                                     min="1"
                                     max={item.maxQuantity}
                                     value={item.quantity}
                                     onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                    className="input"
                                     required
                                   />
                                 </div>
@@ -510,11 +513,10 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                   Return Reason Details
                                 </label>
-                                <textarea
+                                <Textarea
                                   value={item.returnReasonDetail}
                                   onChange={(e) => handleItemChange(index, 'returnReasonDetail', e.target.value)}
                                   placeholder="Additional details about the return reason..."
-                                  className="input"
                                   rows={2}
                                 />
                               </div>
@@ -550,11 +552,10 @@ const CreateReturnModal = ({ isOpen, onClose, onSuccess, defaultReturnType = 'sa
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notes
                 </label>
-                <textarea
+                <Textarea
                   value={formData.generalNotes}
                   onChange={(e) => setFormData(prev => ({ ...prev, generalNotes: e.target.value }))}
                   placeholder="Additional notes about this return request..."
-                  className="input"
                   rows={3}
                 />
               </div>

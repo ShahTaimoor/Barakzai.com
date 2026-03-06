@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Minus, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useCreateSaleReturnMutation } from '../store/services/saleReturnsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -157,17 +160,17 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
       contentClassName="p-5"
       footer={
         <div className="flex justify-end space-x-3">
-          <button type="button" onClick={onClose} className="btn btn-secondary">
+          <Button type="button" onClick={onClose} variant="secondary">
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             form="sale-return-form"
             disabled={isCreatingReturn || formData.items.length === 0}
-            className="btn btn-primary"
+            variant="default"
           >
             {isCreatingReturn ? <LoadingSpinner size="sm" /> : 'Create Return Request'}
-          </button>
+          </Button>
         </div>
       }
     >
@@ -235,15 +238,16 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
                             Available: {availableQuantity} • Price: ${itemPrice.toFixed(2)} • Original Qty: {item.quantity}
                           </div>
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => handleAddItem(item)}
-                          className="btn btn-primary btn-sm"
+                          variant="default"
+                          size="sm"
                           disabled={isAlreadyAdded || availableQuantity <= 0}
                         >
                           <Plus className="h-4 w-4 mr-1" />
                           Add
-                        </button>
+                        </Button>
                       </div>
                     );
                   })}
@@ -283,13 +287,12 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
                                   <label className="block text-xs font-medium text-gray-700 mb-1">
                                     Quantity *
                                   </label>
-                                  <input
+                                  <Input
                                     type="number"
                                     min="1"
                                     max={item.maxQuantity}
                                     value={item.quantity}
                                     onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                    className="input"
                                     required
                                   />
                                 </div>
@@ -343,11 +346,10 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
                                 <label className="block text-xs font-medium text-gray-700 mb-1">
                                   Return Reason Details
                                 </label>
-                                <textarea
+                                <Textarea
                                   value={item.returnReasonDetail}
                                   onChange={(e) => handleItemChange(index, 'returnReasonDetail', e.target.value)}
                                   placeholder="Additional details about the return reason..."
-                                  className="input"
                                   rows={2}
                                 />
                               </div>
@@ -380,12 +382,12 @@ const CreateSaleReturnModal = ({ isOpen, onClose, onSuccess, sale, customer }) =
 
         {/* Notes */}
         <FormField label="Notes" htmlFor="general-notes">
-          <textarea
+          <Textarea
             id="general-notes"
             value={formData.generalNotes}
             onChange={(e) => setFormData(prev => ({ ...prev, generalNotes: e.target.value }))}
             placeholder="Additional notes about this return request..."
-            className="input w-full"
+            className="w-full"
             rows={3}
           />
         </FormField>

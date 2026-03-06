@@ -18,6 +18,7 @@ import {
 import { useGetProductsQuery } from '../store/services/productsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
 import ValidatedInput, { ValidatedSelect } from '../components/ValidatedInput';
@@ -87,13 +88,15 @@ const ProductVariants = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Variants</h1>
             <p className="mt-1 text-sm sm:text-base text-gray-600">Manage product variants and transformations</p>
           </div>
-          <button
+          <Button
             onClick={() => setIsModalOpen(true)}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Add Variant
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -136,12 +139,13 @@ const ProductVariants = () => {
           <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No variants found</h3>
           <p className="text-sm sm:text-base text-gray-500 mb-4">Get started by creating a new product variant.</p>
-          <button
+          <Button
             onClick={() => setIsModalOpen(true)}
-            className="btn btn-primary btn-md"
+            variant="default"
+            size="default"
           >
             Add Variant
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -517,18 +521,22 @@ const VariantModal = ({ variant, products, isOpen, onClose, onSuccess }) => {
           />
 
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
-            <button
+            <Button
               type="button"
               onClick={onClose}
-              className="btn btn-secondary btn-md w-full sm:w-auto"
+              variant="secondary"
+              size="default"
+              className="w-full sm:w-auto"
               disabled={isSubmitting}
             >
               Cancel
-            </button>
+            </Button>
             <LoadingButton
               type="submit"
               isLoading={isSubmitting}
-              className="btn btn-primary btn-md w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="w-full sm:w-auto"
             >
               {variant ? 'Update' : 'Create'}
             </LoadingButton>

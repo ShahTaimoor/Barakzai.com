@@ -37,6 +37,8 @@ import DateFilter from '../components/DateFilter';
 import { ClearConfirmationDialog } from '../components/ConfirmationDialog';
 import { useClearConfirmation } from '../hooks/useConfirmation';
 import { getCurrentDatePakistan } from '../utils/dateUtils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const SaleReturns = () => {
   const today = getCurrentDatePakistan();
@@ -458,7 +460,7 @@ const SaleReturns = () => {
             showPresets={true}
             className="w-full sm:w-auto"
           />
-          <button
+          <Button
             onClick={() => {
               const componentInfo = getComponentInfo('/sale-returns');
               if (componentInfo) {
@@ -475,11 +477,12 @@ const SaleReturns = () => {
                 handleNewReturn();
               }
             }}
-            className="btn btn-primary btn-md"
+            variant="default"
+            size="default"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Sale Return
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -612,7 +615,7 @@ const SaleReturns = () => {
               </p>
             <div className="flex gap-3 relative flex-col sm:flex-row">
               <div className="flex-1 relative">
-                <input
+                <Input
                   ref={searchInputRef}
                   type="text"
                   value={productSearchTerm}
@@ -638,7 +641,7 @@ const SaleReturns = () => {
                     }
                   }}
                   placeholder="Search product name, SKU, or barcode - click suggestion to add"
-                  className="input w-full"
+                  className="w-full"
                 />
               </div>
             </div>
@@ -728,13 +731,13 @@ const SaleReturns = () => {
                                 >
                                   <Minus className="h-4 w-4" />
                                 </button>
-                                <input
+                                <Input
                                   type="number"
                                   min={1}
                                   max={item.maxQuantity || 999}
                                   value={item.quantity || 1}
                                   onChange={(e) => handleUpdateReturnQuantity(index, e.target.value)}
-                                  className="input text-center h-8 w-20"
+                                  className="text-center h-8 w-20"
                                 />
                                 <button
                                   type="button"
@@ -750,13 +753,14 @@ const SaleReturns = () => {
                             <td className="px-4 py-3 text-sm font-medium">{formatCurrency(item.originalPrice)}</td>
                             <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatCurrency(total)}</td>
                             <td className="px-4 py-3">
-                              <button
+                              <Button
                                 onClick={() => handleRemoveFromReturnCart(index)}
-                                className="btn btn-danger btn-sm"
+                                variant="destructive"
+                                size="sm"
                                 title="Remove"
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                         );
@@ -775,12 +779,13 @@ const SaleReturns = () => {
                             <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>
                             <span className="ml-2 font-medium text-sm">{item.productName || 'Unknown'}</span>
                           </div>
-                          <button
+                          <Button
                             onClick={() => handleRemoveFromReturnCart(index)}
-                            className="btn btn-danger btn-sm"
+                            variant="destructive"
+                            size="sm"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                           <div>
@@ -794,13 +799,13 @@ const SaleReturns = () => {
                               >
                                 <Minus className="h-4 w-4" />
                               </button>
-                              <input
+                              <Input
                                 type="number"
                                 min={1}
                                 max={item.maxQuantity || 999}
                                 value={item.quantity || 1}
                                 onChange={(e) => handleUpdateReturnQuantity(index, e.target.value)}
-                                className="input text-center h-8 w-16 flex-1"
+                                className="text-center h-8 w-16 flex-1"
                               />
                               <button
                                 type="button"
@@ -864,7 +869,8 @@ const SaleReturns = () => {
                 <LoadingButton
                   onClick={handleClearReturnCart}
                   isLoading={false}
-                  className="btn btn-secondary flex-1"
+                  variant="secondary"
+                  className="flex-1"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clear Return Items
@@ -872,7 +878,8 @@ const SaleReturns = () => {
                 <LoadingButton
                   onClick={handleCompleteReturn}
                   isLoading={isCreatingReturn}
-                  className="btn btn-primary flex-2"
+                  variant="default"
+                  className="flex-2"
                 >
                   <Receipt className="h-4 w-4 mr-2" />
                   Complete Return

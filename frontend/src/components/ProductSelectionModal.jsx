@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Minus, Package, Calendar, DollarSign, CheckSquare, Square } from 'lucide-react';
 import BaseModal from './BaseModal';
+import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from './LoadingSpinner';
 
 const ProductSelectionModal = ({ 
@@ -124,17 +125,17 @@ const ProductSelectionModal = ({
             {Object.keys(selectedProducts).length} product(s) selected
           </div>
           <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+            <Button type="button" onClick={onClose} variant="secondary">
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleConfirm}
               disabled={Object.keys(selectedProducts).length === 0}
-              className="btn btn-primary"
+              variant="default"
             >
               {confirmLabel}
-            </button>
+            </Button>
           </div>
         </div>
       }

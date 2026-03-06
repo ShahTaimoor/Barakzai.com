@@ -18,6 +18,7 @@ import { useGetAccountsQuery } from '../store/services/chartOfAccountsApi';
 import { useCreateBatchCashReceiptsMutation } from '../store/services/cashReceiptsApi';
 import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import PrintModal from '../components/PrintModal';
+import { Button } from '@/components/ui/button';
 
 // Helper function to get local date in YYYY-MM-DD format (avoids timezone issues with toISOString)
 const getLocalDateString = (date = new Date()) => {
@@ -724,25 +725,30 @@ const CashReceiving = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              <button
+              <Button
                 onClick={handlePrintCustomerList}
                 disabled={customers.length === 0}
-                className="btn btn-md flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="success"
+                size="default"
+                className="flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Print customer balance list"
               >
                 <Printer className="h-4 w-4" />
                 <span>Print List</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleUnselectAll}
-                className="btn btn-md bg-gray-500 hover:bg-gray-600 text-white"
+                variant="secondary"
+                size="default"
               >
                 UnSelect All
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={loadCustomers}
                 disabled={customersLoading || selectedCities.length === 0}
-                className="btn btn-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="default"
+                size="default"
+                className="flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {customersLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -750,7 +756,7 @@ const CashReceiving = () => {
                   <RefreshCw className="h-4 w-4" />
                 )}
                 <span>Load</span>
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -952,10 +958,12 @@ const CashReceiving = () => {
 
       {/* Action Buttons */}
       <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 bg-white rounded-lg shadow p-4 sm:p-6">
-        <button
+        <Button
           onClick={handleSave}
           disabled={creating || total === 0}
-          className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          variant="default"
+          size="default"
+          className="flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {creating ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -963,22 +971,26 @@ const CashReceiving = () => {
             <Save className="h-4 w-4" />
           )}
           <span>Save</span>
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleReset}
-          className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+          variant="outline"
+          size="default"
+          className="flex items-center justify-center gap-2 w-full sm:w-auto"
         >
           <RotateCcw className="h-4 w-4" />
           <span>Reset</span>
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handlePrint}
           disabled={customerEntries.filter(e => parseFloat(e.amount) > 0).length === 0}
-          className="btn btn-md flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+          variant="success"
+          size="default"
+          className="flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Printer className="h-4 w-4" />
           <span>Print</span>
-        </button>
+        </Button>
       </div>
 
       {/* Print Modal */}

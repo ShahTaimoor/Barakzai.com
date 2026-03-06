@@ -7,6 +7,8 @@ import {
   useGetCustomersQuery,
 } from '../store/services/customersApi';
 import { LoadingPage } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
 import CustomerImportExport from '../components/CustomerImportExport';
@@ -97,13 +99,15 @@ export const Customers = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your customer database</p>
         </div>
         <div className="flex-shrink-0 w-full sm:w-auto">
-          <button
+          <Button
             onClick={() => customerOps.setIsModalOpen(true)}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Add Customer
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -111,12 +115,12 @@ export const Customers = () => {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="flex-1 relative min-w-0">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
+          <Input
             type="text"
             placeholder="Search customers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10 w-full"
+            className="pl-10 w-full"
           />
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -175,23 +179,27 @@ export const Customers = () => {
             {' customers'}
           </p>
           <nav className="flex items-center gap-2">
-            <button
+            <Button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={!pagination.hasPrev}
-              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              size="sm"
+              className="disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
-            </button>
+            </Button>
             <span className="text-sm text-gray-600 px-2">
               Page {pagination.current} of {pagination.pages}
             </span>
-            <button
+            <Button
               onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
               disabled={!pagination.hasNext}
-              className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="outline"
+              size="sm"
+              className="disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
-            </button>
+            </Button>
           </nav>
         </div>
       )}
@@ -204,7 +212,7 @@ export const Customers = () => {
           isSubmitting={customerOps.creating || customerOps.updating}
         />
       )}
-      
+
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
         isOpen={confirmation.isOpen}

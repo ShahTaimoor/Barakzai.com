@@ -134,7 +134,7 @@ class AnomalyDetectionService {
           type: 'large_transaction',
           severity: total > mean * 5 ? 'critical' : total > mean * 3 ? 'high' : 'medium',
           title: 'Unusually Large Transaction',
-          description: `Transaction amount (${this.formatCurrency(total)}) is significantly higher than average (${this.formatCurrency(mean)})`,
+          description: `Transaction amount (${this.formatAmount(total)}) is significantly higher than average (${this.formatAmount(mean)})`,
           transactionId: sale.id,
           transactionType: 'sales',
           amount: total,
@@ -230,7 +230,7 @@ class AnomalyDetectionService {
           type: 'unusual_discount',
           severity: discountPercentage > 80 ? 'critical' : discountPercentage > 70 ? 'high' : 'medium',
           title: 'Unusually High Discount',
-          description: `Discount of ${discountPercentage.toFixed(1)}% (${this.formatCurrency(discount)}) applied`,
+          description: `Discount of ${discountPercentage.toFixed(1)}% (${this.formatAmount(discount)}) applied`,
           transactionId: sale.id,
           transactionType: 'sales',
           amount: total,
@@ -274,7 +274,7 @@ class AnomalyDetectionService {
             type: 'price_anomaly',
             severity: loss > 1000 ? 'critical' : loss > 500 ? 'high' : 'medium',
             title: 'Product Sold Below Cost',
-            description: `Product "${product.name || product.sku}" sold at ${this.formatCurrency(sellingPrice)} (cost: ${this.formatCurrency(costPrice)})`,
+            description: `Product "${product.name || product.sku}" sold at ${this.formatAmount(sellingPrice)} (cost: ${this.formatAmount(costPrice)})`,
             transactionId: sale.id,
             transactionType: 'sales',
             product: {
@@ -400,7 +400,7 @@ class AnomalyDetectionService {
           type: 'new_customer_large_transaction',
           severity: 'medium',
           title: 'New Customer Large Transaction',
-          description: `New customer made a large transaction of ${this.formatCurrency(stats.totalAmount)}`,
+          description: `New customer made a large transaction of ${this.formatAmount(stats.totalAmount)}`,
           customer: stats.customer,
           transactionId: stats.transactions[0].id,
           transactionType: 'sales',
@@ -679,7 +679,7 @@ class AnomalyDetectionService {
               type: 'large_payment',
               severity: amount > mean * 5 ? 'high' : 'medium',
               title: 'Unusually Large Payment',
-              description: `Payment of ${this.formatCurrency(amount)} is significantly higher than average`,
+              description: `Payment of ${this.formatAmount(amount)} is significantly higher than average`,
               transactionId: payment.id,
               transactionType: 'cash_payment',
               amount: amount,
@@ -756,12 +756,22 @@ class AnomalyDetectionService {
   }
 
   /**
-   * Format currency
+   * Format currency (with $ symbol)
    */
   static formatCurrency(amount) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
+    }).format(amount || 0);
+  }
+
+  /**
+   * Format amount without currency symbol (for display in descriptions)
+   */
+  static formatAmount(amount) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount || 0);
   }
 }

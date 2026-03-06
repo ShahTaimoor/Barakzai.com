@@ -24,6 +24,9 @@ import { useIssueRefundMutation } from '../store/services/saleReturnsApi';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { PrintModal, ReturnPrintContent } from './print';
 import { showSuccessToast, showErrorToast } from '../utils/errorHandler';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const ReturnDetailModal = ({ 
   return: returnData,
@@ -394,13 +397,13 @@ const ReturnDetailModal = ({
                     </div>
                     {canIssueRefund && (
                       <div className="md:col-span-3 flex items-end">
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setShowIssueRefundModal(true)}
-                          className="btn btn-primary"
+                          variant="default"
                         >
                           Issue Refund (Pay Customer)
-                        </button>
+                        </Button>
                       </div>
                     )}
                     {returnInfo?.refund_details?.refundPaidAt && (
@@ -503,13 +506,14 @@ const ReturnDetailModal = ({
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h4 className="text-lg font-medium text-gray-900">Notes</h4>
-                <button
+                <Button
                   onClick={() => setShowNoteModal(true)}
-                  className="btn btn-primary btn-sm"
+                  variant="default"
+                  size="sm"
                 >
                   <Edit className="h-4 w-4 mr-1" />
                   Add Note
-                </button>
+                </Button>
               </div>
               
               {returnInfo.notes?.length > 0 ? (
@@ -544,13 +548,14 @@ const ReturnDetailModal = ({
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h4 className="text-lg font-medium text-gray-900">Communication Log</h4>
-                <button
+                <Button
                   onClick={() => setShowCommunicationModal(true)}
-                  className="btn btn-primary btn-sm"
+                  variant="default"
+                  size="sm"
                 >
                   <Send className="h-4 w-4 mr-1" />
                   Log Communication
-                </button>
+                </Button>
               </div>
               
               {returnInfo.communication?.length > 0 ? (
@@ -597,12 +602,12 @@ const ReturnDetailModal = ({
 
         {/* Action Buttons */}
         <div className="flex justify-end space-x-3 pt-6 border-t">
-          <button
+          <Button
             onClick={onClose}
-            className="btn btn-secondary"
+            variant="secondary"
           >
             Close
-          </button>
+          </Button>
         </div>
 
       {/* Add Note Modal */}
@@ -623,11 +628,10 @@ const ReturnDetailModal = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Note
               </label>
-              <textarea
+              <Textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Enter your note..."
-                className="input"
                 rows={4}
                 required
               />
@@ -646,19 +650,19 @@ const ReturnDetailModal = ({
             </div>
             
             <div className="flex justify-end space-x-3">
-              <button
+              <Button
                 onClick={() => setShowNoteModal(false)}
-                className="btn btn-secondary"
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleAddNote}
                 disabled={isLoading || !noteText.trim()}
-                className="btn btn-primary"
+                variant="default"
               >
                 {isLoading ? <LoadingSpinner size="sm" /> : 'Add Note'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -699,11 +703,10 @@ const ReturnDetailModal = ({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Message
                 </label>
-                <textarea
+                <Textarea
                   value={communicationData.message}
                   onChange={(e) => setCommunicationData(prev => ({ ...prev, message: e.target.value }))}
                   placeholder="Enter communication details..."
-                  className="input"
                   rows={4}
                   required
                 />
@@ -713,30 +716,29 @@ const ReturnDetailModal = ({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Recipient (Optional)
                 </label>
-                <input
+                <Input
                   type="text"
                   value={communicationData.recipient}
                   onChange={(e) => setCommunicationData(prev => ({ ...prev, recipient: e.target.value }))}
                   placeholder="e.g., customer email or phone"
-                  className="input"
                 />
               </div>
             </div>
             
             <div className="flex justify-end space-x-3 mt-6">
-              <button
+              <Button
                 onClick={() => setShowCommunicationModal(false)}
-                className="btn btn-secondary"
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleAddCommunication}
                 disabled={isLoading || !communicationData.message.trim()}
-                className="btn btn-primary"
+                variant="default"
               >
                 {isLoading ? <LoadingSpinner size="sm" /> : 'Log Communication'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -771,19 +773,19 @@ const ReturnDetailModal = ({
               </select>
             </div>
             <div className="flex justify-end space-x-3">
-              <button
+              <Button
                 onClick={() => setShowIssueRefundModal(false)}
-                className="btn btn-secondary"
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleIssueRefund}
                 disabled={isIssuingRefund}
-                className="btn btn-primary"
+                variant="default"
               >
                 {isIssuingRefund ? <LoadingSpinner size="sm" /> : 'Issue Refund'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -35,6 +35,7 @@ import DateFilter from '../components/DateFilter';
 import { ClearConfirmationDialog } from '../components/ConfirmationDialog';
 import { useClearConfirmation } from '../hooks/useConfirmation';
 import { getCurrentDatePakistan } from '../utils/dateUtils';
+import { Button } from '@/components/ui/button';
 
 const PurchaseReturns = () => {
   const today = getCurrentDatePakistan();
@@ -448,13 +449,14 @@ const PurchaseReturns = () => {
             showPresets={true}
             className="w-full sm:w-auto"
           />
-          <button
+          <Button
             onClick={handleNewReturn}
-            className="btn btn-primary btn-md"
+            variant="default"
+            size="default"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Purchase Return
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -718,13 +720,14 @@ const PurchaseReturns = () => {
                             <td className="px-4 py-3 text-sm font-medium">{formatCurrency(item.originalPrice)}</td>
                             <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatCurrency(total)}</td>
                             <td className="px-4 py-3">
-                              <button
+                              <Button
                                 onClick={() => handleRemoveFromReturnCart(index)}
-                                className="btn btn-danger btn-sm"
+                                variant="destructive"
+                                size="sm"
                                 title="Remove"
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                         );
@@ -742,12 +745,13 @@ const PurchaseReturns = () => {
                             <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>
                             <span className="ml-2 font-medium text-sm">{item.productName || 'Unknown'}</span>
                           </div>
-                          <button
+                          <Button
                             onClick={() => handleRemoveFromReturnCart(index)}
-                            className="btn btn-danger btn-sm"
+                            variant="destructive"
+                            size="sm"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                         <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                           <div>
@@ -828,7 +832,8 @@ const PurchaseReturns = () => {
                 <LoadingButton
                   onClick={handleClearReturnCart}
                   isLoading={false}
-                  className="btn btn-secondary flex-1"
+                  variant="secondary"
+                  className="flex-1"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clear Return Items
@@ -836,7 +841,8 @@ const PurchaseReturns = () => {
                 <LoadingButton
                   onClick={handleCompleteReturn}
                   isLoading={isCreatingReturn}
-                  className="btn btn-primary flex-2"
+                  variant="default"
+                  className="flex-2"
                 >
                   <Receipt className="h-4 w-4 mr-2" />
                   Complete Return

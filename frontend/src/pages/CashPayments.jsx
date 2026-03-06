@@ -22,6 +22,9 @@ import {
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate } from '../utils/formatters';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   useGetCashPaymentsQuery,
   useCreateCashPaymentMutation,
@@ -615,20 +618,24 @@ const CashPayments = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage and view all cash payment transactions</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
+          <Button
             onClick={handleExport}
-            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="outline"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Download className="h-4 w-4" />
             <span>Export</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={resetForm}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>New Payment</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -687,13 +694,13 @@ const CashPayments = () => {
                     Supplier
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       autoComplete="off"
                       value={supplierSearchTerm}
                       onChange={(e) => handleSupplierSearch(e.target.value)}
                       onKeyDown={handleSupplierKeyDown}
-                      className="input w-full pr-10"
+                      className="w-full pr-10"
                       placeholder="Search or select supplier..."
                     />
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -801,13 +808,13 @@ const CashPayments = () => {
                     Customer
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       autoComplete="off"
                       value={customerSearchTerm}
                       onChange={(e) => handleCustomerSearch(e.target.value)}
                       onKeyDown={handleCustomerKeyDown}
-                      className="input w-full pr-10"
+                      className="w-full pr-10"
                       placeholder="Search customers by name, email, or business..."
                     />
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -924,13 +931,13 @@ const CashPayments = () => {
                     Expense Description *
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       autoComplete="off"
                       value={expenseSearchTerm}
                       onChange={(e) => handleExpenseSearch(e.target.value)}
                       onKeyDown={handleExpenseKeyDown}
-                      className="input w-full pr-10"
+                      className="w-full pr-10"
                       placeholder="Search expense account (e.g., Rent Expense, Utilities Expense, etc.)"
                       required
                     />
@@ -1036,7 +1043,7 @@ const CashPayments = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Amount *
                 </label>
-                <input
+                <Input
                   type="number"
                   autoComplete="off"
                   step="0.01"
@@ -1046,7 +1053,7 @@ const CashPayments = () => {
                     const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
                     setFormData(prev => ({ ...prev, amount: value }));
                   }}
-                  className="input w-full"
+                  className="w-full"
                   placeholder="0.00"
                   required
                 />
@@ -1061,12 +1068,12 @@ const CashPayments = () => {
                   Payment Date
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     type="date"
                     autoComplete="off"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    className="input w-full pr-10"
+                    className="w-full pr-10"
                   />
                   <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
@@ -1077,12 +1084,12 @@ const CashPayments = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
                 </label>
-                <input
+                <Input
                   type="text"
                   autoComplete="off"
                   value={formData.particular}
                   onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
-                  className="input w-full"
+                  className="w-full"
                   placeholder="Enter payment description or notes..."
                 />
               </div>
@@ -1092,10 +1099,10 @@ const CashPayments = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notes (Optional)
                 </label>
-                <textarea
+                <Textarea
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="input w-full h-20 resize-none"
+                  className="w-full h-20 resize-none"
                   placeholder="Additional notes..."
                 />
               </div>
@@ -1104,21 +1111,25 @@ const CashPayments = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-            <button
+            <Button
               onClick={resetForm}
-              className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="outline"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <RotateCcw className="h-4 w-4" />
               <span>Reset</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleCreate}
               disabled={creating}
-              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Save className="h-4 w-4" />
               <span>{creating ? 'Saving...' : 'Save Payment'}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1155,13 +1166,12 @@ const CashPayments = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Voucher Code
               </label>
-              <input
+              <Input
                 type="text"
                 autoComplete="off"
                 placeholder="Contains..."
                 value={filters.voucherCode}
                 onChange={(e) => handleFilterChange('voucherCode', e.target.value)}
-                className="input"
               />
             </div>
 
@@ -1170,13 +1180,12 @@ const CashPayments = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Amount
               </label>
-              <input
+              <Input
                 type="number"
                 autoComplete="off"
                 placeholder="Equals..."
                 value={filters.amount}
                 onChange={(e) => handleFilterChange('amount', e.target.value)}
-                className="input"
               />
             </div>
 
@@ -1185,25 +1194,26 @@ const CashPayments = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Particular
               </label>
-              <input
+              <Input
                 type="text"
                 autoComplete="off"
                 placeholder="Contains..."
                 value={filters.particular}
                 onChange={(e) => handleFilterChange('particular', e.target.value)}
-                className="input"
               />
             </div>
 
             {/* Search Button */}
             <div className="flex items-end">
-              <button
+              <Button
                 onClick={() => refetch()}
-                className="btn btn-primary btn-md w-full flex items-center justify-center gap-2"
+                variant="default"
+                size="default"
+                className="w-full flex items-center justify-center gap-2"
               >
                 <Search className="h-4 w-4" />
                 <span>Search</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1403,28 +1413,28 @@ const CashPayments = () => {
         contentClassName="p-5"
         footer={
           <div className="flex justify-end space-x-3">
-            <button onClick={() => { setShowEditModal(false); setSelectedPayment(null); resetForm(); }} className="btn btn-secondary">
+            <Button onClick={() => { setShowEditModal(false); setSelectedPayment(null); resetForm(); }} variant="secondary">
               Cancel
-            </button>
-            <button onClick={handleUpdate} disabled={updating} className="btn btn-primary">
+            </Button>
+            <Button onClick={handleUpdate} disabled={updating} variant="default">
               {updating ? 'Updating...' : 'Update'}
-            </button>
+            </Button>
           </div>
         }
       >
         <div className="space-y-4">
           <FormField label="Date" htmlFor="edit-date">
-            <input
+            <Input
               id="edit-date"
               type="date"
               autoComplete="off"
               value={formData.date}
               onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-              className="input w-full"
+              className="w-full"
             />
           </FormField>
           <FormField label="Amount" htmlFor="edit-amount" required>
-            <input
+            <Input
               id="edit-amount"
               type="number"
               autoComplete="off"
@@ -1435,17 +1445,17 @@ const CashPayments = () => {
                 const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
                 setFormData(prev => ({ ...prev, amount: value }));
               }}
-              className="input w-full"
+              className="w-full"
               placeholder="0.00"
               required
             />
           </FormField>
           <FormField label="Particular" htmlFor="edit-particular" required>
-            <textarea
+            <Textarea
               id="edit-particular"
               value={formData.particular}
               onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
-              className="input w-full"
+              className="w-full"
               rows={3}
               placeholder="Enter transaction details..."
               required
@@ -1469,11 +1479,11 @@ const CashPayments = () => {
             </select>
           </FormField>
           <FormField label="Notes (Optional)" htmlFor="edit-notes">
-            <textarea
+            <Textarea
               id="edit-notes"
               value={formData.notes}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              className="input w-full"
+              className="w-full"
               rows={2}
               placeholder="Additional notes..."
             />
@@ -1491,9 +1501,9 @@ const CashPayments = () => {
         contentClassName="p-5"
         footer={
           <div className="flex justify-end">
-            <button onClick={() => { setShowViewModal(false); setSelectedPayment(null); }} className="btn btn-secondary w-full">
+            <Button onClick={() => { setShowViewModal(false); setSelectedPayment(null); }} variant="secondary" className="w-full">
               Close
-            </button>
+            </Button>
           </div>
         }
       >

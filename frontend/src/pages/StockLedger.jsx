@@ -19,7 +19,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { handleApiError } from '../utils/errorHandler';
 import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan, getDateDaysAgo, formatDateForInput } from '../utils/dateUtils';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export const StockLedger = () => {
   const defaultDateTo = getCurrentDatePakistan();

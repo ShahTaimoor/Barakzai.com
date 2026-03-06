@@ -35,7 +35,7 @@ import {
   Camera
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import ErrorBoundary from './ErrorBoundary';
 import MobileNavigation from './MobileNavigation';
 import { useResponsive } from './ResponsiveContainer';

@@ -18,6 +18,7 @@ import {
 } from '../store/services/inventoryApi';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatCurrency } from '../utils/formatters';
+import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 const LIMIT_OPTIONS = [50, 500, 1000, 5000];
@@ -137,10 +138,12 @@ const InventoryAlerts = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Monitor low stock and auto-generate purchase orders</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
+          <Button
             onClick={handleGeneratePOs}
             disabled={generating || alerts.length === 0}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2"
           >
             {generating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -149,7 +152,7 @@ const InventoryAlerts = () => {
             )}
             <span className="hidden sm:inline">Generate Purchase Orders</span>
             <span className="sm:hidden">Generate POs</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -389,23 +392,27 @@ const InventoryAlerts = () => {
               {' alerts'}
             </p>
             <nav className="flex items-center gap-2">
-              <button
+              <Button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={!pagination.hasPrev}
-                className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="outline"
+                size="sm"
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
-              </button>
+              </Button>
               <span className="text-sm text-gray-600 px-2">
                 Page {pagination.current} of {pagination.pages}
               </span>
-              <button
+              <Button
                 onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
                 disabled={!pagination.hasNext}
-                className="btn btn-outline btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="outline"
+                size="sm"
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
-              </button>
+              </Button>
             </nav>
           </div>
         )}

@@ -19,7 +19,9 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import { handleApiError } from '../utils/errorHandler';
 import { getId } from '../utils/entityId';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const AccountLedgerSummary = () => {
 
@@ -524,9 +526,9 @@ const AccountLedgerSummary = () => {
       <div className="flex justify-center items-center h-64">
         <div className="text-center">
           <p className="text-red-600 mb-4">Error loading ledger summary</p>
-          <button onClick={() => refetch()} className="btn btn-primary">
+          <Button onClick={() => refetch()} variant="default">
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -541,49 +543,59 @@ const AccountLedgerSummary = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Customer Receivables and Supplier Payables</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={handleSyncPurchaseLedger}
-            className="btn btn-secondary btn-md flex items-center gap-2"
+            variant="secondary"
+            size="default"
+            className="flex items-center gap-2"
             disabled={isSyncPurchaseLoading}
             title="Sync purchase invoices ledger for this date range"
           >
             <FileText className="h-4 w-4" />
             {isSyncPurchaseLoading ? 'Syncing PI...' : 'Sync Purchase Ledger'}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSyncSalesLedger}
-            className="btn btn-secondary btn-md flex items-center gap-2"
+            variant="secondary"
+            size="default"
+            className="flex items-center gap-2"
             disabled={isSyncLoading}
             title="Sync sales ledger for edited invoices in this date range"
           >
             <FileText className="h-4 w-4" />
             {isSyncLoading ? 'Syncing...' : 'Sync Sales Ledger'}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleBackfillSales}
-            className="btn btn-secondary btn-md flex items-center gap-2"
+            variant="secondary"
+            size="default"
+            className="flex items-center gap-2"
             disabled={isBackfillLoading}
             title="Post missing sales to ledger for the selected date range"
           >
             <FileText className="h-4 w-4" />
             {isBackfillLoading ? 'Backfilling...' : 'Backfill Sales'}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handlePrint}
-            className="btn btn-secondary btn-md flex items-center gap-2"
+            variant="secondary"
+            size="default"
+            className="flex items-center gap-2"
             disabled={!selectedCustomerId && !selectedSupplierId}
             title={!selectedCustomerId && !selectedSupplierId ? 'Please select a customer or supplier to print' : 'Print ledger summary'}
           >
             <Printer className="h-4 w-4" />
             Print
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleExport}
-            className="btn btn-secondary btn-md flex items-center gap-2"
+            variant="secondary"
+            size="default"
+            className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
             Export
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -596,7 +608,7 @@ const AccountLedgerSummary = () => {
               Select Customer
             </label>
             <div className="relative">
-              <input
+              <Input
                 type="text"
                 placeholder="Select customer..."
                 value={customerSearchQuery}
@@ -605,7 +617,7 @@ const AccountLedgerSummary = () => {
                   setShowCustomerDropdown(true);
                 }}
                 onFocus={() => setShowCustomerDropdown(true)}
-                className="input w-full"
+                className="w-full"
               />
               <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               {showCustomerDropdown && filteredCustomers.length > 0 && (
@@ -640,7 +652,7 @@ const AccountLedgerSummary = () => {
               Select Supplier
             </label>
             <div className="relative">
-              <input
+              <Input
                 type="text"
                 placeholder="Select supplier..."
                 value={supplierSearchQuery}
@@ -649,7 +661,7 @@ const AccountLedgerSummary = () => {
                   setShowSupplierDropdown(true);
                 }}
                 onFocus={() => setShowSupplierDropdown(true)}
-                className="input w-full"
+                className="w-full"
               />
               <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               {showSupplierDropdown && filteredSuppliers.length > 0 && (
@@ -685,12 +697,12 @@ const AccountLedgerSummary = () => {
             </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
+              <Input
                 type="text"
                 placeholder="Search by name, email, phone..."
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="input w-full pl-10"
+                className="w-full pl-10"
               />
             </div>
           </div>
@@ -702,11 +714,11 @@ const AccountLedgerSummary = () => {
             </label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
+              <Input
                 type="date"
                 value={filters.startDate}
                 onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="input w-full pl-10"
+                className="w-full pl-10"
               />
             </div>
           </div>
@@ -718,23 +730,25 @@ const AccountLedgerSummary = () => {
             </label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
+              <Input
                 type="date"
                 value={filters.endDate}
                 onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="input w-full pl-10"
+                className="w-full pl-10"
               />
             </div>
           </div>
 
           {/* Clear Button */}
           <div className="flex items-end">
-            <button
+            <Button
               onClick={handleClearFilters}
-              className="btn btn-outline btn-md w-full"
+              variant="outline"
+              size="default"
+              className="w-full"
             >
               Clear Filters
-            </button>
+            </Button>
           </div>
         </div>
 

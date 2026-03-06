@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import BaseModal from './BaseModal';
 import {
   TrendingUp,
@@ -569,24 +570,24 @@ const BalanceSheetDetailModal = ({
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-6 border-t border-gray-200">
           <div className="flex items-center space-x-4">
-            <button
+            <Button
               onClick={() => setShowStatusUpdate(true)}
-              className="btn btn-secondary"
+              variant="secondary"
               disabled={isLoading}
             >
               Update Status
-            </button>
-            <button className="btn btn-secondary">
+            </Button>
+            <Button variant="secondary">
               <Download className="h-4 w-4 mr-2" />
               Export PDF
-            </button>
+            </Button>
           </div>
-          <button
+          <Button
             onClick={onClose}
-            className="btn btn-secondary"
+            variant="secondary"
           >
             Close
-          </button>
+          </Button>
         </div>
 
         {/* Status Update Modal */}
@@ -624,20 +625,22 @@ const BalanceSheetDetailModal = ({
                   />
                 </div>
                 <div className="flex space-x-3">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowStatusUpdate(false)}
-                    className="flex-1 btn btn-secondary"
+                    variant="secondary"
+                    className="flex-1"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="flex-1 btn btn-primary"
+                    variant="default"
+                    className="flex-1"
                     disabled={isLoading}
                   >
                     {isLoading ? 'Updating...' : 'Update Status'}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>

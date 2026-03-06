@@ -35,6 +35,7 @@ import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan, getDateDaysAgo } from '../utils/dateUtils';
 import { SearchableDropdown } from '../components/SearchableDropdown';
 import PrintReportModal from '../components/PrintReportModal';
+import { Button } from '@/components/ui/button';
 
 export const Reports = () => {
   const [activeTab, setActiveTab] = useState('party-balance');
@@ -452,18 +453,19 @@ export const Reports = () => {
             <RefreshCcw className={`h-5 w-5 ${(summaryLoading || partyLoading || salesLoading || inventoryLoading || financialLoading || bankCashLoading) ? 'animate-spin' : ''}`} />
           </button>
           
-          <button 
+          <Button
             onClick={() => setIsPrintModalOpen(true)}
-            className="btn btn-secondary flex items-center gap-2"
+            variant="secondary"
+            className="flex items-center gap-2"
           >
             <Printer className="h-4 w-4" />
             <span className="hidden sm:inline">Print</span>
-          </button>
+          </Button>
           
-          <button className="btn btn-primary flex items-center gap-2">
+          <Button variant="default" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Export</span>
-          </button>
+          </Button>
         </div>
       </div>
 

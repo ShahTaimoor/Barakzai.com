@@ -1,5 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import BaseModal from '../BaseModal';
+import { Button } from '@/components/ui/button';
 import PrintWrapper from './PrintWrapper';
 import PrintTrigger from './PrintTrigger';
 import { PRINT_PAGE_STYLE } from './printPageStyle';
@@ -39,11 +40,12 @@ const PrintModal = ({
       <PrintTrigger
         onPrint={handlePrint}
         disabled={!hasData}
-        className="btn btn-primary flex items-center gap-2"
+        variant="default"
+        className="flex items-center gap-2"
       />
-      <button type="button" onClick={onClose} className="btn btn-secondary">
+      <Button type="button" onClick={onClose} variant="secondary">
         Close
-      </button>
+      </Button>
     </div>
   );
 

@@ -4,7 +4,7 @@ import {
   useUpdateCustomerMutation,
   useDeleteCustomerMutation,
 } from '../store/services/customersApi';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export const useCustomerOperations = (refetch) => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);

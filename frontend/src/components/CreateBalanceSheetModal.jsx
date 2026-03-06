@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, FileText, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import BaseModal from './BaseModal';
 import { useGenerateBalanceSheetMutation } from '../store/services/balanceSheetsApi';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
@@ -245,21 +246,23 @@ const CreateBalanceSheetModal = ({ isOpen, onClose, onSuccess }) => {
 
           {/* Action Buttons */}
           <div className="flex space-x-3 pt-4">
-            <button
+            <Button
               type="button"
               onClick={onClose}
-              className="flex-1 btn btn-secondary"
+              variant="secondary"
+              className="flex-1"
               disabled={isLoading}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="flex-1 btn btn-primary"
+              variant="default"
+              className="flex-1"
               disabled={isLoading}
             >
               {isLoading ? 'Generating...' : 'Generate Balance Sheet'}
-            </button>
+            </Button>
           </div>
         </form>
     </BaseModal>

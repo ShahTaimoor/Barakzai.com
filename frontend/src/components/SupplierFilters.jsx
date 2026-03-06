@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Input } from '@/components/ui/input';
 import { 
   Filter, 
   X, 
@@ -88,12 +89,12 @@ const SupplierFilters = ({ filters, onFiltersChange, onClearFilters }) => {
                 <Search className="h-4 w-4 inline mr-1" />
                 Search Suppliers
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="Company name, contact..."
                 value={filters.search || ''}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="input text-sm"
+                className="text-sm"
               />
             </div>
 

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 /**
  * BaseModal - Reusable modal overlay and container
@@ -120,14 +121,16 @@ const BaseModal = ({
               </div>
               {headerExtra && <div className="flex items-center gap-3 mx-4">{headerExtra}</div>}
               {showCloseButton && (
-                <button
+                <Button
                   type="button"
                   onClick={onClose}
-                  className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                  variant="ghost"
+                  size="icon"
+                  className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600"
                   aria-label="Close"
                 >
                   <X className="h-6 w-6" />
-                </button>
+                </Button>
               )}
             </div>
           )}

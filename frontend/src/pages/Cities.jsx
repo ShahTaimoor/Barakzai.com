@@ -9,8 +9,11 @@ import {
   Save,
   RotateCcw
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
 import { useDeleteConfirmation } from '../hooks/useConfirmation';
 import CityImportExport from '../components/CityImportExport';
@@ -113,11 +116,10 @@ const CityFormModal = ({ city, onSave, onCancel, isSubmitting }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 City Name *
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="input"
                 placeholder="Enter city name"
                 required
               />
@@ -127,11 +129,10 @@ const CityFormModal = ({ city, onSave, onCancel, isSubmitting }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 State
               </label>
-              <input
+              <Input
                 type="text"
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                className="input"
                 placeholder="Enter state"
               />
             </div>
@@ -140,11 +141,10 @@ const CityFormModal = ({ city, onSave, onCancel, isSubmitting }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description
               </label>
-              <textarea
+              <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="input"
-                rows="3"
+                rows={3}
                 placeholder="Optional description"
               />
             </div>
@@ -163,21 +163,21 @@ const CityFormModal = ({ city, onSave, onCancel, isSubmitting }) => {
             </div>
 
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-              <button
+              <Button
                 type="button"
                 onClick={onCancel}
-                className="btn btn-secondary"
+                variant="secondary"
                 disabled={isSubmitting}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="btn btn-primary"
+                variant="default"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Saving...' : (city ? 'Update City' : 'Add City')}
-              </button>
+              </Button>
             </div>
           </form>
     </BaseModal>
@@ -274,13 +274,15 @@ export const Cities = () => {
           <p className="text-gray-600">Manage cities for customer and supplier addresses</p>
         </div>
         <div className="flex-shrink-0">
-          <button
+          <Button
             onClick={handleAddNew}
-            className="btn btn-primary btn-md w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add New City
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -295,12 +297,12 @@ export const Cities = () => {
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-[3] relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
+            <Input
               type="text"
               placeholder="Search cities..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10 w-full"
+              className="pl-10 w-full"
             />
           </div>
           <div className="flex-1">
@@ -315,14 +317,15 @@ export const Cities = () => {
             </select>
           </div>
           <div className="flex-shrink-0">
-            <button
+            <Button
               onClick={() => refetch()}
-              className="btn btn-secondary btn-md"
+              variant="secondary"
+              size="default"
               disabled={isLoading}
             >
               <RotateCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -334,25 +337,29 @@ export const Cities = () => {
         ) : error ? (
           <div className="p-6 text-center text-red-600">
             <p>Error loading cities: {error?.data?.message || error?.message}</p>
-            <button
+            <Button
               onClick={() => refetch()}
-              className="mt-4 btn btn-secondary btn-sm"
+              variant="secondary"
+              size="sm"
+              className="mt-4"
             >
               <RotateCcw className="h-4 w-4 mr-2" />
               Retry
-            </button>
+            </Button>
           </div>
         ) : cities.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
             <p>No cities found. Add your first city to get started.</p>
             <p className="text-sm mt-2">Total in database: {pagination.total || 0}</p>
-            <button
+            <Button
               onClick={() => refetch()}
-              className="mt-4 btn btn-secondary btn-sm"
+              variant="secondary"
+              size="sm"
+              className="mt-4"
             >
               <RotateCcw className="h-4 w-4 mr-2" />
               Refresh
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="overflow-x-auto">

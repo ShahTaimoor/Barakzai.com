@@ -36,11 +36,12 @@ import {
 import { useGetBanksQuery } from '../store/services/banksApi';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
 import { SearchableDropdown } from '../components/SearchableDropdown';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
 import PrintModal from '../components/PrintModal';
 import { useTab } from '../contexts/TabContext';
 import { getComponentInfo } from '../components/ComponentRegistry';
+import { Button } from '@/components/ui/button';
 
 const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove }) => {
   const totalPrice = item.costPerUnit * item.quantity;
@@ -72,12 +73,14 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
               </p>
             )}
           </div>
-          <button
+          <Button
             onClick={() => onRemove(item.product?._id)}
-            className="btn btn-danger btn-sm p-1 flex-shrink-0"
+            variant="destructive"
+            size="sm"
+            className="p-1 flex-shrink-0"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -183,12 +186,14 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove })
 
         {/* Delete Button - 1 column */}
         <div className="col-span-1">
-          <button
+          <Button
             onClick={() => onRemove(item.product?._id)}
-            className="btn btn-danger btn-sm h-8 w-full"
+            variant="destructive"
+            size="sm"
+            className="h-8 w-full"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -467,16 +472,18 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
           <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
             &nbsp;
           </label>
-          <button
+          <Button
             type="button"
             onClick={handleAddToCart}
-            className="w-full btn btn-primary btn-md flex items-center justify-center gap-2"
+            variant="default"
+            size="default"
+            className="w-full flex items-center justify-center gap-2"
             disabled={!selectedProduct}
             title="Add to cart (or press Enter in Quantity/Cost fields - focus returns to search)"
           >
             <Plus className="h-4 w-4" />
             <span>Add</span>
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1260,16 +1267,18 @@ export const Purchase = ({ tabId, editData }) => {
             <p className="text-sm sm:text-base text-gray-600">Process purchase transactions</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 w-full sm:w-auto">
-            <button
+            <Button
               onClick={handleExport}
-              className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="secondary"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
               title="Export Purchase Report"
             >
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">Export Purchase Report</span>
               <span className="sm:hidden">Export</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => {
                 const componentInfo = getComponentInfo('/purchase');
                 if (componentInfo) {
@@ -1284,11 +1293,13 @@ export const Purchase = ({ tabId, editData }) => {
                   });
                 }
               }}
-              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
               <span>New Purchase</span>
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -1419,15 +1430,17 @@ export const Purchase = ({ tabId, editData }) => {
               <div className="space-y-4 border-t border-gray-200 pt-4 sm:pt-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
                   <h4 className="text-sm sm:text-md font-medium text-gray-700">Cart Items</h4>
-                  <button
+                  <Button
                     type="button"
                     onClick={handleSortPurchaseItems}
-                    className="btn btn-secondary btn-sm flex items-center justify-center gap-2 w-full sm:w-auto"
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center justify-center gap-2 w-full sm:w-auto"
                     title="Sort products alphabetically"
                   >
                     <ArrowUpDown className="h-4 w-4" />
                     <span>Sort A-Z</span>
-                  </button>
+                  </Button>
                 </div>
                 {purchaseItems.map((item, index) => (
                   <PurchaseItem
@@ -1663,12 +1676,13 @@ export const Purchase = ({ tabId, editData }) => {
                 {/* Clear Discount Button */}
                 {directDiscount.value > 0 && (
                   <div className="mt-2">
-                    <button
+                    <Button
                       onClick={() => setDirectDiscount({ type: 'amount', value: 0 })}
-                      className="btn btn-danger btn-sm"
+                      variant="destructive"
+                      size="sm"
                     >
                       Clear Discount
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -1678,7 +1692,7 @@ export const Purchase = ({ tabId, editData }) => {
             {/* Action Buttons */}
             <div className="flex flex-col-reverse sm:flex-row gap-3 mt-4 sm:mt-6 px-4 sm:px-6 pb-4 sm:pb-6">
               {purchaseItems.length > 0 && (
-                <button
+                <Button
                   onClick={() => {
                     setPurchaseItems([]);
                     setSelectedSupplier(null);
@@ -1690,14 +1704,16 @@ export const Purchase = ({ tabId, editData }) => {
                     setInvoiceDate(new Date().toISOString().split('T')[0]); // Reset to current date
                     toast.success('Cart cleared');
                   }}
-                  className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:flex-1"
+                  variant="secondary"
+                  size="default"
+                  className="flex items-center justify-center gap-2 w-full sm:flex-1"
                 >
                   <Trash2 className="h-4 w-4" />
                   <span>Clear Cart</span>
-                </button>
+                </Button>
               )}
               {purchaseItems.length > 0 && (
-                <button
+                <Button
                   onClick={() => {
                     const supplierInfoForPrint = selectedSupplier ? {
                         name: selectedSupplier.companyName || selectedSupplier.company_name || selectedSupplier.businessName || selectedSupplier.business_name || selectedSupplier.displayName || selectedSupplier.name,
@@ -1765,16 +1781,20 @@ export const Purchase = ({ tabId, editData }) => {
                     setCurrentOrder(tempOrder);
                     setShowPrintModal(true);
                   }}
-                  className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:flex-1"
+                  variant="secondary"
+                  size="default"
+                  className="flex items-center justify-center gap-2 w-full sm:flex-1"
                 >
                   <Receipt className="h-4 w-4" />
                   <span>Print Preview</span>
-                </button>
+                </Button>
               )}
               <LoadingButton
                 onClick={handleProcessPurchase}
                 isLoading={false}
-                className="btn btn-primary btn-md sm:btn-lg flex items-center justify-center gap-2 w-full sm:flex-2"
+                variant="default"
+                size="lg"
+                className="flex items-center justify-center gap-2 w-full sm:flex-2"
               >
                 <Truck className="h-4 w-4" />
                 <span className="hidden sm:inline">{editData?.isEditMode ? 'Update Purchase Invoice' : 'Complete Purchase & Update Inventory'}</span>

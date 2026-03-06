@@ -22,6 +22,7 @@ import {
 import { useGetWarehousesQuery } from '../store/services/warehousesApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton, LoadingPage } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
 import { useResponsive, ResponsiveContainer } from '../components/ResponsiveContainer';
 import ResponsiveTable from '../components/ResponsiveTable';
 import { DeleteConfirmationDialog } from '../components/ConfirmationDialog';
@@ -324,13 +325,14 @@ export const Inventory = () => {
         <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
         <h3 className="mt-2 text-sm font-medium text-gray-900">Error loading inventory</h3>
         <p className="mt-1 text-sm text-gray-500">{error.message}</p>
-        <button
+        <Button
           onClick={() => refetch()}
-          className="mt-4 btn btn-primary"
+          variant="default"
+          className="mt-4"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Try Again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -346,28 +348,34 @@ export const Inventory = () => {
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {!lowStockFilter && (
-            <button
+            <Button
               onClick={() => setShowAdjustmentModal(true)}
-              className="btn btn-primary btn-md flex items-center justify-center gap-2"
+              variant="default"
+              size="default"
+              className="flex items-center justify-center gap-2"
             >
               <Plus className="h-4 w-4" />
               Stock Adjustment
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             onClick={() => refetch()}
-            className="btn btn-secondary btn-md flex items-center justify-center gap-2"
+            variant="secondary"
+            size="default"
+            className="flex items-center justify-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleOpenWarehousesTab}
-            className="btn btn-light btn-md flex items-center justify-center gap-2"
+            variant="ghost"
+            size="default"
+            className="flex items-center justify-center gap-2"
           >
             <Warehouse className="h-4 w-4" />
             Add Warehouse
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -544,20 +552,24 @@ export const Inventory = () => {
               const pagination = inventoryData?.pagination || inventoryData?.data?.pagination;
               return (
                 <>
-                  <button
+                  <Button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={!pagination?.hasPrev}
-                    className="btn btn-secondary btn-md flex-1 sm:flex-none"
+                    variant="secondary"
+                    size="default"
+                    className="flex-1 sm:flex-none"
                   >
                     Previous
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setCurrentPage(prev => prev + 1)}
                     disabled={!pagination?.hasNext}
-                    className="btn btn-secondary btn-md flex-1 sm:flex-none"
+                    variant="secondary"
+                    size="default"
+                    className="flex-1 sm:flex-none"
                   >
                     Next
-                  </button>
+                  </Button>
                 </>
               );
             })()}

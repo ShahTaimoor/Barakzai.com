@@ -23,6 +23,8 @@ import {
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate } from '../utils/formatters';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   useGetBankPaymentsQuery,
   useCreateBankPaymentMutation,
@@ -648,20 +650,24 @@ const BankPayments = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage and view all bank payment transactions</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
+          <Button
             onClick={handleExport}
-            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="outline"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Download className="h-4 w-4" />
             <span>Export</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={resetForm}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>New Payment</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1182,21 +1188,25 @@ const BankPayments = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-            <button
+            <Button
               onClick={resetForm}
-              className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="outline"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <RotateCcw className="h-4 w-4" />
               <span>Reset</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleCreate}
               disabled={creating}
-              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Save className="h-4 w-4" />
               <span>{creating ? 'Saving...' : 'Save Payment'}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1233,13 +1243,12 @@ const BankPayments = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Voucher Code
               </label>
-              <input
+              <Input
                 type="text"
                 autoComplete="off"
                 placeholder="Contains..."
                 value={filters.voucherCode}
                 onChange={(e) => handleFilterChange('voucherCode', e.target.value)}
-                className="input"
               />
             </div>
 
@@ -1248,13 +1257,12 @@ const BankPayments = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Amount
               </label>
-              <input
+              <Input
                 type="number"
                 autoComplete="off"
                 placeholder="Equals..."
                 value={filters.amount}
                 onChange={(e) => handleFilterChange('amount', e.target.value)}
-                className="input"
               />
             </div>
 
@@ -1263,25 +1271,26 @@ const BankPayments = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Particular
               </label>
-              <input
+              <Input
                 type="text"
                 autoComplete="off"
                 placeholder="Contains..."
                 value={filters.particular}
                 onChange={(e) => handleFilterChange('particular', e.target.value)}
-                className="input"
               />
             </div>
 
             {/* Search Button */}
             <div className="flex items-end">
-              <button
+              <Button
                 onClick={() => refetch()}
-                className="btn btn-primary btn-md w-full flex items-center justify-center gap-2"
+                variant="default"
+                size="default"
+                className="w-full flex items-center justify-center gap-2"
               >
                 <Search className="h-4 w-4" />
                 <span>Search</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1971,23 +1980,23 @@ const BankPayments = () => {
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
-                <button
+                <Button
                   onClick={() => {
                     setShowEditModal(false);
                     setSelectedPayment(null);
                     resetForm();
                   }}
-                  className="btn btn-secondary"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleUpdate}
                   disabled={updating}
-                  className="btn btn-primary"
+                  variant="default"
                 >
                   {updating ? 'Updating...' : 'Update'}
-                </button>
+                </Button>
               </div>
         </BaseModal>
       )}
@@ -2060,15 +2069,16 @@ const BankPayments = () => {
                 </div>
               </div>
               <div className="flex justify-end mt-6">
-                <button
+                <Button
                   onClick={() => {
                     setShowViewModal(false);
                     setSelectedPayment(null);
                   }}
-                  className="btn btn-secondary w-full"
+                  variant="secondary"
+                  className="w-full"
                 >
                   Close
-                </button>
+                </Button>
               </div>
         </BaseModal>
       )}

@@ -29,8 +29,17 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useTab } from '../contexts/TabContext';
 import { getComponentInfo } from '../components/ComponentRegistry';
 import PrintModal from '../components/PrintModal';
+import { Button } from '@/components/ui/button';
 import DateFilter from '../components/DateFilter';
-import { getCurrentDatePakistan } from '../utils/dateUtils';
+import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
+
+// Check if invoice date is today (edit icon only for today)
+const isInvoiceDateToday = (invoice) => {
+  const raw = invoice?.invoiceDate ?? invoice?.invoice_date ?? invoice?.createdAt;
+  if (raw == null) return false;
+  const invoiceDateStr = formatDateForInput(raw);
+  return invoiceDateStr === getCurrentDatePakistan();
+};
 
 const StatusBadge = ({ status }) => {
   const statusConfig = {
@@ -53,7 +62,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onPrint }) => (
+const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onPrint, isEditable }) => (
   <div className="card hover:shadow-lg transition-shadow">
     <div className="card-content">
       <div className="flex items-start justify-between">
@@ -99,13 +108,15 @@ const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onP
             <Printer className="h-4 w-4" />
           </button>
 
-          <button
-            onClick={() => onEdit(invoice)}
-            className="text-blue-600 hover:text-blue-800"
-            title="Edit Invoice"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
+          {isEditable && (
+            <button
+              onClick={() => onEdit(invoice)}
+              className="text-blue-600 hover:text-blue-800"
+              title="Edit Invoice"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Show delete button for all statuses except paid and closed */}
           {!['paid', 'closed'].includes(invoice.status) && (
@@ -299,13 +310,15 @@ export const PurchaseInvoices = () => {
             <Printer className="h-4 w-4" />
           </button>
 
-          <button
-            onClick={() => handleEdit(item)}
-            className="text-blue-600 hover:text-blue-800"
-            title="Edit Invoice"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
+          {isInvoiceDateToday(item) && (
+            <button
+              onClick={() => handleEdit(item)}
+              className="text-blue-600 hover:text-blue-800"
+              title="Edit Invoice"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Show delete button for all statuses except paid and closed */}
           {!['paid', 'closed'].includes(item.status) && (
@@ -476,9 +489,9 @@ export const PurchaseInvoices = () => {
     return (
       <div className="text-center py-8 sm:py-12 px-4">
         <p className="text-sm sm:text-base text-red-600">Failed to load purchase invoices</p>
-        <button onClick={refetch} className="btn btn-primary btn-md mt-4">
+        <Button onClick={refetch} variant="default" size="default" className="mt-4">
           Try Again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -603,13 +616,15 @@ export const PurchaseInvoices = () => {
                       >
                         <Printer className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => handleEdit(invoice)}
-                        className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
-                        title="Edit Invoice"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
+                      {isInvoiceDateToday(invoice) && (
+                        <button
+                          onClick={() => handleEdit(invoice)}
+                          className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
+                          title="Edit Invoice"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
                       {!['paid', 'closed'].includes(invoice.status) && (
                         <button
                           onClick={() => handleDelete(invoice)}
@@ -728,13 +743,15 @@ export const PurchaseInvoices = () => {
                         <Printer className="h-4 w-4" />
                       </button>
 
-                      <button
-                        onClick={() => handleEdit(invoice)}
-                        className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
-                        title="Edit Invoice"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
+                      {isInvoiceDateToday(invoice) && (
+                        <button
+                          onClick={() => handleEdit(invoice)}
+                          className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
+                          title="Edit Invoice"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
 
                       {/* Show delete button for all statuses except paid and closed */}
                       {!['paid', 'closed'].includes(invoice.status) && (

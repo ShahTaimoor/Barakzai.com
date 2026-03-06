@@ -28,9 +28,12 @@ import {
   useReverseStockMovementMutation,
 } from '../store/services/inventoryApi';
 import { useGetProductsQuery } from '../store/services/productsApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
 import { handleApiError } from '../utils/errorHandler';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan, getDateDaysAgo } from '../utils/dateUtils';
 
@@ -319,17 +322,19 @@ export const StockMovements = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Detailed inventory history and movement tracking</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
+          <Button
             onClick={() => setShowAdjustmentModal(true)}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2"
           >
             <Plus className="h-4 w-4" />
             Stock Adjustment
-          </button>
-          <button className="btn btn-secondary btn-md flex items-center justify-center gap-2">
+          </Button>
+          <Button variant="secondary" size="default" className="flex items-center justify-center gap-2">
             <Download className="h-4 w-4" />
             Export
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -478,19 +483,23 @@ export const StockMovements = () => {
             </div>
 
             <div className="md:col-span-6 flex flex-wrap gap-3 justify-end pt-2">
-              <button
+              <Button
                 type="button"
                 onClick={handleResetFilters}
-                className="btn btn-secondary btn-md flex items-center gap-2"
+                variant="secondary"
+                size="default"
+                className="flex items-center gap-2"
                 disabled={isFetching && !isLoading}
               >
                 <RotateCcw className="h-4 w-4" />
                 Reset
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={handleSearch}
-                className="btn btn-primary btn-md flex items-center gap-2"
+                variant="default"
+                size="default"
+                className="flex items-center gap-2"
                 disabled={isFetching && !isLoading}
               >
                 {isFetching && !isLoading ? (
@@ -504,7 +513,7 @@ export const StockMovements = () => {
                     Search
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -660,23 +669,25 @@ export const StockMovements = () => {
                 {pagination.total} results
               </div>
               <div className="flex space-x-2">
-                <button
+                <Button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={pagination.current === 1}
-                  className="btn btn-secondary btn-sm"
+                  variant="secondary"
+                  size="sm"
                 >
                   Previous
-                </button>
+                </Button>
                 <span className="px-3 py-2 text-sm text-gray-700">
                   Page {pagination.current} of {pagination.pages}
                 </span>
-                <button
+                <Button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages))}
                   disabled={pagination.current === pagination.pages}
-                  className="btn btn-secondary btn-sm"
+                  variant="secondary"
+                  size="sm"
                 >
                   Next
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -737,13 +748,12 @@ export const StockMovements = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Quantity *
                     </label>
-                    <input
+                    <Input
                       type="number"
                       step="0.01"
-                      min="0.01"
+                      min={0.01}
                       value={adjustmentData.quantity}
                       onChange={(e) => setAdjustmentData(prev => ({ ...prev, quantity: e.target.value }))}
-                      className="input"
                       required
                     />
                   </div>
@@ -752,13 +762,12 @@ export const StockMovements = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Unit Cost *
                     </label>
-                    <input
+                    <Input
                       type="number"
                       step="0.01"
-                      min="0"
+                      min={0}
                       value={adjustmentData.unitCost}
                       onChange={(e) => setAdjustmentData(prev => ({ ...prev, unitCost: e.target.value }))}
-                      className="input"
                       required
                     />
                   </div>
@@ -768,11 +777,10 @@ export const StockMovements = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Reason
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={adjustmentData.reason}
                     onChange={(e) => setAdjustmentData(prev => ({ ...prev, reason: e.target.value }))}
-                    className="input"
                     placeholder="Reason for adjustment"
                   />
                 </div>
@@ -781,27 +789,26 @@ export const StockMovements = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Notes
                   </label>
-                  <textarea
+                  <Textarea
                     value={adjustmentData.notes}
                     onChange={(e) => setAdjustmentData(prev => ({ ...prev, notes: e.target.value }))}
-                    className="input"
-                    rows="3"
+                    rows={3}
                     placeholder="Additional notes"
                   />
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowAdjustmentModal(false)}
-                    className="btn btn-secondary"
+                    variant="secondary"
                   >
                     Cancel
-                  </button>
+                  </Button>
                   <LoadingButton
                     type="submit"
                     isLoading={creatingAdjustment}
-                    className="btn btn-primary"
+                    variant="default"
                   >
                     Create Adjustment
                   </LoadingButton>

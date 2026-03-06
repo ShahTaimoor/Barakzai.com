@@ -35,6 +35,7 @@ import {
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { LoadingButton } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
 import { useGetCustomersQuery, useGetCustomerQuery } from '../store/services/customersApi';
 import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery } from '../store/services/productsApi';
 import { useGetVariantsQuery } from '../store/services/productVariantsApi';
@@ -1803,22 +1804,26 @@ const SalesOrders = () => {
           <p className="text-sm sm:text-base text-gray-600">Process sales order transactions</p>
         </div>
         <div className="flex items-center space-x-2 w-full sm:w-auto">
-          <button
+          <Button
             onClick={() => setShowExportModal(true)}
-            className="btn btn-secondary btn-sm sm:btn-md flex-1 sm:flex-none"
+            variant="secondary"
+            size="default"
+            className="flex-1 sm:flex-none"
             title="Export sales orders data"
           >
             <Download className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Export</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={resetForm}
-            className="btn btn-primary btn-sm sm:btn-md flex-1 sm:flex-none"
+            variant="default"
+            size="default"
+            className="flex-1 sm:flex-none"
           >
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">New Sales Order</span>
             <span className="sm:hidden">New Order</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1961,9 +1966,11 @@ const SalesOrders = () => {
             <div className="flex flex-wrap items-center justify-start lg:justify-end gap-2">
               {/* Show/Hide Cost Price Toggle Button */}
               <div className="flex items-center space-x-2">
-                <button
+                <Button
                   onClick={() => setShowCostPrice(!showCostPrice)}
-                  className="btn btn-secondary btn-sm flex items-center space-x-2"
+                  variant="secondary"
+                  size="sm"
+                  className="flex items-center space-x-2"
                   title={showCostPrice ? "Hide purchase cost prices" : "Show purchase cost prices"}
                 >
                   {showCostPrice ? (
@@ -1977,17 +1984,19 @@ const SalesOrders = () => {
                       <span>Show Cost</span>
                     </>
                   )}
-                </button>
+                </Button>
                 {user?.role === 'admin' && formData.items.length > 0 && (
                   <>
-                    <button
+                    <Button
                       onClick={() => setShowProfit(prev => !prev)}
-                      className="btn btn-secondary btn-sm flex items-center space-x-2"
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center space-x-2"
                       title="Toggle estimated profit (BP)"
                     >
                       <Calculator className="h-4 w-4" />
                       <span>{showProfit ? 'Hide BP' : 'Show BP'}</span>
-                    </button>
+                    </Button>
                     {showProfit && (
                       <span
                         className={`text-sm font-semibold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
@@ -2005,7 +2014,9 @@ const SalesOrders = () => {
                     <LoadingButton
                       onClick={handleApplyLastPrices}
                       isLoading={isLoadingLastPrices}
-                      className="btn btn-secondary btn-sm flex items-center space-x-2"
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center space-x-2"
                       title="Apply prices from last order for this customer"
                     >
                       <History className="h-4 w-4 mr-2" />
@@ -2015,7 +2026,9 @@ const SalesOrders = () => {
                     <LoadingButton
                       onClick={handleRestoreCurrentPrices}
                       isLoading={isRestoringPrices}
-                      className="btn btn-secondary btn-sm flex items-center space-x-2"
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center space-x-2"
                       title="Restore original/current prices"
                     >
                       <RotateCcw className="h-4 w-4 mr-2" />
@@ -2128,7 +2141,8 @@ const SalesOrders = () => {
                       type="button"
                       onClick={handleAddItem}
                       isLoading={isAddingToCart}
-                      className="btn btn-primary w-full flex items-center justify-center px-3 py-2"
+                      variant="default"
+                      className="w-full flex items-center justify-center px-3 py-2"
                       disabled={!selectedProduct || isAddingToCart}
                       title="Add to cart (or press Enter in Quantity/Rate fields - focus returns to search)"
                     >
@@ -2156,7 +2170,9 @@ const SalesOrders = () => {
                     type="button"
                     onClick={handleSortCartItems}
                     isLoading={isSortingItems}
-                    className="btn btn-secondary btn-sm flex items-center space-x-2"
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center space-x-2"
                     title="Sort products alphabetically"
                   >
                     <ArrowUpDown className="h-4 w-4" />
@@ -2338,7 +2354,9 @@ const SalesOrders = () => {
                         <LoadingButton
                           onClick={() => handleRemoveItem(index)}
                           isLoading={isRemovingFromCart[formData.items[index]?.product?.toString() || index]}
-                          className="btn btn-danger btn-sm h-8 w-full flex-shrink-0"
+                          variant="destructive"
+                          size="sm"
+                          className="h-8 w-full flex-shrink-0"
                         >
                           <Trash2 className="h-4 w-4" />
                         </LoadingButton>
@@ -2364,7 +2382,9 @@ const SalesOrders = () => {
                         <LoadingButton
                           onClick={() => handleRemoveItem(index)}
                           isLoading={isRemovingFromCart[formData.items[index]?.product?.toString() || index]}
-                          className="btn btn-danger btn-sm flex-shrink-0"
+                          variant="destructive"
+                          size="sm"
+                          className="flex-shrink-0"
                           title="Remove Item"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -2664,15 +2684,16 @@ const SalesOrders = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-6 px-4 sm:px-6 pb-6">
-            <button
+            <Button
               onClick={resetForm}
-              className="btn btn-secondary flex-1 w-full sm:w-auto"
+              variant="secondary"
+              className="flex-1 w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Clear Cart</span>
               <span className="sm:hidden">Clear</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => {
                 const tempOrder = {
                   soNumber: formData.orderNumber || `SO-${Date.now()}`,
@@ -2697,26 +2718,30 @@ const SalesOrders = () => {
                 };
                 handlePrint(tempOrder);
               }}
-              className="btn btn-secondary flex-1 w-full sm:w-auto"
+              variant="secondary"
+              className="flex-1 w-full sm:w-auto"
             >
               <Receipt className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Print Preview</span>
               <span className="sm:hidden">Print</span>
-            </button>
+            </Button>
             {selectedOrder ? (
               <>
-                <button
+                <Button
                   type="button"
                   onClick={cancelEdit}
-                  className="btn btn-secondary flex-1 w-full sm:w-auto"
+                  variant="secondary"
+                  className="flex-1 w-full sm:w-auto"
                 >
                   Cancel Edit
-                </button>
+                </Button>
                 <LoadingButton
                   onClick={handleUpdate}
                   isLoading={updating}
                   disabled={updating || formData.items.length === 0}
-                  className="btn btn-primary btn-md sm:btn-lg flex-2 w-full sm:w-auto"
+                  variant="default"
+                  size="lg"
+                  className="flex-2 w-full sm:w-auto"
                 >
                   <Save className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">{updating ? 'Updating...' : 'Update Sales Order'}</span>
@@ -2724,15 +2749,17 @@ const SalesOrders = () => {
                 </LoadingButton>
               </>
             ) : (
-              <button
+              <Button
                 onClick={handleCreate}
                 disabled={creating || formData.items.length === 0}
-                className="btn btn-primary btn-md sm:btn-lg flex-2 w-full sm:w-auto"
+                variant="default"
+                size="lg"
+                className="flex-2 w-full sm:w-auto"
               >
                 <Save className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">{creating ? 'Creating...' : 'Create Sales Order'}</span>
                 <span className="sm:hidden">{creating ? 'Creating...' : 'Create Order'}</span>
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -2801,13 +2828,14 @@ const SalesOrders = () => {
 
             {/* Search Button */}
             <div className="sm:col-span-2 lg:col-span-2 flex items-end">
-              <button
+              <Button
                 onClick={() => refetch()}
-                className="btn btn-primary w-full flex items-center justify-center space-x-2 h-[42px]"
+                variant="default"
+                className="w-full flex items-center justify-center space-x-2 h-[42px]"
               >
                 <Search className="h-4 w-4" />
                 <span>Search</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -3244,22 +3272,23 @@ const SalesOrders = () => {
                   Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
                 </div>
                 <div className="flex space-x-3">
-                  <button
+                  <Button
                     onClick={() => handlePrint(selectedOrder)}
-                    className="btn btn-primary flex items-center"
+                    variant="default"
+                    className="flex items-center"
                   >
                     <Printer className="h-4 w-4 mr-2" />
                     Print
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => {
                       setShowViewModal(false);
                       setSelectedOrder(null);
                     }}
-                    className="btn btn-secondary"
+                    variant="secondary"
                   >
                     Close
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -3353,18 +3382,18 @@ const SalesOrders = () => {
 
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowExportModal(false)}
-                    className="btn btn-secondary"
+                    variant="secondary"
                     disabled={isExporting}
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={handleExportConfirm}
-                    className="btn btn-primary"
+                    variant="default"
                     disabled={isExporting}
                   >
                     {isExporting ? (
@@ -3378,7 +3407,7 @@ const SalesOrders = () => {
                         Export
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -3412,24 +3441,24 @@ const SalesOrders = () => {
               ))}
             </ul>
             <div className="flex justify-end gap-3">
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   setShowOutOfStockModal(false);
                   setOutOfStockItems([]);
                   setPendingConfirmId(null);
                 }}
-                className="btn btn-secondary"
+                variant="secondary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={handleConfirmProceedAnyway}
-                className="btn bg-amber-600 hover:bg-amber-700 text-white"
+                className="bg-amber-600 hover:bg-amber-700 text-white"
               >
                 Proceed anyway
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -37,6 +37,7 @@ import ReturnStatsCard from '../components/ReturnStatsCard';
 import ReturnFilters from '../components/ReturnFilters';
 import PaginationControls from '../components/PaginationControls';
 import { getCurrentDatePakistan } from '../utils/dateUtils';
+import { Button } from '@/components/ui/button';
 
 const Returns = () => {
   const navigate = useNavigate();
@@ -265,30 +266,36 @@ const Returns = () => {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
+          <Button
             onClick={() => refetchReturns()}
-            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="outline"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <RefreshCw className="h-4 w-4" />
             <span>Refresh</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => navigate('/sale-returns')}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>Create Sales Return</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => {
               setPreselectedReturnType('purchase');
               setShowCreateModal(true);
             }}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>Create Purchase Return</span>
-          </button>
+          </Button>
         </div>
       </div>
 

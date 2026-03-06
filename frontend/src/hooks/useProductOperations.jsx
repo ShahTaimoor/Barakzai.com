@@ -10,7 +10,7 @@ import {
   useLinkInvestorsMutation,
 } from '../store/services/productsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export const useProductOperations = (products, refetch) => {
   const dispatch = useAppDispatch();

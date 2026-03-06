@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 import { 
   CreditCard, 
   Smartphone, 
@@ -233,17 +234,17 @@ const PaymentModal = ({
       contentClassName="p-6"
       footer={
         <div className="flex items-center justify-end space-x-3 w-full">
-          <button
+          <Button
             onClick={onClose}
-            className="btn btn-secondary"
+            variant="secondary"
             disabled={isProcessing}
           >
             Cancel
-          </button>
+          </Button>
           <LoadingButton
             onClick={handlePayment}
             loading={isProcessing}
-            className="btn btn-primary"
+            variant="default"
           >
             {isProcessing ? 'Processing...' : 'Process Payment'}
           </LoadingButton>

@@ -3,6 +3,7 @@ import { Package, TrendingUp, Heart, ShoppingCart, Eye, Star, AlertTriangle } fr
 import { useResponsive } from './ResponsiveContainer';
 import { useTrackInteractionMutation } from '../store/services/recommendationsApi';
 import { handleApiError } from '../utils/errorHandler';
+import { Button } from '@/components/ui/button';
 import { OptimizedImage } from './OptimizedImage';
 
 const ProductRecommendationCard = ({ 
@@ -218,18 +219,22 @@ const ProductRecommendationCard = ({
 
         {/* Actions */}
         <div className="flex space-x-2">
-          <button
+          <Button
             onClick={handleViewProduct}
-            className="flex-1 btn btn-secondary btn-sm flex items-center justify-center"
+            variant="secondary"
+            size="sm"
+            className="flex-1 flex items-center justify-center"
           >
             <Eye className="h-4 w-4 mr-1" />
             {isMobile ? 'View' : 'View Details'}
-          </button>
+          </Button>
           
-          <button
+          <Button
             onClick={handleAddToCart}
             disabled={isOutOfStock || isAddingToCart}
-            className="flex-1 btn btn-primary btn-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="default"
+            size="sm"
+            className="flex-1 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isAddingToCart ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -239,7 +244,7 @@ const ProductRecommendationCard = ({
                 {isMobile ? 'Add' : 'Add to Cart'}
               </>
             )}
-          </button>
+          </Button>
         </div>
 
         {/* Dismiss Button */}

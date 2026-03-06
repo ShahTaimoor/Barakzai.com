@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@/components/ui/button';
 import BaseModal from './BaseModal';
 import { 
   Tag, 
@@ -99,9 +100,10 @@ const DiscountDetailModal = ({
       footer={
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-4">
-            <button
+            <Button
+              type="button"
               onClick={() => onToggleStatus(discount._id)}
-              className="btn btn-secondary"
+              variant="secondary"
               disabled={isLoading}
             >
               {discount.isActive ? (
@@ -109,21 +111,23 @@ const DiscountDetailModal = ({
               ) : (
                 <><ToggleRight className="h-4 w-4 mr-2" /> Activate</>
               )}
-            </button>
+            </Button>
             {discount.currentUsage === 0 && (
-              <button
+              <Button
+                type="button"
                 onClick={() => onDelete(discount._id)}
-                className="btn btn-secondary text-red-600 hover:text-red-800"
+                variant="secondary"
+                className="text-red-600 hover:text-red-800"
                 disabled={isLoading}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Delete
-              </button>
+              </Button>
             )}
           </div>
-          <button onClick={onClose} className="btn btn-secondary">
+          <Button onClick={onClose} variant="secondary">
             Close
-          </button>
+          </Button>
         </div>
       }
     >

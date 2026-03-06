@@ -32,6 +32,9 @@ import {
 } from '../store/services/bankReceiptsApi';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
 import DateFilter from '../components/DateFilter';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import BaseModal from '../components/BaseModal';
 import FormField from '../components/FormField';
 import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
@@ -418,20 +421,24 @@ const BankReceipts = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Manage and view all bank receipt transactions</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
+          <Button
             onClick={handleExport}
-            className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="outline"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Download className="h-4 w-4" />
             <span>Export</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={resetForm}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span>New Receipt</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -451,7 +458,7 @@ const BankReceipts = () => {
                 </label>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <label className="flex items-center">
-                    <input
+                    <Input
                       type="radio"
                       value="customer"
                       checked={paymentType === 'customer'}
@@ -466,7 +473,7 @@ const BankReceipts = () => {
                     <span className="text-xs sm:text-sm text-gray-700">Customer</span>
                   </label>
                   <label className="flex items-center">
-                    <input
+                    <Input
                       type="radio"
                       value="supplier"
                       checked={paymentType === 'supplier'}
@@ -490,11 +497,11 @@ const BankReceipts = () => {
                     Customer
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       value={customerSearchTerm}
                       onChange={(e) => handleCustomerSearch(e.target.value)}
-                      className="input w-full pr-10"
+                      className="w-full pr-10"
                       placeholder="Search or select customer..."
                     />
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -578,11 +585,11 @@ const BankReceipts = () => {
                     Supplier
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       value={supplierSearchTerm}
                       onChange={(e) => handleSupplierSearch(e.target.value)}
-                      className="input w-full pr-10"
+                      className="w-full pr-10"
                       placeholder="Search or select supplier..."
                     />
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -653,7 +660,7 @@ const BankReceipts = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Amount *
                 </label>
-                <input
+                <Input
                   type="number"
                   step="0.01"
                   min="0"
@@ -662,7 +669,7 @@ const BankReceipts = () => {
                     const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
                     setFormData(prev => ({ ...prev, amount: value }));
                   }}
-                  className="input w-full"
+                  className="w-full"
                   placeholder="0.00"
                   required
                 />
@@ -677,11 +684,11 @@ const BankReceipts = () => {
                   Receipt Date
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     type="date"
                     value={formData.date}
                     onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                    className="input w-full pr-10"
+                    className="w-full pr-10"
                   />
                   <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
@@ -695,7 +702,7 @@ const BankReceipts = () => {
                 <select
                   value={formData.bank}
                   onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-                  className="input w-full"
+                  className="w-full"
                   required
                 >
                   <option value="">Select bank account...</option>
@@ -718,11 +725,11 @@ const BankReceipts = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Transaction Reference
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formData.transactionReference}
                   onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
-                  className="input w-full"
+                  className="w-full"
                   placeholder="Enter transaction reference..."
                 />
               </div>
@@ -732,11 +739,11 @@ const BankReceipts = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formData.particular}
                   onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
-                  className="input w-full"
+                  className="w-full"
                   placeholder="Enter receipt description or notes..."
                 />
               </div>
@@ -746,10 +753,10 @@ const BankReceipts = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notes (Optional)
                 </label>
-                <textarea
+                <Textarea
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="input w-full h-20 resize-none"
+                  className="w-full h-20 resize-none"
                   placeholder="Additional notes..."
                 />
               </div>
@@ -758,21 +765,25 @@ const BankReceipts = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-            <button
+            <Button
               onClick={resetForm}
-              className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="outline"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <RotateCcw className="h-4 w-4" />
               <span>Reset</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleCreate}
               disabled={creating}
-              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Save className="h-4 w-4" />
               <span>{creating ? 'Saving...' : 'Save Receipt'}</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -809,12 +820,11 @@ const BankReceipts = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Voucher Code
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="Contains..."
                 value={filters.voucherCode}
                 onChange={(e) => handleFilterChange('voucherCode', e.target.value)}
-                className="input"
               />
             </div>
 
@@ -823,12 +833,11 @@ const BankReceipts = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Amount
               </label>
-              <input
+              <Input
                 type="number"
                 placeholder="Equals..."
                 value={filters.amount}
                 onChange={(e) => handleFilterChange('amount', e.target.value)}
-                className="input"
               />
             </div>
 
@@ -837,24 +846,25 @@ const BankReceipts = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Particular
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="Contains..."
                 value={filters.particular}
                 onChange={(e) => handleFilterChange('particular', e.target.value)}
-                className="input"
               />
             </div>
 
             {/* Search Button */}
             <div className="flex items-end">
-              <button
+              <Button
                 onClick={() => refetch()}
-                className="btn btn-primary btn-md w-full flex items-center justify-center gap-2"
+                variant="default"
+                size="default"
+                className="w-full flex items-center justify-center gap-2"
               >
                 <Search className="h-4 w-4" />
                 <span>Search</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1064,11 +1074,11 @@ const BankReceipts = () => {
                     Customer
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       value={customerSearchTerm}
                       onChange={(e) => handleCustomerSearch(e.target.value)}
-                      className="input w-full pr-10"
+                      className="w-full pr-10"
                       placeholder="Search or select customer..."
                     />
                     <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1114,10 +1124,10 @@ const BankReceipts = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Receivables
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={selectedCustomer?.pendingBalance ? `${selectedCustomer.pendingBalance}` : 'No pending balance'}
-                    className="input w-full bg-gray-50"
+                    className="w-full bg-gray-50"
                     readOnly
                   />
                 </div>
@@ -1129,7 +1139,7 @@ const BankReceipts = () => {
                   <select
                     value={formData.bank}
                     onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-                    className="input w-full"
+                    className="w-full"
                     required
                   >
                     <option value="">Select bank account...</option>
@@ -1148,10 +1158,10 @@ const BankReceipts = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Description
                   </label>
-                  <textarea
+                  <Textarea
                     value={formData.particular}
                     onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
-                    className="input w-full resize-none"
+                    className="w-full resize-none"
                     rows="4"
                     placeholder="Enter bank receipt description or notes..."
                     required
@@ -1166,11 +1176,11 @@ const BankReceipts = () => {
                     Receipt Date
                   </label>
                   <div className="relative">
-                    <input
+                    <Input
                       type="date"
                       value={formData.date}
                       onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                      className="input w-full pr-10"
+                      className="w-full pr-10"
                     />
                     <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   </div>
@@ -1180,7 +1190,7 @@ const BankReceipts = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Amount <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="number"
                     step="0.01"
                     min="0"
@@ -1189,7 +1199,7 @@ const BankReceipts = () => {
                       const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
                       setFormData(prev => ({ ...prev, amount: value }));
                     }}
-                    className="input w-full"
+                    className="w-full"
                     placeholder="0.00"
                     required
                   />
@@ -1199,11 +1209,11 @@ const BankReceipts = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Transaction Reference
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={formData.transactionReference}
                     onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
-                    className="input w-full"
+                    className="w-full"
                     placeholder="Enter transaction reference (optional)"
                   />
                 </div>
@@ -1212,10 +1222,10 @@ const BankReceipts = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Notes (Optional)
                   </label>
-                  <textarea
+                  <Textarea
                     value={formData.notes}
                     onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    className="input w-full resize-none"
+                    className="w-full resize-none"
                     rows="3"
                     placeholder="Additional notes..."
                   />
@@ -1225,29 +1235,35 @@ const BankReceipts = () => {
 
             {/* Action Buttons */}
             <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-8 pt-6 border-t border-gray-200">
-              <button
+              <Button
                 onClick={resetForm}
-                className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+                variant="outline"
+                size="default"
+                className="flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 <RotateCcw className="h-4 w-4" />
                 <span>Reset</span>
-              </button>
+              </Button>
 
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-                <button
-                  className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+                <Button
+                  variant="outline"
+                  size="default"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <Printer className="h-4 w-4" />
                   <span>Print Preview</span>
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleCreate}
                   disabled={creating}
-                  className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+                  variant="default"
+                  size="default"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <Save className="h-4 w-4" />
                   <span>{creating ? 'Saving...' : 'Save Receipt'}</span>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1263,23 +1279,23 @@ const BankReceipts = () => {
         contentClassName="p-5"
         footer={
           <div className="flex justify-end space-x-3">
-            <button onClick={() => { setShowEditModal(false); setSelectedReceipt(null); resetForm(); }} className="btn btn-secondary">
+            <Button onClick={() => { setShowEditModal(false); setSelectedReceipt(null); resetForm(); }} variant="secondary">
               Cancel
-            </button>
-            <button onClick={handleUpdate} disabled={updating} className="btn btn-primary">
+            </Button>
+            <Button onClick={handleUpdate} disabled={updating} variant="default">
               {updating ? 'Updating...' : 'Update'}
-            </button>
+            </Button>
           </div>
         }
       >
         <div className="space-y-4">
           <FormField label="Date" htmlFor="edit-date">
-            <input
+            <Input
               id="edit-date"
               type="date"
               value={formData.date}
               onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-              className="input w-full"
+              className="w-full"
             />
           </FormField>
           <FormField label="Bank Account" htmlFor="edit-bank">
@@ -1287,7 +1303,7 @@ const BankReceipts = () => {
               id="edit-bank"
               value={formData.bank}
               onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-              className="input w-full"
+              className="w-full"
             >
               <option value="">Select bank account...</option>
               {banks?.map((bank) => (
@@ -1296,7 +1312,7 @@ const BankReceipts = () => {
             </select>
           </FormField>
           <FormField label="Amount" htmlFor="edit-amount" required>
-            <input
+            <Input
               id="edit-amount"
               type="number"
               step="0.01"
@@ -1306,38 +1322,38 @@ const BankReceipts = () => {
                 const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
                 setFormData(prev => ({ ...prev, amount: value }));
               }}
-              className="input w-full"
+              className="w-full"
               placeholder="0.00"
               required
             />
           </FormField>
           <FormField label="Transaction Reference" htmlFor="edit-ref">
-            <input
+            <Input
               id="edit-ref"
               type="text"
               value={formData.transactionReference}
               onChange={(e) => setFormData(prev => ({ ...prev, transactionReference: e.target.value }))}
-              className="input w-full"
+              className="w-full"
               placeholder="Enter reference..."
             />
           </FormField>
           <FormField label="Particular" htmlFor="edit-particular" required>
-            <textarea
+            <Textarea
               id="edit-particular"
               value={formData.particular}
               onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value }))}
-              className="input w-full"
+              className="w-full"
               rows={3}
               placeholder="Enter transaction details..."
               required
             />
           </FormField>
           <FormField label="Notes (Optional)" htmlFor="edit-notes">
-            <textarea
+            <Textarea
               id="edit-notes"
               value={formData.notes}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              className="input w-full"
+              className="w-full"
               rows={2}
               placeholder="Additional notes..."
             />
@@ -1355,9 +1371,9 @@ const BankReceipts = () => {
         contentClassName="p-5"
         footer={
           <div className="flex justify-end">
-            <button onClick={() => { setShowViewModal(false); setSelectedReceipt(null); }} className="btn btn-secondary w-full">
+            <Button onClick={() => { setShowViewModal(false); setSelectedReceipt(null); }} variant="secondary" className="w-full">
               Close
-            </button>
+            </Button>
           </div>
         }
       >

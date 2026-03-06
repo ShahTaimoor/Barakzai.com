@@ -17,7 +17,7 @@ import {
 import { useGetCCTVOrdersQuery } from '../store/services/salesApi';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { showSuccessToast, showErrorToast } from '../utils/errorHandler';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const CCTVAccess = ({ tabId }) => {
   const [page, setPage] = useState(1);

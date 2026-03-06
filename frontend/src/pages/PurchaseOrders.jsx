@@ -41,8 +41,11 @@ import {
 } from '../store/services/purchaseOrdersApi';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
 import { SearchableDropdown } from '../components/SearchableDropdown';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useTab } from '../contexts/TabContext';
 import { getComponentInfo } from '../utils/componentUtils';
 import { formatDate, formatCurrency } from '../utils/formatters';
@@ -1206,21 +1209,25 @@ export const PurchaseOrders = ({ tabId }) => {
           <p className="text-sm sm:text-base text-gray-600">Process purchase order transactions</p>
         </div>
         <div className="flex items-center space-x-2 w-full sm:w-auto">
-          <button
+          <Button
             onClick={handleExport}
-            className="btn btn-secondary btn-md flex-1 sm:flex-initial"
+            variant="secondary"
+            size="default"
+            className="flex-1 sm:flex-initial"
           >
             <Download className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Export</span>
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={resetForm}
-            className="btn btn-primary btn-md flex-1 sm:flex-initial"
+            variant="default"
+            size="default"
+            className="flex-1 sm:flex-initial"
           >
             <Plus className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">New Purchase Order</span>
             <span className="sm:hidden">New PO</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1359,13 +1366,13 @@ export const PurchaseOrders = ({ tabId }) => {
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Quantity
                     </label>
-                    <input
+                    <Input
                       type="number"
                       min="1"
                       value={quantity}
                       onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                       onKeyDown={handleInputKeyDown}
-                      className="input text-center h-10 w-full"
+                      className="text-center h-10 w-full"
                       placeholder="1"
                     />
                   </div>
@@ -1375,13 +1382,13 @@ export const PurchaseOrders = ({ tabId }) => {
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Cost
                     </label>
-                    <input
+                    <Input
                       type="number"
                       step="1"
                       value={customCost}
                       onChange={(e) => setCustomCost(e.target.value)}
                       onKeyDown={handleInputKeyDown}
-                      className="input text-center h-10 w-full"
+                      className="text-center h-10 w-full"
                       placeholder="0"
                       required
                     />
@@ -1390,16 +1397,17 @@ export const PurchaseOrders = ({ tabId }) => {
 
                 {/* Add Button - Full width on mobile */}
                 <div>
-                  <button
+                  <Button
                     type="button"
                     onClick={handleAddItem}
-                    className="w-full btn btn-primary flex items-center justify-center px-4 py-2.5 h-11"
+                    variant="default"
+                    className="w-full flex items-center justify-center px-4 py-2.5 h-11"
                     disabled={!selectedProduct}
                     title="Add to cart (or press Enter in Quantity/Cost fields - focus returns to search)"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -1440,13 +1448,13 @@ export const PurchaseOrders = ({ tabId }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Quantity
                   </label>
-                  <input
+                  <Input
                     type="number"
                     min="1"
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                     onKeyDown={handleInputKeyDown}
-                    className="input text-center h-12"
+                    className="text-center h-12"
                     placeholder="1 (Enter to add & focus search)"
                   />
                 </div>
@@ -1456,13 +1464,13 @@ export const PurchaseOrders = ({ tabId }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cost
                   </label>
-                  <input
+                  <Input
                     type="number"
                     step="1"
                     value={customCost}
                     onChange={(e) => setCustomCost(e.target.value)}
                     onKeyDown={handleInputKeyDown}
-                    className="input text-center h-12"
+                    className="text-center h-12"
                     placeholder="0 (Enter to add & focus search)"
                     required
                   />
@@ -1483,16 +1491,17 @@ export const PurchaseOrders = ({ tabId }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     &nbsp;
                   </label>
-                  <button
+                  <Button
                     type="button"
                     onClick={handleAddItem}
-                    className="w-full btn btn-primary flex items-center justify-center px-3 h-12"
+                    variant="default"
+                    className="w-full flex items-center justify-center px-3 h-12"
                     disabled={!selectedProduct}
                     title="Add to cart (or press Enter in Quantity/Cost fields - focus returns to search)"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1508,16 +1517,18 @@ export const PurchaseOrders = ({ tabId }) => {
             <div className="space-y-4 border-t border-gray-200 pt-6">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-base sm:text-md font-medium text-gray-700">Cart Items</h4>
-                <button
+                <Button
                   type="button"
                   onClick={handleSortCartItems}
-                  className="btn btn-secondary btn-sm flex items-center space-x-2"
+                  variant="secondary"
+                  size="sm"
+                  className="flex items-center space-x-2"
                   title="Sort products alphabetically"
                 >
                   <ArrowUpDown className="h-4 w-4" />
                   <span className="hidden sm:inline">Sort A-Z</span>
                   <span className="sm:hidden">Sort</span>
-                </button>
+                </Button>
               </div>
 
               {/* Desktop Table Header */}
@@ -1576,13 +1587,15 @@ export const PurchaseOrders = ({ tabId }) => {
                             {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low</span>}
                           </div>
                         </div>
-                        <button
+                        <Button
                           onClick={() => handleRemoveItem(index)}
-                          className="btn btn-danger btn-sm h-8 w-8 p-0 flex-shrink-0 ml-2"
+                          variant="destructive"
+                          size="sm"
+                          className="h-8 w-8 p-0 flex-shrink-0 ml-2"
                           title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -1599,7 +1612,7 @@ export const PurchaseOrders = ({ tabId }) => {
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
-                          <input
+                          <Input
                             type="number"
                             value={item.quantity}
                             onChange={(e) => {
@@ -1615,13 +1628,13 @@ export const PurchaseOrders = ({ tabId }) => {
                                 )
                               }));
                             }}
-                            className="input text-center h-8 w-full"
+                            className="text-center h-8 w-full"
                             min="1"
                           />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-500 mb-1">Cost</label>
-                          <input
+                          <Input
                             type="number"
                             step="0.01"
                             value={item.costPerUnit}
@@ -1634,7 +1647,7 @@ export const PurchaseOrders = ({ tabId }) => {
                                 )
                               }));
                             }}
-                            className="input text-center h-8 w-full"
+                            className="text-center h-8 w-full"
                             min="0"
                           />
                         </div>
@@ -1677,7 +1690,7 @@ export const PurchaseOrders = ({ tabId }) => {
 
                         {/* Quantity - 1 column (matches Product Selection Quantity) */}
                         <div className="col-span-1">
-                          <input
+                          <Input
                             type="number"
                             value={item.quantity}
                             onChange={(e) => {
@@ -1693,14 +1706,14 @@ export const PurchaseOrders = ({ tabId }) => {
                                 )
                               }));
                             }}
-                            className="input text-center h-8"
+                            className="text-center h-8"
                             min="1"
                           />
                         </div>
 
                         {/* Cost - 1 column (matches Product Selection Cost) */}
                         <div className="col-span-1">
-                          <input
+                          <Input
                             type="number"
                             step="0.01"
                             value={item.costPerUnit}
@@ -1713,7 +1726,7 @@ export const PurchaseOrders = ({ tabId }) => {
                                 )
                               }));
                             }}
-                            className="input text-center h-8"
+                            className="text-center h-8"
                             min="0"
                           />
                         </div>
@@ -1727,13 +1740,15 @@ export const PurchaseOrders = ({ tabId }) => {
 
                         {/* Delete Button - 1 column (matches Product Selection Add Button) */}
                         <div className="col-span-1">
-                          <button
+                          <Button
                             onClick={() => handleRemoveItem(index)}
-                            className="btn btn-danger btn-sm h-8 w-full"
+                            variant="destructive"
+                            size="sm"
+                            className="h-8 w-full"
                             title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -1763,11 +1778,11 @@ export const PurchaseOrders = ({ tabId }) => {
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Invoice Number
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formData.invoiceNumber || "Auto-generated"}
                   onChange={(e) => setFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
-                  className="input h-10 text-sm w-full"
+                  className="h-10 text-sm w-full"
                   placeholder="Auto-generated"
                   disabled
                 />
@@ -1779,11 +1794,11 @@ export const PurchaseOrders = ({ tabId }) => {
                   Expected Delivery
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     type="date"
                     value={formData.expectedDelivery}
                     onChange={(e) => setFormData(prev => ({ ...prev, expectedDelivery: e.target.value }))}
-                    className="input h-10 text-sm w-full pr-8"
+                    className="h-10 text-sm w-full pr-8"
                   />
                   <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none sm:hidden" />
                 </div>
@@ -1820,11 +1835,11 @@ export const PurchaseOrders = ({ tabId }) => {
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Notes
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="input h-10 text-sm w-full"
+                  className="h-10 text-sm w-full"
                   placeholder="Additional notes..."
                 />
               </div>
@@ -1837,11 +1852,11 @@ export const PurchaseOrders = ({ tabId }) => {
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Invoice Number
                 </label>
-                <input
+                <Input
                   type="text"
                   value={formData.invoiceNumber || "Auto-generated"}
                   onChange={(e) => setFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
-                  className="input h-8 text-sm"
+                  className="h-8 text-sm"
                   placeholder="Auto-generated"
                   disabled
                 />
@@ -1852,11 +1867,11 @@ export const PurchaseOrders = ({ tabId }) => {
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Expected Delivery
                 </label>
-                <input
+                <Input
                   type="date"
                   value={formData.expectedDelivery}
                   onChange={(e) => setFormData(prev => ({ ...prev, expectedDelivery: e.target.value }))}
-                  className="input h-8 text-sm"
+                  className="h-8 text-sm"
                 />
               </div>
 
@@ -1891,12 +1906,12 @@ export const PurchaseOrders = ({ tabId }) => {
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Notes
                 </label>
-                <input
+                <Input
                   type="text"
                   autoComplete="off"
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="input h-8 text-sm"
+                  className="h-8 text-sm"
                   placeholder="Additional notes..."
                 />
               </div>
@@ -1938,16 +1953,17 @@ export const PurchaseOrders = ({ tabId }) => {
             {/* Action Buttons */}
             <div className="flex space-x-3 mt-6 px-6 pb-6">
               {formData.items.length > 0 && !showEditModal && (
-                <button
+                <Button
                   onClick={resetForm}
-                  className="btn btn-secondary flex-1"
+                  variant="secondary"
+                  className="flex-1"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clear Cart
-                </button>
+                </Button>
               )}
               {formData.items.length > 0 && (
-                <button
+                <Button
                   onClick={() => {
                     // Create temporary order data for print preview
                     const tempOrder = {
@@ -1973,20 +1989,23 @@ export const PurchaseOrders = ({ tabId }) => {
                     };
                     handlePrint(tempOrder);
                   }}
-                  className="btn btn-secondary flex-1"
+                  variant="secondary"
+                  className="flex-1"
                 >
                   <Receipt className="h-4 w-4 mr-2" />
                   Print Preview
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 onClick={handleCreate}
                 disabled={creating || formData.items.length === 0}
-                className="btn btn-primary btn-lg flex-2"
+                variant="default"
+                size="lg"
+                className="flex-2"
               >
                 <Save className="h-4 w-4 mr-2" />
                 {creating ? 'Creating...' : 'Create Purchase Order'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -2092,11 +2111,11 @@ export const PurchaseOrders = ({ tabId }) => {
                       <label className="block text-xs font-medium text-gray-700 mb-1">
                         Invoice Number
                       </label>
-                      <input
+                      <Input
                         type="text"
                         value={formData.invoiceNumber || "Auto-generated"}
                         onChange={(e) => setFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
-                        className="input h-8 text-sm"
+                        className="h-8 text-sm"
                         placeholder="Auto-generated"
                         disabled
                       />
@@ -2107,12 +2126,12 @@ export const PurchaseOrders = ({ tabId }) => {
                       <label className="block text-xs font-medium text-gray-700 mb-1">
                         Expected Delivery
                       </label>
-                      <input
+                      <Input
                         type="date"
                         autoComplete="off"
                         value={formData.expectedDelivery}
                         onChange={(e) => setFormData(prev => ({ ...prev, expectedDelivery: e.target.value }))}
-                        className="input h-8 text-sm"
+                        className="h-8 text-sm"
                       />
                     </div>
 
@@ -2144,10 +2163,10 @@ export const PurchaseOrders = ({ tabId }) => {
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           Notes
                         </label>
-                        <textarea
+                        <Textarea
                           value={formData.notes}
                           onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                          className="input h-16 text-sm resize-none"
+                          className="h-16 text-sm resize-none"
                           placeholder="Add any notes or comments..."
                         />
                       </div>
@@ -2157,10 +2176,10 @@ export const PurchaseOrders = ({ tabId }) => {
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           Terms & Conditions
                         </label>
-                        <textarea
+                        <Textarea
                           value={formData.terms}
                           onChange={(e) => setFormData(prev => ({ ...prev, terms: e.target.value }))}
-                          className="input h-16 text-sm resize-none"
+                          className="h-16 text-sm resize-none"
                           placeholder="Add terms and conditions..."
                         />
                       </div>
@@ -2544,13 +2563,13 @@ export const PurchaseOrders = ({ tabId }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 PO Number
               </label>
-              <input
+              <Input
                 type="text"
                 autoComplete="off"
                 placeholder="Contains..."
                 value={filters.poNumber}
                 onChange={(e) => handleFilterChange('poNumber', e.target.value)}
-                className="input h-[42px] w-full"
+                className="h-[42px] w-full"
               />
             </div>
 
@@ -2613,13 +2632,14 @@ export const PurchaseOrders = ({ tabId }) => {
 
             {/* Search Button */}
             <div className="sm:col-span-2 lg:col-span-2 flex items-end">
-              <button
+              <Button
                 onClick={() => refetch()}
-                className="btn btn-primary w-full flex items-center justify-center space-x-2 h-[42px]"
+                variant="default"
+                className="w-full flex items-center justify-center space-x-2 h-[42px]"
               >
                 <Search className="h-4 w-4" />
                 <span>Search</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -2961,22 +2981,23 @@ export const PurchaseOrders = ({ tabId }) => {
                   Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
                 </div>
                 <div className="flex space-x-3">
-                  <button
+                  <Button
                     onClick={() => handlePrint(viewOrder)}
-                    className="btn btn-primary flex items-center"
+                    variant="default"
+                    className="flex items-center"
                   >
                     <Printer className="h-4 w-4 mr-2" />
                     Print
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => {
                       setShowViewModal(false);
                       setSelectedOrder(null);
                     }}
-                    className="btn btn-secondary"
+                    variant="secondary"
                   >
                     Close
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

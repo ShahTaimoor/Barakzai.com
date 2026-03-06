@@ -20,6 +20,9 @@ import { useGetVariantsByBaseProductQuery } from '../store/services/productVaria
 import { useGetProductsQuery } from '../store/services/productsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton } from '../components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import ValidatedInput, { ValidatedSelect } from '../components/ValidatedInput';
 
 const ProductTransformations = () => {
@@ -64,13 +67,15 @@ const ProductTransformations = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Transformations</h1>
             <p className="mt-1 text-sm sm:text-base text-gray-600">Convert base products to variants and track transformations</p>
           </div>
-          <button
+          <Button
             onClick={() => setIsModalOpen(true)}
-            className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="default"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             New Transformation
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -79,12 +84,12 @@ const ProductTransformations = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <Input
               type="text"
               placeholder="Search transformations..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10 w-full"
+              className="pl-10 w-full"
             />
           </div>
           <ValidatedSelect
@@ -102,13 +107,15 @@ const ProductTransformations = () => {
             options={statusOptions}
             className="w-full"
           />
-          <button
+          <Button
             onClick={() => refetch()}
-            className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+            variant="secondary"
+            size="default"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <RefreshCw className="h-4 w-4" />
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -120,12 +127,13 @@ const ProductTransformations = () => {
           <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No transformations found</h3>
           <p className="text-sm sm:text-base text-gray-500 mb-4">Get started by creating a new product transformation.</p>
-          <button
+          <Button
             onClick={() => setIsModalOpen(true)}
-            className="btn btn-primary btn-md"
+            variant="default"
+            size="default"
           >
             New Transformation
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -421,29 +429,33 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Notes (optional)
             </label>
-            <textarea
+            <Textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
-              className="input w-full"
+              className="w-full"
               placeholder="Add any additional notes about this transformation..."
             />
           </div>
 
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t">
-            <button
+            <Button
               type="button"
               onClick={onClose}
-              className="btn btn-secondary btn-md w-full sm:w-auto"
+              variant="secondary"
+              size="default"
+              className="w-full sm:w-auto"
               disabled={isSubmitting}
             >
               Cancel
-            </button>
+            </Button>
             <LoadingButton
               type="submit"
               isLoading={isSubmitting}
               disabled={formData.quantity > availableStock || !formData.baseProduct || !formData.targetVariant}
-              className="btn btn-primary btn-md w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="w-full sm:w-auto"
             >
               Execute Transformation
             </LoadingButton>

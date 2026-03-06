@@ -12,9 +12,10 @@ import { LoadingPage } from './components/LoadingSpinner';
 
 // Critical components - load immediately (small, frequently used)
 import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
 
-// Lazy load all other pages for code splitting
+// Lazy load all pages for code splitting (Dashboard lazy so ComponentRegistry/componentUtils dynamic imports work)
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+
 const SalesOrders = lazy(() => import('./pages/SalesOrders'));
 const Sales = lazy(() => import('./pages/Sales').then(m => ({ default: m.Sales })));
 const PurchaseOrders = lazy(() => import('./pages/PurchaseOrders').then(m => ({ default: m.PurchaseOrders })));
@@ -79,7 +80,7 @@ function App() {
                   <MultiTabLayout>
                     <Routes>
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/dashboard" element={<Suspense fallback={<LoadingPage />}><Dashboard /></Suspense>} />
                       <Route path="/sales-orders" element={<Suspense fallback={<LoadingPage />}><SalesOrders /></Suspense>} />
                       <Route path="/sales" element={<Suspense fallback={<LoadingPage />}><Sales /></Suspense>} />
                       <Route path="/purchase-orders" element={<Suspense fallback={<LoadingPage />}><PurchaseOrders /></Suspense>} />

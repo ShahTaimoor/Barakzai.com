@@ -16,7 +16,9 @@ import {
 } from '../store/services/suppliersApi';
 import { LoadingButton } from './LoadingSpinner';
 import { handleApiError, showSuccessToast, showErrorToast, showWarningToast } from '../utils/errorHandler';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
   const [importFile, setImportFile] = useState(null);
@@ -145,13 +147,15 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
         <h3 className="text-base sm:text-lg font-semibold text-gray-900">Import / Export Suppliers</h3>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <div className="relative group">
-            <button
+            <Button
               onClick={handleDownloadTemplate}
-              className="btn btn-outline btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="outline"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Download className="h-4 w-4" />
               Template
-            </button>
+            </Button>
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
               <div className="text-xs space-y-1">
                 <div>• Download Excel template file</div>
@@ -166,7 +170,9 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
             <LoadingButton
               onClick={handleExportExcel}
               isLoading={isExporting}
-              className="btn btn-secondary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="secondary"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Download className="h-4 w-4" />
               Export Excel
@@ -182,13 +188,15 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
             </div>
           </div>
           <div className="relative group">
-            <button
+            <Button
               onClick={() => setShowImportModal(true)}
-              className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+              variant="default"
+              size="default"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Upload className="h-4 w-4" />
               Import Suppliers
-            </button>
+            </Button>
             <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
               <div className="text-xs space-y-1">
                 <div>• Download template for required format</div>
@@ -219,11 +227,11 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Select Excel File
                     </label>
-                    <input
+                    <Input
                       type="file"
                       accept=".xlsx,.xls"
                       onChange={handleFileSelect}
-                      className="input w-full"
+                      className="w-full"
                     />
                   </div>
 
@@ -240,17 +248,21 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
                   )}
 
                   <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
-                    <button
+                    <Button
                       onClick={resetImport}
-                      className="btn btn-secondary btn-md w-full sm:w-auto"
+                      variant="secondary"
+                      size="default"
+                      className="w-full sm:w-auto"
                     >
                       Cancel
-                    </button>
+                    </Button>
                     <LoadingButton
                       onClick={handleImport}
                       isLoading={isImporting}
                       disabled={!importFile}
-                      className="btn btn-primary btn-md flex items-center justify-center gap-2 w-full sm:w-auto"
+                      variant="default"
+                      size="default"
+                      className="flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
                       Import Suppliers
                     </LoadingButton>
@@ -299,12 +311,14 @@ const SupplierImportExport = ({ onImportComplete, filters = {} }) => {
                   </div>
 
                   <div className="flex justify-end">
-                    <button
+                    <Button
                       onClick={resetImport}
-                      className="btn btn-primary btn-md w-full sm:w-auto"
+                      variant="default"
+                      size="default"
+                      className="w-full sm:w-auto"
                     >
                       Close
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}

@@ -5,6 +5,9 @@ import { X, TrendingUp, TrendingDown, Package, AlertTriangle } from 'lucide-reac
 import { useFormValidation } from '../hooks/useFormValidation';
 import { validateRequired, validatePositiveNumber } from '../utils/validation';
 import { LoadingButton } from './LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { useUpdateStockMutation } from '../store/services/inventoryApi';
 
@@ -261,13 +264,13 @@ const StockUpdateModal = ({ isOpen, onClose, product, onSuccess }) => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {getQuantityLabel()} <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <Input
                       type="number"
                       name="quantity"
                       value={values.quantity}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                      className={`input ${errors.quantity ? 'input-error' : ''}`}
+                      className={errors.quantity ? 'input-error' : ''}
                       placeholder={getQuantityPlaceholder()}
                       min="0"
                       step="0.01"
@@ -307,13 +310,12 @@ const StockUpdateModal = ({ isOpen, onClose, product, onSuccess }) => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Cost per Unit
                     </label>
-                    <input
+                    <Input
                       type="number"
                       name="cost"
                       value={values.cost}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                      className="input"
                       placeholder="0.00"
                       min="0"
                       step="0.01"
@@ -326,13 +328,12 @@ const StockUpdateModal = ({ isOpen, onClose, product, onSuccess }) => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Notes
                     </label>
-                    <textarea
+                    <Textarea
                       name="notes"
                       value={values.notes}
                       onChange={handleChange}
                       onBlur={handleBlur}
                       rows={3}
-                      className="input"
                       placeholder="Additional notes (optional)"
                     />
                   </div>
@@ -366,17 +367,17 @@ const StockUpdateModal = ({ isOpen, onClose, product, onSuccess }) => {
 
                   {/* Actions */}
                   <div className="flex justify-end space-x-3 pt-6 border-t">
-                    <button
+                    <Button
                       type="button"
                       onClick={handleClose}
-                      className="btn btn-secondary"
+                      variant="secondary"
                     >
                       Cancel
-                    </button>
+                    </Button>
                     <LoadingButton
                       type="submit"
                       isLoading={updating}
-                      className="btn btn-primary"
+                      variant="default"
                     >
                       Update Stock
                     </LoadingButton>

@@ -40,7 +40,9 @@ import { useGetBanksQuery } from '../store/services/banksApi';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
 import { SearchableDropdown } from '../components/SearchableDropdown';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { LoadingSpinner, LoadingButton, LoadingCard, LoadingGrid, LoadingPage, LoadingInline } from '../components/LoadingSpinner';
 import AsyncErrorBoundary from '../components/AsyncErrorBoundary';
 import { ClearConfirmationDialog } from '../components/ConfirmationDialog';
@@ -454,7 +456,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Quantity
               </label>
-              <input
+              <Input
                 type="number"
                 min="1"
                 autoComplete="off"
@@ -463,7 +465,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                 onKeyDown={handleKeyDown}
                 onFocus={(e) => e.target.select()}
-                className="input text-center h-10"
+                className="text-center h-10"
                 placeholder="1"
                 autoFocus={isAddingProduct}
               />
@@ -474,7 +476,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Rate
               </label>
-              <input
+              <Input
                 type="number"
                 step="1"
                 autoComplete="off"
@@ -482,7 +484,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
                 onChange={(e) => setCustomRate(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onFocus={(e) => e.target.select()}
-                className="input text-center h-10"
+                className="text-center h-10"
                 placeholder="0"
                 required
               />
@@ -511,7 +513,8 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               type="button"
               onClick={handleAddToCart}
               isLoading={isAddingToCart}
-              className="w-full btn btn-primary flex items-center justify-center px-4 py-2.5 h-11"
+              variant="default"
+              className="w-full flex items-center justify-center px-4 py-2.5 h-11"
               disabled={!selectedProduct || isAddingToCart}
               title="Add to cart (or press Enter in Quantity/Rate fields - focus returns to search)"
             >
@@ -570,7 +573,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Quantity
             </label>
-            <input
+            <Input
               type="number"
               min="1"
               autoComplete="off"
@@ -579,7 +582,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
               onKeyDown={handleKeyDown}
               onFocus={(e) => e.target.select()}
-              className="input text-center"
+              className="text-center"
               placeholder="1 (Enter to add & focus search)"
               autoFocus={isAddingProduct}
             />
@@ -606,7 +609,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Rate
             </label>
-            <input
+            <Input
               type="number"
               step="1"
               autoComplete="off"
@@ -614,7 +617,7 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               onChange={(e) => setCustomRate(e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={(e) => e.target.select()}
-              className="input text-center"
+              className="text-center"
               placeholder="0 (Enter to add & focus search)"
               required
             />
@@ -636,7 +639,8 @@ const ProductSearch = ({ onAddProduct, selectedCustomer, showCostPrice, onLastPu
               type="button"
               onClick={handleAddToCart}
               isLoading={isAddingToCart}
-              className="w-full btn btn-primary flex items-center justify-center px-3 py-2"
+              variant="default"
+              className="w-full flex items-center justify-center px-3 py-2"
               disabled={!selectedProduct || isAddingToCart}
               title="Add to cart (or press Enter in Quantity/Rate fields - focus returns to search)"
             >
@@ -1997,15 +2001,16 @@ export const Sales = ({ tabId, editData }) => {
             <p className="text-gray-600">Process sales transactions</p>
           </div>
           <div className="flex items-center space-x-2">
-            <button
+            <Button
               onClick={handleExport}
-              className="btn btn-secondary btn-md"
+              variant="secondary"
+              size="default"
               title="Export Sales Report"
             >
               <Download className="h-4 w-4 mr-2" />
               Export Sales Report
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => {
                 const componentInfo = getComponentInfo('/sales');
                 if (componentInfo) {
@@ -2020,11 +2025,12 @@ export const Sales = ({ tabId, editData }) => {
                   });
                 }
               }}
-              className="btn btn-primary btn-md"
+              variant="default"
+              size="default"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Sales
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -2185,9 +2191,12 @@ export const Sales = ({ tabId, editData }) => {
               <div className="flex flex-wrap items-center justify-start lg:justify-end gap-2">
                 {/* Show/Hide Cost Price Toggle Button */}
                 <div className="flex items-center space-x-2">
-                  <button
+                  <Button
+                    type="button"
                     onClick={() => setShowCostPrice(!showCostPrice)}
-                    className="btn btn-secondary btn-sm flex items-center space-x-2"
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center space-x-2"
                     title={showCostPrice ? "Hide purchase cost prices" : "Show purchase cost prices"}
                   >
                     {showCostPrice ? (
@@ -2201,17 +2210,20 @@ export const Sales = ({ tabId, editData }) => {
                         <span>Show Cost</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                   {user?.role === 'admin' && (
                     <>
-                      <button
+                      <Button
+                        type="button"
                         onClick={() => setShowProfit((prev) => !prev)}
-                        className="btn btn-secondary btn-sm flex items-center space-x-2"
+                        variant="secondary"
+                        size="sm"
+                        className="flex items-center space-x-2"
                         title="Show estimated profit (BP)"
                       >
                         <Calculator className="h-4 w-4" />
                         <span>{showProfit ? 'Hide BP' : 'Show BP'}</span>
-                      </button>
+                      </Button>
                       {showProfit && (
                         <span
                           className={`text-sm font-semibold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'
@@ -2232,7 +2244,8 @@ export const Sales = ({ tabId, editData }) => {
                       <LoadingButton
                         onClick={handleApplyLastPrices}
                         isLoading={isLoadingLastPrices}
-                        className="btn btn-secondary btn-sm"
+                        variant="secondary"
+                        size="sm"
                         title="Apply prices from last order for this customer"
                       >
                         <History className="h-4 w-4 mr-2" />
@@ -2242,7 +2255,9 @@ export const Sales = ({ tabId, editData }) => {
                       <LoadingButton
                         onClick={handleRestoreCurrentPrices}
                         isLoading={isRestoringPrices}
-                        className="btn btn-secondary btn-sm flex items-center space-x-2"
+                        variant="secondary"
+                        size="sm"
+                        className="flex items-center space-x-2"
                         title="Restore original/current prices"
                       >
                         <RotateCcw className="h-4 w-4" />
@@ -2284,15 +2299,17 @@ export const Sales = ({ tabId, editData }) => {
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-md font-medium text-gray-700">Cart Items</h4>
                   <div className="flex items-center space-x-3">
-                    <button
+                    <Button
                       type="button"
                       onClick={handleSortCartItems}
-                      className="btn btn-secondary btn-sm flex items-center space-x-2"
+                      variant="secondary"
+                      size="sm"
+                      className="flex items-center space-x-2"
                       title="Sort products alphabetically"
                     >
                       <ArrowUpDown className="h-4 w-4" />
                       <span>Sort A-Z</span>
-                    </button>
+                    </Button>
                     {isLastPricesApplied && Object.keys(priceStatus).length > 0 && (
                       <div className="flex items-center space-x-3 text-xs">
                         <span className="text-gray-600 font-medium">Price Status:</span>
@@ -2393,7 +2410,9 @@ export const Sales = ({ tabId, editData }) => {
                           <LoadingButton
                             onClick={() => removeFromCart(item.product._id)}
                             isLoading={isRemovingFromCart[item.product._id]}
-                            className="btn btn-danger btn-sm h-8 w-8 p-0 flex-shrink-0 ml-2"
+                            variant="destructive"
+                            size="sm"
+                            className="h-8 w-8 p-0 flex-shrink-0 ml-2"
                             title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -2419,25 +2438,25 @@ export const Sales = ({ tabId, editData }) => {
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Quantity</label>
-                            <input
+                            <Input
                               type="number"
                               autoComplete="off"
                               value={item.quantity}
                               onChange={(e) => updateQuantity(item.product._id, parseInt(e.target.value) || 1)}
-                              className="input text-center h-8 w-full"
+                              className="text-center h-8 w-full"
                               min="1"
                               max={item.product.inventory?.currentStock || 999999}
                             />
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Rate</label>
-                            <input
+                            <Input
                               type="number"
                               step="1"
                               autoComplete="off"
                               value={Math.round(item.unitPrice)}
                               onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
-                              className={`input text-center h-8 w-full ${(lastPurchasePrices[item.product._id] !== undefined &&
+                              className={`text-center h-8 w-full ${(lastPurchasePrices[item.product._id] !== undefined &&
                                 item.unitPrice < lastPurchasePrices[item.product._id])
                                 ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
                                 : ''
@@ -2520,12 +2539,12 @@ export const Sales = ({ tabId, editData }) => {
 
                           {/* Quantity - 1 column */}
                           <div className="col-span-1">
-                            <input
+                            <Input
                               type="number"
                               autoComplete="off"
                               value={item.quantity}
                               onChange={(e) => updateQuantity(item.product._id, parseInt(e.target.value) || 1)}
-                              className="input text-center h-8"
+                              className="text-center h-8"
                               min="1"
                               max={item.product.inventory?.currentStock || 999999}
                               title={`Maximum available: ${item.product.inventory?.currentStock || 0}`}
@@ -2554,13 +2573,13 @@ export const Sales = ({ tabId, editData }) => {
                               const isBelowCost = effectiveCost !== undefined && effectiveCost !== null && item.unitPrice < effectiveCost;
 
                               return (
-                                <input
+                                <Input
                                   type="number"
                                   step="1"
                                   autoComplete="off"
                                   value={Math.round(item.unitPrice)}
                                   onChange={(e) => updateUnitPrice(item.product._id, parseInt(e.target.value) || 0)}
-                                  className={`input text-center h-8 ${
+                                  className={`text-center h-8 ${
                                     // Check if sale price is less than cost price - highest priority styling (always check)
                                     isBelowCost
                                       ? 'bg-red-50 border-red-400 ring-2 ring-red-300'
@@ -2617,7 +2636,9 @@ export const Sales = ({ tabId, editData }) => {
                             <LoadingButton
                               onClick={() => removeFromCart(item.product._id)}
                               isLoading={isRemovingFromCart[item.product._id]}
-                              className="btn btn-danger btn-sm h-8 w-full"
+                              variant="destructive"
+                              size="sm"
+                              className="h-8 w-full"
                             >
                               <Trash2 className="h-4 w-4" />
                             </LoadingButton>
@@ -2648,7 +2669,7 @@ export const Sales = ({ tabId, editData }) => {
                   </label>
                   <select
                     value={selectedCustomer?.businessType || 'wholesale'}
-                    className="input h-10 text-sm w-full"
+                    className="h-10 text-sm w-full"
                     disabled
                   >
                     <option value="retail">Retail</option>
@@ -2664,7 +2685,7 @@ export const Sales = ({ tabId, editData }) => {
                     Tax Status
                   </label>
                   <div className="flex items-center space-x-2 px-3 py-2 border border-gray-200 rounded h-10">
-                    <input
+                    <Input
                       type="checkbox"
                       id="taxExemptMobile"
                       checked={isTaxExempt}
@@ -2694,7 +2715,7 @@ export const Sales = ({ tabId, editData }) => {
                       htmlFor="autoGenerateInvoiceMobile"
                       className="flex items-center space-x-1 text-xs text-gray-600 cursor-pointer select-none"
                     >
-                      <input
+                      <Input
                         type="checkbox"
                         id="autoGenerateInvoiceMobile"
                         checked={autoGenerateInvoice}
@@ -2710,12 +2731,12 @@ export const Sales = ({ tabId, editData }) => {
                     </label>
                   </div>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       autoComplete="off"
                       value={invoiceNumber}
                       onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full input pr-20 h-10 text-sm"
+                      className="w-full pr-20 h-10 text-sm"
                       placeholder={autoGenerateInvoice ? 'Auto-generated' : 'Enter invoice number'}
                       disabled={autoGenerateInvoice}
                     />
@@ -2740,12 +2761,12 @@ export const Sales = ({ tabId, editData }) => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Bill Date <span className="text-gray-500">(Optional - for backdating)</span>
                   </label>
-                  <input
+                  <Input
                     type="date"
                     autoComplete="off"
                     value={billDate}
                     onChange={(e) => setBillDate(e.target.value)}
-                    className="input h-10 text-sm w-full"
+                    className="h-10 text-sm w-full"
                     max={getLocalDateString()} // Prevent future dates
                   />
                   {billDate && (
@@ -2760,12 +2781,12 @@ export const Sales = ({ tabId, editData }) => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Notes
                   </label>
-                  <input
+                  <Input
                     type="text"
                     autoComplete="off"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="input h-10 text-sm w-full"
+                    className="h-10 text-sm w-full"
                     placeholder="Additional notes..."
                   />
                 </div>
@@ -2780,7 +2801,7 @@ export const Sales = ({ tabId, editData }) => {
                   </label>
                   <select
                     value={selectedCustomer?.businessType || 'wholesale'}
-                    className="input h-8 text-sm"
+                    className="h-8 text-sm"
                     disabled
                   >
                     <option value="retail">Retail</option>
@@ -2796,7 +2817,7 @@ export const Sales = ({ tabId, editData }) => {
                     Tax Status
                   </label>
                   <div className="flex items-center space-x-1 px-2 py-1 border border-gray-200 rounded h-8">
-                    <input
+                    <Input
                       type="checkbox"
                       id="taxExempt"
                       checked={isTaxExempt}
@@ -2826,7 +2847,7 @@ export const Sales = ({ tabId, editData }) => {
                       htmlFor="autoGenerateInvoice"
                       className="flex items-center space-x-1 text-[11px] text-gray-600 cursor-pointer select-none"
                     >
-                      <input
+                      <Input
                         type="checkbox"
                         id="autoGenerateInvoice"
                         checked={autoGenerateInvoice}
@@ -2842,12 +2863,12 @@ export const Sales = ({ tabId, editData }) => {
                     </label>
                   </div>
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       autoComplete="off"
                       value={invoiceNumber}
                       onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full input pr-16 h-8 text-sm"
+                      className="w-full pr-16 h-8 text-sm"
                       placeholder={autoGenerateInvoice ? 'Auto-generated' : 'Enter invoice number'}
                       disabled={autoGenerateInvoice}
                     />
@@ -2872,12 +2893,12 @@ export const Sales = ({ tabId, editData }) => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Bill Date <span className="text-gray-500">(Optional)</span>
                   </label>
-                  <input
+                  <Input
                     type="date"
                     autoComplete="off"
                     value={billDate}
                     onChange={(e) => setBillDate(e.target.value)}
-                    className="input h-8 text-sm"
+                    className="h-8 text-sm"
                     max={getLocalDateString()} // Prevent future dates
                   />
                   {billDate && (
@@ -2892,11 +2913,11 @@ export const Sales = ({ tabId, editData }) => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Notes
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="input h-8 text-sm"
+                    className="h-8 text-sm"
                     placeholder="Additional notes..."
                   />
                 </div>
@@ -3020,7 +3041,7 @@ export const Sales = ({ tabId, editData }) => {
                         })}
                     </select>
                     <span className="text-slate-400 text-sm hidden sm:inline">or</span>
-                    <input
+                    <Input
                       type="text"
                       placeholder="Enter code (e.g. SUMMER)"
                       value={discountCodeInput}
@@ -3073,7 +3094,7 @@ export const Sales = ({ tabId, editData }) => {
                         <option value="amount">Amount</option>
                         <option value="percentage">%</option>
                       </select>
-                      <input
+                      <Input
                         type="number"
                         placeholder={directDiscount.type === 'amount' ? 'Enter amount...' : 'Enter percentage...'}
                         value={directDiscount.value || ''}
@@ -3155,7 +3176,7 @@ export const Sales = ({ tabId, editData }) => {
                     <label className="block text-sm font-semibold text-gray-800 mb-2">
                       Amount Paid
                     </label>
-                    <input
+                    <Input
                       type="number"
                       step="1"
                       value={Math.round(amountPaid)}
@@ -3186,14 +3207,16 @@ export const Sales = ({ tabId, editData }) => {
                   <LoadingButton
                     onClick={handleClearCart}
                     isLoading={isClearingCart}
-                    className="btn btn-secondary flex-1"
+                    variant="secondary"
+                    className="flex-1"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Clear Cart
                   </LoadingButton>
                 )}
                 {cart.length > 0 && (
-                  <button
+                  <Button
+                    type="button"
                     onClick={() => {
                       // Format address from customer for print (same logic as backend/PrintDocument)
                       let customerAddress = '';
@@ -3249,14 +3272,15 @@ export const Sales = ({ tabId, editData }) => {
                       setCurrentOrder(tempOrder);
                       setShowPrintModal(true);
                     }}
-                    className="btn btn-secondary flex-1"
+                    variant="secondary"
+                    className="flex-1"
                   >
                     <Printer className="h-4 w-4 mr-2" />
                     Print Preview
-                  </button>
+                  </Button>
                 )}
                 <div className="flex items-center space-x-2 px-2">
-                  <input
+                  <Input
                     type="checkbox"
                     id="autoPrint"
                     checked={autoPrint}
@@ -3271,7 +3295,9 @@ export const Sales = ({ tabId, editData }) => {
                   onClick={handleCheckout}
                   isLoading={isSubmitting || isCreatingSale || isUpdatingOrder}
                   disabled={isSubmitting || isCreatingSale || isUpdatingOrder}
-                  className="btn btn-primary btn-lg flex-2"
+                  variant="default"
+                  size="lg"
+                  className="flex-2"
                 >
                   <Receipt className="h-4 w-4 mr-2" />
                   {editData?.isEditMode
@@ -3367,7 +3393,7 @@ export const Sales = ({ tabId, editData }) => {
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <label className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
+                      <Input
                         type="radio"
                         name="format"
                         value="pdf"
@@ -3382,7 +3408,7 @@ export const Sales = ({ tabId, editData }) => {
                     </label>
 
                     <label className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
+                      <Input
                         type="radio"
                         name="format"
                         value="excel"
@@ -3397,7 +3423,7 @@ export const Sales = ({ tabId, editData }) => {
                     </label>
 
                     <label className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
+                      <Input
                         type="radio"
                         name="format"
                         value="csv"
@@ -3412,7 +3438,7 @@ export const Sales = ({ tabId, editData }) => {
                     </label>
 
                     <label className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                      <input
+                      <Input
                         type="radio"
                         name="format"
                         value="json"
@@ -3436,7 +3462,7 @@ export const Sales = ({ tabId, editData }) => {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">From Date</label>
-                      <input
+                      <Input
                         type="date"
                         value={exportDateFrom}
                         onChange={(e) => setExportDateFrom(e.target.value)}
@@ -3445,7 +3471,7 @@ export const Sales = ({ tabId, editData }) => {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">To Date</label>
-                      <input
+                      <Input
                         type="date"
                         value={exportDateTo}
                         onChange={(e) => setExportDateTo(e.target.value)}
@@ -3470,22 +3496,22 @@ export const Sales = ({ tabId, editData }) => {
 
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => {
                       setShowExportModal(false);
                       setExportDateFrom(defaultDateRange.from);
                       setExportDateTo(defaultDateRange.to);
                     }}
-                    className="btn btn-secondary"
+                    variant="secondary"
                     disabled={isExporting}
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={handleExportConfirm}
-                    className="btn btn-primary"
+                    variant="default"
                     disabled={isExporting}
                   >
                     {isExporting ? (
@@ -3499,7 +3525,7 @@ export const Sales = ({ tabId, editData }) => {
                         Export
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

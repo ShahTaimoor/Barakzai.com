@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 const EMPTY_ARRAY = [];
 
@@ -395,7 +396,7 @@ export const SearchableDropdown = forwardRef(({
     <div className={`relative ${className.replace(/pr-\d+/g, '').trim()}`} ref={containerRef}>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
-        <input
+        <Input
           ref={(node) => {
             inputRef.current = node;
             if (ref) {
@@ -420,7 +421,7 @@ export const SearchableDropdown = forwardRef(({
             }
           }}
           disabled={disabled}
-          className={`input pl-10 ${hasCustomPadding ? className.match(/pr-\d+/)?.[0] || 'pr-10' : 'pr-10'} w-full`}
+          className={`pl-10 ${hasCustomPadding ? className.match(/pr-\d+/)?.[0] || 'pr-10' : 'pr-10'} w-full`}
         />
         <ChevronDown
           onClick={handleChevronClick}

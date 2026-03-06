@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect } from 'react';
 import BaseModal from './BaseModal';
 import { Camera } from 'lucide-react';
 import { LoadingButton } from './LoadingSpinner';
+import { Button } from '@/components/ui/button';
 import ValidationSummary from './ValidationSummary';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, allProducts = [], onEditExisting, categories = [] }) => {
   const [formData, setFormData] = useState({
@@ -596,18 +597,22 @@ export const ProductModal = ({ product, isOpen, onClose, onSave, isSubmitting, a
                 type="submit"
                 isLoading={isSubmitting}
                 disabled={!formData.name || isSubmitting || Object.keys(errors).some(key => errors[key])}
-                className="btn btn-primary btn-md w-full sm:w-auto sm:ml-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="default"
+                size="default"
+                className="w-full sm:w-auto sm:ml-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {product ? 'Update Product' : 'Create Product'}
               </LoadingButton>
-              <button
+              <Button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="btn btn-secondary btn-md w-full sm:w-auto mt-3 sm:mt-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="secondary"
+                size="default"
+                className="w-full sm:w-auto mt-3 sm:mt-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
       </form>
     </BaseModal>

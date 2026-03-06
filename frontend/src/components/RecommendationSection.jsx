@@ -3,6 +3,7 @@ import { TrendingUp, Sparkles, RefreshCw, Settings, Eye, ShoppingCart } from 'lu
 import { useGenerateRecommendationsMutation } from '../store/services/recommendationsApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
 import { LoadingSpinner, LoadingButton } from './LoadingSpinner';
+import { Button } from '@/components/ui/button';
 import ProductRecommendationCard from './ProductRecommendationCard';
 import { useResponsive, ResponsiveContainer, ResponsiveGrid } from './ResponsiveContainer';
 
@@ -134,12 +135,12 @@ const RecommendationSection = ({
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to load recommendations</h3>
         <p className="text-gray-500 mb-4">{error.message}</p>
-        <button
+        <Button
           onClick={handleRefresh}
-          className="btn btn-primary"
+          variant="default"
         >
           Try Again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -180,7 +181,8 @@ const RecommendationSection = ({
               <LoadingButton
                 onClick={handleRefresh}
                 isLoading={isRefreshing}
-                className="btn btn-secondary btn-sm"
+                variant="secondary"
+                size="sm"
               >
                 <RefreshCw className="h-4 w-4" />
               </LoadingButton>
@@ -243,13 +245,13 @@ const RecommendationSection = ({
           <p className="text-gray-500 mb-4">
             We need more data to provide personalized recommendations.
           </p>
-          <button
+          <Button
             onClick={handleRefresh}
-            className="btn btn-primary"
+            variant="default"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
-          </button>
+          </Button>
         </div>
       )}
 
