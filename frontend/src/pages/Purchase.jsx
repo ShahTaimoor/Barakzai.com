@@ -1255,7 +1255,7 @@ export const Purchase = ({ tabId, editData }) => {
     } else {
       handleCreatePurchaseInvoice(invoiceData);
     }
-  }, [purchaseItems, selectedSupplier, invoiceNumber, autoGenerateInvoice, expectedDelivery, notes, taxExempt, subtotal, tax, total, directDiscountAmount, paymentMethod, amountPaid, editData, handleCreatePurchaseInvoice, handleUpdatePurchaseInvoice]);
+  }, [purchaseItems, selectedSupplier, invoiceNumber, autoGenerateInvoice, expectedDelivery, invoiceDate, notes, taxExempt, subtotal, tax, total, directDiscountAmount, paymentMethod, amountPaid, editData, handleCreatePurchaseInvoice, handleUpdatePurchaseInvoice]);
 
 
   return (

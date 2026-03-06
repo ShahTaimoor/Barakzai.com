@@ -7,6 +7,7 @@ const PDFDocument = require('pdfkit');
 const StockMovementService = require('../services/stockMovementService');
 const salesService = require('../services/salesService');
 const AccountingService = require('../services/accountingService');
+const profitDistributionService = require('../services/profitDistributionService');
 const salesRepository = require('../repositories/SalesRepository');
 const productRepository = require('../repositories/ProductRepository');
 const inventoryRepository = require('../repositories/postgres/InventoryRepository');
@@ -513,6 +514,22 @@ router.put('/:id', [
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // Only allow editing invoices from the last 1 week
+    const saleDate = order.sale_date || order.saleDate || order.created_at || order.createdAt;
+    if (saleDate) {
+      const invoiceDate = new Date(saleDate);
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      oneWeekAgo.setHours(0, 0, 0, 0);
+      invoiceDate.setHours(0, 0, 0, 0);
+      if (invoiceDate < oneWeekAgo) {
+        return res.status(403).json({
+          message: 'Cannot edit sales invoice older than 1 week. Only invoices from the last 7 days can be edited.',
+          code: 'EDIT_WINDOW_EXPIRED'
+        });
+      }
+    }
+
     let customerData = null;
     if (req.body.customer) {
       customerData = await customerRepository.findById(req.body.customer);
@@ -908,6 +925,15 @@ router.put('/:id', [
 
     if (updatedOrder && updatedOrder.customer_id) {
       updatedOrder.customer = await customerRepository.findById(updatedOrder.customer_id);
+    }
+
+    // Redistribute profit shares when total or items changed (so investor P&L stays correct)
+    if (updatedOrder && (totalChanged || (req.body.items && req.body.items.length > 0))) {
+      try {
+        await profitDistributionService.redistributeProfitForOrder(updatedOrder, req.user);
+      } catch (profitErr) {
+        console.error('Failed to redistribute profit on sale edit:', profitErr);
+      }
     }
 
     res.json({

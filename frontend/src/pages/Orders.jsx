@@ -44,12 +44,18 @@ const formatOrderDate = (order) => {
   return d.toLocaleDateString();
 };
 
-// Check if order/invoice date is today (edit icon only for today)
-const isInvoiceDateToday = (order) => {
+// Check if order/invoice is within last 1 week (edit allowed only for invoices from past 7 days)
+const canEditInvoice = (order) => {
   const raw = order?.sale_date ?? order?.billDate ?? order?.order_date ?? order?.created_at ?? order?.createdAt;
   if (raw == null) return false;
-  const invoiceDateStr = formatDateForInput(raw);
-  return invoiceDateStr === getCurrentDatePakistan();
+  const invoiceDate = new Date(raw);
+  if (Number.isNaN(invoiceDate.getTime())) return false;
+  const now = new Date();
+  const oneWeekAgo = new Date(now);
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  oneWeekAgo.setHours(0, 0, 0, 0);
+  invoiceDate.setHours(0, 0, 0, 0);
+  return invoiceDate >= oneWeekAgo && invoiceDate <= now;
 };
 
 const OrderCard = ({ order, onView, onEdit, onPrint }) => {
@@ -133,7 +139,7 @@ const OrderCard = ({ order, onView, onEdit, onPrint }) => {
             >
               <Printer className="h-4 w-4" />
             </button>
-            {isInvoiceDateToday(order) && (
+            {canEditInvoice(order) && (
               <button
                 onClick={() => onEdit(order)}
                 className="shrink-0 text-blue-600 hover:text-blue-800"
@@ -548,7 +554,7 @@ export const Orders = () => {
                         >
                           <Printer className="h-4 w-4" />
                         </button>
-                        {isInvoiceDateToday(order) && (
+                        {canEditInvoice(order) && (
                           <button
                             onClick={() => handleEdit(order)}
                             className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
@@ -650,7 +656,7 @@ export const Orders = () => {
                         >
                           <Printer className="h-5 w-5" />
                         </button>
-                        {isInvoiceDateToday(order) && (
+                        {canEditInvoice(order) && (
                           <button
                             onClick={() => handleEdit(order)}
                             className="shrink-0 text-blue-600 hover:text-blue-800 p-2 rounded hover:bg-blue-50 transition-colors"

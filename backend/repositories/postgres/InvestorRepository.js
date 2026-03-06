@@ -66,6 +66,26 @@ class InvestorRepository {
     return result.rows[0] || null;
   }
 
+  async addProfit(id, amount) {
+    const amt = parseFloat(amount) || 0;
+    if (amt <= 0) return this.findById(id);
+    const inv = await this.findById(id);
+    if (!inv) return null;
+    const newEarned = (parseFloat(inv.total_earned_profit) || 0) + amt;
+    const newBalance = (parseFloat(inv.current_balance) || 0) + amt;
+    return this.updateById(id, { totalEarnedProfit: newEarned, currentBalance: newBalance });
+  }
+
+  async subtractProfit(id, amount) {
+    const amt = parseFloat(amount) || 0;
+    if (amt <= 0) return this.findById(id);
+    const inv = await this.findById(id);
+    if (!inv) return null;
+    const newEarned = Math.max(0, (parseFloat(inv.total_earned_profit) || 0) - amt);
+    const newBalance = Math.max(0, (parseFloat(inv.current_balance) || 0) - amt);
+    return this.updateById(id, { totalEarnedProfit: newEarned, currentBalance: newBalance });
+  }
+
   async softDelete(id) {
     const result = await query('UPDATE investors SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *', [id]);
     return result.rows[0] || null;

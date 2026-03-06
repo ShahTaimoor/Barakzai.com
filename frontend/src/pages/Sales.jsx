@@ -843,8 +843,13 @@ export const Sales = ({ tabId, editData }) => {
           setPriceType(ot);
         }
       }
-      // Bill date: when editing, always show today's date (not the original/previous date)
-      setBillDate(getLocalDateString());
+      // Bill date: when editing, show the existing invoice date
+      if (editData.billDate) {
+        const d = editData.billDate instanceof Date ? editData.billDate : new Date(editData.billDate);
+        setBillDate(!isNaN(d.getTime()) ? getLocalDateString(d) : getLocalDateString());
+      } else {
+        setBillDate(getLocalDateString());
+      }
 
       // Data loaded successfully (no toast needed as Orders already shows opening message)
     }
@@ -1973,6 +1978,7 @@ export const Sales = ({ tabId, editData }) => {
     tax,
     isTaxExempt,
     invoiceNumber,
+    billDate,
     notes,
     selectedBankAccount,
     isAdvancePayment,

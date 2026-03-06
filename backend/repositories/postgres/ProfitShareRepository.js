@@ -20,6 +20,33 @@ class ProfitShareRepository {
     return result.rows;
   }
 
+  async findByOrderId(orderId) {
+    return this.findAll({ orderId });
+  }
+
+  async findByOrder(orderId) {
+    return this.findByOrderId(orderId);
+  }
+
+  async findByInvestor(investorId) {
+    return this.findAll({ investorId });
+  }
+
+  async findByDateRange(filters = {}) {
+    const { startDate, endDate } = filters;
+    if (!startDate || !endDate) return [];
+    const result = await query(
+      'SELECT * FROM profit_shares WHERE order_date >= $1 AND order_date <= $2 ORDER BY order_date DESC',
+      [startDate, endDate]
+    );
+    return result.rows;
+  }
+
+  async deleteByOrderId(orderId) {
+    const result = await query('DELETE FROM profit_shares WHERE order_id = $1 RETURNING *', [orderId]);
+    return result.rows;
+  }
+
   async create(data) {
     const result = await query(
       `INSERT INTO profit_shares (order_id, order_number, order_date, product_id, product_name, quantity, sale_amount, total_cost, total_profit, investor_share, company_share, investor_share_percentage, company_share_percentage, investor_id, created_at, updated_at)
