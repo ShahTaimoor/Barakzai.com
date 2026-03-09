@@ -41,22 +41,27 @@ export const saleReturnsApi = api.injectEndpoints({
 
     // Create sale return
     createSaleReturn: builder.mutation({
-      query: (data) => ({
-        url: 'sale-returns',
-        method: 'post',
-        data,
-      }),
-      invalidatesTags: [
-        { type: 'SaleReturns', id: 'LIST' },
-        { type: 'SaleReturns', id: 'STATS' },
-        { type: 'Returns', id: 'LIST' },
-        { type: 'Sales', id: 'LIST' },
-        { type: 'Inventory', id: 'LIST' },
-        { type: 'Accounting', id: 'LEDGER_SUMMARY' },
-        { type: 'Accounting', id: 'LEDGER_ENTRIES' },
-        { type: 'Accounting', id: 'ALL_ENTRIES' },
-        { type: 'ChartOfAccounts', id: 'LIST' },
-      ],
+      query: (data) => {
+        const { customerId, ...payload } = data;
+        return { url: 'sale-returns', method: 'post', data: payload };
+      },
+      invalidatesTags: (result, error, arg) => {
+        const tags = [
+          { type: 'SaleReturns', id: 'LIST' },
+          { type: 'SaleReturns', id: 'STATS' },
+          { type: 'Returns', id: 'LIST' },
+          { type: 'Sales', id: 'LIST' },
+          { type: 'Inventory', id: 'LIST' },
+          { type: 'Accounting', id: 'LEDGER_SUMMARY' },
+          { type: 'Accounting', id: 'LEDGER_ENTRIES' },
+          { type: 'Accounting', id: 'ALL_ENTRIES' },
+          { type: 'ChartOfAccounts', id: 'LIST' },
+        ];
+        if (arg?.customerId) {
+          tags.push({ type: 'SaleReturns', id: `CUSTOMER_PRODUCTS_${arg.customerId}` });
+        }
+        return tags;
+      },
     }),
 
     // Get customer invoices for return

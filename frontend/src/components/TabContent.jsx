@@ -69,7 +69,7 @@ const TabContent = () => {
             key={tab.id}
             className={`${isActive ? 'block' : 'hidden'} h-full`}
           >
-            <TabComponent {...tab.props} />
+            <TabComponent {...tab.props} tabId={tab.id} />
           </div>
         );
       } catch (error) {
@@ -100,7 +100,7 @@ const TabContent = () => {
         {/* Left Panel */}
         <div className="flex-1 border-r border-gray-200 overflow-auto">
           {LeftComponent ? (
-            <LeftComponent {...leftTab.props} />
+            <LeftComponent {...leftTab.props} tabId={leftTab.id} />
           ) : leftTab ? (
             <div className="flex-1 flex items-center justify-center bg-gray-50 h-full">
               <div className="text-center">
@@ -121,7 +121,7 @@ const TabContent = () => {
         {/* Right Panel */}
         <div className="flex-1 overflow-auto">
           {RightComponent ? (
-            <RightComponent {...rightTab.props} />
+            <RightComponent {...rightTab.props} tabId={rightTab.id} />
           ) : rightTab ? (
             <div className="flex-1 flex items-center justify-center bg-gray-50 h-full">
               <div className="text-center">

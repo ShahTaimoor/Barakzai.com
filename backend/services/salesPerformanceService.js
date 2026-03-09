@@ -18,7 +18,7 @@ async function getSalesProductPerformance(dateFrom, dateTo, limit = 10) {
         byProduct[key] = { _id: pid, totalRevenue: 0, totalQuantity: 0, totalOrders: 0, costOfGoodsSold: 0 };
       }
       const rev = (Number(it.unit_price ?? it.unitPrice ?? 0) * Number(it.quantity ?? 0));
-      const cost = Number(it.cost ?? it.unit_cost ?? 0) * Number(it.quantity ?? 0);
+      const cost = Number(it.unitCost ?? it.cost ?? it.unit_cost ?? it.cost_price ?? it.costPrice ?? 0) * Number(it.quantity ?? 0);
       byProduct[key].totalRevenue += rev;
       byProduct[key].totalQuantity += Number(it.quantity ?? 0);
       byProduct[key].totalOrders += 1;
@@ -677,7 +677,7 @@ class SalesPerformanceService {
       const items = typeof sale.items === 'string' ? JSON.parse(sale.items) : (sale.items || []);
       for (const it of items) {
         totalRevenue += Number(it.unit_price ?? it.unitPrice ?? 0) * Number(it.quantity ?? 0);
-        totalCost += Number(it.cost ?? it.unit_cost ?? 0) * Number(it.quantity ?? 0);
+        totalCost += Number(it.unitCost ?? it.cost ?? it.unit_cost ?? it.cost_price ?? it.costPrice ?? 0) * Number(it.quantity ?? 0);
       }
     }
     return { totalProfit: totalRevenue - totalCost, averageMargin: totalRevenue ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0 };

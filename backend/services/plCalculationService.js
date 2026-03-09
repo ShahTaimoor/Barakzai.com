@@ -35,7 +35,7 @@ class PLCalculationService {
       const items = typeof r.items === 'string' ? JSON.parse(r.items || '[]') : (r.items || []);
       for (const it of items) {
         const qty = Number(it.quantity) || 0;
-        const cost = Number(it.cost_price ?? it.costPrice ?? it.unitCost ?? 0);
+        const cost = Number(it.unitCost ?? it.cost_price ?? it.costPrice ?? it.cost ?? 0);
         cogs += qty * cost;
       }
     }
@@ -57,6 +57,25 @@ class PLCalculationService {
       [startDate, endDate]
     );
     return parseFloat(result.rows[0]?.revenue || 0);
+  }
+
+  /**
+   * Get COGS reversals (credits to 5000) from Sale Return entries in the period.
+   * Used to compute net COGS = sales COGS - return reversals when ledger sale debits may be missing.
+   */
+  async getReturnCOGSReversals(startDate, endDate) {
+    const result = await query(
+      `SELECT COALESCE(SUM(credit_amount), 0) AS reversals
+       FROM account_ledger
+       WHERE account_code = '5000'
+         AND reference_type IN ('Sale Return', 'return')
+         AND transaction_date >= $1
+         AND transaction_date <= $2
+         AND status = 'completed'
+         AND reversed_at IS NULL`,
+      [startDate, endDate]
+    );
+    return parseFloat(result.rows[0]?.reversals || 0);
   }
 
   /**
@@ -164,7 +183,12 @@ class PLCalculationService {
     const salesReturns = await this.calculateAccountRevenue('4100', startDate, endDate);
     const otherIncome = await this.calculateAccountRevenue('4200', startDate, endDate);
     const totalRevenue = salesRevenue - salesReturns + otherIncome;
-    if (cogs === 0) cogs = await this.calculateCOGS(startDate, endDate);
+    if (salesReturns > 0) {
+      const returnCogsReversals = await this.getReturnCOGSReversals(startDate, endDate);
+      cogs = Math.max(0, cogs - returnCogsReversals);
+    } else if (cogs === 0) {
+      cogs = await this.calculateCOGS(startDate, endDate);
+    }
     const totalExpenses = await this.calculateTotalExpensesFromLedger(startDate, endDate);
     return totalRevenue - cogs - totalExpenses;
   }
@@ -174,13 +198,16 @@ class PLCalculationService {
    * Uses sales table for revenue (matches Sale Invoice totals); ledger for returns, other income, COGS fallback, expenses
    */
   async generatePLStatement(startDate, endDate) {
-    const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), 0, 1);
-    const end = endDate ? new Date(endDate) : new Date();
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
+    const rawStart = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), 0, 1);
+    const rawEnd = endDate ? new Date(endDate) : new Date();
+    rawStart.setHours(0, 0, 0, 0);
+    rawEnd.setHours(23, 59, 59, 999);
+    // Use Pakistan date range for ALL sources (sales, returns, COGS) so period is consistent
+    const start = getStartOfDayPakistan(rawStart) || rawStart;
+    const end = getEndOfDayPakistan(rawEnd) || rawEnd;
 
     // Sales revenue: use sales table as primary source so P&L matches Sale Invoice totals
-    const fromSales = await this.getRevenueAndCOGSFromSales(start, end);
+    const fromSales = await this.getRevenueAndCOGSFromSales(rawStart, rawEnd);
     let salesRevenue = fromSales.revenue;
     let cogs = fromSales.cogs;
 
@@ -188,8 +215,13 @@ class PLCalculationService {
     const salesReturns = await this.calculateAccountRevenue('4100', start, end);
     const otherIncome = await this.calculateAccountRevenue('4200', start, end);
 
-    // COGS fallback: when sales table has no COGS, use ledger
-    if (cogs === 0) {
+    // COGS: when sale returns exist, use net = sales COGS - return reversals.
+    // Pure ledger COGS can be wrong when sale debits are in another period (date mismatch) or missing,
+    // leaving only return credits → negative COGS. Hybrid formula avoids that.
+    if (salesReturns > 0) {
+      const returnCogsReversals = await this.getReturnCOGSReversals(start, end);
+      cogs = Math.max(0, cogs - returnCogsReversals);
+    } else if (cogs === 0) {
       cogs = await this.calculateCOGS(start, end);
     }
 

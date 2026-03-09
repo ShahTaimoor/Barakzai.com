@@ -32,7 +32,6 @@ const AnomalyDetection = lazy(() => import('./pages/AnomalyDetection'));
 const Warehouses = lazy(() => import('./pages/Warehouses'));
 const Backups = lazy(() => import('./pages/Backups').then(m => ({ default: m.Backups })));
 const PLStatements = lazy(() => import('./pages/PLStatements').then(m => ({ default: m.PLStatements })));
-const Returns = lazy(() => import('./pages/Returns'));
 const SaleReturns = lazy(() => import('./pages/SaleReturns'));
 const PurchaseReturns = lazy(() => import('./pages/PurchaseReturns'));
 const BalanceSheets = lazy(() => import('./pages/BalanceSheets'));
@@ -103,7 +102,6 @@ function App() {
                       <Route path="/stock-movements" element={<Suspense fallback={<LoadingPage />}><StockMovements /></Suspense>} />
                       <Route path="/backups" element={<Suspense fallback={<LoadingPage />}><Backups /></Suspense>} />
                       <Route path="/pl-statements" element={<Suspense fallback={<LoadingPage />}><PLStatements /></Suspense>} />
-                      <Route path="/returns" element={<Suspense fallback={<LoadingPage />}><Returns /></Suspense>} />
                       <Route path="/sale-returns" element={<Suspense fallback={<LoadingPage />}><SaleReturns /></Suspense>} />
                       <Route path="/purchase-returns" element={<Suspense fallback={<LoadingPage />}><PurchaseReturns /></Suspense>} />
                       <Route path="/balance-sheets" element={<Suspense fallback={<LoadingPage />}><BalanceSheets /></Suspense>} />

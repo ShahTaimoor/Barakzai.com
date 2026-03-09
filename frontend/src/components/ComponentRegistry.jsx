@@ -14,7 +14,6 @@ const componentLoader = {
   '/inventory': () => import('../pages/Inventory').then(module => module.Inventory),
   '/inventory-alerts': () => import('../pages/InventoryAlerts').then(module => module.default || module.InventoryAlerts),
   '/anomaly-detection': () => import('../pages/AnomalyDetection').then(module => module.default || module.AnomalyDetection),
-  '/returns': () => import('../pages/Returns').then(module => module.default),
   '/sale-returns': () => import('../pages/SaleReturns').then(module => module.default),
   '/sales-orders': () => import('../pages/SalesOrders').then(module => module.SalesOrders),
   '/purchase-orders': () => import('../pages/PurchaseOrders').then(module => module.PurchaseOrders),
@@ -96,10 +95,6 @@ export const componentRegistry = {
   '/anomaly-detection': {
     title: 'Anomaly Detection',
     icon: 'AlertTriangle'
-  },
-  '/returns': {
-    title: 'Returns',
-    icon: 'RotateCcw'
   },
   '/sale-returns': {
     title: 'Sale Returns',

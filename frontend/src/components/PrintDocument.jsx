@@ -507,9 +507,9 @@ const PrintDocument = ({
                                 </tr>
                             );
                         })}
-                        {/* Summary Footer of Table */}
+                        {/* Summary Footer of Table - Subtotal (sum of line items); Net Amount is in right panel */}
                         <tr className="font-bold">
-                            <td colSpan="4" className="border border-black p-1 text-right">Total</td>
+                            <td colSpan="4" className="border border-black p-1 text-right">Subtotal</td>
                             <td className="border border-black p-1 text-right">{formatCurrency(computedSubtotal)}</td>
                         </tr>
                     </tbody>

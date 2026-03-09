@@ -100,9 +100,9 @@ const PurchaseReturns = () => {
 
   const products = productsData?.data || [];
 
-  // Debounced search for suggestions
+  // Debounced search for suggestions (empty search = show all products)
   useEffect(() => {
-    if (!selectedSupplier?._id || !productSearchTerm.trim() || productSearchTerm.length < 1) {
+    if (!selectedSupplier?._id) {
       setSearchSuggestions([]);
       setShowSuggestions(false);
       setIsSearching(false);
@@ -110,12 +110,11 @@ const PurchaseReturns = () => {
     }
 
     setIsSearching(true);
-    setShowSuggestions(true);
 
     const timeoutId = setTimeout(() => {
       searchSupplierProducts({
         supplierId: selectedSupplier._id,
-        search: productSearchTerm.trim()
+        search: productSearchTerm.trim() // empty = all products
       }).then((result) => {
         const raw = result?.data?.data ?? result?.data ?? (Array.isArray(result?.data) ? result.data : []);
         const list = Array.isArray(raw) ? raw : (raw?.products ? raw.products : []);
@@ -123,15 +122,16 @@ const PurchaseReturns = () => {
           const suggestions = list.map(productData => {
             const product = productData?.product ?? productData;
             const id = product?._id ?? product?.id;
+            const remaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
             return {
               id: id,
               name: product?.name || 'Unknown Product',
               sku: product?.sku || '',
               barcode: product?.barcode || '',
-              remainingQuantity: productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0,
+              remainingQuantity: remaining,
               productData
             };
-          }).filter(s => s.id);
+          }).filter(s => s.id && (s.remainingQuantity ?? 0) > 0); // Do not show products with 0 available
           setSearchSuggestions(suggestions);
         } else {
           setSearchSuggestions([]);
@@ -241,12 +241,19 @@ const PurchaseReturns = () => {
   // Add product directly to return cart (no modal)
   const handleAddToReturnCart = (productData) => {
     if (!productData) return;
+    const remaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
+    if (remaining <= 0) {
+      showErrorToast('This product has no returnable quantity (stock/limit is 0)');
+      return;
+    }
     const product = productData?.product ?? productData;
     const firstPurchase = productData?.purchases?.[0];
     if (!firstPurchase) {
       showErrorToast('No purchase data for this product');
       return;
     }
+    // Use firstPurchase.remainingQuantity (per invoice line), NOT productData.remainingReturnableQuantity (total)
+    const maxForThisInvoice = firstPurchase.remainingQuantity ?? productData.remainingReturnableQuantity ?? productData.remainingQuantity ?? 999;
     const returnItem = {
       product: product._id || product.id,
       originalOrder: firstPurchase.invoiceId,
@@ -259,7 +266,7 @@ const PurchaseReturns = () => {
       returnReasonDetail: '',
       refundAmount: 0,
       restockingFee: 0,
-      maxQuantity: productData.remainingReturnableQuantity ?? productData.remainingQuantity ?? 999,
+      maxQuantity: maxForThisInvoice,
       productName: product?.name || 'Unknown Product'
     };
 
@@ -317,8 +324,23 @@ const PurchaseReturns = () => {
       return;
     }
 
+    // Clamp quantities to max (per invoice line) - prevents "Cannot return X items. Only Y available" error
+    let cart = returnCart;
+    const clamped = cart.map(item => {
+      const max = item.maxQuantity ?? 999;
+      const qty = Math.min(item.quantity || 1, max);
+      if (qty !== (item.quantity || 1)) return { ...item, quantity: qty };
+      return item;
+    });
+    const hadOverflow = clamped.some((c, i) => (c.quantity || 1) !== (returnCart[i].quantity || 1));
+    if (hadOverflow) {
+      setReturnCart(clamped);
+      showErrorToast('Quantities adjusted to available limits per invoice');
+      return;
+    }
+
     const itemsByOrder = {};
-    returnCart.forEach(item => {
+    cart.forEach(item => {
       const orderId = (item.originalOrder?._id || item.originalOrder || item.originalOrderId)?.toString() || String(item.originalOrder);
       if (!itemsByOrder[orderId]) {
         itemsByOrder[orderId] = [];
@@ -335,7 +357,8 @@ const PurchaseReturns = () => {
           refundMethod: 'original_payment',
           items: items.map(({ productName, maxQuantity, ...rest }) => rest),
           generalNotes: returnNotes,
-          origin: 'purchase'
+          origin: 'purchase',
+          supplierId: selectedSupplier?._id // For cache invalidation so remaining quantities refresh
         };
         await createPurchaseReturn(returnData).unwrap();
       }
@@ -344,6 +367,22 @@ const PurchaseReturns = () => {
       showSuccessToast('Purchase return(s) created successfully');
       setReturnCart([]);
       setReturnNotes('');
+      // Refetch product list so remaining quantities update
+      if (selectedSupplier?._id) {
+        searchSupplierProducts({ supplierId: selectedSupplier._id, search: productSearchTerm.trim() })
+          .then((result) => {
+            const raw = result?.data?.data ?? result?.data ?? (Array.isArray(result?.data) ? result.data : []);
+            const list = Array.isArray(raw) ? raw : (raw?.products ? raw.products : []);
+            const suggestions = list.map(productData => {
+              const product = productData?.product ?? productData;
+              const id = product?._id ?? product?.id;
+              const remaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
+              return { id, name: product?.name || 'Unknown Product', sku: product?.sku || '', barcode: product?.barcode || '', remainingQuantity: remaining, productData };
+            }).filter(s => s.id && (s.remainingQuantity ?? 0) > 0);
+            setSearchSuggestions(suggestions);
+          })
+          .catch(() => setSearchSuggestions([]));
+      }
     } catch (error) {
       handleApiError(error, 'Create Purchase Return');
     }
@@ -591,16 +630,10 @@ const PurchaseReturns = () => {
                     value={productSearchTerm}
                     onChange={(e) => {
                       setProductSearchTerm(e.target.value);
-                      if (e.target.value.trim().length >= 1) {
-                        setShowSuggestions(true);
-                      } else {
-                        setShowSuggestions(false);
-                      }
+                      setShowSuggestions(true);
                     }}
                     onFocus={() => {
-                      if (searchSuggestions.length > 0) {
-                        setShowSuggestions(true);
-                      }
+                      setShowSuggestions(true); // Show all products on focus (even without typing)
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {

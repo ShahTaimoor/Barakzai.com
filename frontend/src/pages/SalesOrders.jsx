@@ -94,7 +94,7 @@ const formatAddressForDisplay = (customer) => {
   return '';
 };
 
-const SalesOrders = () => {
+const SalesOrders = ({ tabId }) => {
   const { updateTabTitle, tabs, activeTabId } = useTab();
   const { companyInfo: companySettings } = useCompanyInfo();
   const resolvedCompanyName = companySettings.companyName || 'Company Name';
@@ -302,16 +302,17 @@ const SalesOrders = () => {
     };
   }, []);
 
-  // Update tab title when selectedCustomer changes (after render)
+  // Update tab title when selectedCustomer changes (same pattern as Sales page)
   useEffect(() => {
-    if (!updateTabTitle || !activeTabId) return;
+    const tabIdToUpdate = tabId || activeTabId;
+    if (!updateTabTitle || !tabIdToUpdate) return;
 
     const newTitle = selectedCustomer
       ? `SO - ${selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name || 'Unknown'}`
       : 'SO';
 
-    updateTabTitle(activeTabId, newTitle);
-  }, [selectedCustomer, updateTabTitle, activeTabId]);
+    updateTabTitle(tabIdToUpdate, newTitle);
+  }, [selectedCustomer, updateTabTitle, tabId, activeTabId]);
 
   // Fetch sales orders
   const {

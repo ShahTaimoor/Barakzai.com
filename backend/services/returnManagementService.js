@@ -771,6 +771,8 @@ class ReturnManagementService {
       // Calculate COGS adjustment (reverse COGS for returned items)
       const cogsAdjustment = await this.calculateCOGSAdjustment(returnRequest, originalSale);
 
+      const returnDate = returnRequest.returnDate || returnRequest.return_date || new Date();
+
       // 1) Always post Sale Return to AR (1100) with customerId so it shows in Account Ledger and reduces receivable
       await this.createDoubleEntry(
         {
@@ -781,7 +783,8 @@ class ReturnManagementService {
           reference: returnRequest.returnNumber,
           returnId: returnRequest._id,
           referenceType: 'Sale Return',
-          customerId: customerId || null
+          customerId: customerId || null,
+          transactionDate: returnDate
         },
         {
           accountCode: arAccount,
@@ -791,7 +794,8 @@ class ReturnManagementService {
           reference: returnRequest.returnNumber,
           returnId: returnRequest._id,
           referenceType: 'Sale Return',
-          customerId: customerId || null
+          customerId: customerId || null,
+          transactionDate: returnDate
         },
         client
       );
@@ -809,7 +813,8 @@ class ReturnManagementService {
             reference: returnRequest.returnNumber,
             returnId: returnRequest._id,
             referenceType: 'Sale Return',
-            customerId: customerId || null
+            customerId: customerId || null,
+            transactionDate: returnDate
           },
           {
             accountCode: accountCodes.cash,
@@ -818,7 +823,8 @@ class ReturnManagementService {
             description: `Cash Refund for Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
             returnId: returnRequest._id,
-            referenceType: 'Sale Return'
+            referenceType: 'Sale Return',
+            transactionDate: returnDate
           },
           client
         );
@@ -832,7 +838,8 @@ class ReturnManagementService {
             reference: returnRequest.returnNumber,
             returnId: returnRequest._id,
             referenceType: 'Sale Return',
-            customerId: customerId || null
+            customerId: customerId || null,
+            transactionDate: returnDate
           },
           {
             accountCode: accountCodes.bank,
@@ -841,7 +848,8 @@ class ReturnManagementService {
             description: `Bank Refund for Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
             returnId: returnRequest._id,
-            referenceType: 'Sale Return'
+            referenceType: 'Sale Return',
+            transactionDate: returnDate
           },
           client
         );
@@ -867,7 +875,8 @@ class ReturnManagementService {
             creditAmount: 0,
             description: `Inventory Restored - Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
+            returnId: returnRequest._id,
+            transactionDate: returnDate
           },
           {
             accountCode: accountCodes.costOfGoodsSold,
@@ -875,8 +884,10 @@ class ReturnManagementService {
             creditAmount: cogsAdjustment,
             description: `COGS Reversed - Return ${returnRequest.returnNumber}`,
             reference: returnRequest.returnNumber,
-            returnId: returnRequest._id
-          }
+            returnId: returnRequest._id,
+            transactionDate: returnDate
+          },
+          client
         );
       }
 
@@ -1014,12 +1025,14 @@ class ReturnManagementService {
         creditAmount: entry2Data.creditAmount || 0,
         description: entry2Data.description
       };
+      const txnDate = entry1Data.transactionDate || entry2Data.transactionDate;
       const metadata = {
         referenceType: entry1Data.referenceType || entry2Data.referenceType || 'return',
         referenceId: entry1Data.returnId || entry2Data.returnId,
         referenceNumber: entry1Data.reference || entry2Data.reference,
         customerId: entry1Data.customerId || entry2Data.customerId,
-        supplierId: entry1Data.supplierId || entry2Data.supplierId
+        supplierId: entry1Data.supplierId || entry2Data.supplierId,
+        ...(txnDate && { transactionDate: txnDate })
       };
       return await AccountingService.createTransaction(entry1, entry2, metadata, client);
     } catch (error) {

@@ -218,6 +218,13 @@ class SalesService {
 
     const orders = await Promise.all(sales.map(async (order) => {
       const o = { ...order };
+      // Add pricing object for frontend consistency (Dashboard, Print, P&L matching)
+      const discount = parseFloat(o.discount) || 0;
+      const subtotal = parseFloat(o.subtotal) || 0;
+      const tax = parseFloat(o.tax) || 0;
+      const total = parseFloat(o.total) || 0;
+      o.pricing = { subtotal, total, discountAmount: discount, taxAmount: tax };
+      o.discountAmount = discount; // Alias for Dashboard salesInvoicesDiscounts
       if (o.customer_id && customerMap.has(o.customer_id)) {
         o.customer = customerMap.get(o.customer_id);
         const bal = balanceMap.get(o.customer_id) || 0;
@@ -329,6 +336,14 @@ class SalesService {
       method: order.payment?.method || order.payment_method || 'N/A',
       status: order.payment?.status || order.payment_status || 'pending',
     };
+
+    // Add pricing object for frontend consistency (Print, P&L matching)
+    const discount = parseFloat(order.discount) || 0;
+    const subtotal = parseFloat(order.subtotal) || 0;
+    const tax = parseFloat(order.tax) || 0;
+    const total = parseFloat(order.total) || 0;
+    order.pricing = { subtotal, total, discountAmount: discount, taxAmount: tax };
+    order.discountAmount = discount;
 
     return order;
   }

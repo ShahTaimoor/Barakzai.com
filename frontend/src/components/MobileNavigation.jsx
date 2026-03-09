@@ -89,7 +89,6 @@ const MobileNavigation = ({ user, onLogout }) => {
     { path: '/stock-ledger', icon: FileText, label: 'Stock Ledger', badge: null, permission: 'view_reports' },
     { path: '/sale-returns', icon: RotateCcw, label: 'Sale Returns', badge: null, permission: 'view_returns' },
     { path: '/purchase-returns', icon: RotateCcw, label: 'Purchase Returns', badge: null, permission: 'view_returns' },
-    { path: '/returns', icon: RotateCcw, label: 'Returns', badge: null, permission: 'view_returns' },
     { path: '/discounts', icon: Tag, label: 'Discounts', badge: null, permission: 'view_discounts' },
     { path: '/pl-statements', icon: BarChart3, label: 'P&L Statements', badge: null, permission: 'view_pl_statements' },
     { path: '/balance-sheets', icon: FileText, label: 'Balance Sheets', badge: null, permission: 'view_balance_sheets' },

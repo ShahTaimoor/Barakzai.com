@@ -11,6 +11,8 @@ const stockMovementRepository = require('../repositories/StockMovementRepository
 // @route   GET /api/product-transformations
 // @desc    Get all product transformations with filters
 // @access  Private
+const userRepository = require('../repositories/UserRepository');
+
 router.get('/', [
   auth,
   requirePermission('view_inventory'),
@@ -18,6 +20,7 @@ router.get('/', [
   query('targetVariant').optional().isUUID(4),
   query('status').optional().isIn(['pending', 'in_progress', 'completed', 'cancelled']),
   query('transformationType').optional().isIn(['color', 'warranty', 'size', 'finish', 'custom']),
+  query('search').optional().isString().trim(),
   query('startDate').optional().isISO8601(),
   query('endDate').optional().isISO8601()
 ], async (req, res) => {
@@ -27,12 +30,13 @@ router.get('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { baseProduct, targetVariant, status, transformationType, startDate, endDate } = req.query;
+    const { baseProduct, targetVariant, status, transformationType, search, startDate, endDate } = req.query;
     const filter = {};
     if (baseProduct) filter.baseProduct = baseProduct;
     if (targetVariant) filter.targetVariant = targetVariant;
     if (status) filter.status = status;
     if (transformationType) filter.transformationType = transformationType;
+    if (search) filter.search = search;
     if (startDate || endDate) {
       filter.transformationDate = {};
       if (startDate) filter.transformationDate.$gte = new Date(startDate);
@@ -43,10 +47,22 @@ router.get('/', [
       sort: { transformationDate: -1 }
     });
 
+    const createdByIds = [...new Set(transformations.map(t => t.created_by).filter(Boolean))];
+    const usersMap = {};
+    for (const uid of createdByIds) {
+      const user = await userRepository.findById(uid);
+      if (user) usersMap[uid] = { firstName: user.firstName, lastName: user.lastName };
+    }
+
+    const transformed = transformations.map(t => ({
+      ...t,
+      performedBy: t.created_by ? (usersMap[t.created_by] || null) : null
+    }));
+
     res.json({
       success: true,
-      count: transformations.length,
-      transformations
+      count: transformed.length,
+      transformations: transformed
     });
   } catch (error) {
     console.error('Error fetching product transformations:', error);

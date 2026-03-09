@@ -87,11 +87,6 @@ export const componentRegistry = {
     icon: 'FileText',
     component: () => import('../pages/StockLedger').then(m => m.default || m.StockLedger)
   },
-  '/returns': {
-    title: 'Returns',
-    icon: 'RotateCcw',
-    component: () => import('../pages/Returns').then(m => m.default || m.Returns)
-  },
   '/sale-returns': {
     title: 'Sale Returns',
     icon: 'RotateCcw',

@@ -15,6 +15,7 @@ import {
 import {
   useGetTransformationsQuery,
   useCreateTransformationMutation,
+  useCancelTransformationMutation,
 } from '../store/services/productTransformationsApi';
 import { useGetVariantsByBaseProductQuery } from '../store/services/productVariantsApi';
 import { useGetProductsQuery } from '../store/services/productsApi';
@@ -34,7 +35,8 @@ const ProductTransformations = () => {
   // Fetch transformations
   const { data: transformationsData, isLoading: transformationsLoading, refetch } = useGetTransformationsQuery({
     baseProduct: selectedBaseProduct || undefined,
-    status: statusFilter || undefined
+    status: statusFilter || undefined,
+    search: searchTerm || undefined
   });
   const transformations = React.useMemo(() => {
     return transformationsData?.data?.transformations || transformationsData?.transformations || [];
@@ -47,8 +49,37 @@ const ProductTransformations = () => {
   }, [productsData]);
 
 
+  const [cancelTransformation, { isLoading: isCancelling }] = useCancelTransformationMutation();
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleCancelTransformation = async (id) => {
+    try {
+      await cancelTransformation(id).unwrap();
+      showSuccessToast('Transformation cancelled');
+      refetch();
+    } catch (error) {
+      handleApiError(error, 'ProductTransformations');
+    }
+  };
+
+  const getTransformationNumber = (t) => t.transformationNumber ?? t.transformation_number ?? '';
+  const getBaseProductName = (t) => t.baseProduct?.name ?? t.base_product_name ?? '';
+  const getTargetVariantName = (t) => t.targetVariant?.displayName ?? t.target_variant_name ?? '';
+  const getBaseStockBefore = (t) => t.baseProductStockBefore ?? t.base_product_stock_before ?? 0;
+  const getBaseStockAfter = (t) => t.baseProductStockAfter ?? t.base_product_stock_after ?? 0;
+  const getVariantStockBefore = (t) => t.variantStockBefore ?? t.variant_stock_before ?? 0;
+  const getVariantStockAfter = (t) => t.variantStockAfter ?? t.variant_stock_after ?? 0;
+  const getUnitCost = (t) => t.unitTransformationCost ?? t.unit_transformation_cost ?? 0;
+  const getTotalCost = (t) => t.totalTransformationCost ?? t.total_transformation_cost ?? 0;
+  const getTransformationDate = (t) => t.transformationDate ?? t.created_at ?? t.updated_at;
+  const getStatus = (t) => t.status ?? 'completed';
+  const getPerformedBy = (t) => {
+    const pb = t.performedBy;
+    if (!pb) return '';
+    return [pb.firstName, pb.lastName].filter(Boolean).join(' ').trim() || '-';
   };
 
   const statusOptions = [
@@ -97,7 +128,7 @@ const ProductTransformations = () => {
             onChange={(e) => setSelectedBaseProduct(e.target.value)}
             options={[
               { value: '', label: 'All Products' },
-              ...products.map(p => ({ value: p._id, label: p.name }))
+              ...products.map(p => ({ value: p._id ?? p.id, label: p.name ?? p.productName }))
             ]}
             className="w-full"
           />
@@ -150,59 +181,75 @@ const ProductTransformations = () => {
                   <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performed By</th>
                   <th className="px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-2 sm:px-6 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {transformations.map((transformation) => (
-                  <tr key={transformation._id} className="hover:bg-gray-50">
+                {transformations.map((transformation) => {
+                  const tStatus = getStatus(transformation);
+                  const canCancel = tStatus === 'pending' || tStatus === 'in_progress';
+                  return (
+                  <tr key={transformation._id ?? transformation.id} className="hover:bg-gray-50">
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-xs sm:text-sm font-medium text-gray-900">
-                        {transformation.transformationNumber}
+                        {getTransformationNumber(transformation)}
                       </div>
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-xs sm:text-sm text-gray-900">
-                        {transformation.baseProduct?.name || transformation.baseProductName}
+                        {getBaseProductName(transformation)}
                       </div>
                       <div className="text-xs text-gray-500">
-                        Stock: {transformation.baseProductStockBefore} → {transformation.baseProductStockAfter}
+                        Stock: {getBaseStockBefore(transformation)} → {getBaseStockAfter(transformation)}
                       </div>
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <div className="text-xs sm:text-sm text-gray-900">
-                        {transformation.targetVariant?.displayName || transformation.targetVariantName}
+                        {getTargetVariantName(transformation)}
                       </div>
                       <div className="text-xs text-gray-500">
-                        Stock: {transformation.variantStockBefore} → {transformation.variantStockAfter}
+                        Stock: {getVariantStockBefore(transformation)} → {getVariantStockAfter(transformation)}
                       </div>
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                       {transformation.quantity}
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                      ${transformation.unitTransformationCost?.toFixed(2) || '0.00'}
+                      {Number(getUnitCost(transformation)).toFixed(2)}
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                      ${transformation.totalTransformationCost?.toFixed(2) || '0.00'}
+                      {Number(getTotalCost(transformation)).toFixed(2)}
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
-                      {new Date(transformation.transformationDate).toLocaleDateString()}
+                      {new Date(getTransformationDate(transformation)).toLocaleDateString()}
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
-                      {transformation.performedBy?.firstName} {transformation.performedBy?.lastName}
+                      {getPerformedBy(transformation)}
                     </td>
                     <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        transformation.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        transformation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        transformation.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                        tStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                        tStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        tStatus === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {transformation.status}
+                        {tStatus}
                       </span>
                     </td>
+                    <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
+                      {canCancel && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleCancelTransformation(transformation._id ?? transformation.id)}
+                          disabled={isCancelling}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                );})}
               </tbody>
             </table>
           </div>
@@ -246,14 +293,12 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
 
   React.useEffect(() => {
     const variants = variantsData?.data?.variants || variantsData?.variants || [];
-    if (variants.length > 0) {
-      setAvailableVariants(variants);
-    }
+    setAvailableVariants(Array.isArray(variants) ? variants : []);
   }, [variantsData]);
 
   React.useEffect(() => {
     if (formData.baseProduct) {
-      const product = products.find(p => p._id === formData.baseProduct);
+      const product = products.find(p => (p._id ?? p.id) === formData.baseProduct);
       setSelectedBaseProductData(product);
       setFormData(prev => ({ ...prev, targetVariant: '' }));
     }
@@ -261,13 +306,11 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
 
   React.useEffect(() => {
     if (formData.targetVariant) {
-      const variant = availableVariants.find(v => v._id === formData.targetVariant);
+      const variant = availableVariants.find(v => (v._id ?? v.id) === formData.targetVariant);
       setSelectedVariantData(variant);
       if (variant) {
-        setFormData(prev => ({
-          ...prev,
-          unitTransformationCost: variant.transformationCost || 0
-        }));
+        const cost = variant.transformationCost ?? variant.transformation_cost ?? 0;
+        setFormData(prev => ({ ...prev, unitTransformationCost: cost }));
       }
     }
   }, [formData.targetVariant, availableVariants]);
@@ -296,8 +339,10 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
   // Calculate total cost
   const totalCost = formData.quantity * formData.unitTransformationCost;
 
-  // Get available stock
-  const availableStock = selectedBaseProductData?.inventory?.currentStock || 0;
+  const availableStock = selectedBaseProductData?.inventory?.currentStock
+    ?? selectedBaseProductData?.stockQuantity
+    ?? selectedBaseProductData?.stock_quantity
+    ?? 0;
 
   if (!isOpen) return null;
 
@@ -318,10 +363,10 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
             onChange={(e) => setFormData({ ...formData, baseProduct: e.target.value })}
             options={[
               { value: '', label: 'Select Base Product' },
-              ...products.map(p => ({ 
-                value: p._id, 
-                label: `${p.name} (Stock: ${p.inventory?.currentStock || 0})` 
-              }))
+              ...products.map(p => {
+                const stock = p.inventory?.currentStock ?? p.stockQuantity ?? p.stock_quantity ?? 0;
+                return { value: p._id ?? p.id, label: `${p.name ?? p.productName} (Stock: ${stock})` };
+              })
             ]}
             required
           />
@@ -345,11 +390,12 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
                 options={[
                   { value: '', label: 'Select Variant' },
                   ...availableVariants
-                    .filter(v => v.status === 'active')
-                    .map(v => ({ 
-                      value: v._id, 
-                      label: `${v.displayName} (Current Stock: ${v.inventory?.currentStock || 0})` 
-                    }))
+                    .filter(v => (v.status ?? (v.is_active === false ? 'inactive' : 'active')) === 'active')
+                    .map(v => {
+                      const stock = v.inventory?.currentStock ?? v.inventory_data?.current_stock ?? v.inventory_data?.currentStock ?? 0;
+                      const label = `${v.displayName ?? v.display_name ?? v.variant_name ?? ''} (Current Stock: ${stock})`;
+                      return { value: v._id ?? v.id, label };
+                    })
                 ]}
                 required
               />
@@ -399,16 +445,16 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
           />
 
           {selectedVariantData && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-600">Variant default cost:</span>
                 <span className="text-sm font-medium text-gray-900">
-                  ${selectedVariantData.transformationCost?.toFixed(2) || '0.00'}
+                  {Number(selectedVariantData.transformationCost ?? selectedVariantData.transformation_cost ?? 0).toFixed(2)}
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, unitTransformationCost: selectedVariantData.transformationCost || 0 })}
+                onClick={() => setFormData({ ...formData, unitTransformationCost: selectedVariantData.transformationCost ?? selectedVariantData.transformation_cost ?? 0 })}
                 className="text-xs text-blue-600 hover:text-blue-800 underline"
               >
                 Use default cost
@@ -420,7 +466,7 @@ const TransformationModal = ({ products, isOpen, onClose, onSuccess }) => {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">Total Transformation Cost:</span>
               <span className="text-lg font-bold text-gray-900">
-                ${totalCost.toFixed(2)}
+                {totalCost.toFixed(2)}
               </span>
             </div>
           </div>

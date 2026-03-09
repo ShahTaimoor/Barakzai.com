@@ -105,9 +105,9 @@ const SaleReturns = () => {
 
   const products = productsData?.data || [];
 
-  // Debounced search for suggestions
+  // Debounced search for suggestions (empty search = show all products)
   useEffect(() => {
-    if (!selectedCustomer?._id || !productSearchTerm.trim() || productSearchTerm.length < 1) {
+    if (!selectedCustomer?._id) {
       setSearchSuggestions([]);
       setShowSuggestions(false);
       setIsSearching(false);
@@ -115,12 +115,11 @@ const SaleReturns = () => {
     }
 
     setIsSearching(true);
-    setShowSuggestions(true);
 
     const timeoutId = setTimeout(() => {
       searchCustomerProducts({
         customerId: selectedCustomer._id,
-        search: productSearchTerm.trim()
+        search: productSearchTerm.trim() // empty = all products
       }).then((result) => {
         const raw = result?.data?.data ?? result?.data ?? (Array.isArray(result?.data) ? result.data : []);
         const list = Array.isArray(raw) ? raw : (raw?.products ? raw.products : []);
@@ -128,15 +127,16 @@ const SaleReturns = () => {
           const suggestions = list.map(productData => {
             const product = productData?.product ?? productData;
             const id = product?._id ?? product?.id;
+            const remaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
             return {
               id: id,
               name: product?.name || 'Unknown Product',
               sku: product?.sku || '',
               barcode: product?.barcode || '',
-              remainingQuantity: productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0,
+              remainingQuantity: remaining,
               productData
             };
-          }).filter(s => s.id);
+          }).filter(s => s.id && (s.remainingQuantity ?? 0) > 0); // Do not show products with 0 available
           setSearchSuggestions(suggestions);
         } else {
           setSearchSuggestions([]);
@@ -248,12 +248,19 @@ const SaleReturns = () => {
   // Add product directly to return cart (same as Sales - no modal, direct add)
   const handleAddToReturnCart = (productData) => {
     if (!productData) return;
+    const remaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
+    if (remaining <= 0) {
+      showErrorToast('This product has no returnable quantity (stock/limit is 0)');
+      return;
+    }
     const product = productData?.product ?? productData;
     const firstSale = productData?.sales?.[0];
     if (!firstSale) {
       showErrorToast('No sale data for this product');
       return;
     }
+    // Use firstSale.remainingQuantity (per order line), NOT productData.remainingReturnableQuantity (total across orders)
+    const maxForThisOrder = firstSale.remainingQuantity ?? productData.remainingReturnableQuantity ?? productData.remainingQuantity ?? 999;
     const returnItem = {
       product: product._id || product.id,
       originalOrder: firstSale.orderId || firstSale.invoiceId,
@@ -266,7 +273,7 @@ const SaleReturns = () => {
       returnReasonDetail: '',
       refundAmount: 0,
       restockingFee: 0,
-      maxQuantity: productData.remainingReturnableQuantity ?? productData.remainingQuantity ?? 999,
+      maxQuantity: maxForThisOrder,
       productName: product?.name || 'Unknown Product'
     };
 
@@ -325,9 +332,24 @@ const SaleReturns = () => {
       return;
     }
 
+    // Clamp quantities to max (per order line) - prevents "Cannot return X items. Only Y available" error
+    let cart = returnCart;
+    const clamped = cart.map(item => {
+      const max = item.maxQuantity ?? 999;
+      const qty = Math.min(item.quantity || 1, max);
+      if (qty !== (item.quantity || 1)) return { ...item, quantity: qty };
+      return item;
+    });
+    const hadOverflow = clamped.some((c, i) => (c.quantity || 1) !== (returnCart[i].quantity || 1));
+    if (hadOverflow) {
+      setReturnCart(clamped);
+      showErrorToast('Quantities adjusted to available limits per order');
+      return; // Let user review
+    }
+
     // Group items by originalOrder (backend expects one return per original order)
     const itemsByOrder = {};
-    returnCart.forEach(item => {
+    cart.forEach(item => {
       const orderId = (item.originalOrder?._id || item.originalOrder || item.originalOrderId)?.toString() || String(item.originalOrder);
       if (!itemsByOrder[orderId]) {
         itemsByOrder[orderId] = [];
@@ -344,7 +366,8 @@ const SaleReturns = () => {
           refundMethod: 'deferred',
           items: items.map(({ productName, maxQuantity, ...rest }) => rest),
           generalNotes: returnNotes,
-          origin: 'sales'
+          origin: 'sales',
+          customerId: selectedCustomer?._id // For cache invalidation so remaining quantities refresh
         };
         await createSaleReturn(returnData).unwrap();
       }
@@ -353,6 +376,22 @@ const SaleReturns = () => {
       showSuccessToast('Sale return(s) created successfully');
       setReturnCart([]);
       setReturnNotes('');
+      // Refetch product list so remaining quantities update (e.g. 4 sold → return 3 → now shows 1)
+      if (selectedCustomer?._id) {
+        searchCustomerProducts({ customerId: selectedCustomer._id, search: productSearchTerm.trim() })
+          .then((result) => {
+            const raw = result?.data?.data ?? result?.data ?? (Array.isArray(result?.data) ? result.data : []);
+            const list = Array.isArray(raw) ? raw : (raw?.products ? raw.products : []);
+            const suggestions = list.map(productData => {
+              const product = productData?.product ?? productData;
+              const id = product?._id ?? product?.id;
+              const remaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
+              return { id, name: product?.name || 'Unknown Product', sku: product?.sku || '', barcode: product?.barcode || '', remainingQuantity: remaining, productData };
+            }).filter(s => s.id && (s.remainingQuantity ?? 0) > 0);
+            setSearchSuggestions(suggestions);
+          })
+          .catch(() => setSearchSuggestions([]));
+      }
     } catch (error) {
       handleApiError(error, 'Create Sale Return');
     }
@@ -621,16 +660,10 @@ const SaleReturns = () => {
                   value={productSearchTerm}
                   onChange={(e) => {
                     setProductSearchTerm(e.target.value);
-                    if (e.target.value.trim().length >= 1) {
-                      setShowSuggestions(true);
-                    } else {
-                      setShowSuggestions(false);
-                    }
+                    setShowSuggestions(true);
                   }}
                   onFocus={() => {
-                    if (searchSuggestions.length > 0) {
-                      setShowSuggestions(true);
-                    }
+                    setShowSuggestions(true); // Show all products on focus (even without typing)
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {

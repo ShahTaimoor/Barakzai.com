@@ -1025,7 +1025,7 @@ export const Sales = ({ tabId, editData }) => {
     // Update tab title to show customer name
     const activeTab = getActiveTab();
     if (activeTab && customer) {
-      const customerLabel = customer.displayName ?? customer.businessName ?? customer.name ?? 'Customer';
+      const customerLabel = customer.businessName ?? customer.business_name ?? customer.displayName ?? customer.name ?? 'Customer';
       updateTabTitle(activeTab.id, `Sales - ${customerLabel}`);
     }
   };

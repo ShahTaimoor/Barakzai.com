@@ -56,6 +56,12 @@ class ProductTransformationRepository {
         params.push(filter.transformationDate.$lte);
       }
     }
+    if (filter.search && typeof filter.search === 'string') {
+      const like = `%${filter.search}%`;
+      sql += ` AND (transformation_number ILIKE $${paramCount} OR base_product_name ILIKE $${paramCount} OR target_variant_name ILIKE $${paramCount})`;
+      params.push(like);
+      paramCount++;
+    }
     sql += ' ORDER BY created_at DESC';
     if (options.limit) { sql += ` LIMIT $${paramCount++}`; params.push(options.limit); }
     if (options.offset) { sql += ` OFFSET $${paramCount++}`; params.push(options.offset); }
