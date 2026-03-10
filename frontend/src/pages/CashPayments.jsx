@@ -737,7 +737,7 @@ const CashPayments = () => {
                               <div className="text-sm text-gray-600">
                                 <span className="text-gray-500">Outstanding Balance:</span>{' '}
                                 <span className={`font-medium ${(supplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                  ${Math.round(supplier.pendingBalance || 0)}
+                                  {Math.round(supplier.pendingBalance || 0)}
                                 </span>
                               </div>
                               {supplier.phone && (
@@ -778,7 +778,7 @@ const CashPayments = () => {
                             <div className="flex items-center space-x-1">
                               <span className="text-xs text-gray-500">Outstanding Balance:</span>
                               <span className={`text-sm font-medium ${(selectedSupplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                ${Math.round(selectedSupplier.pendingBalance || 0)}
+                                {Math.round(selectedSupplier.pendingBalance || 0)}
                               </span>
                             </div>
                             {selectedSupplier.phone && (
@@ -860,7 +860,7 @@ const CashPayments = () => {
                                 <div className="text-sm text-gray-600">
                                   <span className="text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>{' '}
                                   <span className={`font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'}`}>
-                                    ${Math.abs(currentBalance).toFixed(2)}
+                                    {Math.abs(currentBalance).toFixed(2)}
                                   </span>
                                 </div>
                               )}
@@ -911,7 +911,7 @@ const CashPayments = () => {
                                   <span className="text-xs text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>
                                   <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
                                     }`}>
-                                    ${Math.abs(currentBalance).toFixed(2)}
+                                    {Math.abs(currentBalance).toFixed(2)}
                                   </span>
                                 </div>
                               ) : null;

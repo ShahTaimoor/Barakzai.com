@@ -404,6 +404,12 @@ const PrintDocument = ({
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Amount</div>
                             <div className="receipt-voucher__value flex-1 p-2 border-l border-black font-bold text-lg">{formatCurrency(amount)}</div>
                         </div>
+                        {ledgerBalanceProp != null && (
+                        <div className="receipt-voucher__row flex border-b border-black">
+                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">Ledger Balance</div>
+                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{formatCurrency(Number(ledgerBalanceProp))}</div>
+                        </div>
+                        )}
                         <div className="receipt-voucher__row flex border-b border-black">
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Particular</div>
                             <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{particular}</div>

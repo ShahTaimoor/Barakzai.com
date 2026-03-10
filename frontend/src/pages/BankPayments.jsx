@@ -772,7 +772,7 @@ const BankPayments = () => {
                             <div className="text-sm text-gray-600">
                               <span className="text-gray-500">Outstanding Balance:</span>{' '}
                               <span className={`font-medium ${(supplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                ${Math.round(supplier.pendingBalance || 0)}
+                                {Math.round(supplier.pendingBalance || 0)}
                               </span>
                             </div>
                             {supplier.phone && (
@@ -812,7 +812,7 @@ const BankPayments = () => {
                             <div className="flex items-center space-x-1">
                               <span className="text-xs text-gray-500">Outstanding Balance:</span>
                               <span className={`text-sm font-medium ${(selectedSupplier.pendingBalance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                ${Math.round(selectedSupplier.pendingBalance || 0)}
+                                {Math.round(selectedSupplier.pendingBalance || 0)}
                               </span>
                             </div>
                             {selectedSupplier.phone && (
@@ -897,7 +897,7 @@ const BankPayments = () => {
                                 <div className="text-sm text-gray-600">
                                   <span className="text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>{' '}
                                   <span className={`font-medium ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-                                    ${Math.abs(netBalance).toFixed(2)}
+                                    {Math.abs(netBalance).toFixed(2)}
                                   </span>
                                 </div>
                               )}
@@ -948,7 +948,7 @@ const BankPayments = () => {
                                   <span className="text-xs text-gray-500">{isPayable ? 'Payables:' : 'Receivables:'}</span>
                                   <span className={`text-sm font-medium ${isPayable ? 'text-red-600' : isReceivable ? 'text-green-600' : 'text-gray-600'
                                     }`}>
-                                    ${Math.abs(netBalance).toFixed(2)}
+                                    {Math.abs(netBalance).toFixed(2)}
                                   </span>
                                 </div>
                               ) : null;
@@ -2025,7 +2025,7 @@ const BankPayments = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Amount:</span>
-                  <span className="text-gray-900 font-bold">${Math.round(selectedPayment.amount)}</span>
+                  <span className="text-gray-900 font-bold">{Math.round(selectedPayment.amount)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Bank:</span>

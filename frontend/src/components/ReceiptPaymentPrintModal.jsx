@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { useCompanyInfo } from '../hooks/useCompanyInfo';
+import { useGetBalanceSummaryQuery } from '../store/services/customerBalancesApi';
+import { useGetBalanceSummaryQuery as useGetSupplierBalanceSummaryQuery } from '../store/services/supplierBalancesApi';
 import PrintDocument from './PrintDocument';
 import { PrintModal } from './print';
 
@@ -14,6 +16,15 @@ const ReceiptPaymentPrintModal = ({
   receiptData
 }) => {
   const { companyInfo: companySettings } = useCompanyInfo();
+  const customerId = receiptData?.customer?.id || receiptData?.customer?._id || null;
+  const supplierId = receiptData?.supplier?.id || receiptData?.supplier?._id || null;
+  const { data: customerBalanceData } = useGetBalanceSummaryQuery(customerId, { skip: !customerId || !!supplierId });
+  const { data: supplierBalanceData } = useGetSupplierBalanceSummaryQuery(supplierId, { skip: !supplierId });
+  const ledgerBalance = customerId
+    ? (customerBalanceData?.data?.balances?.currentBalance ?? customerBalanceData?.balances?.currentBalance ?? null)
+    : supplierId
+      ? (supplierBalanceData?.data?.balances?.currentBalance ?? supplierBalanceData?.balances?.currentBalance ?? null)
+      : null;
   const resolvedDocumentTitle = documentTitle || 'Receipt';
 
   const orderData = useMemo(() => {
@@ -87,6 +98,7 @@ const ReceiptPaymentPrintModal = ({
       <PrintDocument
         companySettings={companySettings || {}}
         orderData={orderData}
+        ledgerBalance={ledgerBalance}
         printSettings={printSettings}
         documentTitle={resolvedDocumentTitle}
         partyLabel={partyLabel}

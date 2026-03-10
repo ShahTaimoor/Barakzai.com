@@ -533,7 +533,7 @@ const BankReceipts = () => {
                             )}
                             {hasBalance && (
                               <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-                                {isPayable ? 'Payables:' : 'Receivables:'} ${Math.abs(netBalance).toFixed(2)}
+                                {isPayable ? 'Payables:' : 'Receivables:'} {Math.abs(netBalance).toFixed(2)}
                               </div>
                             )}
                           </div>
@@ -702,12 +702,12 @@ const BankReceipts = () => {
                 <select
                   value={formData.bank}
                   onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-                  className="w-full"
+                  className="input w-full"
                   required
                 >
                   <option value="">Select bank account...</option>
-                  {banks?.map((bank) => (
-                    <option key={bank._id} value={bank._id}>
+                  {(banks || []).map((bank) => (
+                    <option key={bank._id || bank.id} value={bank._id || bank.id}>
                       {bank.bankName} - {bank.accountNumber} {bank.accountName ? `(${bank.accountName})` : ''}
                     </option>
                   ))}
@@ -717,6 +717,9 @@ const BankReceipts = () => {
                 )}
                 {banksError && (
                   <p className="text-sm text-red-500 mt-1">Error loading banks</p>
+                )}
+                {!banksLoading && !banksError && (!banks || banks.length === 0) && (
+                  <p className="text-sm text-amber-600 mt-1">No bank accounts. Add one in Settings → Banks.</p>
                 )}
               </div>
 
@@ -1110,7 +1113,7 @@ const BankReceipts = () => {
                             )}
                             {hasBalance && (
                               <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-                                {isPayable ? 'Payables:' : 'Receivables:'} ${Math.abs(netBalance).toFixed(2)}
+                                {isPayable ? 'Payables:' : 'Receivables:'} {Math.abs(netBalance).toFixed(2)}
                               </div>
                             )}
                           </div>
@@ -1139,12 +1142,12 @@ const BankReceipts = () => {
                   <select
                     value={formData.bank}
                     onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-                    className="w-full"
+                    className="input w-full"
                     required
                   >
                     <option value="">Select bank account...</option>
-                    {banks?.map((bank) => (
-                      <option key={bank._id} value={bank._id}>
+                    {(banks || []).map((bank) => (
+                      <option key={bank._id || bank.id} value={bank._id || bank.id}>
                         {bank.bankName} - {bank.accountNumber} {bank.accountName ? `(${bank.accountName})` : ''}
                       </option>
                     ))}
@@ -1303,11 +1306,11 @@ const BankReceipts = () => {
               id="edit-bank"
               value={formData.bank}
               onChange={(e) => setFormData(prev => ({ ...prev, bank: e.target.value }))}
-              className="w-full"
+              className="input w-full"
             >
               <option value="">Select bank account...</option>
-              {banks?.map((bank) => (
-                <option key={bank._id} value={bank._id}>{bank.bankName} - {bank.accountNumber}</option>
+              {(banks || []).map((bank) => (
+                <option key={bank._id || bank.id} value={bank._id || bank.id}>{bank.bankName} - {bank.accountNumber}</option>
               ))}
             </select>
           </FormField>
@@ -1389,7 +1392,7 @@ const BankReceipts = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Amount:</span>
-                  <span className="text-gray-900 font-bold">${Math.round(selectedReceipt.amount)}</span>
+                  <span className="text-gray-900 font-bold">{Math.round(selectedReceipt.amount)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="font-medium text-gray-500">Bank:</span>

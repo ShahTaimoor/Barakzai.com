@@ -36,6 +36,8 @@ import { useGetCustomersQuery } from '../store/services/customersApi';
 import { useAppDispatch } from '../store/hooks';
 import { api } from '../store/api';
 import ReceiptPaymentPrintModal from '../components/ReceiptPaymentPrintModal';
+import { useGetBalanceSummaryQuery } from '../store/services/customerBalancesApi';
+import { useGetBalanceSummaryQuery as useGetSupplierBalanceSummaryQuery } from '../store/services/supplierBalancesApi';
 import DateFilter from '../components/DateFilter';
 import PaginationControls from '../components/PaginationControls';
 import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
@@ -113,6 +115,16 @@ const CashReceipts = () => {
   const suppliers = React.useMemo(() => {
     return suppliersData?.data?.suppliers || suppliersData?.suppliers || (Array.isArray(suppliersData) ? suppliersData : []);
   }, [suppliersData]);
+
+  const viewModalCustomerId = showViewModal && selectedReceipt?.customer ? (selectedReceipt.customer.id || selectedReceipt.customer._id) : null;
+  const viewModalSupplierId = showViewModal && selectedReceipt?.supplier ? (selectedReceipt.supplier.id || selectedReceipt.supplier._id) : null;
+  const { data: viewCustomerBalanceData } = useGetBalanceSummaryQuery(viewModalCustomerId, { skip: !viewModalCustomerId || !!viewModalSupplierId });
+  const { data: viewSupplierBalanceData } = useGetSupplierBalanceSummaryQuery(viewModalSupplierId, { skip: !viewModalSupplierId });
+  const viewLedgerBalance = viewModalCustomerId
+    ? (viewCustomerBalanceData?.data?.balances?.currentBalance ?? viewCustomerBalanceData?.balances?.currentBalance ?? null)
+    : viewModalSupplierId
+      ? (viewSupplierBalanceData?.data?.balances?.currentBalance ?? viewSupplierBalanceData?.balances?.currentBalance ?? null)
+      : null;
 
   // Sync selectedCustomer with updated customersData when it changes (optimized - only update when balance changes)
   useEffect(() => {
@@ -1001,7 +1013,7 @@ const CashReceipts = () => {
                             )}
                             {hasBalance && (
                               <div className={`text-sm ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-                                {isPayable ? 'Payables:' : 'Receivables:'} ${Math.abs(currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {isPayable ? 'Payables:' : 'Receivables:'} {Math.abs(currentBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </div>
                             )}
                           </div>
@@ -1143,7 +1155,7 @@ const CashReceipts = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Amount *
                 </label>
-                <input
+                <Input
                   type="number"
                   autoComplete="off"
                   step="0.01"
@@ -1153,7 +1165,6 @@ const CashReceipts = () => {
                     const value = e.target.value === '' ? '' : parseFloat(e.target.value) || '';
                     setFormData(prev => ({ ...prev, amount: value }));
                   }}
-                  className="w-full"
                   placeholder="0.00"
                   required
                 />
@@ -1817,8 +1828,16 @@ const CashReceipts = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Amount
                   </label>
-                  <p className="text-sm text-gray-900">{Math.round(selectedReceipt.amount)}</p>
+                  <p className="text-sm text-gray-900">{formatCurrency(selectedReceipt.amount)}</p>
                 </div>
+                {(selectedReceipt.customer || selectedReceipt.supplier) && viewLedgerBalance != null && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Ledger Balance
+                    </label>
+                    <p className="text-sm text-gray-900">{formatCurrency(viewLedgerBalance)}</p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Particular
