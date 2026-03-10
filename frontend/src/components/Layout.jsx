@@ -444,7 +444,6 @@ export const Layout = ({ children }) => {
             </button>
           </div>
           <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto max-h-[calc(100vh-4rem)] scrollbar-thin scrollbar-thumb-gray-200">
-            <div className="mb-2 px-3 py-1.5 rounded-md bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">Platform</div>
             {navigation.map((item) => (
               <SidebarItem 
                 key={item.name} 
@@ -468,7 +467,6 @@ export const Layout = ({ children }) => {
             <h1 className="text-xl font-bold text-gray-900">POS System</h1>
           </div>
           <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto max-h-[calc(100vh-4rem)] scrollbar-thin scrollbar-thumb-gray-200">
-            <div className="mb-3 px-3 py-1.5 rounded-md bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">Platform</div>
             {navigation.map((item) => (
               <SidebarItem 
                 key={item.name} 
