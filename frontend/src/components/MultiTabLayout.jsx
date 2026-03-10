@@ -193,10 +193,32 @@ export const navigation = [
   }
 ];
 
-// Sidebar Item Component
+// Sidebar header colors per section
+const sidebarHeaderColors = {
+  Sales: { bg: 'bg-emerald-50', hover: 'hover:bg-emerald-100', border: 'border-emerald-200' },
+  Purchase: { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', border: 'border-amber-200' },
+  Operations: { bg: 'bg-violet-50', hover: 'hover:bg-violet-100', border: 'border-violet-200' },
+  Financials: { bg: 'bg-sky-50', hover: 'hover:bg-sky-100', border: 'border-sky-200' },
+  'Master Data': { bg: 'bg-teal-50', hover: 'hover:bg-teal-100', border: 'border-teal-200' },
+  Inventory: { bg: 'bg-cyan-50', hover: 'hover:bg-cyan-100', border: 'border-cyan-200' },
+  Accounting: { bg: 'bg-indigo-50', hover: 'hover:bg-indigo-100', border: 'border-indigo-200' },
+  Analytics: { bg: 'bg-rose-50', hover: 'hover:bg-rose-100', border: 'border-rose-200' },
+  'HR/Admin': { bg: 'bg-lime-50', hover: 'hover:bg-lime-100', border: 'border-lime-200' },
+  System: { bg: 'bg-slate-50', hover: 'hover:bg-slate-100', border: 'border-slate-200' },
+};
+const getHeaderColors = (name) => sidebarHeaderColors[name] || { bg: 'bg-slate-50', hover: 'hover:bg-slate-100', border: 'border-slate-200' };
+const defaultOpenSections = ['Sales', 'Purchase', 'Operations'];
 const SidebarItem = ({ item, isActivePath, sidebarConfig, user, hasPermission, onNavigate, level = 0 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
+  const [isOpen, setIsOpen] = useState(hasChildren && defaultOpenSections.includes(item.name));
+
+  // Auto-expand if child is active (must be before any early returns)
+  useEffect(() => {
+    if (hasChildren) {
+      const childActive = item.children.some(child => isActivePath(child.href));
+      if (childActive) setIsOpen(true);
+    }
+  }, [item, isActivePath, hasChildren]);
 
   // Check visibility and permission
   if (sidebarConfig && sidebarConfig[item.name] === false) return null;
@@ -213,24 +235,19 @@ const SidebarItem = ({ item, isActivePath, sidebarConfig, user, hasPermission, o
     if (!hasVisibleChild) return null;
   }
 
-  // Auto-expand if child is active
-  useEffect(() => {
-    if (hasChildren) {
-      const childActive = item.children.some(child => isActivePath(child.href));
-      if (childActive) setIsOpen(true);
-    }
-  }, [item, isActivePath, hasChildren]);
-
   const isActive = !hasChildren && isActivePath(item.href);
 
   return (
     <div className="mb-1">
       {hasChildren ? (
         <>
+          {(() => {
+            const colors = getHeaderColors(item.name);
+            return (
           <button
             onClick={() => setIsOpen(!isOpen)}
             className={`w-full group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150 ${
-              isOpen ? 'text-gray-900 bg-gray-50' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              isOpen ? `text-gray-900 ${colors.bg}` : `text-gray-600 ${colors.bg} ${colors.hover} hover:text-gray-900`
             }`}
           >
             <div className="flex items-center">
@@ -243,6 +260,8 @@ const SidebarItem = ({ item, isActivePath, sidebarConfig, user, hasPermission, o
               <ChevronRight className="h-4 w-4 text-gray-400" />
             )}
           </button>
+            );
+          })()}
           {isOpen && (
             <div className="mt-1 ml-4 space-y-1 border-l-2 border-gray-100 pl-2">
               {item.children.map((child) => (
@@ -514,7 +533,7 @@ export const MultiTabLayout = ({ children }) => {
             </button>
           </div>
           <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto max-h-[calc(100vh-4rem)] scrollbar-thin scrollbar-thumb-gray-200">
-            <div className="mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Platform</div>
+            <div className="mb-2 px-3 py-1.5 rounded-md bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">Platform</div>
             {navigation.map((item) => (
               <SidebarItem
                 key={item.name}
@@ -540,7 +559,7 @@ export const MultiTabLayout = ({ children }) => {
             <h1 className="text-xl font-bold text-gray-900">POS System</h1>
           </div>
           <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto max-h-[calc(100vh-4rem)] scrollbar-thin scrollbar-thumb-gray-200">
-            <div className="mb-3 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Platform</div>
+            <div className="mb-3 px-3 py-1.5 rounded-md bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">Platform</div>
             {navigation.map((item) => (
               <SidebarItem
                 key={item.name}
