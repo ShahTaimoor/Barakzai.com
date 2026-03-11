@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTab } from '../contexts/TabContext';
 import { useResponsive } from './ResponsiveContainer';
+import { LoadingPage } from './LoadingSpinner';
 
 const TabContent = () => {
   const { tabs, activeTabId, isSplitView, leftTabId, rightTabId } = useTab();
@@ -53,12 +54,8 @@ const TabContent = () => {
       
       if (!TabComponent) {
         return isActive ? (
-          <div key={tab.id} className="flex-1 flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-              <div className="text-blue-400 text-6xl mb-4">⏳</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading...</h3>
-              <p className="text-gray-500">Loading component for this tab</p>
-            </div>
+          <div key={tab.id} className="flex-1 flex items-center justify-center bg-gray-50 min-h-[200px]">
+            <LoadingPage useSpinningText showMessage={false} />
           </div>
         ) : null;
       }
@@ -102,12 +99,8 @@ const TabContent = () => {
           {LeftComponent ? (
             <LeftComponent {...leftTab.props} tabId={leftTab.id} />
           ) : leftTab ? (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 h-full">
-              <div className="text-center">
-                <div className="text-blue-400 text-6xl mb-4">⏳</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Loading...</h3>
-                <p className="text-gray-500">Loading {leftTab.title}</p>
-              </div>
+            <div className="flex-1 flex items-center justify-center bg-gray-50 h-full min-h-[200px]">
+              <LoadingPage useSpinningText showMessage={false} />
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center bg-gray-50 h-full">
@@ -123,12 +116,8 @@ const TabContent = () => {
           {RightComponent ? (
             <RightComponent {...rightTab.props} tabId={rightTab.id} />
           ) : rightTab ? (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 h-full">
-              <div className="text-center">
-                <div className="text-blue-400 text-6xl mb-4">⏳</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Loading...</h3>
-                <p className="text-gray-500">Loading {rightTab.title}</p>
-              </div>
+            <div className="flex-1 flex items-center justify-center bg-gray-50 h-full min-h-[200px]">
+              <LoadingPage useSpinningText showMessage={false} />
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center bg-gray-50 h-full">

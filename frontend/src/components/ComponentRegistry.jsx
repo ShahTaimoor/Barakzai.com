@@ -18,6 +18,7 @@ const componentLoader = {
   '/sales-orders': () => import('../pages/SalesOrders').then(module => module.SalesOrders),
   '/purchase-orders': () => import('../pages/PurchaseOrders').then(module => module.PurchaseOrders),
   '/purchase-invoices': () => import('../pages/PurchaseInvoices').then(module => module.default || module.PurchaseInvoices),
+  '/purchase-by-supplier': () => import('../pages/PurchaseBySupplierReport').then(module => module.default),
   '/reports': () => import('../pages/Reports').then(module => module.Reports),
   '/pl-statements': () => import('../pages/PLStatements').then(module => module.PLStatements),
   '/balance-sheets': () => import('../pages/BalanceSheets').then(module => module.default),
@@ -115,6 +116,10 @@ export const componentRegistry = {
     title: 'Purchase Invoices',
     icon: 'Search',
     allowMultiple: true
+  },
+  '/purchase-by-supplier': {
+    title: 'Products by Supplier',
+    icon: 'BarChart3'
   },
   '/reports': {
     title: 'Reports',

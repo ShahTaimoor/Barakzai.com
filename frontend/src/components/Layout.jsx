@@ -66,6 +66,7 @@ export const navigation = [
       { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText },
       { name: 'Purchase', href: '/purchase', icon: Truck },
       { name: 'Purchase Invoices', href: '/purchase-invoices', icon: Search },
+      { name: 'Products by Supplier', href: '/purchase-by-supplier', icon: BarChart3 },
     ]
   },
 

@@ -1092,6 +1092,102 @@ class ReportsService {
       city: city || 'All Cities'
     };
   }
+
+  /**
+   * Get products purchased by supplier - quantity and amount per product per supplier.
+   * Same product from different suppliers shown as separate rows.
+   * @param {object} filters - supplier (optional), dateFrom, dateTo
+   * @returns {Promise<{ data: Array, summary }>}
+   */
+  async getPurchaseBySupplierReport(filters) {
+    const { query } = require('../config/postgres');
+    const { getStartOfDayPakistan, getEndOfDayPakistan } = require('../utils/dateFilter');
+
+    const dateFrom = filters.dateFrom ? getStartOfDayPakistan(filters.dateFrom) : null;
+    const dateTo = filters.dateTo ? getEndOfDayPakistan(filters.dateTo) : null;
+    const supplierId = filters.supplier || filters.supplierId || null;
+
+    let sql = `
+      WITH item_rows AS (
+        SELECT
+          pi.supplier_id,
+          pi.invoice_date,
+          pi.created_at,
+          COALESCE(
+            (elem->'product'->>'id')::uuid,
+            (elem->'product'->>'_id')::uuid,
+            (elem->>'product')::uuid,
+            (elem->>'product_id')::uuid
+          ) AS product_id,
+          (COALESCE((elem->>'quantity')::numeric, (elem->>'qty')::numeric, 0)) AS qty,
+          (COALESCE((elem->>'unitCost')::numeric, (elem->>'unit_cost')::numeric, (elem->>'price')::numeric, 0)) AS unit_cost
+        FROM purchase_invoices pi
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(pi.items, '[]'::jsonb)) AS elem
+        WHERE pi.deleted_at IS NULL
+          AND pi.status NOT IN ('cancelled')
+          AND pi.invoice_type = 'purchase'
+          AND (
+            (elem->'product'->>'id') IS NOT NULL OR
+            (elem->'product'->>'_id') IS NOT NULL OR
+            elem->>'product' IS NOT NULL OR
+            elem->>'product_id' IS NOT NULL
+          )
+    )
+    SELECT
+      ir.product_id AS "productId",
+      COALESCE(p.name, pv.display_name, pv.variant_name, 'Unknown Product') AS "productName",
+      ir.supplier_id AS "supplierId",
+      COALESCE(s.company_name, s.name, 'Unknown Supplier') AS "supplierName",
+      SUM(ir.qty) AS "totalQuantity",
+      SUM(ir.qty * ir.unit_cost) AS "totalAmount"
+    FROM item_rows ir
+    LEFT JOIN products p ON p.id = ir.product_id AND (p.is_deleted = FALSE OR p.is_deleted IS NULL)
+    LEFT JOIN product_variants pv ON pv.id = ir.product_id AND pv.deleted_at IS NULL
+    LEFT JOIN suppliers s ON s.id = ir.supplier_id AND (s.is_deleted = FALSE OR s.is_deleted IS NULL)
+    WHERE ir.product_id IS NOT NULL AND ir.supplier_id IS NOT NULL
+  `;
+    const params = [];
+    let pn = 1;
+    if (dateFrom) {
+      sql += ` AND (ir.invoice_date >= $${pn} OR ir.created_at >= $${pn})`;
+      params.push(dateFrom);
+      pn++;
+    }
+    if (dateTo) {
+      sql += ` AND (ir.invoice_date <= $${pn} OR ir.created_at <= $${pn})`;
+      params.push(dateTo);
+      pn++;
+    }
+    if (supplierId) {
+      sql += ` AND ir.supplier_id = $${pn}`;
+      params.push(supplierId);
+      pn++;
+    }
+    sql += `
+    GROUP BY ir.product_id, p.name, pv.display_name, pv.variant_name, ir.supplier_id, s.company_name, s.name
+    ORDER BY "productName", "supplierName"
+    `;
+
+    const result = await query(sql, params);
+    const rows = result.rows || [];
+    const summary = {
+      totalProducts: new Set(rows.map(r => r.productId)).size,
+      totalSuppliers: new Set(rows.map(r => r.supplierId)).size,
+      totalQuantity: rows.reduce((sum, r) => sum + parseFloat(r.totalQuantity || 0), 0),
+      totalAmount: rows.reduce((sum, r) => sum + parseFloat(r.totalAmount || 0), 0)
+    };
+    return {
+      data: rows.map(r => ({
+        productId: r.productId,
+        productName: r.productName,
+        supplierId: r.supplierId,
+        supplierName: r.supplierName,
+        totalQuantity: parseFloat(r.totalQuantity || 0),
+        totalAmount: parseFloat(r.totalAmount || 0)
+      })),
+      summary
+    };
+  }
 }
 
 module.exports = new ReportsService();

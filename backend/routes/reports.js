@@ -176,6 +176,27 @@ router.get('/financial', [
   }
 });
 
+// @route   GET /api/reports/purchase-by-supplier
+// @desc    Products purchased by supplier - quantity per product per supplier
+// @access  Private
+router.get('/purchase-by-supplier', [
+  auth,
+  requirePermission('view_reports'),
+  query('supplier').optional().isUUID(),
+  query('supplierId').optional().isUUID(),
+  query('dateFrom').optional().isISO8601(),
+  query('dateTo').optional().isISO8601(),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const report = await reportsService.getPurchaseBySupplierReport(req.query);
+    res.json(report);
+  } catch (error) {
+    console.error('Purchase by supplier report error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/reports/bank-cash-summary
 // @desc    Get bank and cash summary report
 // @access  Private

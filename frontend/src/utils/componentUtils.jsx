@@ -114,6 +114,16 @@ export const componentRegistry = {
     icon: 'Search',
     component: () => import('../pages/PurchaseInvoices').then(m => m.default || m.PurchaseInvoices)
   },
+  '/purchase-by-supplier': {
+    title: 'Products by Supplier',
+    icon: 'BarChart3',
+    component: () => import('../pages/PurchaseBySupplierReport').then(m => m.default)
+  },
+  '/help': {
+    title: 'Help & Support',
+    icon: 'HelpCircle',
+    component: () => import('../pages/Help').then(m => m.default || m.Help)
+  },
   '/reports': {
     title: 'Reports',
     icon: 'BarChart3',

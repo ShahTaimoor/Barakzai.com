@@ -78,6 +78,7 @@ const MobileNavigation = ({ user, onLogout }) => {
     { path: '/purchase', icon: Truck, label: 'Purchase', badge: null, permission: 'view_purchase_orders' },
     { path: '/purchase-orders', icon: FileText, label: 'Purchase Orders', badge: null, permission: 'view_purchase_orders' },
     { path: '/purchase-invoices', icon: FileText, label: 'Purchase Invoices', badge: null, permission: 'view_purchase_invoices' },
+    { path: '/purchase-by-supplier', icon: BarChart3, label: 'Products by Supplier', badge: null, permission: 'view_reports' },
     { path: '/products', icon: Package, label: 'Products', badge: null, permission: 'view_products' },
     { path: '/customers', icon: Users, label: 'Customers', badge: null, permission: 'view_customers' },
     { path: '/suppliers', icon: Truck, label: 'Suppliers', badge: null, permission: 'view_suppliers' },

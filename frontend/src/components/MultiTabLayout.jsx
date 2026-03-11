@@ -94,6 +94,7 @@ export const navigation = [
       { name: 'Purchase Orders', href: '/purchase-orders', icon: FileText, permission: 'view_purchase_orders' },
       { name: 'Purchase', href: '/purchase', icon: Truck, permission: 'view_purchase_orders' },
       { name: 'Purchase Invoices', href: '/purchase-invoices', icon: Search, permission: 'view_purchase_invoices' },
+      { name: 'Products by Supplier', href: '/purchase-by-supplier', icon: BarChart3, permission: 'view_reports' },
     ]
   },
 
