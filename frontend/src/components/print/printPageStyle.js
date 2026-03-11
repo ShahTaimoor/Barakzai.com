@@ -27,4 +27,26 @@ export const PRINT_PAGE_STYLE = `
   .receipt-voucher { max-width: 400px !important; margin: 0 auto !important; }
   .layout2-table th, .layout2-table td { border: 1px solid #000 !important; }
   .print-document, .receipt-voucher { page-break-inside: avoid; }
+  /* Sale invoice - emerald */
+  .print-document.print-document--sale .print-document__table th,
+  .print-document.print-document--sale .layout2-table th {
+    background-color: #059669 !important; color: #fff !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+  .print-document.print-document--sale .print-document__section-label { color: #047857 !important; }
+  .print-document.print-document--sale .print-document__summary-row--total {
+    background-color: #d1fae5 !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+  /* Purchase invoice - blue */
+  .print-document.print-document--purchase .print-document__table th,
+  .print-document.print-document--purchase .layout2-table th {
+    background-color: #2563eb !important; color: #fff !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+  .print-document.print-document--purchase .print-document__section-label { color: #1d4ed8 !important; }
+  .print-document.print-document--purchase .print-document__summary-row--total {
+    background-color: #dbeafe !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
 `;

@@ -151,6 +151,56 @@
     padding-top: 4px;
   }
 
+  /* Sale invoice print - emerald (match desktop/customer colors) */
+  .print-document--sale .print-document__table th,
+  .print-document--sale .layout2-table th {
+    background-color: #059669 !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-document--sale .print-document__section-label {
+    color: #047857 !important;
+    border-bottom-color: #10b981 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-document--sale .print-document__summary-row--total {
+    background-color: #d1fae5 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-document--sale .print-document__summary-table {
+    border-color: #10b981 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Purchase invoice print - blue (match desktop/supplier colors) */
+  .print-document--purchase .print-document__table th,
+  .print-document--purchase .layout2-table th {
+    background-color: #2563eb !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-document--purchase .print-document__section-label {
+    color: #1d4ed8 !important;
+    border-bottom-color: #3b82f6 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-document--purchase .print-document__summary-row--total {
+    background-color: #dbeafe !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-document--purchase .print-document__summary-table {
+    border-color: #3b82f6 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   /* Utility classes */
   .text-right { text-align: right !important; }
   .text-center { text-align: center !important; }

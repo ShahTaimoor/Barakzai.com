@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import BaseModal from './BaseModal';
+import { Button } from '@/components/ui/button';
 import { useForm } from 'react-hook-form';
 import { Building, Mail, Phone } from 'lucide-react';
 import {
@@ -320,59 +321,61 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
       isOpen={true}
       onClose={onCancel}
       title={customer ? 'Edit Customer' : 'Add New Customer'}
-      maxWidth="lg"
+      maxWidth="2xl"
       variant="scrollable"
-      contentClassName="p-6"
+      contentClassName="p-3 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4 xl:px-6 xl:pt-5 xl:pb-4"
+      headerClassName="p-3 sm:p-4 xl:p-5"
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Business Name *
-              </label>
-              <div className="relative">
-                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  {...register('businessName', { required: 'Business name is required' })}
-                  autoComplete="off"
-                  className={`input pl-10 ${businessNameExists ? 'border-red-500' : ''}`}
-                  placeholder="Enter business name"
-                />
-                {businessNameChecking && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <LoadingInline size="sm" />
-                  </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 xl:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 xl:gap-4">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Business Name *
+                </label>
+                <div className="relative">
+                  <Building className="absolute left-2 xl:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 xl:h-4 xl:w-4 text-gray-400" />
+                  <input
+                    {...register('businessName', { required: 'Business name is required' })}
+                    autoComplete="off"
+                    className={`input pl-10 w-full ${businessNameExists ? 'border-red-500' : ''}`}
+                    placeholder="Enter business name"
+                  />
+                  {businessNameChecking && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <LoadingInline size="sm" />
+                    </div>
+                  )}
+                </div>
+                {errors.businessName && (
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">{errors.businessName.message}</p>
+                )}
+                {businessNameExists && !errors.businessName && (
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">Business name already exists</p>
                 )}
               </div>
-              {errors.businessName && (
-                <p className="text-red-500 text-sm mt-1">{errors.businessName.message}</p>
-              )}
-              {businessNameExists && !errors.businessName && (
-                <p className="text-red-500 text-sm mt-1">Business name already exists</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Person *
-              </label>
-              <input
-                {...register('name', { required: 'Contact person is required' })}
-                autoComplete="off"
-                className="input"
-                placeholder="Enter contact person name"
-              />
-              {errors.name && (
-                <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="min-w-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contact Person *
+                </label>
+                <input
+                  {...register('name', { required: 'Contact person is required' })}
+                  autoComplete="off"
+                  className="input w-full"
+                  placeholder="Enter contact person name"
+                />
+                {errors.name && (
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">{errors.name.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-2 xl:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 xl:h-4 xl:w-4 text-gray-400" />
                   <input
                     {...register('email', {
                       pattern: {
@@ -382,7 +385,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                     })}
                     type="text"
                     autoComplete="off"
-                    className={`input pl-10 ${emailExists ? 'border-red-500' : ''}`}
+                    className={`input pl-8 xl:pl-10 text-sm min-h-[2rem] xl:min-h-0 ${emailExists ? 'border-red-500' : ''}`}
                     placeholder="Enter email address (optional)"
                   />
                   {emailChecking && (
@@ -392,48 +395,43 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   )}
                 </div>
                 {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">{errors.email.message}</p>
                 )}
                 {emailExists && !errors.email && (
-                  <p className="text-red-500 text-sm mt-1">Email already exists</p>
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">Email already exists</p>
                 )}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Phone
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Phone className="absolute left-2 xl:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 xl:h-4 xl:w-4 text-gray-400" />
                   <input
                     {...register('phone')}
                     type="tel"
                     autoComplete="off"
-                    className="input pl-10"
+                    className="input pl-8 xl:pl-10 text-sm min-h-[2rem] xl:min-h-0"
                     placeholder="Enter phone number"
                   />
                 </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Business Type
                 </label>
-                <select {...register('businessType')} className="input">
+                <select {...register('businessType')} className="input text-sm min-h-[2rem] xl:min-h-0">
                   <option value="individual">Individual</option>
                   <option value="retail">Retail</option>
                   <option value="wholesale">Wholesale</option>
                   <option value="distributor">Distributor</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Customer Tier
                 </label>
-                <select {...register('customerTier')} className="input">
+                <select {...register('customerTier')} className="input text-sm min-h-[2rem] xl:min-h-0">
                   <option value="bronze">Bronze</option>
                   <option value="silver">Silver</option>
                   <option value="gold">Gold</option>
@@ -442,9 +440,9 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 xl:gap-4">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Credit Limit
                 </label>
                 <input
@@ -455,16 +453,16 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   type="number"
                   step="0.01"
                   autoComplete="off"
-                  className="input"
+                  className="input text-sm min-h-[2rem] xl:min-h-0"
                   placeholder="0.00"
                 />
                 {errors.creditLimit && (
-                  <p className="text-red-500 text-sm mt-1">{errors.creditLimit.message}</p>
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">{errors.creditLimit.message}</p>
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Opening Balance
                 </label>
                 <input
@@ -472,19 +470,18 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                   type="number"
                   step="0.01"
                   autoComplete="off"
-                  className="input"
+                  className="input text-sm min-h-[2rem] xl:min-h-0"
                   placeholder="0.00"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Positive means the customer owes you. Use a negative value if you owe the customer.
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 break-words">
+                  Positive = customer owes you. Negative = you owe them.
                 </p>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Status
                 </label>
-                <select {...register('status')} className="input">
+                <select {...register('status')} className="input text-sm min-h-[2rem] xl:min-h-0">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                   <option value="suspended">Suspended</option>
@@ -493,13 +490,13 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
             </div>
 
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Address</h3>
-              <div className="space-y-4">
+              <h3 className="text-base xl:text-lg font-medium text-gray-900 mb-3 xl:mb-4">Address</h3>
+              <div className="space-y-3 xl:space-y-4">
                 {addresses.map((address, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div key={index} className="border border-gray-200 rounded-lg p-3 xl:p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                           Street Address
                         </label>
                         <input
@@ -507,18 +504,18 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                           autoComplete="off"
                           value={address.street || ''}
                           onChange={(e) => handleAddressChange(index, 'street', e.target.value)}
-                          className="input"
+                          className="input text-sm min-h-[2rem] xl:min-h-0"
                           placeholder="123 Main St"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                           City *
                         </label>
                         <select
                           value={address.city || ''}
                           onChange={(e) => handleAddressChange(index, 'city', e.target.value)}
-                          className="input"
+                          className="input text-sm min-h-[2rem] xl:min-h-0"
                           required
                           disabled={citiesLoading}
                         >
@@ -530,16 +527,16 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                           ))}
                         </select>
                         {citiesLoading && (
-                          <p className="text-xs text-gray-500 mt-1">Loading cities...</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">Loading cities...</p>
                         )}
                         {!citiesLoading && Array.isArray(citiesData) && citiesData.length === 0 && (
-                          <p className="text-xs text-amber-600 mt-1">
+                          <p className="text-[10px] sm:text-xs text-amber-600 mt-0.5 sm:mt-1">
                             No cities available. Please add cities first.
                           </p>
                         )}
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                           State
                         </label>
                         <input
@@ -547,12 +544,12 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                           value={address.state || ''}
                           autoComplete="off"
                           onChange={(e) => handleAddressChange(index, 'state', e.target.value)}
-                          className="input"
+                          className="input text-sm min-h-[2rem] xl:min-h-0"
                           placeholder="State"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                           ZIP Code
                         </label>
                         <input
@@ -560,7 +557,7 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
                           value={address.zipCode || ''}
                           autoComplete="off"
                           onChange={(e) => handleAddressChange(index, 'zipCode', e.target.value)}
-                          className="input"
+                          className="input text-sm min-h-[2rem] xl:min-h-0"
                           placeholder="12345"
                         />
                       </div>
@@ -570,65 +567,27 @@ export const CustomerFormModal = ({ customer, onSave, onCancel, isSubmitting }) 
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ledger Account <span className="text-gray-400 text-xs">(Auto-linked)</span>
-              </label>
-              {ledgerAccountsLoading ? (
-                <div className="input bg-gray-50 text-gray-500">
-                  Loading ledger account...
-                </div>
-              ) : (() => {
-                const currentLedgerId = watch('ledgerAccount');
-                const accountsReceivable = ledgerOptions.find((account) => {
-                  const accountId = account._id || account.id;
-                  return accountId === currentLedgerId ||
-                    (account.accountName || account.name || '').toLowerCase() === 'accounts receivable' ||
-                    account.accountCode === '1130';
-                }) || ledgerOptions[0];
-
-                const displayValue = accountsReceivable
-                  ? `${accountsReceivable.accountCode || '1130'} - ${accountsReceivable.accountName || accountsReceivable.name || 'Accounts Receivable'}`
-                  : '1130 - Accounts Receivable';
-
-                return (
-                  <>
-                    <input
-                      type="text"
-                      value={displayValue}
-                      autoComplete="off"
-                      className="input bg-gray-50 text-gray-700 cursor-not-allowed"
-                      readOnly
-                      disabled
-                    />
-                    <input
-                      type="hidden"
-                      {...register('ledgerAccount')}
-                    />
-                    <p className="text-xs text-blue-600 mt-1">
-                      <span className="font-medium">ℹ️ Information:</span> Customers are automatically linked to the "Accounts Receivable" account (1130) for accounting purposes. This cannot be changed.
-                    </p>
-                  </>
-                );
-              })()}
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="btn btn-secondary"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Saving...' : (customer ? 'Update Customer' : 'Add Customer')}
-              </button>
+            <input type="hidden" {...register('ledgerAccount')} />
+            <div className="flex flex-wrap justify-end gap-2 xl:gap-3 pt-4 xl:pt-6 border-t border-gray-200">
+                <Button
+                  type="button"
+                  onClick={onCancel}
+                  variant="secondary"
+                  size="default"
+                  disabled={isSubmitting}
+                  className="flex-shrink-0"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="default"
+                  size="default"
+                  disabled={isSubmitting}
+                  className="flex-shrink-0"
+                >
+                  {isSubmitting ? 'Saving...' : (customer ? 'Update Customer' : 'Add Customer')}
+                </Button>
             </div>
           </form>
 

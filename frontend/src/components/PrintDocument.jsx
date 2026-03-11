@@ -40,7 +40,10 @@ const PrintDocument = ({
     const isMobileLayout =
         (printSettings?.mobilePrintPreview ?? false) ||
         (typeof window !== 'undefined' && window.innerWidth <= 768);
-    const printClassName = `print-document${invoiceLayout === 'layout2' ? ' print-document--layout2' : ''}${invoiceLayout === 'receipt' ? ' print-document--receipt' : ''}${isMobileLayout ? ' print-document--mobile' : ''}`;
+    const isSale = (partyLabel?.toLowerCase() || '').includes('customer');
+    const isPurchase = (partyLabel?.toLowerCase() || '').includes('supplier');
+    const saleOrPurchaseClass = invoiceLayout !== 'receipt' ? (isSale ? ' print-document--sale' : isPurchase ? ' print-document--purchase' : '') : '';
+    const printClassName = `print-document${invoiceLayout === 'layout2' ? ' print-document--layout2' : ''}${invoiceLayout === 'receipt' ? ' print-document--receipt' : ''}${isMobileLayout ? ' print-document--mobile' : ''}${saleOrPurchaseClass}`;
 
     const formatDate = (date) =>
         new Date(date || new Date()).toLocaleDateString('en-GB', {

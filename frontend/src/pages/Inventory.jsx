@@ -244,7 +244,7 @@ export const Inventory = () => {
 
   // Mobile card component for responsive table
   const MobileInventoryCard = ({ item, index }) => (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 shadow-sm min-w-0">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center space-x-3">
           <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
@@ -338,7 +338,7 @@ export const Inventory = () => {
   }
 
   return (
-    <ResponsiveContainer className="space-y-6">
+    <ResponsiveContainer className="space-y-4 xl:space-y-6 min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
@@ -346,7 +346,7 @@ export const Inventory = () => {
           <p className="text-sm sm:text-base text-gray-600 mt-1">Track and manage product stock levels</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto flex-shrink-0">
           {!lowStockFilter && (
             <Button
               onClick={() => setShowAdjustmentModal(true)}
@@ -397,7 +397,7 @@ export const Inventory = () => {
           </>
         ) : (
           <>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 xl:p-5 min-w-0">
               <div className="flex items-center gap-4">
                 <div className="p-2.5 bg-blue-100 rounded-full">
                   <Package className="h-6 w-6 text-blue-600" />
@@ -408,7 +408,7 @@ export const Inventory = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 xl:p-5 min-w-0">
               <div className="flex items-center gap-4">
                 <div className="p-2.5 bg-green-100 rounded-full">
                   <TrendingUp className="h-6 w-6 text-green-600" />
@@ -421,7 +421,7 @@ export const Inventory = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 xl:p-5 min-w-0">
               <div className="flex items-center gap-4">
                 <div className="p-2.5 bg-yellow-100 rounded-full">
                   <AlertTriangle className="h-6 w-6 text-yellow-600" />
@@ -432,7 +432,7 @@ export const Inventory = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 xl:p-5 min-w-0">
               <div className="flex items-center gap-4">
                 <div className="p-2.5 bg-red-100 rounded-full">
                   <TrendingDown className="h-6 w-6 text-red-600" />
@@ -448,8 +448,8 @@ export const Inventory = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 sm:p-4 xl:p-5 min-w-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Show</label>
             <select
@@ -507,7 +507,7 @@ export const Inventory = () => {
               <p className="mt-1 text-xs text-red-500">Unable to load warehouses.</p>
             )}
           </div>
-          <div className="flex items-end">
+          <div className="flex items-center sm:items-end lg:col-span-2 sm:col-span-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -522,7 +522,7 @@ export const Inventory = () => {
       </div>
 
       {/* Inventory Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-w-0">
         <ResponsiveTable
           data={inventoryData?.inventory ?? inventoryData?.data?.inventory ?? inventoryData?.data?.items ?? []}
           columns={columns}
@@ -532,6 +532,7 @@ export const Inventory = () => {
           mobileCardComponent={MobileInventoryCard}
           searchable={false}
           emptyMessage="No inventory items found"
+          useMobileCardsOnTablet
         />
       </div>
 

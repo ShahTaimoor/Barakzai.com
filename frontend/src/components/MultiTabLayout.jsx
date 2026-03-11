@@ -767,50 +767,64 @@ export const MultiTabLayout = ({ children }) => {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar - Without Alerts, Receiving, and Record Expense (they stay in top bar) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg">
-        <div className="flex items-center justify-center gap-1 px-1 py-1.5 overflow-x-auto scrollbar-hide">
-          {/* Green Buttons - Receipt related */}
+      {/* Mobile Bottom Navigation Bar - Card-style, matches desktop emerald/blue colors */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-100/95 border-t border-gray-200 backdrop-blur-sm">
+        <div className="flex items-stretch gap-2 px-3 py-3 max-w-screen-sm mx-auto">
+          {/* Receipts - same as desktop: emerald-50/emerald-700 */}
           {sidebarConfig['Cash Receipts'] !== false && (
             <button
               onClick={() => handleNavigationClick({ href: '/cash-receipts', name: 'Cash Receipts' })}
-              className="flex flex-col items-center justify-center px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+              className={`flex-1 min-w-0 flex items-center justify-center py-3 px-3 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] border ${
+                isActivePath('/cash-receipts')
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200 ring-2 ring-emerald-400/60'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              }`}
               title="Cash Receipt"
             >
-              <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Cash R.</span>
+              Cash R.
             </button>
           )}
           {sidebarConfig['Bank Receipts'] !== false && (
             <button
               onClick={() => handleNavigationClick({ href: '/bank-receipts', name: 'Bank Receipts' })}
-              className="flex flex-col items-center justify-center px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+              className={`flex-1 min-w-0 flex items-center justify-center py-3 px-3 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] border ${
+                isActivePath('/bank-receipts')
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200 ring-2 ring-emerald-400/60'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              }`}
               title="Bank Receipt"
             >
-              <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Bank R.</span>
+              Bank R.
             </button>
           )}
-
-          {/* Blue Buttons - Payment related */}
+          {/* Payments - same as desktop: blue-50/blue-700 */}
           {sidebarConfig['Cash Payments'] !== false && (
             <button
               onClick={() => handleNavigationClick({ href: '/cash-payments', name: 'Cash Payments' })}
-              className="flex flex-col items-center justify-center px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+              className={`flex-1 min-w-0 flex items-center justify-center py-3 px-3 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] border ${
+                isActivePath('/cash-payments')
+                  ? 'bg-blue-100 text-blue-700 border-blue-200 ring-2 ring-blue-400/60'
+                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+              }`}
               title="Cash Payment"
             >
-              <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Cash P.</span>
+              Cash P.
             </button>
           )}
           {sidebarConfig['Bank Payments'] !== false && (
             <button
               onClick={() => handleNavigationClick({ href: '/bank-payments', name: 'Bank Payments' })}
-              className="flex flex-col items-center justify-center px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-sm transition-all duration-200 flex-1 max-w-[80px] flex-shrink-0"
+              className={`flex-1 min-w-0 flex items-center justify-center py-3 px-3 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 active:scale-[0.98] border ${
+                isActivePath('/bank-payments')
+                  ? 'bg-blue-100 text-blue-700 border-blue-200 ring-2 ring-blue-400/60'
+                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+              }`}
               title="Bank Payment"
             >
-              <span className="text-[10px] font-medium whitespace-nowrap leading-tight">Bank P.</span>
+              Bank P.
             </button>
           )}
         </div>
-
       </div>
     </div>
   );

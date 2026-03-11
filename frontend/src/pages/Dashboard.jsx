@@ -54,24 +54,24 @@ import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan } from '../utils/dateUtils';
 
 const StatCard = ({ title, value, icon: Icon, color, change, changeType }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-3 md:p-4 h-full">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 sm:p-2.5 xl:p-3 2xl:p-4 h-full min-w-0">
     <div className="text-center flex flex-col justify-center items-center h-full">
-      <div className="flex justify-center mb-1 sm:mb-2 md:mb-3">
-        <div className={`p-2 sm:p-2.5 md:p-3 rounded-full ${color}`}>
-          <Icon className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+      <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2 2xl:mb-3">
+        <div className={`p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 rounded-full ${color}`}>
+          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
         </div>
       </div>
-      <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 line-clamp-2">{title}</p>
-      <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-semibold text-gray-900 mb-1 break-words">{value}</p>
-      <div className="h-4 sm:h-5 flex items-center justify-center space-x-1">
+      <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-600 mb-0.5 sm:mb-1 line-clamp-2">{title}</p>
+      <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-semibold text-gray-900 mb-0.5 sm:mb-1 break-words">{value}</p>
+      <div className="h-3 sm:h-4 flex items-center justify-center space-x-0.5">
         {change && (
           <>
             {changeType === 'positive' && (
-              <svg className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             )}
-            <p className={`text-xs sm:text-sm font-medium ${changeType === 'positive' ? 'text-green-600' : 'text-gray-600'}`}>
+            <p className={`text-[10px] sm:text-xs font-medium ${changeType === 'positive' ? 'text-green-600' : 'text-gray-600'}`}>
               {changeType === 'positive' ? '+' : ''}{change}
             </p>
           </>
@@ -738,175 +738,175 @@ export const Dashboard = () => {
         </div>
         <div className="card-content space-y-6">
 
-          {/* REVENUE, COST & DISCOUNT SECTION */}
+          {/* REVENUE, COST & DISCOUNT SECTION - Responsive scaling */}
           <div>
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Revenue, Cost & Discounts</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+            <h3 className="text-[10px] sm:text-xs xl:text-sm font-semibold text-gray-700 mb-2 xl:mb-3 uppercase tracking-wide">Revenue, Cost & Discounts</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 sm:gap-2 xl:gap-3 2xl:gap-4">
 
               {/* Sales */}
               <div
-                className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm"
+                className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm min-w-0"
                 onClick={() => setShowSalesInvoicesModal(true)}
               >
-                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-2.5 w-2.5 xl:h-3 xl:w-3 2xl:h-4 2xl:w-4 text-gray-600" />
                 </div>
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-green-500 rounded-full">
-                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-green-500 rounded-full">
+                    <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Sales (Revenue)</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{Math.round(totalSales).toLocaleString()}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
-                <p className="text-[10px] sm:text-xs text-primary-600 font-medium mt-0.5">Net: {Math.round(netRevenue).toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Sales (Revenue)</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">{Math.round(totalSales).toLocaleString()}</p>
+                <p className="text-[9px] sm:text-[10px] xl:text-xs text-gray-500 mt-0.5 hidden sm:block">SO: {Math.round(salesOrdersTotal)} | SI: {Math.round(salesInvoicesTotal)}</p>
+                <p className="text-[9px] sm:text-[10px] xl:text-xs text-primary-600 font-medium mt-0.5">Net: {Math.round(netRevenue).toLocaleString()}</p>
               </div>
 
               {/* Purchase (COGS) */}
               <div
-                className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm"
+                className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm min-w-0"
                 onClick={() => setShowPurchaseInvoicesModal(true)}
               >
-                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-2.5 w-2.5 xl:h-3 xl:w-3 2xl:h-4 2xl:w-4 text-gray-600" />
                 </div>
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-purple-500 rounded-full">
-                    <Truck className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-purple-500 rounded-full">
+                    <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Purchase (COGS)</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{Math.round(totalPurchases).toLocaleString()}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">PO: {Math.round(purchaseOrdersTotal)} | PI: {Math.round(purchaseInvoicesTotal)}</p>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Purchase (COGS)</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">{Math.round(totalPurchases).toLocaleString()}</p>
+                <p className="text-[9px] sm:text-[10px] xl:text-xs text-gray-500 mt-0.5 hidden sm:block">PO: {Math.round(purchaseOrdersTotal)} | PI: {Math.round(purchaseInvoicesTotal)}</p>
               </div>
 
               {/* Discount */}
-              <div className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-red-500 rounded-full">
-                    <Tag className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg shadow-sm min-w-0">
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-red-500 rounded-full">
+                    <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Discount Given</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{Math.round(totalDiscounts).toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Discount Given</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">{Math.round(totalDiscounts).toLocaleString()}</p>
               </div>
 
               {/* Pending Sales Orders */}
               <div
-                className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+                className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm min-w-0"
                 onClick={() => navigate('/sales-orders')}
               >
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-cyan-500 rounded-full">
-                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-cyan-500 rounded-full">
+                    <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Pending Sales Orders</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{pendingSalesOrdersCount}</p>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Pending Sales Orders</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">{pendingSalesOrdersCount}</p>
               </div>
 
               {/* Pending Purchase Orders */}
               <div
-                className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+                className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm min-w-0"
                 onClick={() => navigate('/purchase-orders')}
               >
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-indigo-500 rounded-full">
-                    <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-indigo-500 rounded-full">
+                    <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Pending Purchase Orders</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{pendingPurchaseOrdersCount}</p>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Pending Purchase Orders</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">{pendingPurchaseOrdersCount}</p>
               </div>
             </div>
           </div>
 
-          {/* PROFITABILITY & CASH FLOW SECTION */}
+          {/* PROFITABILITY & CASH FLOW SECTION - Responsive scaling */}
           <div>
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Profitability & Cash Flow</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+            <h3 className="text-[10px] sm:text-xs xl:text-sm font-semibold text-gray-700 mb-2 xl:mb-3 uppercase tracking-wide">Profitability & Cash Flow</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2 xl:gap-3 2xl:gap-4">
 
               {/* Gross Profit */}
-              <div className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-blue-500 rounded-full">
-                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg shadow-sm min-w-0">
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-blue-500 rounded-full">
+                    <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Gross Profit</p>
-                <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${grossProfit >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Gross Profit</p>
+                <p className={`text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold break-words ${grossProfit >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
                   {Math.round(grossProfit).toLocaleString()}
                 </p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Revenue - COGS</p>
+                <p className="text-[9px] sm:text-[10px] xl:text-xs text-gray-500 mt-0.5 hidden sm:block">Revenue - COGS</p>
               </div>
 
               {/* Total Receipts */}
               <div
-                className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm"
+                className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm min-w-0"
                 onClick={() => setShowAllReceiptsModal(true)}
               >
-                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-2.5 w-2.5 xl:h-3 xl:w-3 2xl:h-4 2xl:w-4 text-gray-600" />
                 </div>
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-emerald-500 rounded-full">
-                    <Receipt className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-emerald-500 rounded-full">
+                    <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Total Receipts</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Total Receipts</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">
                   {isNaN(totalReceipts) ? '0' : Math.round(totalReceipts).toLocaleString()}
                 </p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">
+                <p className="text-[9px] sm:text-[10px] xl:text-xs text-gray-500 mt-0.5 hidden sm:block">
                   Cash: {isNaN(totalCashReceipts) ? '0' : Math.round(totalCashReceipts)} | Bank: {isNaN(totalBankReceipts) ? '0' : Math.round(totalBankReceipts)} | Sales: {isNaN(salesInvoicePayments) ? '0' : Math.round(salesInvoicePayments)}
                 </p>
               </div>
 
               {/* Total Payments */}
               <div
-                className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm"
+                className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors relative group shadow-sm min-w-0"
                 onClick={() => setShowAllPaymentsModal(true)}
               >
-                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Eye className="h-2.5 w-2.5 xl:h-3 xl:w-3 2xl:h-4 2xl:w-4 text-gray-600" />
                 </div>
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-orange-500 rounded-full">
-                    <Banknote className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-orange-500 rounded-full">
+                    <Banknote className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Total Payments</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Total Payments</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">
                   {isNaN(totalPayments) ? '0' : Math.round(totalPayments).toLocaleString()}
                 </p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">
+                <p className="text-[9px] sm:text-[10px] xl:text-xs text-gray-500 mt-0.5 hidden sm:block">
                   Cash: {isNaN(totalCashPayments) ? '0' : Math.round(totalCashPayments)} | Bank: {isNaN(totalBankPayments) ? '0' : Math.round(totalBankPayments)}
                 </p>
               </div>
 
               {/* Net Cash Flow */}
-              <div className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className={`p-2 sm:p-2.5 md:p-3 rounded-full ${netCashFlow >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
-                    <Wallet className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg shadow-sm min-w-0">
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className={`p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 rounded-full ${netCashFlow >= 0 ? 'bg-green-500' : 'bg-red-500'}`}>
+                    <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Net Cash Flow</p>
-                <p className={`text-base sm:text-lg md:text-xl font-bold break-words ${(isNaN(netCashFlow) ? 0 : netCashFlow) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Net Cash Flow</p>
+                <p className={`text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold break-words ${(isNaN(netCashFlow) ? 0 : netCashFlow) >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
                   {isNaN(netCashFlow) ? '0' : Math.round(netCashFlow).toLocaleString()}
                 </p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-1 hidden sm:block">Receipts - Payments</p>
+                <p className="text-[9px] sm:text-[10px] xl:text-xs text-gray-500 mt-0.5 hidden sm:block">Receipts - Payments</p>
               </div>
 
               {/* Total Orders */}
-              <div className="text-center p-2 sm:p-3 md:p-4 border border-gray-200 bg-white rounded-lg shadow-sm">
-                <div className="flex justify-center mb-1 sm:mb-2">
-                  <div className="p-2 sm:p-2.5 md:p-3 bg-yellow-500 rounded-full">
-                    <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
+              <div className="text-center p-2 sm:p-2.5 xl:p-3 2xl:p-4 border border-gray-200 bg-white rounded-lg shadow-sm min-w-0">
+                <div className="flex justify-center mb-1 sm:mb-1.5 xl:mb-2">
+                  <div className="p-1.5 sm:p-2 xl:p-2.5 2xl:p-3 bg-yellow-500 rounded-full">
+                    <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4 xl:h-5 xl:w-5 2xl:h-6 2xl:w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Total Transactions</p>
-                <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 break-words">{summary.totalOrders || 0}</p>
+                <p className="text-[10px] sm:text-xs xl:text-sm font-medium text-gray-700 mb-0.5 sm:mb-1">Total Transactions</p>
+                <p className="text-sm sm:text-base xl:text-lg 2xl:text-xl font-bold text-gray-900 break-words">{summary.totalOrders || 0}</p>
               </div>
 
             </div>

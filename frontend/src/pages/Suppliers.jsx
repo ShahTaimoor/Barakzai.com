@@ -69,7 +69,7 @@ const supplierDefaultValues = {
   }]
 };
 
-const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
+const SupplierForm = ({ supplier, onSave, onCancel, isOpen, isSubmitting }) => {
   const [formData, setFormData] = useState(() => ({ ...supplierDefaultValues }));
   const [emailChecking, setEmailChecking] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
@@ -361,153 +361,69 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
       title={supplier ? 'Edit Supplier' : 'Add New Supplier'}
       maxWidth="2xl"
       variant="scrollable"
-      contentClassName="p-6"
+      contentClassName="p-3 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4 xl:px-6 xl:pt-5 xl:pb-4"
+      headerClassName="p-3 sm:p-4 xl:p-5"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Company Information */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Company Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Company Name *
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      required
-                      autoComplete="off"
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                      className={companyNameExists ? 'border-red-500' : ''}
-                      placeholder="Enter company name"
-                    />
-                    {companyNameChecking && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <LoadingInline size="sm" />
-                      </div>
-                    )}
-                  </div>
-                  {companyNameExists && (
-                    <p className="text-red-500 text-sm mt-1">Company name already exists</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Type
-                  </label>
-                  <select
-                    value={formData.businessType}
-                    onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
-                    className="input"
-                  >
-                    <option value="manufacturer">Manufacturer</option>
-                    <option value="distributor">Distributor</option>
-                    <option value="wholesaler">Wholesaler</option>
-                    <option value="dropshipper">Dropshipper</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ledger Account <span className="text-gray-400 text-xs">(Auto-linked)</span>
-                  </label>
-                  {ledgerAccountsLoading ? (
-                    <div className="input bg-gray-50 text-gray-500">
-                      Loading ledger account...
-                    </div>
-                  ) : (() => {
-                    const currentLedgerId = formData.ledgerAccount;
-                    const accountsPayable = ledgerOptions.find((account) => {
-                      const accountId = account._id || account.id;
-                      return accountId === currentLedgerId ||
-                        (account.accountName || account.name || '').toLowerCase() === 'accounts payable' ||
-                        account.accountCode === '2110';
-                    }) || ledgerOptions[0];
-
-                    const displayValue = accountsPayable
-                      ? `${accountsPayable.accountCode || '2110'} - ${accountsPayable.accountName || accountsPayable.name || 'Accounts Payable'}`
-                      : '2110 - Accounts Payable';
-
-                    return (
-                      <>
-                        <Input
-                          type="text"
-                          value={displayValue}
-                          autoComplete="off"
-                          className="bg-gray-50 text-gray-700 cursor-not-allowed"
-                          readOnly
-                          disabled
-                        />
-                        <input
-                          type="hidden"
-                          value={formData.ledgerAccount}
-                        />
-                        <p className="text-xs text-blue-600 mt-1">
-                          <span className="font-medium">ℹ️ Information:</span> Suppliers are automatically linked to the "Accounts Payable" account (2110) for accounting purposes. This cannot be changed.
-                        </p>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Person */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Contact Person</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Name *
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      required
-                      autoComplete="off"
-                      value={formData.contactPerson?.name || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        contactPerson: { ...(formData.contactPerson || {}), name: e.target.value }
-                      })}
-                      className={contactNameExists ? 'border-red-500' : ''}
-                      placeholder="Enter full name"
-                    />
-                    {contactNameChecking && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <LoadingInline size="sm" />
-                      </div>
-                    )}
-                  </div>
-                  {contactNameExists && (
-                    <p className="text-red-500 text-sm mt-1">Contact name already exists</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title
-                  </label>
+      <form onSubmit={handleSubmit} className="space-y-4 xl:space-y-6">
+            {/* Company Name + Contact Person */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 xl:gap-4">
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Company Name *
+                </label>
+                <div className="relative">
                   <Input
                     type="text"
+                    required
                     autoComplete="off"
-                    value={formData.contactPerson?.title || ''}
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    className={`text-sm min-h-[2rem] xl:min-h-0 ${companyNameExists ? 'border-red-500' : ''}`}
+                    placeholder="Enter company name"
+                  />
+                  {companyNameChecking && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <LoadingInline size="sm" />
+                    </div>
+                  )}
+                </div>
+                {companyNameExists && (
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">Company name already exists</p>
+                )}
+              </div>
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                  Contact Person *
+                </label>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    required
+                    autoComplete="off"
+                    value={formData.contactPerson?.name || ''}
                     onChange={(e) => setFormData({
                       ...formData,
-                      contactPerson: { ...(formData.contactPerson || {}), title: e.target.value }
+                      contactPerson: { ...(formData.contactPerson || {}), name: e.target.value }
                     })}
-                    placeholder="Job title"
+                    className={`text-sm min-h-[2rem] xl:min-h-0 ${contactNameExists ? 'border-red-500' : ''}`}
+                    placeholder="Enter full name"
                   />
+                  {contactNameChecking && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <LoadingInline size="sm" />
+                    </div>
+                  )}
                 </div>
+                {contactNameExists && (
+                  <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">Contact name already exists</p>
+                )}
               </div>
             </div>
 
-            {/* Contact Information */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Contact Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+            {/* Email, Phone, Business Type, Payment Terms */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                     Email
                   </label>
                   <div className="relative">
@@ -516,7 +432,7 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                       autoComplete="off"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className={emailExists ? 'border-red-500' : ''}
+                      className={`text-sm min-h-[2rem] xl:min-h-0 ${emailExists ? 'border-red-500' : ''}`}
                       placeholder="email@company.com (optional)"
                     />
                     {emailChecking && (
@@ -526,11 +442,11 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     )}
                   </div>
                   {emailExists && (
-                    <p className="text-red-500 text-sm mt-1">Email already exists</p>
+                    <p className="text-red-500 text-xs sm:text-sm mt-0.5 sm:mt-1">Email already exists</p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                     Phone
                   </label>
                   <Input
@@ -538,36 +454,34 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     autoComplete="off"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="text-sm min-h-[2rem] xl:min-h-0"
                     placeholder="(555) 123-4567"
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Website
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                    Business Type
                   </label>
-                  <Input
-                    type="url"
-                    autoComplete="off"
-                    value={formData.website}
-                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    placeholder="https://company.com"
-                  />
+                  <select
+                    value={formData.businessType}
+                    onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
+                    className="input text-sm min-h-[2rem] xl:min-h-0"
+                  >
+                    <option value="manufacturer">Manufacturer</option>
+                    <option value="distributor">Distributor</option>
+                    <option value="wholesaler">Wholesaler</option>
+                    <option value="dropshipper">Dropshipper</option>
+                    <option value="other">Other</option>
+                  </select>
                 </div>
-              </div>
-            </div>
-
-            {/* Business Terms */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Business Terms</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                     Payment Terms
                   </label>
                   <select
                     value={formData.paymentTerms}
                     onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                    className="input"
+                    className="input text-sm min-h-[2rem] xl:min-h-0"
                   >
                     <option value="cash">Cash</option>
                     <option value="net15">Net 15</option>
@@ -577,8 +491,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     <option value="net90">Net 90</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+              </div>
+
+            {/* Credit Limit, Opening Balance, Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 xl:gap-4">
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                     Credit Limit
                   </label>
                   <Input
@@ -587,11 +505,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     autoComplete="off"
                     value={formData.creditLimit}
                     onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
+                    className="text-sm min-h-[2rem] xl:min-h-0"
                     placeholder="0"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                     Opening Balance
                   </label>
                   <Input
@@ -600,46 +519,74 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     autoComplete="off"
                     value={formData.openingBalance}
                     onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
+                    className="text-sm min-h-[2rem] xl:min-h-0"
                     placeholder="0.00"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Positive means you owe the supplier. Use a negative value if the supplier has an advance/credit.
+                  <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">
+                    Positive = you owe supplier. Negative = advance/credit.
                   </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Lead Time (days)
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                    Status
                   </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="input text-sm min-h-[2rem] xl:min-h-0"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="pending">Pending</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="blacklisted">Blacklisted</option>
+                  </select>
+                </div>
+              </div>
+
+            {/* Website, Lead Time, Min Order, Rating, Reliability */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 xl:gap-4">
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Website</label>
+                  <Input
+                    type="url"
+                    autoComplete="off"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    className="text-sm min-h-[2rem] xl:min-h-0"
+                    placeholder="https://company.com"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Lead Time (days)</label>
                   <Input
                     type="number"
                     min="0"
                     autoComplete="off"
                     value={formData.leadTime}
                     onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 0 })}
+                    className="text-sm min-h-[2rem] xl:min-h-0"
                     placeholder="7"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Min Order Amount
-                  </label>
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Min Order Amount</label>
                   <Input
                     type="number"
                     min="0"
                     autoComplete="off"
                     value={formData.minOrderAmount}
                     onChange={(e) => setFormData({ ...formData, minOrderAmount: parseFloat(e.target.value) || 0 })}
+                    className="text-sm min-h-[2rem] xl:min-h-0"
                     placeholder="0"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rating (1-5)
-                  </label>
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Rating (1-5)</label>
                   <select
                     value={formData.rating}
                     onChange={(e) => setFormData({ ...formData, rating: parseInt(e.target.value) })}
-                    className="input"
+                    className="input text-sm min-h-[2rem] xl:min-h-0"
                   >
                     <option value={1}>1 Star</option>
                     <option value={2}>2 Stars</option>
@@ -648,14 +595,12 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                     <option value={5}>5 Stars</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reliability
-                  </label>
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Reliability</label>
                   <select
                     value={formData.reliability}
                     onChange={(e) => setFormData({ ...formData, reliability: e.target.value })}
-                    className="input"
+                    className="input text-sm min-h-[2rem] xl:min-h-0"
                   >
                     <option value="excellent">Excellent</option>
                     <option value="good">Good</option>
@@ -664,35 +609,31 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                   </select>
                 </div>
               </div>
-            </div>
 
             {/* Address */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Address</h3>
+              <h3 className="text-sm sm:text-base font-medium text-gray-900 mb-3 xl:mb-4">Address</h3>
               <div className="space-y-4">
                 {formData.addresses.map((address, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Street Address
-                        </label>
+                  <div key={index} className="border border-gray-200 rounded-lg p-3 sm:p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-4">
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Street Address</label>
                         <Input
                           type="text"
                           autoComplete="off"
                           value={address.street}
                           onChange={(e) => handleAddressChange(index, 'street', e.target.value)}
+                          className="text-sm min-h-[2rem] xl:min-h-0"
                           placeholder="123 Main St"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          City *
-                        </label>
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">City *</label>
                         <select
                           value={address.city || ''}
                           onChange={(e) => handleAddressChange(index, 'city', e.target.value)}
-                          className="input"
+                          className="input text-sm min-h-[2rem] xl:min-h-0"
                           required
                           disabled={citiesLoading}
                         >
@@ -712,27 +653,25 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
                           </p>
                         )}
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          State
-                        </label>
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">State</label>
                         <Input
                           type="text"
                           autoComplete="off"
                           value={address.state}
                           onChange={(e) => handleAddressChange(index, 'state', e.target.value)}
+                          className="text-sm min-h-[2rem] xl:min-h-0"
                           placeholder="State"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          ZIP Code
-                        </label>
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">ZIP Code</label>
                         <Input
                           type="text"
                           autoComplete="off"
                           value={address.zipCode}
                           onChange={(e) => handleAddressChange(index, 'zipCode', e.target.value)}
+                          className="text-sm min-h-[2rem] xl:min-h-0"
                           placeholder="12345"
                         />
                       </div>
@@ -742,54 +681,36 @@ const SupplierForm = ({ supplier, onSave, onCancel, isOpen }) => {
               </div>
             </div>
 
-            {/* Status and Notes */}
+            {/* Notes */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Status & Notes</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="input"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="suspended">Suspended</option>
-                    <option value="blacklisted">Blacklisted</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes
-                  </label>
-                  <Textarea
-                    value={formData.notes}
-                    autoComplete="off"
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={3}
-                    placeholder="Additional notes about this supplier..."
-                  />
-                </div>
-              </div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Notes</label>
+              <Textarea
+                value={formData.notes}
+                autoComplete="off"
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={3}
+                className="text-sm min-h-[2rem] xl:min-h-0"
+                placeholder="Additional notes about this supplier..."
+              />
             </div>
 
             {/* Form Actions */}
-            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+            <div className="flex flex-wrap justify-end gap-2 xl:gap-3 pt-4 xl:pt-6 border-t border-gray-200">
               <Button
                 type="button"
                 onClick={onCancel}
                 variant="secondary"
+                className="flex-shrink-0"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 variant="default"
+                className="flex-shrink-0"
+                disabled={isSubmitting}
               >
-                {supplier ? 'Update Supplier' : 'Add Supplier'}
+                {isSubmitting ? 'Saving...' : (supplier ? 'Update Supplier' : 'Add Supplier')}
               </Button>
             </div>
       </form>
@@ -950,7 +871,7 @@ export const Suppliers = () => {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 xl:space-y-6 min-w-0">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Suppliers</h1>
@@ -1021,11 +942,11 @@ export const Suppliers = () => {
           </div>
         </div>
       ) : filteredSuppliers.length > 0 ? (
-        <div className="card w-full">
-          <div className="card-content p-0 w-full">
-            {/* Table Header - Hidden on mobile */}
-            <div className="hidden md:block bg-gray-50 px-4 lg:px-8 py-4 lg:py-6 border-b border-gray-200">
-              <div className="grid grid-cols-12 gap-4 lg:gap-6 items-center">
+        <div className="card w-full min-w-0 overflow-hidden">
+          <div className="card-content p-0 w-full min-w-0 overflow-x-auto">
+            {/* Table Header - Hidden on mobile/tablet */}
+            <div className="hidden lg:block bg-gray-50 px-4 xl:px-8 py-3 xl:py-4 border-b border-gray-200 min-w-[880px]">
+              <div className="grid grid-cols-12 gap-3 xl:gap-6 items-center">
                 <div className="col-span-4">
                   <h3 className="text-sm lg:text-base font-medium text-gray-700">Company Name</h3>
                   <p className="text-xs lg:text-sm text-gray-500">Contact Person</p>
@@ -1144,7 +1065,7 @@ export const Suppliers = () => {
                   </div>
 
                   {/* Desktop Table Layout */}
-                  <div className="hidden md:grid grid-cols-12 gap-4 lg:gap-6 items-center">
+                  <div className="hidden lg:grid grid-cols-12 gap-3 xl:gap-6 items-center min-w-[880px]">
                     {/* Company Name & Contact Person */}
                     <div className="col-span-4">
                       <div className="flex items-center space-x-3 lg:space-x-4">
@@ -1317,6 +1238,7 @@ export const Suppliers = () => {
           setSelectedSupplier(null);
         }}
         isOpen={isFormOpen}
+        isSubmitting={creating || updating}
       />
 
       {/* Notes Panel */}

@@ -732,11 +732,11 @@ const AccountLedgerSummary = () => {
         <div className="space-y-6">
           {/* Customers Section - Show only if customer is selected and supplier is not */}
           {selectedCustomerId && !selectedSupplierId && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div className="bg-white border border-emerald-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-emerald-200 bg-emerald-50">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-200">
-                    <Users className="h-5 w-5 text-gray-600" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-200">
+                    <Users className="h-5 w-5 text-emerald-700" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -764,9 +764,9 @@ const AccountLedgerSummary = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full">
+                  <table className="min-w-full account-ledger-table">
                     <thead>
-                      <tr className="bg-gray-800 border-b border-gray-700">
+                      <tr className="bg-emerald-600 border-b border-emerald-700">
                         <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Voucher No</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Particular</th>
@@ -781,7 +781,7 @@ const AccountLedgerSummary = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {/* Opening Balance Row */}
-                      <tr className="bg-gray-50">
+                      <tr className="bg-emerald-50/50">
                         <td className="px-4 py-3 text-sm text-gray-900"></td>
                         <td className="px-4 py-3 text-sm text-gray-900"></td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">Opening Balance:</td>
@@ -851,7 +851,7 @@ const AccountLedgerSummary = () => {
                         {showReturnColumn &&
                         ((customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0) &&
                         (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
-                        <tr className="bg-gray-100 font-medium">
+                        <tr className="bg-emerald-100 font-medium">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Return Total</td>
@@ -867,7 +867,7 @@ const AccountLedgerSummary = () => {
 
                       {/* Total Row */}
                       {(customerDetail?.entries ?? detailedTransactionsData?.data?.entries)?.length > 0 && (
-                        <tr className="bg-gray-200 font-semibold border-t-2 border-gray-300">
+                        <tr className="bg-emerald-200 font-semibold border-t-2 border-emerald-300">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Total</td>
@@ -893,11 +893,11 @@ const AccountLedgerSummary = () => {
 
           {/* Suppliers Section - Show only if supplier is selected and customer is not */}
           {selectedSupplierId && !selectedCustomerId && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div className="bg-white border border-blue-200 rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-blue-200 bg-blue-50">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-200">
-                    <Building2 className="h-5 w-5 text-gray-600" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-200">
+                    <Building2 className="h-5 w-5 text-blue-700" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900">
@@ -918,9 +918,9 @@ const AccountLedgerSummary = () => {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full">
+                  <table className="min-w-full account-ledger-table">
                     <thead>
-                      <tr className="bg-gray-800 border-b border-gray-700">
+                      <tr className="bg-blue-600 border-b border-blue-700">
                         <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Date</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Voucher No</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Particular</th>
@@ -932,7 +932,7 @@ const AccountLedgerSummary = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                       {/* Opening Balance Row */}
-                      <tr className="bg-gray-50">
+                      <tr className="bg-blue-50/50">
                         <td colSpan="3" className="px-4 py-3 text-sm font-medium text-gray-900">Opening Balance:</td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900">0</td>
                         <td className="px-4 py-3 text-sm text-right text-gray-900">0</td>
@@ -992,7 +992,7 @@ const AccountLedgerSummary = () => {
 
                       {/* Total Row */}
                       {(supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)?.length > 0 && (
-                        <tr className="bg-gray-200 font-semibold border-t-2 border-gray-300">
+                        <tr className="bg-blue-200 font-semibold border-t-2 border-blue-300">
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900"></td>
                           <td className="px-4 py-3 text-sm text-gray-900">Total</td>
@@ -1070,8 +1070,11 @@ const AccountLedgerSummary = () => {
         />
       </BasePrintModal>
 
-      {/* Hidden Print Section */}
-      <div className="hidden print:block" ref={printRef}>
+      {/* Hidden Print Section - colored for customer (emerald) or supplier (blue) */}
+      <div
+        className={`hidden print:block account-ledger-print ${selectedCustomerId ? 'account-ledger-print--customer' : 'account-ledger-print--supplier'}`}
+        ref={printRef}
+      >
         <div className="print-header text-center mb-4">
           <h1 className="text-xl font-bold uppercase underline">Account Ledger Summary</h1>
           <p className="font-bold">
@@ -1085,9 +1088,9 @@ const AccountLedgerSummary = () => {
           <p>Period: {formatDate(filters.startDate)} to {formatDate(filters.endDate)}</p>
         </div>
 
-        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px' }}>
+        <table className="account-ledger-print-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px' }}>
           <thead>
-            <tr>
+            <tr className="account-ledger-print-thead">
               <th style={{ width: '4%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>S.NO</th>
               <th style={{ width: '8%', border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>DATE</th>
               <th style={{ width: showReturnColumn ? '52%' : '60%', border: '1px solid #000', padding: '6px 2px', textAlign: 'left' }}>DESCRIPTION</th>
@@ -1101,7 +1104,7 @@ const AccountLedgerSummary = () => {
           </thead>
           <tbody>
             {/* Opening Balance */}
-            <tr>
+            <tr className="account-ledger-print-opening">
               <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}>-</td>
               <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
               <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: 'bold', fontSize: '11px' }}>Opening Balance</td>
@@ -1149,7 +1152,7 @@ const AccountLedgerSummary = () => {
 
             {/* Return Total Row - customer only, when there are returns and return column visible */}
             {showReturnColumn && selectedCustomerId && (customerDetail?.returnTotal ?? detailedTransactionsData?.data?.returnTotal ?? 0) > 0 && (
-              <tr style={{ backgroundColor: '#f3f4f6', fontWeight: '600' }}>
+              <tr className="account-ledger-print-subtotal">
                 <td style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center' }}></td>
                 <td style={{ border: '1px solid #000', padding: '6px 2px' }}></td>
                 <td style={{ border: '1px solid #000', padding: '6px 2px', fontWeight: '600' }}>Return Total</td>
@@ -1163,7 +1166,7 @@ const AccountLedgerSummary = () => {
             )}
 
             {/* Total Row */}
-            <tr style={{ backgroundColor: '#f3f4f6', fontWeight: 'bold' }}>
+            <tr className="account-ledger-print-total">
               <td colSpan={showReturnColumn ? 4 : 3} style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'center', fontSize: '15px' }}>Total</td>
               <td className="print-amount" style={{ border: '1px solid #000', padding: '6px 2px', textAlign: 'right', fontSize: '15px', fontWeight: 'bold' }}>
                 {formatCurrency(sumDebits(selectedCustomerId ? (customerDetail?.entries ?? detailedTransactionsData?.data?.entries) : (supplierDetail?.entries ?? detailedSupplierTransactionsData?.data?.entries)))}

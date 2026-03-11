@@ -315,28 +315,28 @@ const CCTVAccess = ({ tabId }) => {
           {/* Orders List */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[900px] table-auto">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[140px]">
                       Invoice #
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[120px]">
                       Customer
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[160px]">
                       Bill Start Time
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[160px]">
                       Bill End Time
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[100px] whitespace-nowrap">
                       Duration
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[80px] whitespace-nowrap">
                       Amount
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider min-w-[180px] whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
@@ -374,9 +374,9 @@ const CCTVAccess = ({ tabId }) => {
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-green-600" />
+                          <Clock className="h-4 w-4 text-green-600 flex-shrink-0" />
                           <span className="text-gray-900 font-mono text-sm">
                             {formatDateTime(order.billStartTime)}
                           </span>
@@ -393,9 +393,9 @@ const CCTVAccess = ({ tabId }) => {
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-red-600" />
+                          <Clock className="h-4 w-4 text-red-600 flex-shrink-0" />
                           <span className="text-gray-900 font-mono text-sm">
                             {formatDateTime(order.billEndTime)}
                           </span>
@@ -412,21 +412,21 @@ const CCTVAccess = ({ tabId }) => {
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <span className="text-gray-600 text-sm">
                           {calculateDuration(order.billStartTime, order.billEndTime)}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <span className="font-semibold text-gray-900">
                           {Math.round(order.pricing?.total || 0)}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleOpenCCTV(order)}
-                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
+                            className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm flex-shrink-0"
                             title="Open CCTV Playback"
                           >
                             <Eye className="h-4 w-4" />
@@ -434,7 +434,7 @@ const CCTVAccess = ({ tabId }) => {
                           </button>
                           <button
                             onClick={() => handleViewDetails(order)}
-                            className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm"
+                            className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm flex-shrink-0"
                             title="View Details"
                           >
                             <FileText className="h-4 w-4" />
