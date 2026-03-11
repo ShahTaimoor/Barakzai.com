@@ -53,9 +53,9 @@ export default function PurchaseBySupplierReport() {
   const rows = reportData?.data || [];
   const summary = reportData?.summary || {};
 
-  const filteredRows = useFuzzySearch(rows, searchTerm, {
-    keys: ['productName', 'supplierName'],
-    threshold: 0.3,
+  const filteredRows = useFuzzySearch(rows, searchTerm, ['productName', 'supplierName'], {
+    threshold: 0.4,
+    minScore: 0.3,
   });
 
   if (isLoading && !reportData) {
