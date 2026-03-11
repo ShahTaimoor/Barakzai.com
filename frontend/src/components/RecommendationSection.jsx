@@ -104,9 +104,14 @@ const RecommendationSection = ({
   const handleAddToCart = async (product) => {
     try {
       if (onAddToCart) {
-        await onAddToCart(product);
+        const unitPrice = product?.selling_price ?? product?.sellingPrice ?? product?.pricing?.retail ?? product?.pricing?.wholesale ?? 0;
+        await onAddToCart({
+          product: { ...product, _id: product?._id ?? product?.id },
+          quantity: 1,
+          unitPrice: Number(unitPrice) || 0,
+        });
       }
-      showSuccessToast(`${product.name} added to cart`);
+      showSuccessToast(`${product?.name ?? 'Product'} added to cart`);
     } catch (error) {
       handleApiError(error, 'Add to Cart');
     }
@@ -214,13 +219,15 @@ const RecommendationSection = ({
       {/* Recommendations Grid */}
       {recommendationsData?.recommendations && (
         <ResponsiveGrid 
-          cols={{ default: 2, md: 3, lg: 4 }} 
+          cols={{ default: 2, md: 2, lg: 3, xl: 4 }} 
           gap={4}
           className="mb-6"
         >
-          {recommendationsData.recommendations.map((recommendation, index) => (
+          {recommendationsData.recommendations
+            .filter((rec) => rec?.product)
+            .map((recommendation, index) => (
             <ProductRecommendationCard
-              key={`${recommendation.product._id}-${index}`}
+              key={`${recommendation.product?._id ?? recommendation.product?.id ?? index}-${index}`}
               recommendation={{
                 ...recommendation,
                 _id: recommendationsData.recommendationId,

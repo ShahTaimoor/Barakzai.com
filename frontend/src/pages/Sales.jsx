@@ -746,7 +746,7 @@ export const Sales = ({ tabId, editData }) => {
     return cart.reduce((sum, item) => {
       if (!item?.product) return sum;
 
-      const productId = item.product._id;
+      const productId = item.product._id ?? item.product.id;
       const quantity = Number(item.quantity) || 0;
       const salePrice = Number(item.unitPrice) || 0;
 
@@ -1041,7 +1041,7 @@ export const Sales = ({ tabId, editData }) => {
     const fetchLastPurchasePrices = async () => {
       if (cart.length === 0) return;
 
-      const productIds = cart.map(item => item.product._id);
+      const productIds = cart.map((item) => item?.product?._id ?? item?.product?.id).filter(Boolean);
       if (productIds.length === 0) return;
 
       try {
@@ -1062,30 +1062,37 @@ export const Sales = ({ tabId, editData }) => {
   }, [cart]);
 
   const addToCart = async (newItem) => {
+    // Normalize: accept either { product, quantity, unitPrice } or product directly
+    const item = newItem?.product
+      ? newItem
+      : { product: newItem, quantity: 1, unitPrice: newItem?.selling_price ?? newItem?.sellingPrice ?? newItem?.pricing?.retail ?? 0 };
+    const product = item?.product;
+    if (!product) return;
+
     setCart(prevCart => {
       // For variants, use variant _id; for products, use product _id
-      const itemId = newItem.product._id;
-      const existingItem = prevCart.find(item => item.product._id === itemId);
+      const itemId = product._id ?? product.id;
+      const existingItem = prevCart.find(c => (c.product?._id ?? c.product?.id) === itemId);
 
       if (existingItem) {
         // Check if combined quantity exceeds available stock
-        const combinedQuantity = existingItem.quantity + newItem.quantity;
-        const availableStock = newItem.product.inventory?.currentStock || 0;
+        const combinedQuantity = existingItem.quantity + item.quantity;
+        const availableStock = product.inventory?.currentStock || 0;
 
         if (combinedQuantity > availableStock) {
-          const displayName = newItem.product.isVariant
-            ? (newItem.product.displayName || newItem.product.variantName || newItem.product.name)
-            : newItem.product.name;
+          const displayName = product.isVariant
+            ? (product.displayName || product.variantName || product.name)
+            : product.name;
           toast.error(`Cannot add ${newItem.quantity} more units. Only ${availableStock - existingItem.quantity} additional units available (${existingItem.quantity} already in cart).`);
           return prevCart; // Return unchanged cart
         }
 
         // If this is an existing item and we have original price stored, keep it
         // Otherwise, if last prices were applied and original price exists, preserve it
-        const updatedCart = prevCart.map(item =>
-          item.product._id === itemId
-            ? { ...item, quantity: item.quantity + newItem.quantity, unitPrice: newItem.unitPrice }
-            : item
+        const updatedCart = prevCart.map(c =>
+          (c.product?._id ?? c.product?.id) === itemId
+            ? { ...c, quantity: c.quantity + item.quantity, unitPrice: item.unitPrice }
+            : c
         );
 
         return updatedCart;
@@ -1093,9 +1100,9 @@ export const Sales = ({ tabId, editData }) => {
 
       // New item added - fetch its last purchase price (always, for loss alerts)
       // For variants, use base product ID to get purchase price
-      const productIdForPrice = newItem.product.isVariant
-        ? newItem.product.baseProductId
-        : newItem.product._id;
+      const productIdForPrice = product.isVariant
+        ? product.baseProductId
+        : (product._id ?? product.id);
 
       if (productIdForPrice) {
         getLastPurchasePrice(productIdForPrice)
@@ -1115,7 +1122,7 @@ export const Sales = ({ tabId, editData }) => {
 
       // New item added - don't store in originalPrices since it wasn't there before
       // applying last prices, so there's nothing to restore
-      return [...prevCart, newItem];
+      return [...prevCart, item];
     });
   };
 
@@ -2775,11 +2782,6 @@ export const Sales = ({ tabId, editData }) => {
                     className="h-10 text-sm w-full"
                     max={getLocalDateString()} // Prevent future dates
                   />
-                  {billDate && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Invoice number will be generated based on this date
-                    </p>
-                  )}
                 </div>
 
                 {/* Notes */}
@@ -2907,11 +2909,6 @@ export const Sales = ({ tabId, editData }) => {
                     className="h-8 text-sm"
                     max={getLocalDateString()} // Prevent future dates
                   />
-                  {billDate && (
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Invoice number based on this date
-                    </p>
-                  )}
                 </div>
 
                 {/* Notes */}
@@ -3324,9 +3321,11 @@ export const Sales = ({ tabId, editData }) => {
               algorithm="frequently_bought"
               context={{
                 page: 'sales',
-                currentProducts: cart.map(item => item.product._id),
+                currentProduct: cart[0]?.product?._id ?? cart[0]?.product?.id,
+                currentProducts: cart.map((item) => item?.product?._id ?? item?.product?.id).filter(Boolean),
                 customerTier: selectedCustomer?.customerTier,
                 businessType: selectedCustomer?.businessType,
+                limit: 4,
               }}
               limit={4}
               onAddToCart={addToCart}

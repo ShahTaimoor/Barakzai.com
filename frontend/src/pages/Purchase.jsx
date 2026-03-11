@@ -1509,11 +1509,6 @@ export const Purchase = ({ tabId, editData }) => {
                     max={new Date().toISOString().split('T')[0]} // Prevent future dates
                     placeholder="Leave empty to use current date"
                   />
-                  {invoiceDate && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Invoice number will be generated based on this date
-                    </p>
-                  )}
                   {!invoiceDate && (
                     <p className="text-xs text-gray-500 mt-1">
                       Set custom date for backdating

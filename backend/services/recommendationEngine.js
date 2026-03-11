@@ -61,7 +61,16 @@ class RecommendationEngine {
     const startTime = Date.now();
     try {
       const userPreferences = await getUserPreferences(userId, sessionId);
-      const recommendations = await this.algorithms[algorithm](userId, sessionId, context, userPreferences);
+      let recommendations = await this.algorithms[algorithm](userId, sessionId, context, userPreferences);
+
+      // Fallback when algorithm returns no results (e.g. no behavior data yet)
+      const limit = context.limit || 10;
+      if (!recommendations || recommendations.length === 0) {
+        recommendations = await this.trendingProducts(userId, sessionId, { ...context, limit }, userPreferences);
+      }
+      if (!recommendations || recommendations.length === 0) {
+        recommendations = await this.seasonalRecommendations(userId, sessionId, { ...context, limit }, userPreferences);
+      }
 
       const recsPayload = recommendations.map((rec, index) => ({
         product: toId(rec.product?.id ?? rec.product?._id),
