@@ -496,46 +496,61 @@ export const Layout = ({ children }) => {
           </button>
 
           <div className="flex flex-1 gap-x-2 sm:gap-x-4 self-stretch lg:gap-x-6 min-w-0 overflow-hidden">
-            {/* Action Buttons Container - Center/Mid-Left with Horizontal Scroll - Hidden on Mobile */}
-            <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
-              
-              {/* Green Buttons - Receipt related */}
+            {/* Action Buttons - Shrink when zoom/screen percentage increases (responsive) */}
+            <div className="hidden lg:flex items-center gap-1 xl:gap-1.5 2xl:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
               {sidebarConfig['Cash Receipts'] !== false && (
                 <button
                   onClick={() => navigate('/cash-receipts')}
-                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-emerald-200/60 flex-shrink-0">
+                    <Receipt className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-emerald-700" />
+                  </span>
                   <span className="hidden md:inline">Cash Receipts</span>
                 </button>
               )}
               {sidebarConfig['Bank Receipts'] !== false && (
                 <button
                   onClick={() => navigate('/bank-receipts')}
-                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <Building className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-emerald-200/60 flex-shrink-0">
+                    <Building className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-emerald-700" />
+                  </span>
                   <span className="hidden md:inline">Bank Receipts</span>
                 </button>
               )}
-
-              {/* Blue Buttons - Payment related */}
               {sidebarConfig['Cash Payments'] !== false && (
                 <button
                   onClick={() => navigate('/cash-payments')}
-                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-blue-200/60 flex-shrink-0">
+                    <CreditCard className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-blue-700" />
+                  </span>
                   <span className="hidden md:inline">Cash Payments</span>
                 </button>
               )}
               {sidebarConfig['Bank Payments'] !== false && (
                 <button
                   onClick={() => navigate('/bank-payments')}
-                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-blue-200/60 flex-shrink-0">
+                    <ArrowUpDown className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-blue-700" />
+                  </span>
                   <span className="hidden md:inline">Bank Payments</span>
+                </button>
+              )}
+              {sidebarConfig['Record Expense'] !== false && (
+                <button
+                  onClick={() => navigate('/expenses')}
+                  className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
+                >
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-red-200/60 flex-shrink-0">
+                    <Wallet className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-red-700" />
+                  </span>
+                  <span className="hidden md:inline">Record Expense</span>
                 </button>
               )}
             </div>

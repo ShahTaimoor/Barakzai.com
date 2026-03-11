@@ -610,26 +610,25 @@ export const MultiTabLayout = ({ children }) => {
               )}
             </div>
 
-            {/* Action Buttons Container - Center/Mid-Left with Horizontal Scroll - Hidden on Mobile */}
-            <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
-              {/* Cash Receiving Button - Left side, desktop only (opens in tab) */}
-              <Button
+            {/* Action Buttons - Shrink when zoom/screen percentage increases (responsive) */}
+            <div className="hidden lg:flex items-center gap-1 xl:gap-1.5 2xl:gap-2 overflow-x-auto flex-1 min-w-0 scrollbar-hide overflow-y-visible">
+              <button
                 onClick={() => handleNavigationClick({ href: '/cash-receiving', name: 'Cash Receiving' })}
-                variant="outline"
-                size="sm"
-                className="items-center justify-center gap-1.5 px-3 py-2 flex text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800"
+                className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
               >
-                <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-emerald-200/60 flex-shrink-0">
+                  <Receipt className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-emerald-700" />
+                </span>
                 <span>Cash Receiving</span>
-              </Button>
-              
-              {/* Green Buttons - Receipt related */}
+              </button>
               {sidebarConfig['Cash Receipts'] !== false && (
                 <button
                   onClick={() => handleNavigationClick({ href: '/cash-receipts', name: 'Cash Receipts' })}
-                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-emerald-200/60 flex-shrink-0">
+                    <Receipt className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-emerald-700" />
+                  </span>
                   <span className="hidden sm:inline">Cash Receipt</span>
                   <span className="sm:hidden">Cash R.</span>
                 </button>
@@ -637,21 +636,23 @@ export const MultiTabLayout = ({ children }) => {
               {sidebarConfig['Bank Receipts'] !== false && (
                 <button
                   onClick={() => handleNavigationClick({ href: '/bank-receipts', name: 'Bank Receipts' })}
-                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-emerald-200/60 flex-shrink-0">
+                    <Receipt className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-emerald-700" />
+                  </span>
                   <span className="hidden sm:inline">Bank Receipt</span>
                   <span className="sm:hidden">Bank R.</span>
                 </button>
               )}
-
-              {/* Blue Buttons - Payment related */}
               {sidebarConfig['Cash Payments'] !== false && (
                 <button
                   onClick={() => handleNavigationClick({ href: '/cash-payments', name: 'Cash Payments' })}
-                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-blue-200/60 flex-shrink-0">
+                    <ArrowUpDown className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-blue-700" />
+                  </span>
                   <span className="hidden sm:inline">Cash Payment</span>
                   <span className="sm:hidden">Cash P.</span>
                 </button>
@@ -659,26 +660,27 @@ export const MultiTabLayout = ({ children }) => {
               {sidebarConfig['Bank Payments'] !== false && (
                 <button
                   onClick={() => handleNavigationClick({ href: '/bank-payments', name: 'Bank Payments' })}
-                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-blue-200/60 flex-shrink-0">
+                    <ArrowUpDown className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-blue-700" />
+                  </span>
                   <span className="hidden sm:inline">Bank Payment</span>
                   <span className="sm:hidden">Bank P.</span>
                 </button>
               )}
-
-              {/* Record Expense Button - Right side next to Bank Payment */}
               {sidebarConfig['Record Expense'] !== false && (
                 <button
                   onClick={() => handleNavigationClick({ href: '/expenses', name: 'Record Expense' })}
-                  className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-3 py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1.5 text-xs sm:text-sm font-medium flex-shrink-0 whitespace-nowrap"
+                  className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-2 py-1.5 xl:px-3 xl:py-2 rounded-md shadow-sm transition-all duration-200 flex items-center gap-1 xl:gap-1.5 text-[10px] xl:text-xs 2xl:text-sm font-medium flex-shrink-0 whitespace-nowrap min-w-0"
                 >
-                  <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="inline-flex items-center justify-center w-5 h-5 xl:w-6 xl:h-6 rounded bg-red-200/60 flex-shrink-0">
+                    <Wallet className="h-2.5 w-2.5 xl:h-3.5 xl:w-3.5 text-red-700" />
+                  </span>
                   <span className="hidden sm:inline">Record Expense</span>
                   <span className="sm:hidden">Expense</span>
                 </button>
               )}
-
             </div>
 
 
