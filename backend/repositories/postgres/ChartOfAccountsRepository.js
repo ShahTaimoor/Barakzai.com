@@ -80,6 +80,22 @@ class ChartOfAccountsRepository {
     return toCamel(result.rows[0] || null);
   }
 
+  /**
+   * Find account by customer ID - uses account_code CUST-{id} pattern (metadata optional)
+   */
+  async findByCustomerId(customerId) {
+    if (!customerId) return null;
+    return this.findByAccountCode(`CUST-${customerId}`);
+  }
+
+  /**
+   * Find account by supplier ID - uses account_code SUPP-{id} pattern
+   */
+  async findBySupplierId(supplierId) {
+    if (!supplierId) return null;
+    return this.findByAccountCode(`SUPP-${supplierId}`);
+  }
+
   async getAccountCodesByName(accountName) {
     if (!accountName) return [];
     const result = await query(
@@ -137,9 +153,11 @@ class ChartOfAccountsRepository {
   }
 
   async create(data) {
+    const metadata = data.metadata || data.customerId ? { customerId: data.customerId } : data.supplierId ? { supplierId: data.supplierId } : null;
+    const metadataJson = metadata ? JSON.stringify(metadata) : '{}';
     const result = await query(
-      `INSERT INTO chart_of_accounts (account_code, account_name, account_type, account_category, parent_account_id, level, is_active, is_system_account, allow_direct_posting, normal_balance, current_balance, opening_balance, description, currency, is_taxable, tax_rate, created_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *`,
+      `INSERT INTO chart_of_accounts (account_code, account_name, account_type, account_category, parent_account_id, level, is_active, is_system_account, allow_direct_posting, normal_balance, current_balance, opening_balance, description, currency, is_taxable, tax_rate, metadata, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *`,
       [
         data.accountCode || data.account_code,
         data.accountName || data.account_name,
@@ -157,6 +175,7 @@ class ChartOfAccountsRepository {
         data.currency || 'PKR',
         data.isTaxable === true,
         data.taxRate ?? 0,
+        metadataJson,
         data.createdBy || data.created_by || null
       ]
     );

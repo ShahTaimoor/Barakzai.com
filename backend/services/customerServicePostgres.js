@@ -125,6 +125,7 @@ class CustomerService {
           isSystemAccount: false,
           isActive: true,
           description: `Customer Account: ${accountName}`,
+          customerId: customer.id,
           createdBy: userId
         });
       }

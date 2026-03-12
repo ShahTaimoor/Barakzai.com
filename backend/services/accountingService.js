@@ -43,7 +43,7 @@ class AccountingService {
       salesRevenue: '4000',
       salesReturns: '4100', // Assuming 4100 for Sales Returns
       costOfGoodsSold: '5000',
-      purchaseReturns: '5100' // Assuming 5100 for Purchase Returns
+      purchaseReturns: '5050' // Purchase Returns (contra-COGS)
     };
   }
 
@@ -61,11 +61,11 @@ class AccountingService {
     if (subtype === 'revenue' || subtype === 'sales_revenue') return codes.salesRevenue;
     if (subtype === 'cost_of_goods_sold') return codes.costOfGoodsSold;
 
-    // Fallback query if needed, or throw
+    // Fallback query: match by account_name or account_category (table has no account_subtype)
     const result = await query(
       `SELECT account_code FROM chart_of_accounts 
-       WHERE (account_name ILIKE $1 OR account_subtype = $2) 
-       AND is_active = TRUE LIMIT 1`,
+       WHERE (account_name ILIKE $1 OR account_category = $2) 
+       AND (deleted_at IS NULL) AND is_active = TRUE LIMIT 1`,
       [name, subtype]
     );
 
@@ -228,8 +228,11 @@ class AccountingService {
   /**
    * Get account balance from ledger
    * Returns 0 if account doesn't exist (with warning)
+   * @param {string} accountCode
+   * @param {Date|null} asOfDate
+   * @param {object} opts - { useDbFallback: boolean } - when true, use current_balance if it differs from calculated by >1 (handles legacy/migration data)
    */
-  static async getAccountBalance(accountCode, asOfDate = null) {
+  static async getAccountBalance(accountCode, asOfDate = null, opts = {}) {
     const dateFilter = asOfDate
       ? 'AND transaction_date <= $2'
       : '';
@@ -272,15 +275,20 @@ class AccountingService {
 
     const row = result.rows[0];
     const calculatedBalance = parseFloat(row.opening_balance || 0) + parseFloat(row.ledger_balance || 0);
-    
-    // Log if there's a discrepancy between current_balance and calculated balance
-    if (Math.abs(parseFloat(row.current_balance || 0) - calculatedBalance) > 0.01) {
+    const dbBalance = parseFloat(row.current_balance || 0);
+    const discrepancy = Math.abs(dbBalance - calculatedBalance);
+
+    if (discrepancy > 0.01) {
       console.warn(`⚠️  Balance mismatch for account ${accountCode} (${row.account_name})`);
       console.warn(`   Current Balance in DB: ${row.current_balance}`);
       console.warn(`   Calculated Balance: ${calculatedBalance}`);
+      if (opts.useDbFallback && discrepancy > 1) {
+        console.warn(`   Using DB balance for balance sheet (ledger may be incomplete).`);
+        return dbBalance;
+      }
       console.warn(`   This may indicate the account balance needs to be recalculated.`);
     }
-    
+
     return calculatedBalance;
   }
 

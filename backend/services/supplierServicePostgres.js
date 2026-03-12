@@ -118,6 +118,7 @@ class SupplierService {
           isSystemAccount: false,
           isActive: true,
           description: `Supplier Account: ${accountName}`,
+          supplierId: supplier.id,
           createdBy: userId
         });
       }

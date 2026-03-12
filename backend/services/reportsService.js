@@ -689,8 +689,12 @@ class ReportsService {
 
     let sql = '';
     let params = [];
-    if (dateFrom && dateTo) params = [dateFrom, dateTo];
-    else if (dateTo) params = [dateTo];
+    if (reportType === 'balance-sheet') {
+      params = dateTo ? [dateTo] : [];
+    } else {
+      if (dateFrom && dateTo) params = [dateFrom, dateTo];
+      else if (dateTo) params = [dateTo];
+    }
 
     switch (reportType) {
       case 'trial-balance':

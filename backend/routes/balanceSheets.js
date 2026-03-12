@@ -20,7 +20,11 @@ function wrapForList(sheet, id = null) {
     ...sheet,
     assets: { ...assets, totalAssets: assets.total ?? assets.totalAssets ?? 0 },
     equity: { ...equity, totalEquity: equity.total ?? equity.totalEquity ?? 0 },
-    liabilities: sheet.liabilities || { total: 0 }
+    liabilities: {
+      ...(sheet.liabilities || {}),
+      total: sheet.liabilities?.total ?? 0,
+      totalLiabilities: sheet.liabilities?.totalLiabilities ?? sheet.liabilities?.total ?? 0
+    }
   };
 }
 
