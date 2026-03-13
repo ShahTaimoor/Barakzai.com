@@ -245,48 +245,55 @@ const SaleReturns = () => {
     setProductSearchTerm('');
   };
 
-  // Add product directly to return cart (same as Sales - no modal, direct add)
+  // Add product to return cart - one row per product, maxQuantity = total remaining across all order lines
   const handleAddToReturnCart = (productData) => {
     if (!productData) return;
-    const remaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
-    if (remaining <= 0) {
+    const totalRemaining = productData?.remainingReturnableQuantity ?? productData?.remainingQuantity ?? 0;
+    if (totalRemaining <= 0) {
       showErrorToast('This product has no returnable quantity (stock/limit is 0)');
       return;
     }
     const product = productData?.product ?? productData;
-    const firstSale = productData?.sales?.[0];
-    if (!firstSale) {
+    const sales = (productData?.sales ?? []).filter(s => (s.remainingQuantity ?? 0) > 0);
+    if (!sales.length) {
       showErrorToast('No sale data for this product');
       return;
     }
-    // Use firstSale.remainingQuantity (per order line), NOT productData.remainingReturnableQuantity (total across orders)
-    const maxForThisOrder = firstSale.remainingQuantity ?? productData.remainingReturnableQuantity ?? productData.remainingQuantity ?? 999;
+    // maxQuantity = total remaining (soldQuantity - alreadyReturnedQuantity) across ALL order lines
+    const maxQty = totalRemaining;
+    const orderLines = sales.map(s => ({
+      originalOrder: s.orderId || s.invoiceId,
+      originalOrderItem: s.orderItemId || s.invoiceItemId,
+      remainingQuantity: s.remainingQuantity ?? 0,
+      price: s.price ?? productData.previousPrice ?? 0
+    }));
+
     const returnItem = {
       product: product._id || product.id,
-      originalOrder: firstSale.orderId || firstSale.invoiceId,
-      originalOrderItem: firstSale.orderItemId || firstSale.invoiceItemId,
+      originalOrder: orderLines[0]?.originalOrder,
+      originalOrderItem: orderLines[0]?.originalOrderItem,
       quantity: 1,
-      originalPrice: productData.previousPrice || firstSale.price || 0,
+      originalPrice: productData.previousPrice ?? sales[0]?.price ?? 0,
       returnReason: 'changed_mind',
       condition: 'good',
       action: 'refund',
       returnReasonDetail: '',
       refundAmount: 0,
       restockingFee: 0,
-      maxQuantity: maxForThisOrder,
+      maxQuantity: maxQty,
+      orderLines,
       productName: product?.name || 'Unknown Product'
     };
 
     setReturnCart(prev => {
-      const key = `${returnItem.product}-${returnItem.originalOrder}-${returnItem.originalOrderItem}`;
-      const existingIdx = prev.findIndex(
-        x => `${x.product}-${x.originalOrder}-${x.originalOrderItem}` === key
-      );
+      const existingIdx = prev.findIndex(x => String(x.product) === String(returnItem.product));
       if (existingIdx >= 0) {
-        const max = Math.min(prev[existingIdx].maxQuantity ?? 999, returnItem.maxQuantity ?? 999);
-        const combinedQty = Math.min((prev[existingIdx].quantity || 0) + 1, max);
+        const existing = prev[existingIdx];
+        const mergedLines = mergeOrderLines(existing.orderLines ?? [buildLegacyOrderLine(existing)], orderLines);
+        const newMax = mergedLines.reduce((s, l) => s + l.remainingQuantity, 0);
+        const newQty = Math.min((existing.quantity ?? 1) + 1, newMax);
         const next = [...prev];
-        next[existingIdx] = { ...prev[existingIdx], quantity: combinedQty };
+        next[existingIdx] = { ...existing, orderLines: mergedLines, maxQuantity: newMax, quantity: newQty };
         return next;
       }
       return [...prev, returnItem];
@@ -296,6 +303,26 @@ const SaleReturns = () => {
     setProductSearchTerm('');
     showSuccessToast('Product added to return');
   };
+
+  const mergeOrderLines = (a, b) => {
+    const map = new Map();
+    for (const line of a) {
+      const key = `${line.originalOrder}-${line.originalOrderItem}`;
+      map.set(key, { ...line });
+    }
+    for (const line of b) {
+      const key = `${line.originalOrder}-${line.originalOrderItem}`;
+      if (!map.has(key)) map.set(key, { ...line });
+    }
+    return Array.from(map.values());
+  };
+
+  const buildLegacyOrderLine = (item) => ({
+    originalOrder: item.originalOrder,
+    originalOrderItem: item.originalOrderItem,
+    remainingQuantity: item.maxQuantity ?? 999,
+    price: item.originalPrice
+  });
 
   // Handle suggestion selection - add directly to return cart (no modal)
   const handleSuggestionSelect = (suggestion) => {
@@ -332,28 +359,54 @@ const SaleReturns = () => {
       return;
     }
 
-    // Clamp quantities to max (per order line) - prevents "Cannot return X items. Only Y available" error
     let cart = returnCart;
     const clamped = cart.map(item => {
       const max = item.maxQuantity ?? 999;
-      const qty = Math.min(item.quantity || 1, max);
-      if (qty !== (item.quantity || 1)) return { ...item, quantity: qty };
-      return item;
+      const qty = Math.min(item.quantity ?? 1, max);
+      return qty !== (item.quantity ?? 1) ? { ...item, quantity: qty } : item;
     });
-    const hadOverflow = clamped.some((c, i) => (c.quantity || 1) !== (returnCart[i].quantity || 1));
+    const hadOverflow = clamped.some((c, i) => (c.quantity ?? 1) !== (returnCart[i].quantity ?? 1));
     if (hadOverflow) {
       setReturnCart(clamped);
-      showErrorToast('Quantities adjusted to available limits per order');
-      return; // Let user review
+      showErrorToast('Quantities adjusted to available limits');
+      return;
     }
 
-    // Group items by originalOrder (backend expects one return per original order)
-    const itemsByOrder = {};
-    cart.forEach(item => {
-      const orderId = (item.originalOrder?._id || item.originalOrder || item.originalOrderId)?.toString() || String(item.originalOrder);
-      if (!itemsByOrder[orderId]) {
-        itemsByOrder[orderId] = [];
+    // Expand merged items: allocate quantity across order lines
+    const expandedItems = [];
+    for (const item of cart) {
+      const qty = Math.max(1, item.quantity ?? 1);
+      const lines = item.orderLines?.length ? item.orderLines : [buildLegacyOrderLine(item)];
+      let remaining = qty;
+      for (const line of lines) {
+        if (remaining <= 0) break;
+        const take = Math.min(remaining, line.remainingQuantity ?? 999);
+        if (take <= 0) continue;
+        remaining -= take;
+        expandedItems.push({
+          product: item.product,
+          originalOrder: line.originalOrder,
+          originalOrderItem: line.originalOrderItem,
+          quantity: take,
+          originalPrice: item.originalPrice ?? line.price,
+          returnReason: item.returnReason || 'changed_mind',
+          condition: item.condition || 'good',
+          action: item.action || 'refund',
+          returnReasonDetail: item.returnReasonDetail || '',
+          refundAmount: 0,
+          restockingFee: 0
+        });
       }
+      if (remaining > 0) {
+        showErrorToast(`Could not allocate full quantity for ${item.productName || 'item'}`);
+        return;
+      }
+    }
+
+    const itemsByOrder = {};
+    expandedItems.forEach(item => {
+      const orderId = (item.originalOrder?._id ?? item.originalOrder ?? item.originalOrderId)?.toString() ?? String(item.originalOrder);
+      if (!itemsByOrder[orderId]) itemsByOrder[orderId] = [];
       itemsByOrder[orderId].push(item);
     });
 
@@ -364,7 +417,7 @@ const SaleReturns = () => {
           returnType: 'return',
           priority: 'normal',
           refundMethod: 'deferred',
-          items: items.map(({ productName, maxQuantity, ...rest }) => rest),
+          items: items.map(({ productName, maxQuantity, orderLines, ...rest }) => rest),
           generalNotes: returnNotes,
           origin: 'sales',
           customerId: selectedCustomer?._id // For cache invalidation so remaining quantities refresh
@@ -750,7 +803,7 @@ const SaleReturns = () => {
                       {returnCart.map((item, index) => {
                         const total = (item.quantity || 1) * (item.originalPrice || 0);
                         return (
-                          <tr key={`${item.product}-${item.originalOrder}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <tr key={`${item.product}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                             <td className="px-4 py-3 text-sm font-medium text-gray-700">{index + 1}</td>
                             <td className="px-4 py-3 font-medium text-sm text-gray-900">{item.productName || 'Unknown'}</td>
                             <td className="px-4 py-3 text-sm">
@@ -806,7 +859,7 @@ const SaleReturns = () => {
                   {returnCart.map((item, index) => {
                     const total = (item.quantity || 1) * (item.originalPrice || 0);
                     return (
-                      <div key={`${item.product}-${item.originalOrder}-${index}`} className="p-3 border border-gray-200 rounded-lg bg-white shadow-sm">
+                      <div key={`${item.product}-${index}`} className="p-3 border border-gray-200 rounded-lg bg-white shadow-sm">
                         <div className="flex items-start justify-between">
                           <div>
                             <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>

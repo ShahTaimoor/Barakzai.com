@@ -156,6 +156,7 @@ export default function PurchaseBySupplierReport() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost Price</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Quantity Purchased</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Amount</th>
               </tr>
@@ -163,7 +164,7 @@ export default function PurchaseBySupplierReport() {
             <tbody className="divide-y divide-gray-200">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                     No purchase data found for the selected period.
                   </td>
                 </tr>
@@ -172,6 +173,11 @@ export default function PurchaseBySupplierReport() {
                   <tr key={`${row.productId}-${row.supplierId}-${idx}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.productName}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{row.supplierName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 text-right">
+                      {row.totalQuantity > 0
+                        ? (Number(row.totalAmount || 0) / Number(row.totalQuantity || 1)).toFixed(2)
+                        : '-'}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900 text-right">
                       {Number(row.totalQuantity || 0).toLocaleString()}
                     </td>

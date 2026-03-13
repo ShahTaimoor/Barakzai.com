@@ -244,7 +244,8 @@ router.get('/customer/:customerId/products', [
           }
         }
 
-        const remainingQuantity = (item.quantity || 0) - returnedQuantity;
+        const soldQty = Number(item.quantity ?? item.qty ?? 0) || 0;
+        const remainingQuantity = Math.max(0, soldQty - returnedQuantity);
 
         if (remainingQuantity <= 0) continue;
 
@@ -256,7 +257,7 @@ router.get('/customer/:customerId/products', [
           orderId: saleId,
           orderNumber: sale.order_number || sale.orderNumber,
           orderItemId: itemId,
-          quantitySold: item.quantity || 0,
+          quantitySold: soldQty,
           price: item.unit_price || item.unitPrice || item.price || 0,
           date: sale.created_at || sale.createdAt,
           returnedQuantity,

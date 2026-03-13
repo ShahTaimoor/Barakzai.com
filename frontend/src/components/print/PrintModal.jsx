@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import BaseModal from '../BaseModal';
 import { Button } from '@/components/ui/button';
 import PrintWrapper from './PrintWrapper';
@@ -34,6 +34,13 @@ const PrintModal = ({
       printRef.current.print();
     }
   }, []);
+
+  useEffect(() => {
+    if (isOpen && autoPrint && hasData) {
+      const timer = setTimeout(handlePrint, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoPrint, hasData, handlePrint]);
 
   const footer = (
     <div className="flex justify-end gap-3 no-print">

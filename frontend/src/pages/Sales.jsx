@@ -20,7 +20,8 @@ import {
   EyeOff,
   Download,
   XCircle,
-  ArrowUpDown
+  ArrowUpDown,
+  ChevronDown
 } from 'lucide-react';
 import { useGetProductsQuery, useLazyGetLastPurchasePriceQuery, useGetLastPurchasePricesMutation } from '../store/services/productsApi';
 import { useGetVariantsQuery, useGetVariantsByBaseProductQuery } from '../store/services/productVariantsApi';
@@ -48,7 +49,13 @@ import AsyncErrorBoundary from '../components/AsyncErrorBoundary';
 import { ClearConfirmationDialog } from '../components/ConfirmationDialog';
 import { useClearConfirmation } from '../hooks/useConfirmation';
 import PaymentModal from '../components/PaymentModal';
-import PrintModal from '../components/PrintModal';
+import PrintModal, { DirectPrintInvoice } from '../components/PrintModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useResponsive, ResponsiveGrid } from '../components/ResponsiveContainer';
 import RecommendationSection from '../components/RecommendationSection';
 import useBehaviorTracking from '../hooks/useBehaviorTracking';
@@ -689,6 +696,7 @@ export const Sales = ({ tabId, editData }) => {
   const [amountPaid, setAmountPaid] = useState(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [directPrintOrder, setDirectPrintOrder] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
   const [appliedDiscounts, setAppliedDiscounts] = useState([]);
   const [isTaxExempt, setIsTaxExempt] = useState(true);
@@ -3218,69 +3226,110 @@ export const Sales = ({ tabId, editData }) => {
                   </LoadingButton>
                 )}
                 {cart.length > 0 && (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      // Format address from customer for print (same logic as backend/PrintDocument)
-                      let customerAddress = '';
-                      if (selectedCustomer?.addresses?.length) {
-                        const addr = selectedCustomer.addresses.find(a => a.isDefault) || selectedCustomer.addresses.find(a => a.type === 'billing' || a.type === 'both') || selectedCustomer.addresses[0];
-                        if (addr) customerAddress = [addr.street, addr.city, addr.state, addr.country, addr.zipCode || addr.zip].filter(Boolean).join(', ');
-                      } else if (selectedCustomer?.address) customerAddress = selectedCustomer.address;
-                      const tempOrder = {
-                        orderNumber: `TEMP-${Date.now()}`,
-                        orderType: mapBusinessTypeToOrderType(selectedCustomer?.businessType),
-                        customer: selectedCustomer ?? undefined,
-                        customerInfo: selectedCustomer ? {
-                          name: selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name,
-                          email: selectedCustomer.email,
-                          phone: selectedCustomer.phone,
-                          businessName: selectedCustomer.businessName || selectedCustomer.business_name,
-                          address: customerAddress || undefined,
-                          currentBalance: selectedCustomer.currentBalance,
-                          pendingBalance: selectedCustomer.pendingBalance,
-                          advanceBalance: selectedCustomer.advanceBalance
-                        } : null,
-                        items: cart.map(item => ({
-                          product: {
-                            name: item.product.name
-                          },
-                          quantity: item.quantity,
-                          unitPrice: item.unitPrice
-                        })),
-                        pricing: {
-                          subtotal: subtotal,
-                          discountAmount: totalDiscountAmount,
-                          taxAmount: tax,
-                          isTaxExempt: isTaxExempt,
-                          total: total
-                        },
-                        payment: {
-                          method: paymentMethod,
-                          bankAccount: paymentMethod === 'bank' ? selectedBankAccount : null,
-                          amountPaid: amountPaid,
-                          remainingBalance: total - amountPaid,
-                          isPartialPayment: amountPaid < total,
-                          isAdvancePayment: isAdvancePayment,
-                          advanceAmount: isAdvancePayment ? (amountPaid - total) : 0
-                        },
-                        createdAt: new Date(),
-                        createdBy: user ? {
-                          firstName: user.firstName,
-                          lastName: user.lastName,
-                          name: user.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin'
-                        } : { name: 'Admin' },
-                        invoiceNumber: invoiceNumber
-                      };
-                      setCurrentOrder(tempOrder);
-                      setShowPrintModal(true);
-                    }}
-                    variant="secondary"
-                    className="flex-1"
-                  >
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print Preview
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="secondary" className="flex-1">
+                        <Printer className="h-4 w-4 mr-2" />
+                        Print
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          let customerAddress = '';
+                          if (selectedCustomer?.addresses?.length) {
+                            const addr = selectedCustomer.addresses.find(a => a.isDefault) || selectedCustomer.addresses.find(a => a.type === 'billing' || a.type === 'both') || selectedCustomer.addresses[0];
+                            if (addr) customerAddress = [addr.street, addr.city, addr.state, addr.country, addr.zipCode || addr.zip].filter(Boolean).join(', ');
+                          } else if (selectedCustomer?.address) customerAddress = selectedCustomer.address;
+                          const tempOrder = {
+                            orderNumber: `TEMP-${Date.now()}`,
+                            orderType: mapBusinessTypeToOrderType(selectedCustomer?.businessType),
+                            customer: selectedCustomer ?? undefined,
+                            customerInfo: selectedCustomer ? {
+                              name: selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name,
+                              email: selectedCustomer.email,
+                              phone: selectedCustomer.phone,
+                              businessName: selectedCustomer.businessName || selectedCustomer.business_name,
+                              address: customerAddress || undefined,
+                              currentBalance: selectedCustomer.currentBalance,
+                              pendingBalance: selectedCustomer.pendingBalance,
+                              advanceBalance: selectedCustomer.advanceBalance
+                            } : null,
+                            items: cart.map(item => ({
+                              product: { name: item.product.name },
+                              quantity: item.quantity,
+                              unitPrice: item.unitPrice
+                            })),
+                            pricing: { subtotal, discountAmount: totalDiscountAmount, taxAmount: tax, isTaxExempt, total },
+                            payment: {
+                              method: paymentMethod,
+                              bankAccount: paymentMethod === 'bank' ? selectedBankAccount : null,
+                              amountPaid,
+                              remainingBalance: total - amountPaid,
+                              isPartialPayment: amountPaid < total,
+                              isAdvancePayment,
+                              advanceAmount: isAdvancePayment ? (amountPaid - total) : 0
+                            },
+                            createdAt: new Date(),
+                            createdBy: user ? { firstName: user.firstName, lastName: user.lastName, name: user.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin' } : { name: 'Admin' },
+                            invoiceNumber
+                          };
+                          setDirectPrintOrder(tempOrder);
+                        }}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Print
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          let customerAddress = '';
+                          if (selectedCustomer?.addresses?.length) {
+                            const addr = selectedCustomer.addresses.find(a => a.isDefault) || selectedCustomer.addresses.find(a => a.type === 'billing' || a.type === 'both') || selectedCustomer.addresses[0];
+                            if (addr) customerAddress = [addr.street, addr.city, addr.state, addr.country, addr.zipCode || addr.zip].filter(Boolean).join(', ');
+                          } else if (selectedCustomer?.address) customerAddress = selectedCustomer.address;
+                          const tempOrder = {
+                            orderNumber: `TEMP-${Date.now()}`,
+                            orderType: mapBusinessTypeToOrderType(selectedCustomer?.businessType),
+                            customer: selectedCustomer ?? undefined,
+                            customerInfo: selectedCustomer ? {
+                              name: selectedCustomer.businessName || selectedCustomer.business_name || selectedCustomer.displayName || selectedCustomer.name,
+                              email: selectedCustomer.email,
+                              phone: selectedCustomer.phone,
+                              businessName: selectedCustomer.businessName || selectedCustomer.business_name,
+                              address: customerAddress || undefined,
+                              currentBalance: selectedCustomer.currentBalance,
+                              pendingBalance: selectedCustomer.pendingBalance,
+                              advanceBalance: selectedCustomer.advanceBalance
+                            } : null,
+                            items: cart.map(item => ({
+                              product: { name: item.product.name },
+                              quantity: item.quantity,
+                              unitPrice: item.unitPrice
+                            })),
+                            pricing: { subtotal, discountAmount: totalDiscountAmount, taxAmount: tax, isTaxExempt, total },
+                            payment: {
+                              method: paymentMethod,
+                              bankAccount: paymentMethod === 'bank' ? selectedBankAccount : null,
+                              amountPaid,
+                              remainingBalance: total - amountPaid,
+                              isPartialPayment: amountPaid < total,
+                              isAdvancePayment,
+                              advanceAmount: isAdvancePayment ? (amountPaid - total) : 0
+                            },
+                            createdAt: new Date(),
+                            createdBy: user ? { firstName: user.firstName, lastName: user.lastName, name: user.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin' } : { name: 'Admin' },
+                            invoiceNumber
+                          };
+                          setCurrentOrder(tempOrder);
+                          setShowPrintModal(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Print Preview
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 <div className="flex items-center space-x-2 px-2">
                   <Input
@@ -3359,7 +3408,17 @@ export const Sales = ({ tabId, editData }) => {
         onPaymentError={handlePaymentError}
       />
 
-      {/* Print Modal */}
+      {/* Direct Print - no modal, opens print dialog immediately */}
+      {directPrintOrder && (
+        <DirectPrintInvoice
+          orderData={directPrintOrder}
+          documentTitle="Sales Invoice"
+          partyLabel="Customer"
+          onComplete={() => setDirectPrintOrder(null)}
+        />
+      )}
+
+      {/* Print Preview Modal */}
       <PrintModal
         isOpen={showPrintModal}
         onClose={() => {
