@@ -365,6 +365,13 @@ router.delete('/:id', [
       });
     }
 
+    // Reverse ledger entries so account ledger reflects the deletion
+    try {
+      await AccountingService.reverseLedgerEntriesByReference('bank_receipt', req.params.id);
+    } catch (ledgerErr) {
+      console.error('Reverse ledger for bank receipt delete:', ledgerErr);
+    }
+
     await bankReceiptRepository.delete(req.params.id);
 
     res.json({

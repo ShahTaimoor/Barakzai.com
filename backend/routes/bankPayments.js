@@ -365,6 +365,13 @@ router.delete('/:id', [
       });
     }
 
+    // Reverse ledger entries so account ledger reflects the deletion
+    try {
+      await AccountingService.reverseLedgerEntriesByReference('bank_payment', req.params.id);
+    } catch (ledgerErr) {
+      console.error('Reverse ledger for bank payment delete:', ledgerErr);
+    }
+
     await bankPaymentRepository.delete(req.params.id);
 
     res.json({

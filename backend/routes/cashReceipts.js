@@ -382,10 +382,18 @@ router.delete('/:id', [
   try {
     const cashReceipt = await cashReceiptRepository.findById(req.params.id);
     if (!cashReceipt) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Cash receipt not found' 
+        message: 'Cash receipt not found'
       });
+    }
+
+    // Reverse ledger entries so account ledger reflects the deletion
+    try {
+      await AccountingService.reverseLedgerEntriesByReference('cash_receipt', req.params.id);
+    } catch (ledgerErr) {
+      console.error('Reverse ledger for cash receipt delete:', ledgerErr);
+      // Continue with delete; ledger may not have had entries (e.g. legacy data)
     }
 
     await cashReceiptRepository.delete(req.params.id);

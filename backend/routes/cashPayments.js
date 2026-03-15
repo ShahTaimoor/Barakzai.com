@@ -420,6 +420,13 @@ router.delete('/:id', [
       });
     }
 
+    // Reverse ledger entries so account ledger reflects the deletion
+    try {
+      await AccountingService.reverseLedgerEntriesByReference('cash_payment', req.params.id);
+    } catch (ledgerErr) {
+      console.error('Reverse ledger for cash payment delete:', ledgerErr);
+    }
+
     await cashPaymentRepository.delete(req.params.id);
 
     res.json({
