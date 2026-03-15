@@ -335,8 +335,9 @@ class AccountingService {
 
   /**
    * Get supplier balance from ledger
-   * Only includes AP account (2000) entries - single source of truth
-   * Includes opening balance from suppliers table + ledger entries
+   * Only includes AP account (2000) entries - single source of truth.
+   * Uses supplier opening_balance + ledger, but excludes ledger rows with reference_type = 'supplier_opening_balance'
+   * so we don't double-count (that amount is already in suppliers.opening_balance).
    */
   static async getSupplierBalance(supplierId, asOfDate = null) {
     const dateFilter = asOfDate
@@ -346,7 +347,6 @@ class AccountingService {
     const params = [supplierId];
     if (asOfDate) params.push(asOfDate);
 
-    // Get opening balance + ledger balance from AP account (2000)
     const result = await query(
       `SELECT 
         s.opening_balance,
@@ -356,6 +356,7 @@ class AccountingService {
          AND l.account_code = '2000'
          AND l.status = 'completed'
          AND l.reversed_at IS NULL
+         AND (l.reference_type IS NULL OR l.reference_type <> 'supplier_opening_balance')
          ${dateFilter}
        WHERE s.id = $1
        GROUP BY s.id, s.opening_balance`,
@@ -1349,8 +1350,8 @@ class AccountingService {
 
   /**
    * Get bulk supplier balances
-   * Only includes AP account (2000) entries - single source of truth
-   * Includes opening balance from suppliers table + ledger entries
+   * Only includes AP account (2000) entries - single source of truth.
+   * Excludes ledger rows reference_type = 'supplier_opening_balance' to avoid double-count with suppliers.opening_balance.
    */
   static async getBulkSupplierBalances(supplierIds, asOfDate = null) {
     const dateFilter = asOfDate
@@ -1370,6 +1371,7 @@ class AccountingService {
          AND ledger.account_code = '2000'
          AND ledger.status = 'completed'
          AND ledger.reversed_at IS NULL
+         AND (ledger.reference_type IS NULL OR ledger.reference_type <> 'supplier_opening_balance')
          ${dateFilter}
        WHERE s.id = ANY($1::uuid[])
          AND s.is_deleted = FALSE

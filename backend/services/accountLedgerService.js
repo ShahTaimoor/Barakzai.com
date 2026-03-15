@@ -573,8 +573,10 @@ class AccountLedgerService {
             if (rawId == null) return null;
             const supplierId = typeof rawId === 'string' ? rawId : String(rawId);
 
-            // Opening balance from ledger only (supplier opening balance is posted to ledger)
-            let openingBalance = 0;
+            // Opening balance = supplier opening_balance + ledger before period. Exclude ledger entries of type supplier_opening_balance so we don't double-count (that amount is already in supplier.opening_balance).
+            const supplierOpening = parseFloat(supplier.opening_balance ?? supplier.openingBalance ?? 0) || 0;
+            const isSupplierOpeningEntry = (e) => (e.referenceType || e.reference_type) === 'supplier_opening_balance';
+            let openingBalance = supplierOpening;
             if (start) {
               const openingLedgerEntries = await transactionRepository.findAll({
                 supplierId,
@@ -582,11 +584,13 @@ class AccountLedgerService {
                 transactionDate: { $lt: start },
                 status: 'completed'
               }, { lean: true });
+              const openingExcludingOb = openingLedgerEntries.filter(e => !isSupplierOpeningEntry(e));
 
               // For AP accounts: credit increases balance, debit decreases balance
-              openingBalance = openingLedgerEntries.reduce((sum, entry) => {
+              const openingLedgerBalance = openingExcludingOb.reduce((sum, entry) => {
                 return sum + (entry.creditAmount || 0) - (entry.debitAmount || 0);
               }, 0);
+              openingBalance = supplierOpening + openingLedgerBalance;
             }
 
             // Get period transactions from ledger (within date range)
@@ -603,7 +607,9 @@ class AccountLedgerService {
               periodLedgerFilter.transactionDate.$lte = end;
             }
 
-            const periodLedgerEntries = await transactionRepository.findAll(periodLedgerFilter, { lean: true });
+            let periodLedgerEntries = await transactionRepository.findAll(periodLedgerFilter, { lean: true });
+            // Exclude supplier_opening_balance from period so the same amount isn't shown twice (it's already in the Opening Balance line above).
+            periodLedgerEntries = periodLedgerEntries.filter(e => !isSupplierOpeningEntry(e));
             
             // Debug logging to help diagnose missing transactions
             if (periodLedgerEntries.length === 0 && supplierId) {
