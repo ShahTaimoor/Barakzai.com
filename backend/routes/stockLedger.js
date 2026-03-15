@@ -11,6 +11,7 @@ const StockMovementRepository = require('../repositories/StockMovementRepository
 const ProductRepository = require('../repositories/postgres/ProductRepository');
 const CustomerRepository = require('../repositories/postgres/CustomerRepository');
 const SupplierRepository = require('../repositories/postgres/SupplierRepository');
+const InventoryRepository = require('../repositories/InventoryRepository');
 
 /**
  * @route   GET /api/stock-ledger
@@ -308,14 +309,31 @@ router.get('/', [
       grandTotalAmount += entry.amount;
     }
 
-    // Convert to array format
-    const productTotals = Array.from(productMap.values()).map(productData => ({
-      productId: productData.productId,
-      productName: productData.productName,
-      entries: productData.entries,
-      totalQuantity: productData.totalQuantity,
-      totalAmount: productData.totalAmount
-    }));
+    // Convert to array format and attach current stock (qty left) per product
+    const productTotals = await Promise.all(
+      Array.from(productMap.values()).map(async (productData) => {
+        let qtyLeft = 0;
+        try {
+          const inv = await InventoryRepository.findByProduct(productData.productId);
+          if (inv != null) {
+            qtyLeft = Number(inv.current_stock ?? inv.currentStock ?? 0);
+          } else {
+            const prod = await ProductRepository.findById(productData.productId);
+            if (prod) qtyLeft = Number(prod.stock_quantity ?? prod.stockQuantity ?? 0);
+          }
+        } catch (err) {
+          console.warn('Stock ledger: could not get qty left for product', productData.productId, err.message);
+        }
+        return {
+          productId: productData.productId,
+          productName: productData.productName,
+          entries: productData.entries,
+          totalQuantity: productData.totalQuantity,
+          totalAmount: productData.totalAmount,
+          qtyLeft
+        };
+      })
+    );
 
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);

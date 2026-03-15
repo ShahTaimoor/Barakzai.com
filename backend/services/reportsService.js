@@ -1110,6 +1110,7 @@ class ReportsService {
     const dateFrom = filters.dateFrom ? getStartOfDayPakistan(filters.dateFrom) : null;
     const dateTo = filters.dateTo ? getEndOfDayPakistan(filters.dateTo) : null;
     const supplierId = filters.supplier || filters.supplierId || null;
+    const includeCustomersSold = [true, 'true', '1', 1].includes(filters.includeCustomersSold);
 
     let sql = `
       WITH item_rows AS (
@@ -1180,15 +1181,83 @@ class ReportsService {
       totalQuantity: rows.reduce((sum, r) => sum + parseFloat(r.totalQuantity || 0), 0),
       totalAmount: rows.reduce((sum, r) => sum + parseFloat(r.totalAmount || 0), 0)
     };
+
+    let customersSoldByProduct = {};
+    if (includeCustomersSold && rows.length > 0) {
+      const productIds = [...new Set(rows.map(r => r.productId).filter(Boolean))];
+      const placeholders = productIds.map((_, i) => `$${i + 1}`).join(', ');
+      const salesSql = `
+        SELECT
+          COALESCE(
+            (elem->>'product')::uuid,
+            (elem->>'product_id')::uuid,
+            (elem->'product'->>'id')::uuid,
+            (elem->'product'->>'_id')::uuid
+          ) AS product_id,
+          s.customer_id,
+          TRIM(COALESCE(c.name, c.business_name, 'Unknown')) AS customer_name,
+          SUM(COALESCE((elem->>'quantity')::numeric, (elem->>'qty')::numeric, 0)) AS qty_sold
+        FROM sales s
+        CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(COALESCE(s.items, '[]')::jsonb) = 'array' THEN COALESCE(s.items, '[]')::jsonb ELSE '[]'::jsonb END) AS elem
+        LEFT JOIN customers c ON c.id = s.customer_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)
+        WHERE s.deleted_at IS NULL AND s.status != 'cancelled'
+          AND COALESCE((elem->>'product')::uuid, (elem->>'product_id')::uuid, (elem->'product'->>'id')::uuid, (elem->'product'->>'_id')::uuid) IN (${placeholders})
+        GROUP BY 1, 2, 3
+      `;
+      const soSql = `
+        SELECT
+          COALESCE(
+            (elem->>'product')::uuid,
+            (elem->>'product_id')::uuid,
+            (elem->'product'->>'id')::uuid,
+            (elem->'product'->>'_id')::uuid
+          ) AS product_id,
+          so.customer_id,
+          TRIM(COALESCE(c.name, c.business_name, 'Unknown')) AS customer_name,
+          SUM(COALESCE((elem->>'quantity')::numeric, (elem->>'qty')::numeric, 0)) AS qty_sold
+        FROM sales_orders so
+        CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(COALESCE(so.items, '[]'::jsonb)) = 'array' THEN COALESCE(so.items, '[]'::jsonb) ELSE '[]'::jsonb END) AS elem
+        LEFT JOIN customers c ON c.id = so.customer_id AND (c.is_deleted = FALSE OR c.is_deleted IS NULL)
+        WHERE so.deleted_at IS NULL AND so.status NOT IN ('cancelled', 'draft')
+          AND COALESCE((elem->>'product')::uuid, (elem->>'product_id')::uuid, (elem->'product'->>'id')::uuid, (elem->'product'->>'_id')::uuid) IN (${placeholders})
+        GROUP BY 1, 2, 3
+      `;
+      try {
+        const [salesRes, soRes] = await Promise.all([
+          query(salesSql, productIds),
+          query(soSql, productIds)
+        ]);
+        const combined = [...(salesRes.rows || []), ...(soRes.rows || [])];
+        combined.forEach((row) => {
+          const pid = row.product_id;
+          if (!pid) return;
+          if (!customersSoldByProduct[pid]) customersSoldByProduct[pid] = [];
+          const name = (row.customer_name || '').trim() || 'Unknown';
+          const qty = parseFloat(row.qty_sold || 0);
+          const existing = customersSoldByProduct[pid].find((x) => x.customerName === name);
+          if (existing) existing.quantity += qty;
+          else customersSoldByProduct[pid].push({ customerName: name, quantity: qty });
+        });
+      } catch (err) {
+        console.warn('getPurchaseBySupplierReport: could not load customers sold', err.message);
+      }
+    }
+
     return {
-      data: rows.map(r => ({
-        productId: r.productId,
-        productName: r.productName,
-        supplierId: r.supplierId,
-        supplierName: r.supplierName,
-        totalQuantity: parseFloat(r.totalQuantity || 0),
-        totalAmount: parseFloat(r.totalAmount || 0)
-      })),
+      data: rows.map(r => {
+        const out = {
+          productId: r.productId,
+          productName: r.productName,
+          supplierId: r.supplierId,
+          supplierName: r.supplierName,
+          totalQuantity: parseFloat(r.totalQuantity || 0),
+          totalAmount: parseFloat(r.totalAmount || 0)
+        };
+        if (includeCustomersSold && r.productId && customersSoldByProduct[r.productId]) {
+          out.customersSold = customersSoldByProduct[r.productId];
+        }
+        return out;
+      }),
       summary
     };
   }

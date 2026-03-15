@@ -436,7 +436,14 @@ export const Dashboard = () => {
   const netRevenue = totalSales - totalDiscounts - totalSalesReturns; // Sales after discounts and returns
   // Use COGS from P&L (cost of goods SOLD) - NOT totalPurchases (cost of goods bought). Purchases ≠ COGS.
   const costOfGoodsSold = plSummaryData?.data?.costOfGoodsSold?.total ?? plSummaryData?.costOfGoodsSold?.total ?? totalPurchases;
-  const grossProfit = netRevenue - costOfGoodsSold; // Gross Profit
+  // Gross Profit must match P&L: use P&L summary revenue and COGS (same period). Dashboard was wrong because it used
+  // totalSales (Sales Orders + Sales Invoices) for revenue while P&L uses only invoiced sales minus returns.
+  const plRevenueTotal = plSummaryData?.data?.revenue?.total ?? plSummaryData?.revenue?.total;
+  const plCogsTotal = plSummaryData?.data?.costOfGoodsSold?.total ?? plSummaryData?.costOfGoodsSold?.total;
+  const grossProfit =
+    plRevenueTotal != null && plCogsTotal != null
+      ? plRevenueTotal - plCogsTotal
+      : (plSummaryData?.data?.grossProfit ?? plSummaryData?.grossProfit ?? (netRevenue - costOfGoodsSold));
   const netProfit = grossProfit - operatingExpenses;
 
   // Column definitions for modals

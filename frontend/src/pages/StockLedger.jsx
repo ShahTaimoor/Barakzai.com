@@ -593,6 +593,9 @@ export const StockLedger = () => {
                       <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
                         Amount
                       </th>
+                      <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
+                        Qty Left
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -605,6 +608,9 @@ export const StockLedger = () => {
                               <Package className="h-4 w-4" />
                               {productGroup.productName}
                             </div>
+                          </td>
+                          <td className="px-6 py-3 text-sm text-right text-blue-900 font-semibold">
+                            {productGroup.qtyLeft ?? '—'}
                           </td>
                         </tr>
                         {/* Product Entries */}
@@ -649,6 +655,9 @@ export const StockLedger = () => {
                                 <span className="text-green-600">{formatCurrency(entry.amount)}</span>
                               )}
                             </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
+                              —
+                            </td>
                           </tr>
                         ))}
                         {/* Product Total */}
@@ -670,6 +679,9 @@ export const StockLedger = () => {
                             ) : (
                               <span className="text-green-700">{formatCurrency(productGroup.totalAmount)}</span>
                             )}
+                          </td>
+                          <td className="px-6 py-3 text-sm text-right text-blue-900 font-semibold">
+                            {productGroup.qtyLeft ?? '—'}
                           </td>
                         </tr>
                       </React.Fragment>
@@ -694,6 +706,7 @@ export const StockLedger = () => {
                           <span className="text-green-300">{formatCurrency(grandTotal.totalAmount)}</span>
                         )}
                       </td>
+                      <td className="px-6 py-4 text-sm text-right"></td>
                     </tr>
                   </tbody>
                 </table>
