@@ -639,24 +639,14 @@ router.delete('/:id', [
       }
     }
 
-    // ROLLBACK SUPPLIER BALANCE - Reverse invoice total and payment
-    // This matches the new logic in purchase invoice creation
-    if (invoice.supplier && invoice.pricing && invoice.pricing.total > 0) {
-      try {
-        // Note: Supplier balance rollback removed from route.
-        // The ledger entries will handle the reversal.
-
-        // Potential reversal of payment if needed
-        const amountPaid = invoice.payment?.amount || invoice.payment?.paidAmount || 0;
-        if (amountPaid > 0) {
-          // If we had a direct reversal method in SupplierBalanceService, we'd use it here.
-          // For now, the ledger reversal in AccountingService will handle it partially,
-          // but we should ensure the payment entry in the ledger is also voided.
-        }
-      } catch (error) {
-        console.error('Error rolling back supplier balance:', error);
-        // Continue with deletion even if supplier update fails
-      }
+    // Reverse account ledger entries so ledger summary reflects the deletion
+    try {
+      const invoiceId = req.params.id;
+      await AccountingService.reverseLedgerEntriesByReference('purchase_invoice', invoiceId);
+      await AccountingService.reverseLedgerEntriesByReference('purchase_invoice_payment', invoiceId);
+    } catch (ledgerErr) {
+      console.error('Reverse ledger for purchase invoice delete:', ledgerErr);
+      // Continue with deletion; ledger may not have had entries (e.g. draft)
     }
 
     await purchaseInvoiceRepository.softDelete(req.params.id);

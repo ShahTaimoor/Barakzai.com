@@ -33,12 +33,17 @@ import { Button } from '@/components/ui/button';
 import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
 
-// Check if invoice date is today (edit icon only for today)
-const isInvoiceDateToday = (invoice) => {
+// Edit allowed only within 1 week of invoice date
+const canEditByDate = (invoice) => {
   const raw = invoice?.invoiceDate ?? invoice?.invoice_date ?? invoice?.createdAt;
   if (raw == null) return false;
-  const invoiceDateStr = formatDateForInput(raw);
-  return invoiceDateStr === getCurrentDatePakistan();
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return false;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  cutoff.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return d >= cutoff;
 };
 
 const StatusBadge = ({ status }) => {
@@ -62,7 +67,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onPrint, isEditable }) => (
+const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onPrint }) => (
   <div className="card hover:shadow-lg transition-shadow">
     <div className="card-content">
       <div className="flex items-start justify-between">
@@ -108,7 +113,7 @@ const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onP
             <Printer className="h-4 w-4" />
           </button>
 
-          {isEditable && (
+          {canEditByDate(invoice) && (
             <button
               onClick={() => onEdit(invoice)}
               className="text-blue-600 hover:text-blue-800"
@@ -310,7 +315,7 @@ export const PurchaseInvoices = () => {
             <Printer className="h-4 w-4" />
           </button>
 
-          {isInvoiceDateToday(item) && (
+          {canEditByDate(item) && (
             <button
               onClick={() => handleEdit(item)}
               className="text-blue-600 hover:text-blue-800"
@@ -616,7 +621,7 @@ export const PurchaseInvoices = () => {
                       >
                         <Printer className="h-4 w-4" />
                       </button>
-                      {isInvoiceDateToday(invoice) && (
+                      {canEditByDate(invoice) && (
                         <button
                           onClick={() => handleEdit(invoice)}
                           className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
@@ -743,7 +748,7 @@ export const PurchaseInvoices = () => {
                         <Printer className="h-4 w-4" />
                       </button>
 
-                      {isInvoiceDateToday(invoice) && (
+                      {canEditByDate(invoice) && (
                         <button
                           onClick={() => handleEdit(invoice)}
                           className="shrink-0 text-blue-600 hover:text-blue-800 p-1"

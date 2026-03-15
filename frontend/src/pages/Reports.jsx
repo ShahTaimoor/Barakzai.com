@@ -17,7 +17,8 @@ import {
   ShoppingBag,
   CheckCircle,
   AlertTriangle,
-  XCircle
+  XCircle,
+  Search
 } from 'lucide-react';
 import {
   useGetSalesReportQuery,
@@ -44,6 +45,7 @@ export const Reports = () => {
   const [inventoryType, setInventoryType] = useState('stock-summary');
   const [financialType, setFinancialType] = useState('trial-balance');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [inventoryProductSearch, setInventoryProductSearch] = useState('');
   const [city, setCity] = useState('all');
   const [dateRange, setDateRange] = useState({
     from: getDateDaysAgo(30),
@@ -96,8 +98,8 @@ export const Reports = () => {
     isLoading: inventoryLoading,
     refetch: refetchInventory
   } = useGetInventoryReportQuery({
-    category: selectedCategory === 'all' ? undefined : selectedCategory,
     type: inventoryType,
+    ...(inventoryProductSearch.trim() ? { search: inventoryProductSearch.trim() } : {}),
     ...(inventoryType === 'stock-summary' && { dateFrom: dateRange.from, dateTo: dateRange.to })
   }, {
     skip: activeTab !== 'inventory'
@@ -256,6 +258,14 @@ export const Reports = () => {
             { header: 'Valuation', render: (row) => (row.valuation || 0).toLocaleString(), align: 'right', bold: true },
           ];
         }
+        // Current Stock: show only stock info (no Status column). Low Stock tab is separate.
+        if (inventoryType === 'summary') {
+          return [
+            ...baseCols,
+            { header: 'Min Level', render: (row) => (row.minStockLevel || 0).toLocaleString(), align: 'right' },
+          ];
+        }
+        // Low Stock tab: include Status
         return [
           ...baseCols,
           { header: 'Min Level', render: (row) => (row.minStockLevel || 0).toLocaleString(), align: 'right' },
@@ -424,11 +434,19 @@ export const Reports = () => {
           {activeTab !== 'inventory' && (
             <div className="w-48">
               <SearchableDropdown
-                options={[{ id: 'all', name: 'All Cities' }, ...cities]}
-                value={city}
-                onChange={(val) => setCity(val)}
+                items={[
+                  { id: 'all', name: 'All Cities' },
+                  ...(Array.isArray(cities) ? cities.map((c) => ({ ...c, id: c.id || c._id })) : [])
+                ]}
+                valueKey="id"
+                displayKey="name"
+                value={
+                  city === 'all'
+                    ? 'All Cities'
+                    : (cities || []).find((c) => (c.id || c._id) === city)?.name || city
+                }
+                onSelect={(item) => setCity(item?.id ?? item?._id ?? 'all')}
                 placeholder="Filter by City"
-                icon={<MapPin className="h-4 w-4 text-gray-400" />}
               />
             </div>
           )}
@@ -700,12 +718,14 @@ export const Reports = () => {
                       showPresets={true}
                     />
                   )}
-                  <div className="w-48 text-sm">
-                    <SearchableDropdown
-                      options={[{ id: 'all', name: 'All Categories' }, ...categories]}
-                      value={selectedCategory}
-                      onChange={(val) => setSelectedCategory(val)}
-                      placeholder="Filter Category"
+                  <div className="flex items-center gap-2 min-w-[200px]">
+                    <Search className="h-4 w-4 text-gray-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={inventoryProductSearch}
+                      onChange={(e) => setInventoryProductSearch(e.target.value)}
+                      placeholder="Search product by name or SKU..."
+                      className="input w-full text-sm h-9"
                     />
                   </div>
                   <div className="text-sm text-gray-500">

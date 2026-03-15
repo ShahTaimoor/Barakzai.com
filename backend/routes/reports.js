@@ -101,6 +101,7 @@ router.get('/inventory', [
   requirePermission('view_reports'),
   query('lowStock').optional().isBoolean(),
   query('category').optional(),
+  query('search').optional().trim(),
   query('type').optional().isIn(['summary', 'low-stock', 'valuation', 'stock-summary']),
   query('dateFrom').optional().isDate(),
   query('dateTo').optional().isDate(),

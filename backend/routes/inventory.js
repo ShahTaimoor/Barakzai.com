@@ -35,8 +35,8 @@ router.get('/', [
   }),
   query('limit').optional().custom((value) => {
     const limit = parseInt(value);
-    if (isNaN(limit) || limit < 1 || limit > 100) {
-      throw new Error('Limit must be between 1 and 100');
+    if (isNaN(limit) || limit < 1 || limit > 5000) {
+      throw new Error('Limit must be between 1 and 5000');
     }
     return true;
   }),

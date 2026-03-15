@@ -43,6 +43,16 @@ import { useTab } from '../contexts/TabContext';
 import { getComponentInfo } from '../components/ComponentRegistry';
 import { Button } from '@/components/ui/button';
 
+// Helper to get local date in YYYY-MM-DD format (matches Sale page Bill Date)
+const getLocalDateString = (date = new Date()) => {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return new Date().toISOString().split('T')[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove }) => {
   const totalPrice = item.costPerUnit * item.quantity;
   const product = item.product || {};
@@ -497,7 +507,7 @@ export const Purchase = ({ tabId, editData }) => {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [autoGenerateInvoice, setAutoGenerateInvoice] = useState(true);
   const [expectedDelivery, setExpectedDelivery] = useState(new Date().toISOString().split('T')[0]);
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]); // Default to current date for backdating/postdating
+  const [billDate, setBillDate] = useState(getLocalDateString()); // Bill Date for backdating (same as Sale page)
   const [notes, setNotes] = useState('');
   const [taxExempt, setTaxExempt] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -595,28 +605,12 @@ export const Purchase = ({ tabId, editData }) => {
         setNotes(editData.notes);
       }
 
-      // Set invoice date if available (for backdating/postdating)
-      if (editData.invoiceDate) {
-        const formatDateForInput = (date) => {
-          if (!date) return '';
-          const d = new Date(date);
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        };
-        setInvoiceDate(formatDateForInput(editData.invoiceDate));
+      // Set bill date (same as Sale page; API returns invoiceDate)
+      if (editData.invoiceDate || editData.billDate) {
+        const d = editData.invoiceDate || editData.billDate;
+        setBillDate(!isNaN(new Date(d).getTime()) ? getLocalDateString(new Date(d)) : getLocalDateString());
       } else if (editData.createdAt) {
-        // Use createdAt as default if invoiceDate not set
-        const formatDateForInput = (date) => {
-          if (!date) return '';
-          const d = new Date(date);
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        };
-        setInvoiceDate(formatDateForInput(editData.createdAt));
+        setBillDate(!isNaN(new Date(editData.createdAt).getTime()) ? getLocalDateString(new Date(editData.createdAt)) : getLocalDateString());
       }
 
       // Set the purchase items
@@ -805,7 +799,7 @@ export const Purchase = ({ tabId, editData }) => {
       setPaymentMethod('cash');
       setInvoiceNumber('');
       setExpectedDelivery(new Date().toISOString().split('T')[0]);
-      setInvoiceDate(new Date().toISOString().split('T')[0]); // Reset to current date
+      setBillDate(getLocalDateString()); // Reset Bill Date to today
       setNotes('');
 
       // Reset tab title to default
@@ -1244,7 +1238,7 @@ export const Purchase = ({ tabId, editData }) => {
       },
       ...(finalInvoiceNumber ? { invoiceNumber: finalInvoiceNumber } : {}), // Only include if provided - backend will auto-generate based on invoiceDate
       expectedDelivery: expectedDelivery,
-      invoiceDate: invoiceDate || undefined, // Include invoiceDate for backdating/postdating (invoice number will be based on this)
+      invoiceDate: billDate || undefined, // Bill Date for backdating (sent as invoiceDate to API, same as Sale page)
       notes: notes,
       terms: ''
     };
@@ -1255,7 +1249,7 @@ export const Purchase = ({ tabId, editData }) => {
     } else {
       handleCreatePurchaseInvoice(invoiceData);
     }
-  }, [purchaseItems, selectedSupplier, invoiceNumber, autoGenerateInvoice, expectedDelivery, invoiceDate, notes, taxExempt, subtotal, tax, total, directDiscountAmount, paymentMethod, amountPaid, editData, handleCreatePurchaseInvoice, handleUpdatePurchaseInvoice]);
+  }, [purchaseItems, selectedSupplier, invoiceNumber, autoGenerateInvoice, expectedDelivery, billDate, notes, taxExempt, subtotal, tax, total, directDiscountAmount, paymentMethod, amountPaid, editData, handleCreatePurchaseInvoice, handleUpdatePurchaseInvoice]);
 
 
   return (
@@ -1495,25 +1489,22 @@ export const Purchase = ({ tabId, editData }) => {
                   />
                 </div>
 
-                {/* Invoice Date (for backdating/postdating) */}
+                {/* Bill Date (for backdating - same as Sale page) */}
                 <div className="flex flex-col w-full sm:w-48">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Invoice Date <span className="text-xs text-gray-500">(Optional)</span>
+                    Bill Date <span className="text-xs text-gray-500">(Optional - for backdating)</span>
                   </label>
                   <input
                     type="date"
                     autoComplete="off"
-                    value={invoiceDate}
-                    onChange={(e) => setInvoiceDate(e.target.value)}
+                    value={billDate}
+                    onChange={(e) => setBillDate(e.target.value)}
                     className="input h-8 sm:h-8 text-sm"
-                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
-                    placeholder="Leave empty to use current date"
+                    max={getLocalDateString()}
                   />
-                  {!invoiceDate && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Set custom date for backdating
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Set custom date for backdating purchase
+                  </p>
                 </div>
 
                 {/* Tax Exemption Option */}
@@ -1696,7 +1687,7 @@ export const Purchase = ({ tabId, editData }) => {
                     setDirectDiscount({ type: 'amount', value: 0 });
                     setAmountPaid(0);
                     setPaymentMethod('cash');
-                    setInvoiceDate(new Date().toISOString().split('T')[0]); // Reset to current date
+                    setBillDate(getLocalDateString()); // Reset Bill Date
                     toast.success('Cart cleared');
                   }}
                   variant="secondary"

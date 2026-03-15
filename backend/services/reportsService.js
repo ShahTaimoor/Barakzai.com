@@ -594,6 +594,7 @@ class ReportsService {
 
     const { query } = require('../config/postgres');
     const categoryId = filters.category && filters.category !== 'all' ? filters.category : null;
+    const searchTerm = filters.search && String(filters.search).trim() ? String(filters.search).trim() : null;
 
     let sql = '';
     let params = [];
@@ -604,9 +605,18 @@ class ReportsService {
       whereClause += ` AND p.category_id = $${paramIdx++}`;
       params.push(categoryId);
     }
+    if (searchTerm) {
+      whereClause += ` AND (p.name ILIKE $${paramIdx} OR p.sku ILIKE $${paramIdx} OR p.barcode ILIKE $${paramIdx})`;
+      params.push(`%${searchTerm}%`);
+      paramIdx += 1;
+    }
 
     if (reportType === 'low-stock') {
       whereClause += " AND p.stock_quantity <= p.min_stock_level";
+    }
+    // Current Stock: only show products with available stock (quantity > 0)
+    if (reportType === 'summary') {
+      whereClause += " AND (COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0)";
     }
 
     sql = `
@@ -641,16 +651,19 @@ class ReportsService {
         COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0 
                          AND COALESCE(p.min_stock_level, 0) > 0
                          AND COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) <= p.min_stock_level) as "lowStockCount",
-        COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0
-                         AND (COALESCE(p.min_stock_level, 0) = 0 
-                              OR COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > p.min_stock_level)) as "inStockCount"
+        COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0) as "inStockCount"
       FROM products p
       LEFT JOIN inventory_balance ib ON ib.product_id = p.id
       LEFT JOIN inventory i ON i.product_id = p.id AND i.deleted_at IS NULL
       WHERE p.is_deleted = FALSE AND p.is_active = TRUE
       ${categoryId ? ` AND p.category_id = $1` : ''}
+      ${searchTerm ? ` AND (p.name ILIKE $${categoryId ? 2 : 1} OR p.sku ILIKE $${categoryId ? 2 : 1} OR p.barcode ILIKE $${categoryId ? 2 : 1})` : ''}
+      ${reportType === 'summary' ? ` AND (COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0)` : ''}
     `;
-    const summaryResult = await query(summarySql, categoryId ? [categoryId] : []);
+    const summaryParams = [];
+    if (categoryId) summaryParams.push(categoryId);
+    if (searchTerm) summaryParams.push(`%${searchTerm}%`);
+    const summaryResult = await query(summarySql, summaryParams.length ? summaryParams : []);
     const summary = summaryResult.rows[0];
 
     return {
