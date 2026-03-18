@@ -182,7 +182,7 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
         <div className="flex items-center space-x-4 mb-6">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(reportData.status)}`}>
             {getStatusIcon(reportData.status)}
-            <span className="ml-1">{reportData.status.toUpperCase()}</span>
+            <span className="ml-1">{String(reportData.status || '').toUpperCase()}</span>
           </span>
           <span className="text-sm text-gray-500">
             {reportData.viewCount} views
@@ -314,13 +314,13 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
                   <div>
                     <p className="text-sm text-gray-500">Report Type</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {reportData.reportType.replace('_', ' ').toUpperCase()}
+                      {String(reportData.reportType || 'unknown').replace('_', ' ').toUpperCase()}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Period Type</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {reportData.periodType.toUpperCase()}
+                      {String(reportData.periodType || '').toUpperCase()}
                     </p>
                   </div>
                   <div>
@@ -400,7 +400,7 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
                               item.metrics.stockStatus === 'overstocked' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-green-100 text-green-800'
                             }`}>
-                              {item.metrics.stockStatus.replace('_', ' ').toUpperCase()}
+                              {String(item.metrics.stockStatus || '').replace('_', ' ').toUpperCase()}
                             </span>
                           </td>
                         </tr>
@@ -462,7 +462,7 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
                               item.metrics.turnoverCategory === 'dead' ? 'bg-red-100 text-red-800' :
                               'bg-blue-100 text-blue-800'
                             }`}>
-                              {item.metrics.turnoverCategory.toUpperCase()}
+                              {String(item.metrics.turnoverCategory || '').toUpperCase()}
                             </span>
                           </td>
                         </tr>
@@ -530,7 +530,7 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
                               item.metrics.agingCategory === 'aging' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-green-100 text-green-800'
                             }`}>
-                              {item.metrics.agingCategory.replace('_', ' ').toUpperCase()}
+                              {String(item.metrics.agingCategory || '').replace('_', ' ').toUpperCase()}
                             </span>
                           </td>
                         </tr>
@@ -576,7 +576,7 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
                             insight.impact === 'medium' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-green-100 text-green-800'
                           }`}>
-                            {insight.impact.toUpperCase()} IMPACT
+                            {String(insight.impact || '').toUpperCase()} IMPACT
                           </span>
                         </div>
                       </div>
