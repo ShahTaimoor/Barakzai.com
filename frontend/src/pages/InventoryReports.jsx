@@ -599,22 +599,29 @@ const InventoryReports = () => {
                       <div className="ml-4">
                         <div className="flex items-center">
                           <p className="text-sm font-medium text-blue-600 truncate">
-                            {report.reportName}
+                            {report.reportName ?? report.report_name ?? 'N/A'}
                           </p>
                           {report.isFavorite && (
                             <Star className="ml-2 h-4 w-4 text-yellow-400 fill-current" />
                           )}
                         </div>
                         <div className="mt-1 flex items-center space-x-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getReportTypeColor(report.reportType)}`}>
-                            {String(report.reportType || 'unknown').replace('_', ' ').toUpperCase()}
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getReportTypeColor(report.reportType ?? report.report_type)}`}>
+                            {(() => {
+                              const type = report.reportType ?? report.report_type;
+                              return type ? String(type).replace('_', ' ').toUpperCase() : 'N/A';
+                            })()}
                           </span>
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
                             {getStatusIcon(report.status)}
                             <span className="ml-1">{String(report.status || '').toUpperCase()}</span>
                           </span>
                           <span className="text-sm text-gray-500">
-                            {new Date(report.generatedAt).toLocaleDateString()}
+                            {(() => {
+                              const raw = report?.generatedAt ?? report?.created_at ?? report?.createdAt;
+                              const d = raw ? new Date(raw) : null;
+                              return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString() : 'N/A';
+                            })()}
                           </span>
                         </div>
                       </div>

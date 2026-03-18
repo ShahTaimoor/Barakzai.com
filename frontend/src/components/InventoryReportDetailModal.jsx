@@ -52,7 +52,11 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
   };
 
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    const raw = date ?? null;
+    if (!raw) return 'N/A';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -165,8 +169,12 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
     <BaseModal
       isOpen={true}
       onClose={onClose}
-      title={isLoading ? 'Loading...' : reportData.reportName}
-      subtitle={!isLoading && reportData.generatedAt ? `Generated ${formatDate(reportData.generatedAt)}` : ''}
+      title={isLoading ? 'Loading...' : (reportData.reportName ?? reportData.report_name ?? 'N/A')}
+      subtitle={
+        !isLoading && (reportData.generatedAt || reportData.created_at || reportData.createdAt)
+          ? `Generated ${formatDate(reportData.generatedAt ?? reportData.created_at ?? reportData.createdAt)}`
+          : ''
+      }
       headerExtra={headerExtra}
       maxWidth="2xl"
       variant="scrollable"
@@ -314,25 +322,28 @@ const InventoryReportDetailModal = ({ report, onClose, onExport, onDelete, onTog
                   <div>
                     <p className="text-sm text-gray-500">Report Type</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {String(reportData.reportType || 'unknown').replace('_', ' ').toUpperCase()}
+                      {(() => {
+                        const type = reportData.reportType ?? reportData.report_type;
+                        return type ? String(type).replace('_', ' ').toUpperCase() : 'N/A';
+                      })()}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Period Type</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {String(reportData.periodType || '').toUpperCase()}
+                      {String(reportData.periodType ?? reportData.period_type ?? '').toUpperCase() || 'N/A'}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Start Date</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {formatDate(reportData.startDate)}
+                      {formatDate(reportData.startDate ?? reportData.start_date)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">End Date</p>
                     <p className="text-sm font-medium text-gray-900">
-                      {formatDate(reportData.endDate)}
+                      {formatDate(reportData.endDate ?? reportData.end_date)}
                     </p>
                   </div>
                   <div>
