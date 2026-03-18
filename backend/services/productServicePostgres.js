@@ -169,10 +169,6 @@ class ProductServicePostgres {
       const nameExists = await productRepository.nameExists(productData.name);
       if (nameExists) throw new Error('A product with this name already exists. Please choose a different name.');
     }
-    if (productData.sku) {
-      const skuExists = await productRepository.skuExists(productData.sku);
-      if (skuExists) throw new Error('A product with this SKU already exists.');
-    }
     if (productData.barcode) {
       const barcodeExists = await productRepository.barcodeExists(productData.barcode);
       if (barcodeExists) throw new Error('A product with this barcode already exists.');
@@ -218,10 +214,6 @@ class ProductServicePostgres {
     if (updateData.name) {
       const nameExists = await productRepository.nameExists(updateData.name, id);
       if (nameExists) throw new Error('A product with this name already exists. Please choose a different name.');
-    }
-    if (updateData.sku) {
-      const skuExists = await productRepository.skuExists(updateData.sku, id);
-      if (skuExists) throw new Error('A product with this SKU already exists.');
     }
     if (updateData.barcode) {
       const barcodeExists = await productRepository.barcodeExists(updateData.barcode, id);
