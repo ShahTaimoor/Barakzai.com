@@ -170,8 +170,14 @@ router.get('/:id', auth, async (req, res) => {
     if (error.message === 'Product not found') {
       return res.status(404).json({ message: 'Product not found' });
     }
+    if (error.message === 'Invalid product id') {
+      return res.status(400).json({ message: 'Invalid product id' });
+    }
     console.error('Get product error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({
+      message: 'Server error',
+      ...(process.env.NODE_ENV === 'development' && { details: error.message })
+    });
   }
 });
 

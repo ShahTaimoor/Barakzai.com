@@ -54,7 +54,10 @@ const MIGRATIONS = [
   '033_chart_of_accounts_metadata.sql',
   '034_reverse_ledger_for_deleted_receipts_payments.sql',
   '035_reverse_ledger_for_deleted_purchase_invoices.sql',
-  '036_allow_duplicate_products_sku.sql'
+  '036_allow_duplicate_products_sku.sql',
+  '037_item_wise_confirmation.sql',
+  '038_order_settings.sql',
+  '039_products_pieces_per_box.sql'
 ];
 
 async function ensureMigrationsTable() {
