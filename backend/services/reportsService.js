@@ -496,6 +496,7 @@ class ReportsService {
       const wholesalePrice = wholesalePriceRaw || sellingPriceRaw || costPrice;
       const closingAmount = closingQty * costPrice;
       const wholesaleValuation = closingQty * wholesalePrice;
+      const retailValuation = closingQty * sellingPrice;
       const minStockLevel = parseFloat(r.min_stock_level || 0);
       return {
         id: r.id,
@@ -521,6 +522,7 @@ class ReportsService {
         closingAmount,
         salePrice1: sellingPriceRaw,
         wholesaleValuation,
+        retailValuation,
         avgPurchasePrice
       };
     });
@@ -540,8 +542,9 @@ class ReportsService {
       damageAmount: acc.damageAmount + r.damageAmount,
       closingQty: acc.closingQty + r.closingQty,
       closingAmount: acc.closingAmount + r.closingAmount,
-      wholesaleValuation: acc.wholesaleValuation + (r.wholesaleValuation || 0)
-    }), { openingQty: 0, openingAmount: 0, purchaseQty: 0, purchaseAmount: 0, purchaseReturnQty: 0, purchaseReturnAmount: 0, saleQty: 0, saleAmount: 0, saleReturnQty: 0, saleReturnAmount: 0, damageQty: 0, damageAmount: 0, closingQty: 0, closingAmount: 0, wholesaleValuation: 0 });
+      wholesaleValuation: acc.wholesaleValuation + (r.wholesaleValuation || 0),
+      retailValuation: acc.retailValuation + (r.retailValuation || 0)
+    }), { openingQty: 0, openingAmount: 0, purchaseQty: 0, purchaseAmount: 0, purchaseReturnQty: 0, purchaseReturnAmount: 0, saleQty: 0, saleAmount: 0, saleReturnQty: 0, saleReturnAmount: 0, damageQty: 0, damageAmount: 0, closingQty: 0, closingAmount: 0, wholesaleValuation: 0, retailValuation: 0 });
 
     const outOfStockCount = rows.filter(r => (r.closingQty || 0) === 0).length;
     const lowStockCount = rows.filter(r => {
@@ -564,6 +567,7 @@ class ReportsService {
         totalItems: rows.length,
         totalValuation: totals.closingAmount,
         totalWholesaleValuation: totals.wholesaleValuation,
+        totalRetailValuation: totals.retailValuation,
         totalStock: totals.closingQty,
         lowStockCount,
         outOfStockCount,
@@ -624,6 +628,7 @@ class ReportsService {
         p.cost_price as "costPrice",
         p.selling_price as "sellingPrice",
         (COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) * p.cost_price) as "valuation",
+        (COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) * p.selling_price) as "retailValuation",
         p.unit
       FROM products p
       LEFT JOIN categories cat ON p.category_id = cat.id
@@ -640,6 +645,7 @@ class ReportsService {
       SELECT 
         COUNT(*) as "totalItems",
         SUM(COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) * p.cost_price) as "totalValuation",
+        SUM(COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) * p.selling_price) as "totalRetailValuation",
         COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) = 0) as "outOfStockCount",
         COUNT(*) FILTER (WHERE COALESCE(ib.quantity, i.current_stock, p.stock_quantity, 0) > 0 
                          AND COALESCE(p.min_stock_level, 0) > 0
@@ -666,11 +672,13 @@ class ReportsService {
         minStockLevel: parseFloat(row.minStockLevel || 0),
         costPrice: parseFloat(row.costPrice || 0),
         sellingPrice: parseFloat(row.sellingPrice || 0),
-        valuation: parseFloat(row.valuation || 0)
+        valuation: parseFloat(row.valuation || 0),
+        retailValuation: parseFloat(row.retailValuation || 0)
       })),
       summary: {
         totalItems: parseInt(summary.totalItems || 0),
         totalValuation: parseFloat(summary.totalValuation || 0),
+        totalRetailValuation: parseFloat(summary.totalRetailValuation || 0),
         lowStockCount: parseInt(summary.lowStockCount || 0),
         outOfStockCount: parseInt(summary.outOfStockCount || 0),
         inStockCount: parseInt(summary.inStockCount || 0)
