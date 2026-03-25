@@ -849,7 +849,7 @@ class ReportsService {
         SELECT c.opening_balance + COALESCE(SUM(l.debit_amount - l.credit_amount), 0) as balance
         FROM customers c
         LEFT JOIN account_ledger l ON c.id = l.customer_id AND l.status = 'completed' AND l.account_code = '1100' AND l.reversed_at IS NULL
-        WHERE c.deleted_at IS NULL
+        WHERE c.deleted_at IS NULL AND c.is_deleted = FALSE
         ${city ? `AND (
           (jsonb_typeof(c.address) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(c.address) addr WHERE addr->>'city' = $1))
           OR (jsonb_typeof(c.address) = 'object' AND c.address->>'city' = $1)
@@ -864,8 +864,12 @@ class ReportsService {
       SELECT SUM(balance) as total FROM (
         SELECT s.opening_balance + COALESCE(SUM(l.credit_amount - l.debit_amount), 0) as balance
         FROM suppliers s
-        LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000' AND l.reversed_at IS NULL
-        WHERE s.deleted_at IS NULL
+        LEFT JOIN account_ledger l ON s.id = l.supplier_id
+          AND l.status = 'completed'
+          AND l.account_code = '2000'
+          AND l.reversed_at IS NULL
+          AND (l.reference_type IS NULL OR l.reference_type <> 'supplier_opening_balance')
+        WHERE s.deleted_at IS NULL AND s.is_deleted = FALSE
         ${city ? `AND (
           (jsonb_typeof(s.address) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.address) addr WHERE addr->>'city' = $1))
           OR (jsonb_typeof(s.address) = 'object' AND s.address->>'city' = $1)
@@ -1050,7 +1054,7 @@ class ReportsService {
           COALESCE(SUM(l.credit_amount), 0) as "totalCredit"
         FROM customers c
         LEFT JOIN account_ledger l ON c.id = l.customer_id AND l.status = 'completed' AND l.account_code = '1100' AND l.reversed_at IS NULL
-        WHERE c.deleted_at IS NULL
+        WHERE c.deleted_at IS NULL AND c.is_deleted = FALSE
       `;
       if (city) {
         sql += ` AND (
@@ -1077,8 +1081,12 @@ class ReportsService {
           COALESCE(SUM(l.debit_amount), 0) as "totalDebit",
           COALESCE(SUM(l.credit_amount), 0) as "totalCredit"
         FROM suppliers s
-        LEFT JOIN account_ledger l ON s.id = l.supplier_id AND l.status = 'completed' AND l.account_code = '2000' AND l.reversed_at IS NULL
-        WHERE s.deleted_at IS NULL
+        LEFT JOIN account_ledger l ON s.id = l.supplier_id
+          AND l.status = 'completed'
+          AND l.account_code = '2000'
+          AND l.reversed_at IS NULL
+          AND (l.reference_type IS NULL OR l.reference_type <> 'supplier_opening_balance')
+        WHERE s.deleted_at IS NULL AND s.is_deleted = FALSE
       `;
       if (city) {
         sql += ` AND (
