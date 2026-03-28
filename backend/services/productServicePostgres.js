@@ -195,8 +195,6 @@ class ProductServicePostgres {
     if (cost < 0) throw new Error('Cost price is required and must be non-negative');
     if (retail < 0) throw new Error('Retail price is required and must be non-negative');
     if (wholesale < 0) throw new Error('Wholesale price must be non-negative');
-    if (cost > wholesale) throw new Error('Cost price cannot be greater than wholesale price');
-    if (wholesale > retail) throw new Error('Wholesale price cannot be greater than retail price');
 
     if (productData.name) {
       const nameExists = await productRepository.nameExists(productData.name);
@@ -288,8 +286,6 @@ class ProductServicePostgres {
       const retail = pricing.retail !== undefined && pricing.retail !== null ? Number(pricing.retail) : current.selling_price;
       const currentWholesale = current.wholesale_price ?? current.wholesalePrice ?? current.selling_price;
       const wholesale = pricing.wholesale !== undefined && pricing.wholesale !== null ? Number(pricing.wholesale) : currentWholesale;
-      if (cost > wholesale) throw new Error('Cost price cannot be greater than wholesale price');
-      if (wholesale > retail) throw new Error('Wholesale price cannot be greater than retail price');
       data.costPrice = cost;
       data.sellingPrice = retail;
       data.wholesalePrice = wholesale;
