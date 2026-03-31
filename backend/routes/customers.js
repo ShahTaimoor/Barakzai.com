@@ -648,15 +648,49 @@ router.put('/:id/balance', [
 // @route   POST /api/customers/import/excel
 // @desc    Import customers from Excel
 // @access  Private
+router.post('/import/excel/sheets', [
+  auth,
+  requirePermission('create_customers'),
+  upload.single('file')
+], async (req, res) => {
+  let filePath = null;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    filePath = req.file.path;
+
+    const workbook = XLSX.readFile(filePath);
+    const sheetNames = workbook?.SheetNames || [];
+
+    return res.json({ sheetNames });
+  } catch (error) {
+    console.error('Import sheets error:', error);
+    return res.status(500).json({ message: 'Failed to read Excel sheets' });
+  } finally {
+    // Cleanup uploaded file
+    if (filePath) {
+      try { fs.unlinkSync(filePath); } catch (e) { /* ignore */ }
+    }
+  }
+});
+
+// @route   POST /api/customers/import/excel
+// @desc    Import customers from Excel
+// @access  Private
 router.post('/import/excel', [
   auth,
   requirePermission('create_customers'),
   upload.single('file')
 ], async (req, res) => {
+  let filePath = null;
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
+    
+    filePath = req.file.path;
     
     const results = {
       total: 0,
@@ -666,9 +700,60 @@ router.post('/import/excel', [
     
     // Read Excel file
     const workbook = XLSX.readFile(req.file.path);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const customers = XLSX.utils.sheet_to_json(worksheet);
+    const requestedSheetNameFromQuery =
+      typeof req.query?.sheetName === 'string' && req.query.sheetName.trim()
+        ? req.query.sheetName.trim()
+        : null;
+    const requestedSheetNameFromBody =
+      typeof req.body?.sheetName === 'string' && req.body.sheetName.trim()
+        ? req.body.sheetName.trim()
+        : null;
+    const requestedSheetName = requestedSheetNameFromQuery || requestedSheetNameFromBody;
+    const requestedSheetIndexFromQuery = Number.isFinite(Number(req.query?.sheetIndex))
+      ? Number(req.query.sheetIndex)
+      : null;
+    const requestedSheetIndexFromBody = Number.isFinite(Number(req.body?.sheetIndex))
+      ? Number(req.body.sheetIndex)
+      : null;
+    const requestedSheetIndex = requestedSheetIndexFromQuery ?? requestedSheetIndexFromBody;
+
+    const availableSheetNames = workbook?.SheetNames || [];
+    let effectiveSheetName = null;
+
+    if (
+      Number.isInteger(requestedSheetIndex) &&
+      requestedSheetIndex >= 0 &&
+      requestedSheetIndex < availableSheetNames.length
+    ) {
+      effectiveSheetName = availableSheetNames[requestedSheetIndex];
+    } else if (requestedSheetName) {
+      // Exact match first.
+      if (workbook?.Sheets?.[requestedSheetName]) {
+        effectiveSheetName = requestedSheetName;
+      } else {
+        // Then case-insensitive match for safety.
+        const lowerRequested = requestedSheetName.toLowerCase();
+        const matched = availableSheetNames.find((name) => String(name).toLowerCase() === lowerRequested);
+        if (matched) {
+          effectiveSheetName = matched;
+        } else {
+          return res.status(400).json({
+            message: `Invalid sheet selected: ${requestedSheetName}`,
+            availableSheets: availableSheetNames
+          });
+        }
+      }
+    } else {
+      effectiveSheetName = availableSheetNames[0] || null;
+    }
+
+    if (!effectiveSheetName) {
+      return res.status(400).json({ message: 'No sheets found in Excel file' });
+    }
+
+    const worksheet = workbook.Sheets[effectiveSheetName];
+    // defval ensures empty cells become '' (so row fields are always strings).
+    const customers = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
     
     console.log('Importing customers, first row sample:', customers[0]);
     
@@ -677,65 +762,119 @@ router.post('/import/excel', [
     for (let i = 0; i < customers.length; i++) {
       try {
         const rawRow = customers[i];
-        // Normalize keys to handle spaces and case sensitivity
+        // Normalize keys to handle spaces/case sensitivity.
+        // Also create a lowercased lookup for robust mapping.
         const row = {};
-        Object.keys(rawRow).forEach(key => {
-          row[key.trim()] = rawRow[key];
+        const rowLower = {};
+        Object.keys(rawRow || {}).forEach((key) => {
+          const trimmedKey = String(key || '').trim();
+          const v = rawRow[key];
+          row[trimmedKey] = v;
+          rowLower[String(trimmedKey).toLowerCase()] = v;
         });
         
         // Map Excel columns to our format
         const customerData = {
-          name: row['Name'] || row['name'] || row['Customer Name'] || row['customer name'] || row.name,
-          email: row['Email'] || row['email'] || row.email || undefined,
-          phone: row['Phone'] || row['phone'] || row.phone || '',
-          businessName: row['Business Name'] || row['businessName'] || row['BusinessName'] || row.businessName,
-          businessType: row['Business Type'] || row['businessType'] || row.businessType || 'wholesale',
-          taxId: row['Tax ID'] || row['taxId'] || row.taxId || '',
-          customerTier: row['Customer Tier'] || row['customerTier'] || row.customerTier || 'bronze',
-          creditLimit: row['Credit Limit'] || row['creditLimit'] || row.creditLimit || 0,
-          openingBalance: row['Opening Balance'] || row['openingBalance'] || row.openingBalance || 0,
-          paymentTerms: row['Payment Terms'] || row['paymentTerms'] || row.paymentTerms || 'cash',
-          street: row['Street'] || row['street'] || row['Address'] || row.street || '',
-          city: row['City'] || row['city'] || row.city || '',
-          state: row['State'] || row['state'] || row.state || '',
-          zipCode: row['Zip Code'] || row['zipCode'] || row.zipCode || '',
-          country: row['Country'] || row['country'] || row.country || '',
-          status: row['Status'] || row['status'] || row.status || 'active',
-          notes: row['Notes'] || row['notes'] || row.notes || ''
+          name:
+            rowLower['name'] ||
+            rowLower['customer name'] ||
+            rowLower['customername'] ||
+            rowLower['customer_name'] ||
+            rowLower['customer'] ||
+            '',
+          email: rowLower['email'] || rowLower['e-mail'] || rowLower['email address'] || rowLower['emailaddress'] || undefined,
+          phone: rowLower['phone'] || '',
+          businessName:
+            rowLower['business name'] ||
+            rowLower['businessname'] ||
+            rowLower['business_name'] ||
+            rowLower['company name'] ||
+            '',
+          businessType: rowLower['business type'] || rowLower['businesstype'] || rowLower['business_type'] || 'wholesale',
+          taxId: rowLower['tax id'] || rowLower['taxid'] || rowLower['tax_id'] || '',
+          customerTier: rowLower['customer tier'] || rowLower['customertier'] || rowLower['customer_tier'] || 'bronze',
+          creditLimit: rowLower['credit limit'] || rowLower['creditlimit'] || rowLower['credit_limit'] || 0,
+          openingBalance: rowLower['opening balance'] || rowLower['openingbalance'] || rowLower['opening_balance'] || 0,
+          paymentTerms: rowLower['payment terms'] || rowLower['paymentterms'] || rowLower['payment_terms'] || 'cash',
+          street: rowLower['street'] || rowLower['address'] || rowLower['address line1'] || rowLower['addressline1'] || '',
+          city: rowLower['city'] || '',
+          state: rowLower['state'] || rowLower['province'] || '',
+          zipCode: rowLower['zip code'] || rowLower['zipcode'] || rowLower['zip_code'] || '',
+          country: rowLower['country'] || '',
+          status: rowLower['status'] || rowLower['active'] || 'active',
+          notes: rowLower['notes'] || ''
         };
-        
-        // Validate required fields
-        if (!customerData.name) {
+
+        const hasValue = (v) => v !== undefined && v !== null && String(v).trim() !== '';
+        const normalizedBusinessName = String(customerData.businessName || '').trim();
+
+        // Import rule: businessName is required; all other fields optional.
+        if (!normalizedBusinessName) {
           results.errors.push({
             row: i + 2,
-            error: 'Missing required field: Name is required'
+            error: 'Missing required field: Business Name is required.'
           });
           continue;
         }
-        
-        if (!customerData.businessName) {
-          results.errors.push({
-            row: i + 2,
-            error: 'Missing required field: Business Name is required'
-          });
-          continue;
-        }
+
+        // Name is optional on import; keep it flexible and default to businessName only for creation.
+        const resolvedName = String(customerData.name || normalizedBusinessName).trim();
         
         // Check if customer already exists (by business name, case-insensitive)
-        const normalizedBusinessName = customerData.businessName.toString().trim();
         const existingCustomer = await customerRepository.findByBusinessName(normalizedBusinessName);
 
-        // If customer exists, treat this row as an update (useful when fixing missing business type, tier, etc.)
+        // If customer exists, apply only non-empty values (do not overwrite with blanks).
         if (existingCustomer) {
           const updatePayload = {};
-          if (customerData.businessType) {
+          if (hasValue(customerData.name)) {
+            updatePayload.name = String(customerData.name).trim();
+          }
+          if (hasValue(customerData.email)) {
+            updatePayload.email = String(customerData.email).trim();
+          }
+          if (hasValue(customerData.phone)) {
+            updatePayload.phone = String(customerData.phone).trim();
+          }
+          if (hasValue(customerData.businessType)) {
             updatePayload.businessType = customerData.businessType.toString().toLowerCase();
           }
-          if (customerData.customerTier) {
+          if (hasValue(customerData.taxId)) {
+            updatePayload.taxId = String(customerData.taxId).trim();
+          }
+          if (hasValue(customerData.customerTier)) {
             updatePayload.customerTier = customerData.customerTier.toString().toLowerCase();
           }
-          if (customerData.status) {
+          if (hasValue(customerData.creditLimit)) {
+            const parsedCreditLimit = parseFloat(customerData.creditLimit);
+            if (!Number.isNaN(parsedCreditLimit)) updatePayload.creditLimit = parsedCreditLimit;
+          }
+          if (hasValue(customerData.paymentTerms)) {
+            updatePayload.paymentTerms = String(customerData.paymentTerms).toLowerCase();
+          }
+          if (hasValue(customerData.status)) {
             updatePayload.status = customerData.status.toString().toLowerCase();
+          }
+          if (hasValue(customerData.notes)) {
+            updatePayload.notes = String(customerData.notes).trim();
+          }
+
+          const hasAnyAddressField = [
+            customerData.street,
+            customerData.city,
+            customerData.state,
+            customerData.zipCode,
+            customerData.country
+          ].some(hasValue);
+          if (hasAnyAddressField) {
+            updatePayload.addresses = [{
+              street: hasValue(customerData.street) ? String(customerData.street).trim() : '',
+              city: hasValue(customerData.city) ? String(customerData.city).trim() : '',
+              state: hasValue(customerData.state) ? String(customerData.state).trim() : '',
+              zipCode: hasValue(customerData.zipCode) ? String(customerData.zipCode).trim() : '',
+              country: hasValue(customerData.country) ? String(customerData.country).trim() : '',
+              isDefault: true,
+              type: 'both'
+            }];
           }
 
           // Only attempt update if we actually have something to change
@@ -747,36 +886,39 @@ router.post('/import/excel', [
             );
             results.success++;
           } else {
-            results.errors.push({
-              row: i + 2,
-              error: `Customer already exists with business name: ${customerData.businessName} (no updatable fields provided)`
-            });
+            // Existing customer with no non-empty fields in file: treat as safely skipped.
+            results.success++;
           }
           continue;
         }
 
         // Create customer using service when it does not already exist
         const customerPayload = {
-          name: customerData.name.toString().trim(),
-          email: customerData.email ? customerData.email.toString().trim() : undefined,
-          phone: customerData.phone.toString().trim() || '',
+          name: resolvedName,
+          email: customerData.email ? String(customerData.email).trim() : undefined,
+          phone: customerData.phone ? String(customerData.phone).trim() : '',
           businessName: normalizedBusinessName,
-          businessType: customerData.businessType.toString().toLowerCase(),
-          taxId: customerData.taxId.toString().trim() || '',
-          customerTier: customerData.customerTier.toString().toLowerCase(),
+          businessType: (customerData.businessType ? String(customerData.businessType) : 'wholesale').toLowerCase(),
+          taxId: customerData.taxId ? String(customerData.taxId).trim() : '',
+          customerTier: (customerData.customerTier ? String(customerData.customerTier) : 'bronze').toLowerCase(),
           creditLimit: parseFloat(customerData.creditLimit) || 0,
-          paymentTerms: customerData.paymentTerms.toString().toLowerCase(),
-          status: customerData.status.toString().toLowerCase(),
-          notes: customerData.notes.toString().trim() || '',
-          addresses: [{
-            street: customerData.street.toString().trim(),
-            city: customerData.city.toString().trim(),
-            state: customerData.state.toString().trim(),
-            zipCode: customerData.zipCode.toString().trim(),
-            country: customerData.country.toString().trim(),
-            isDefault: true,
-            type: 'both'
-          }]
+          paymentTerms: (customerData.paymentTerms ? String(customerData.paymentTerms) : 'cash').toLowerCase(),
+          status: (customerData.status ? String(customerData.status) : 'active').toLowerCase(),
+          notes: customerData.notes ? String(customerData.notes).trim() : '',
+          // Address is optional on import. Only create address record if any address field is present.
+          ...(customerData.street || customerData.city || customerData.state || customerData.zipCode || customerData.country
+            ? {
+                addresses: [{
+                  street: customerData.street ? String(customerData.street).trim() : '',
+                  city: customerData.city ? String(customerData.city).trim() : '',
+                  state: customerData.state ? String(customerData.state).trim() : '',
+                  zipCode: customerData.zipCode ? String(customerData.zipCode).trim() : '',
+                  country: customerData.country ? String(customerData.country).trim() : '',
+                  isDefault: true,
+                  type: 'both',
+                }],
+              }
+            : {})
         };
         
         await customerService.createCustomer(customerPayload, req.user?.id || req.user?._id, {
@@ -791,18 +933,22 @@ router.post('/import/excel', [
         });
       }
     }
-    
-    // Clean up uploaded file
-    fs.unlinkSync(req.file.path);
-    
     res.json({
       message: 'Import completed',
+      usedSheetName: effectiveSheetName,
+      requestedSheetName,
+      requestedSheetIndex: Number.isInteger(requestedSheetIndex) ? requestedSheetIndex : null,
+      availableSheets: availableSheetNames,
       results: results
     });
     
   } catch (error) {
     console.error('Excel import error:', error);
     res.status(500).json({ message: 'Import failed' });
+  } finally {
+    if (filePath) {
+      try { fs.unlinkSync(filePath); } catch (e) { /* ignore */ }
+    }
   }
 });
 

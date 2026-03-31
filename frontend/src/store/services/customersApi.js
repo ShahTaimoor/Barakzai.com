@@ -146,6 +146,18 @@ export const customersApi = api.injectEndpoints({
         data: params,
       }),
     }),
+    importExcelSheets: builder.mutation({
+      query: (payload) => {
+        const file = payload instanceof File ? payload : payload?.file;
+        const formData = new FormData();
+        if (file) formData.append('file', file);
+        return {
+          url: 'customers/import/excel/sheets',
+          method: 'post',
+          data: formData,
+        };
+      },
+    }),
     downloadExportFile: builder.query({
       query: (filename) => ({
         url: `customers/download/${filename}`,
@@ -155,12 +167,21 @@ export const customersApi = api.injectEndpoints({
       providesTags: [{ type: 'Customers', id: 'EXPORT' }],
     }),
     importExcel: builder.mutation({
-      query: (file) => {
+      query: (payload) => {
+        const file = payload instanceof File ? payload : payload?.file;
+        const sheetName = payload instanceof File ? undefined : payload?.sheetName;
+        const sheetIndex = payload instanceof File ? undefined : payload?.sheetIndex;
         const formData = new FormData();
-        formData.append('file', file);
+        // Append text fields first so multer/busboy consistently exposes req.body.
+        if (sheetName) formData.append('sheetName', sheetName);
+        if (file) formData.append('file', file);
         return {
           url: 'customers/import/excel',
           method: 'post',
+          params: {
+            ...(sheetName ? { sheetName } : {}),
+            ...(Number.isInteger(sheetIndex) ? { sheetIndex } : {}),
+          },
           data: formData,
         };
       },
@@ -178,7 +199,7 @@ export const customersApi = api.injectEndpoints({
     }),
     downloadTemplate: builder.query({
       query: () => ({
-        url: 'customers/export/template',
+        url: 'customers/template/excel',
         method: 'get',
         responseType: 'blob',
       }),
@@ -204,8 +225,10 @@ export const {
   useGetCustomersByCitiesQuery,
   useLazyGetCustomersByCitiesQuery,
   useExportExcelMutation,
+  useImportExcelSheetsMutation,
   useImportExcelMutation,
   useDownloadTemplateQuery,
+  useLazyDownloadTemplateQuery,
   useLazyDownloadExportFileQuery,
 } = customersApi;
 
