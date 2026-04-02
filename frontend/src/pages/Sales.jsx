@@ -2807,8 +2807,22 @@ export const Sales = ({ tabId, editData }) => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Order Type
                   </label>
+                  {/*
+                    In edit mode, show the invoice's saved order type.
+                    Previously this UI was tied to `selectedCustomer.businessType`, which could differ from
+                    what was used when the invoice was created (causing the "price type" mismatch).
+                  */}
+                  {(() => {
+                    const editOrderType = editData?.isEditMode ? editData?.orderType : null;
+                    const normalizedEditOrderType = editOrderType ? String(editOrderType).toLowerCase() : null;
+                    const allowed = new Set(['retail', 'wholesale', 'return', 'exchange']);
+                    const valueToShow =
+                      normalizedEditOrderType && allowed.has(normalizedEditOrderType)
+                        ? normalizedEditOrderType
+                        : mapBusinessTypeToOrderType(selectedCustomer?.businessType);
+                    return (
                   <select
-                    value={selectedCustomer?.businessType || 'wholesale'}
+                    value={valueToShow}
                     className="h-10 text-sm w-full"
                     disabled
                   >
@@ -2817,6 +2831,8 @@ export const Sales = ({ tabId, editData }) => {
                     <option value="return">Return</option>
                     <option value="exchange">Exchange</option>
                   </select>
+                    );
+                  })()}
                 </div>
 
                 {/* Tax Exemption Option */}
@@ -2935,7 +2951,18 @@ export const Sales = ({ tabId, editData }) => {
                     Order Type
                   </label>
                   <select
-                    value={selectedCustomer?.businessType || 'wholesale'}
+                    value={
+                      (() => {
+                        const editOrderType = editData?.isEditMode ? editData?.orderType : null;
+                        const normalizedEditOrderType = editOrderType ? String(editOrderType).toLowerCase() : null;
+                        const allowed = new Set(['retail', 'wholesale', 'return', 'exchange']);
+                        return (
+                          normalizedEditOrderType && allowed.has(normalizedEditOrderType)
+                            ? normalizedEditOrderType
+                            : mapBusinessTypeToOrderType(selectedCustomer?.businessType)
+                        );
+                      })()
+                    }
                     className="h-8 text-sm"
                     disabled
                   >
