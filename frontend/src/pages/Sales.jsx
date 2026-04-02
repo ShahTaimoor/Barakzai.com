@@ -897,11 +897,37 @@ export const Sales = ({ tabId, editData }) => {
       // Set payment method and amount paid if available
       if (editData.payment) {
         setPaymentMethod(editData.payment.method || 'cash');
-        const paidFromPayload =
-          editData.payment.amountPaid ??
-          editData.payment.amountReceived ??
-          editData.amountPaid ??
-          0;
+        // IMPORTANT:
+        // When the invoice is pending, Amount Paid should NOT be derived from amountReceived.
+        // Some backend payloads may include `amountReceived` even when payment was never made,
+        // which incorrectly pre-fills the full sale amount in edit mode.
+        const paymentStatusRaw =
+          editData.payment.status ??
+          editData.paymentStatus ??
+          editData.payment_status ??
+          'pending';
+        const normalizedPaymentStatus = String(paymentStatusRaw).toLowerCase();
+
+        const orderStatusRaw =
+          editData.orderStatus ??
+          editData.status ??
+          editData.order_status ??
+          '';
+        const normalizedOrderStatus = String(orderStatusRaw).toLowerCase();
+
+        // Important: the UI "Pending" label comes from the invoice/order status, not payment.status.
+        // If the invoice is pending (e.g. "confirmed_pending"), Amount Paid must be 0 in edit mode.
+        const isInvoicePending =
+          normalizedOrderStatus.includes('pending') || normalizedOrderStatus.includes('draft');
+
+        const paidFromPayload = isInvoicePending
+          ? 0
+          : (normalizedPaymentStatus === 'pending'
+              ? 0
+              : (editData.payment.amountPaid ??
+                  editData.payment.amountReceived ??
+                  editData.amountPaid ??
+                  0));
         const normalizedPaid = Number(paidFromPayload);
         setAmountPaid(Number.isFinite(normalizedPaid) && normalizedPaid >= 0 ? normalizedPaid : 0);
         if (editData.payment.method === 'bank') {

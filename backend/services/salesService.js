@@ -334,9 +334,17 @@ class SalesService {
 
     // Attach payment.amountPaid for invoice/print (stored on sale, or payments table, or paid-at-creation)
     const orderId = order.id || order._id;
+    const paymentStatusRaw = order.payment_status ?? order.paymentStatus ?? order.payment?.status;
+    const normalizedPaymentStatus = String(paymentStatusRaw || 'pending').toLowerCase();
+
     let amountPaid = parseFloat(order.amount_paid);
     if (Number.isNaN(amountPaid) || amountPaid < 0) amountPaid = 0;
-    if (amountPaid === 0) {
+
+    // If the invoice is explicitly pending, do not attempt to infer "amount paid"
+    // from ledger/payment history. This prevents accidental auto-fill in edit mode.
+    if (normalizedPaymentStatus === 'pending') {
+      amountPaid = 0;
+    } else if (amountPaid === 0) {
       try {
         amountPaid = await paymentRepository.calculateTotalPaid(orderId);
       } catch (_) { /* ignore */ }
@@ -356,7 +364,7 @@ class SalesService {
         amountPaid = parseFloat(ledgerResult.rows[0]?.total || 0);
       } catch (_) { /* ignore */ }
     }
-    if (amountPaid === 0 && (order.payment_status === 'paid' || order.paymentStatus === 'paid')) {
+    if (amountPaid === 0 && normalizedPaymentStatus === 'paid') {
       amountPaid = parseFloat(order.total) || 0;
     }
     order.payment = {
