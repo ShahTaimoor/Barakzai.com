@@ -897,9 +897,13 @@ export const Sales = ({ tabId, editData }) => {
       // Set payment method and amount paid if available
       if (editData.payment) {
         setPaymentMethod(editData.payment.method || 'cash');
-        // Hard rule for edit screen: never auto-fill paid amount from existing invoice payload.
-        // User must enter payment manually to avoid incorrect forced totals.
-        setAmountPaid(0);
+        const paidFromPayload =
+          editData.payment.amountPaid ??
+          editData.payment.amountReceived ??
+          editData.amountPaid ??
+          0;
+        const normalizedPaid = Number(paidFromPayload);
+        setAmountPaid(Number.isFinite(normalizedPaid) && normalizedPaid >= 0 ? normalizedPaid : 0);
         if (editData.payment.method === 'bank') {
           setSelectedBankAccount(editData.payment.bankAccount || '');
         } else {
