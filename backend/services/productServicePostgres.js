@@ -1,8 +1,9 @@
-const { query } = require('../config/postgres');
+const { query, transaction } = require('../config/postgres');
 const productRepository = require('../repositories/postgres/ProductRepository');
 const categoryRepository = require('../repositories/postgres/CategoryRepository');
 const inventoryRepository = require('../repositories/postgres/InventoryRepository');
 const investorRepository = require('../repositories/postgres/InvestorRepository');
+const AccountingService = require('./accountingService');
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -61,6 +62,12 @@ function toApiProduct(row, categoryMap = null) {
     status: row.is_active ? 'active' : 'inactive',
     isActive: row.is_active,
     unit: row.unit,
+    countryOfOrigin: row.country_of_origin || null,
+    netWeightKg: row.net_weight_kg != null ? parseFloat(row.net_weight_kg) : null,
+    grossWeightKg: row.gross_weight_kg != null ? parseFloat(row.gross_weight_kg) : null,
+    importRefNo: row.import_ref_no || null,
+    gdNumber: row.gd_number || null,
+    invoiceRef: row.invoice_ref || null,
     piecesPerBox: safePiecesPerBox(row),
     pieces_per_box: safePiecesPerBox(row),
     created_at: row.created_at,
@@ -255,23 +262,44 @@ class ProductServicePostgres {
     }
 
     const piecesPerBox = productData.piecesPerBox ?? productData.pieces_per_box;
-    const product = await productRepository.create({
-      name: productData.name,
-      sku: productData.sku,
-      barcode: productData.barcode,
-      hsCode: productData.hsCode ?? productData.hs_code,
-      description: productData.description,
-      categoryId,
-      costPrice: cost,
-      sellingPrice: retail,
-      wholesalePrice: wholesale,
-      stockQuantity: inv.currentStock ?? inv.stockQuantity ?? 0,
-      minStockLevel: inv.reorderPoint ?? inv.minStock ?? inv.minStockLevel ?? 0,
-      unit: productData.unit,
-      piecesPerBox: piecesPerBox != null && piecesPerBox !== '' ? parseFloat(piecesPerBox) : null,
-      isActive: productData.status !== 'inactive' && productData.isActive !== false,
-      createdBy: userId,
-      imageUrl: productData.imageUrl || null
+    const openingQty = parseFloat(inv.currentStock ?? inv.stockQuantity ?? 0) || 0;
+
+    const product = await transaction(async (client) => {
+      const created = await productRepository.create(
+        {
+          name: productData.name,
+          sku: productData.sku,
+          barcode: productData.barcode,
+          hsCode: productData.hsCode ?? productData.hs_code,
+          description: productData.description,
+          categoryId,
+          costPrice: cost,
+          sellingPrice: retail,
+          wholesalePrice: wholesale,
+          stockQuantity: openingQty,
+          minStockLevel: inv.reorderPoint ?? inv.minStock ?? inv.minStockLevel ?? 0,
+          unit: productData.unit,
+          countryOfOrigin: productData.countryOfOrigin ?? productData.country_of_origin ?? null,
+          netWeightKg: productData.netWeightKg ?? productData.net_weight_kg ?? null,
+          grossWeightKg: productData.grossWeightKg ?? productData.gross_weight_kg ?? null,
+          importRefNo: productData.importRefNo ?? productData.import_ref_no ?? null,
+          gdNumber: productData.gdNumber ?? productData.gd_number ?? null,
+          invoiceRef: productData.invoiceRef ?? productData.invoice_ref ?? null,
+          piecesPerBox: piecesPerBox != null && piecesPerBox !== '' ? parseFloat(piecesPerBox) : null,
+          isActive: productData.status !== 'inactive' && productData.isActive !== false,
+          createdBy: userId,
+          imageUrl: productData.imageUrl || null
+        },
+        client
+      );
+
+      await AccountingService.postProductOpeningStock(created.id, openingQty, cost, {
+        createdBy: userId,
+        transactionDate: new Date(),
+        client
+      });
+
+      return created;
     });
 
     const categoryMap = product.category_id ? await getCategoryMap([product.category_id]) : null;
@@ -319,6 +347,30 @@ class ProductServicePostgres {
       }
     }
     if (updateData.unit !== undefined) data.unit = updateData.unit;
+    if (updateData.countryOfOrigin !== undefined || updateData.country_of_origin !== undefined) {
+      const c = updateData.countryOfOrigin ?? updateData.country_of_origin;
+      data.countryOfOrigin = c === '' || c == null ? null : String(c).trim();
+    }
+    if (updateData.netWeightKg !== undefined || updateData.net_weight_kg !== undefined) {
+      const n = updateData.netWeightKg ?? updateData.net_weight_kg;
+      data.netWeightKg = n === '' || n == null ? null : Number(n);
+    }
+    if (updateData.grossWeightKg !== undefined || updateData.gross_weight_kg !== undefined) {
+      const g = updateData.grossWeightKg ?? updateData.gross_weight_kg;
+      data.grossWeightKg = g === '' || g == null ? null : Number(g);
+    }
+    if (updateData.importRefNo !== undefined || updateData.import_ref_no !== undefined) {
+      const r = updateData.importRefNo ?? updateData.import_ref_no;
+      data.importRefNo = r === '' || r == null ? null : String(r).trim();
+    }
+    if (updateData.gdNumber !== undefined || updateData.gd_number !== undefined) {
+      const gd = updateData.gdNumber ?? updateData.gd_number;
+      data.gdNumber = gd === '' || gd == null ? null : String(gd).trim();
+    }
+    if (updateData.invoiceRef !== undefined || updateData.invoice_ref !== undefined) {
+      const ir = updateData.invoiceRef ?? updateData.invoice_ref;
+      data.invoiceRef = ir === '' || ir == null ? null : String(ir).trim();
+    }
     if (updateData.piecesPerBox !== undefined || updateData.pieces_per_box !== undefined) {
       const ppb = updateData.piecesPerBox ?? updateData.pieces_per_box;
       data.piecesPerBox = ppb != null && ppb !== '' ? parseFloat(ppb) : null;
@@ -424,7 +476,10 @@ class ProductServicePostgres {
   async deleteProduct(id, req = null) {
     const product = await productRepository.findById(id);
     if (!product) throw new Error('Product not found');
-    await productRepository.delete(id);
+    await transaction(async (client) => {
+      await AccountingService.removeProductOpeningStockLedger(id, { client });
+      await productRepository.delete(id, client);
+    });
     return { message: 'Product deleted successfully' };
   }
 

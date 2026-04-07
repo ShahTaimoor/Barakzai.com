@@ -16,7 +16,13 @@ function rowToProduct(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     imageUrl: row.image_url,
-    hsCode: row.hs_code ?? null
+    hsCode: row.hs_code ?? null,
+    countryOfOrigin: row.country_of_origin ?? null,
+    netWeightKg: row.net_weight_kg != null ? parseFloat(row.net_weight_kg) : null,
+    grossWeightKg: row.gross_weight_kg != null ? parseFloat(row.gross_weight_kg) : null,
+    importRefNo: row.import_ref_no ?? null,
+    gdNumber: row.gd_number ?? null,
+    invoiceRef: row.invoice_ref ?? null
   };
 }
 
@@ -50,7 +56,15 @@ class ProductRepository {
       params.push(filters.categoryId);
     }
     if (filters.search) {
-      sql += ` AND (name ILIKE $${paramCount} OR sku ILIKE $${paramCount} OR barcode ILIKE $${paramCount} OR hs_code ILIKE $${paramCount})`;
+      sql += ` AND (
+        name ILIKE $${paramCount}
+        OR sku ILIKE $${paramCount}
+        OR barcode ILIKE $${paramCount}
+        OR hs_code ILIKE $${paramCount}
+        OR import_ref_no ILIKE $${paramCount}
+        OR gd_number ILIKE $${paramCount}
+        OR invoice_ref ILIKE $${paramCount}
+      )`;
       params.push(`%${filters.search}%`);
       paramCount++;
     }
@@ -78,11 +92,12 @@ class ProductRepository {
     return result.rows.map(rowToProduct);
   }
 
-  async create(data) {
-    const result = await query(
+  async create(data, client = null) {
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       `INSERT INTO products (name, sku, barcode, hs_code, description, category_id, cost_price, selling_price, wholesale_price,
-       stock_quantity, min_stock_level, unit, pieces_per_box, is_active, created_by, image_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       stock_quantity, min_stock_level, unit, pieces_per_box, is_active, created_by, image_url, country_of_origin, net_weight_kg, gross_weight_kg, import_ref_no, gd_number, invoice_ref)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
        RETURNING *`,
       [
         data.name,
@@ -104,7 +119,13 @@ class ProductRepository {
         data.piecesPerBox ?? data.pieces_per_box ?? null,
         data.isActive !== false,
         data.createdBy || data.created_by || null,
-        data.imageUrl || data.image_url || null
+        data.imageUrl || data.image_url || null,
+        data.countryOfOrigin ?? data.country_of_origin ?? null,
+        data.netWeightKg ?? data.net_weight_kg ?? null,
+        data.grossWeightKg ?? data.gross_weight_kg ?? null,
+        data.importRefNo ?? data.import_ref_no ?? null,
+        data.gdNumber ?? data.gd_number ?? null,
+        data.invoiceRef ?? data.invoice_ref ?? null
       ]
     );
     return result.rows[0];
@@ -132,6 +153,18 @@ class ProductRepository {
       updatedBy: 'updated_by',
       imageUrl: 'image_url',
       image_url: 'image_url',
+      countryOfOrigin: 'country_of_origin',
+      country_of_origin: 'country_of_origin',
+      netWeightKg: 'net_weight_kg',
+      net_weight_kg: 'net_weight_kg',
+      grossWeightKg: 'gross_weight_kg',
+      gross_weight_kg: 'gross_weight_kg',
+      importRefNo: 'import_ref_no',
+      import_ref_no: 'import_ref_no',
+      gdNumber: 'gd_number',
+      gd_number: 'gd_number',
+      invoiceRef: 'invoice_ref',
+      invoice_ref: 'invoice_ref',
       hsCode: 'hs_code',
       hs_code: 'hs_code'
     };
@@ -154,8 +187,9 @@ class ProductRepository {
     return result.rows[0] || null;
   }
 
-  async delete(id) {
-    const result = await query(
+  async delete(id, client = null) {
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(
       'UPDATE products SET is_deleted = TRUE, deleted_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *',
       [id]
     );
@@ -216,7 +250,15 @@ class ProductRepository {
       countParams.push(filters.categoryId);
     }
     if (filters.search) {
-      countSql += ` AND (name ILIKE $${cn} OR sku ILIKE $${cn} OR barcode ILIKE $${cn} OR hs_code ILIKE $${cn})`;
+      countSql += ` AND (
+        name ILIKE $${cn}
+        OR sku ILIKE $${cn}
+        OR barcode ILIKE $${cn}
+        OR hs_code ILIKE $${cn}
+        OR import_ref_no ILIKE $${cn}
+        OR gd_number ILIKE $${cn}
+        OR invoice_ref ILIKE $${cn}
+      )`;
       countParams.push(`%${filters.search}%`);
     }
     if (filters.lowStock) {
@@ -418,7 +460,8 @@ class ProductRepository {
     return transaction(async (client) => {
       await client.query('DELETE FROM product_transformations');
       await client.query('DELETE FROM inventory_balance');
-      await client.query('TRUNCATE TABLE stock_movements');
+      // Use DELETE (not TRUNCATE) to avoid FK constraint failures on related movement tables.
+      await client.query('DELETE FROM stock_movements');
       await client.query('DELETE FROM batches');
       await client.query('DELETE FROM profit_shares');
       await client.query('DELETE FROM inventory');

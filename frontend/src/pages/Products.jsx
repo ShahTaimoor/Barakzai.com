@@ -199,7 +199,7 @@ export const Products = () => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full min-w-0">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Products</h1>
@@ -280,7 +280,7 @@ export const Products = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="text"
-              placeholder="Search products..."
+              placeholder="Search name, SKU, barcode, HS, import refs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full text-sm sm:text-base"
