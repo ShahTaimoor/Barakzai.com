@@ -25,6 +25,7 @@ function ProductSearchComponent({
   onRefetchReady,
   dualUnitShowBoxInput = true,
   dualUnitShowPiecesInput = true,
+  allowOutOfStock = false,
 }) {
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -214,9 +215,8 @@ function ProductSearchComponent({
       ? (selectedProduct.displayName || selectedProduct.variantName || selectedProduct.name)
       : selectedProduct.name;
 
-    // Check if product/variant is out of stock
     const currentStock = selectedProduct.inventory?.currentStock || 0;
-    if (currentStock === 0) {
+    if (!allowOutOfStock && currentStock === 0) {
       toast.error(`${displayName} is out of stock and cannot be added to the invoice.`);
       return;
     }
@@ -226,8 +226,7 @@ function ProductSearchComponent({
       return;
     }
 
-    // Check if requested quantity exceeds available stock
-    if (quantity > currentStock) {
+    if (!allowOutOfStock && quantity > currentStock) {
       toast.error(`Cannot add ${quantity} units. Only ${currentStock} units available in stock.`);
       return;
     }
@@ -364,6 +363,7 @@ function ProductSearchComponent({
   const selectedPpb = getPiecesPerBox(selectedProduct);
   const selectedStockPieces = Number(selectedProduct?.inventory?.currentStock || 0);
   const selectedBoxCount = selectedPpb ? piecesToBoxesAndPieces(quantity, selectedPpb).boxes : 0;
+  const quantityInputMax = allowOutOfStock ? undefined : selectedProduct?.inventory?.currentStock;
   const searchColClass =
     dualUnit && showCostPrice && hasCostPricePermission
       ? 'col-span-5'
@@ -472,7 +472,7 @@ function ProductSearchComponent({
                               ? piecesToBoxesAndPieces(quantity, selectedPpb || 1).pieces
                               : 0;
                             const raw = boxVal * (selectedPpb || 1) + currentPieces;
-                            const capped = Math.min(raw, selectedStockPieces);
+                            const capped = allowOutOfStock ? raw : Math.min(raw, selectedStockPieces);
                             setQuantity(Math.max(1, capped || 0));
                           }}
                           onKeyDown={handleKeyDown}
@@ -489,7 +489,7 @@ function ProductSearchComponent({
                           value={quantity || ''}
                           onChange={(e) => {
                             const raw = Math.max(0, parseInt(e.target.value, 10) || 0);
-                            const capped = Math.min(raw, selectedStockPieces);
+                            const capped = allowOutOfStock ? raw : Math.min(raw, selectedStockPieces);
                             setQuantity(Math.max(1, capped || 0));
                           }}
                           onKeyDown={handleKeyDown}
@@ -503,7 +503,7 @@ function ProductSearchComponent({
                     product={selectedProduct}
                     quantity={quantity}
                     onChange={(q) => setQuantity(q)}
-                    max={selectedProduct?.inventory?.currentStock}
+                    max={quantityInputMax}
                     showRemainingAfterSale={false}
                     showPiecesUnitLabel={false}
                     showBoxInput={false}
@@ -518,7 +518,7 @@ function ProductSearchComponent({
                   product={selectedProduct}
                   quantity={quantity}
                   onChange={(q) => setQuantity(q)}
-                  max={selectedProduct?.inventory?.currentStock}
+                  max={quantityInputMax}
                   showRemainingAfterSale={false}
                   showPiecesUnitLabel={false}
                   showBoxInput={dualUnitShowBoxInput}
@@ -664,7 +664,7 @@ function ProductSearchComponent({
                             ? piecesToBoxesAndPieces(quantity, selectedPpb || 1).pieces
                             : 0;
                           const raw = boxVal * (selectedPpb || 1) + currentPieces;
-                          const capped = Math.min(raw, selectedStockPieces);
+                          const capped = allowOutOfStock ? raw : Math.min(raw, selectedStockPieces);
                           setQuantity(Math.max(1, capped || 0));
                         }}
                         onKeyDown={handleKeyDown}
@@ -681,7 +681,7 @@ function ProductSearchComponent({
                         value={quantity || ''}
                         onChange={(e) => {
                           const raw = Math.max(0, parseInt(e.target.value, 10) || 0);
-                          const capped = Math.min(raw, selectedStockPieces);
+                          const capped = allowOutOfStock ? raw : Math.min(raw, selectedStockPieces);
                           setQuantity(Math.max(1, capped || 0));
                         }}
                         onKeyDown={handleKeyDown}
@@ -695,7 +695,7 @@ function ProductSearchComponent({
                   product={selectedProduct}
                   quantity={quantity}
                   onChange={(q) => setQuantity(q)}
-                  max={selectedProduct?.inventory?.currentStock}
+                  max={quantityInputMax}
                   showRemainingAfterSale={false}
                   showPiecesUnitLabel={false}
                   showBoxInput={false}
@@ -710,7 +710,7 @@ function ProductSearchComponent({
                 product={selectedProduct}
                 quantity={quantity}
                 onChange={(q) => setQuantity(q)}
-                max={selectedProduct?.inventory?.currentStock}
+                max={quantityInputMax}
                 showRemainingAfterSale={false}
                 showPiecesUnitLabel={false}
                 showBoxInput={dualUnitShowBoxInput}

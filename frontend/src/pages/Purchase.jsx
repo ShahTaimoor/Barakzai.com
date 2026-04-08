@@ -282,8 +282,6 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove, o
                 onUpdateQuantity(item.product?._id, newQuantity, ppb ? { boxes, pieces } : undefined);
               }}
               min={1}
-              max={product.inventory?.currentStock || 999999}
-              stockPiecesForRemaining={product.inventory?.currentStock ?? 0}
               showRemainingAfterSale={false}
               showPiecesUnitLabel={false}
               showBoxInput={dualUnitShowBoxInputEnabled && !hasDualUnit(product)}
@@ -350,6 +348,7 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
       priceType="wholesale"
       dualUnitShowBoxInput={dualUnitShowBoxInputEnabled}
       dualUnitShowPiecesInput={dualUnitShowPiecesInputEnabled}
+      allowOutOfStock
       onRefetchReady={onRefetchReady}
     />
   );
@@ -912,14 +911,6 @@ export const Purchase = ({ tabId, editData }) => {
       const pieces =
         cartItem.pieces != null ? cartItem.pieces : piecesToBoxesAndPieces(cartItem.quantity, ppb).pieces;
       const total = computeTotalPieces(boxes, pieces, ppb);
-      const availableStock = cartItem.product.inventory?.currentStock || 0;
-
-      if (total > availableStock) {
-        toast.error(
-          `Cannot set quantity to ${total} pcs. Only ${availableStock} units available in stock.`
-        );
-        return prevItems;
-      }
 
       if (total <= 0) {
         return prevItems.filter((item) => item.product?._id !== productId);
@@ -1315,7 +1306,13 @@ export const Purchase = ({ tabId, editData }) => {
               </Button>
             ) : null
           }
-          searchSection={<ProductSearch onAddProduct={addToPurchase} onRefetchReady={setRefetchProducts} />}
+          searchSection={
+            <ProductSearch
+              onAddProduct={addToPurchase}
+              onRefetchReady={setRefetchProducts}
+              allowOutOfStock
+            />
+          }
           isEmpty={purchaseItems.length === 0}
           emptyIcon={Package}
           emptyText="No items in cart"
