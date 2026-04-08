@@ -345,7 +345,7 @@ const ProductSearch = ({ onAddProduct, onRefetchReady }) => {
       selectedCustomer={null}
       showCostPrice={false}
       hasCostPricePermission={false}
-      priceType="wholesale"
+      priceType="cost"
       dualUnitShowBoxInput={dualUnitShowBoxInputEnabled}
       dualUnitShowPiecesInput={dualUnitShowPiecesInputEnabled}
       allowOutOfStock
