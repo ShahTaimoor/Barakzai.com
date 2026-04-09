@@ -12,6 +12,7 @@ async function fixUnknownProducts() {
     FROM sales 
     WHERE items::text ILIKE '%Unknown Product%' 
        OR items::text ILIKE '%"name": null%'
+       OR items::text ILIKE '%"name": "undefined"%'
        OR items::text NOT LIKE '%"name":%'
   `);
 
@@ -26,10 +27,10 @@ async function fixUnknownProducts() {
 
     let changed = false;
     for (const item of items) {
-      const name = item.name || item.productName || item.product_name;
-      if (!name || name.toUpperCase() === 'UNKNOWN PRODUCT') {
+      const name = String(item.name || item.productName || item.product_name || '');
+      if (!name || name === '' || name === 'undefined' || name === 'null' || name.toUpperCase() === 'UNKNOWN PRODUCT') {
         const productId = item.product || item.product_id;
-        if (!productId) continue;
+        if (!productId || productId === 'undefined') continue;
 
         // Try to find name from other records or products table
         const productInfo = await findProductInfo(productId);
@@ -53,6 +54,7 @@ async function fixUnknownProducts() {
     FROM sales_orders 
     WHERE items::text ILIKE '%Unknown Product%' 
        OR items::text ILIKE '%"name": null%'
+       OR items::text ILIKE '%"name": "undefined"%'
        OR items::text NOT LIKE '%"name":%'
   `);
 
@@ -67,10 +69,10 @@ async function fixUnknownProducts() {
 
     let changed = false;
     for (const item of items) {
-      const name = item.name || item.productName || item.product_name;
-      if (!name || name.toUpperCase() === 'UNKNOWN PRODUCT') {
+      const name = String(item.name || item.productName || item.product_name || '');
+      if (!name || name === '' || name === 'undefined' || name === 'null' || name.toUpperCase() === 'UNKNOWN PRODUCT') {
         const productId = item.product || item.product_id;
-        if (!productId) continue;
+        if (!productId || productId === 'undefined') continue;
 
         const productInfo = await findProductInfo(productId);
         if (productInfo) {
@@ -118,12 +120,16 @@ async function findProductInfo(productId) {
       WHERE (elem->>'product' = $1 OR elem->>'product_id' = $1) 
         AND (elem->>'name') IS NOT NULL 
         AND (elem->>'name') NOT ILIKE 'Unknown Product'
+        AND (elem->>'name') != 'undefined'
+        AND (elem->>'name') != 'null'
       UNION ALL
       SELECT (elem->>'productName') as name, (elem->>'sku') as sku, pi.created_at 
       FROM purchase_invoices pi, jsonb_array_elements(items) elem 
       WHERE (elem->>'product' = $1 OR elem->>'product_id' = $1) 
         AND (elem->>'productName') IS NOT NULL 
         AND (elem->>'productName') NOT ILIKE 'Unknown Product'
+        AND (elem->>'productName') != 'undefined'
+        AND (elem->>'productName') != 'null'
     ) h ORDER BY created_at DESC LIMIT 1
   `, [productId]);
 
