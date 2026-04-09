@@ -43,8 +43,14 @@ const PrintDocument = ({
         (typeof window !== 'undefined' && window.innerWidth <= 768);
     const isSale = (partyLabel?.toLowerCase() || '').includes('customer');
     const isPurchase = (partyLabel?.toLowerCase() || '').includes('supplier');
-    const saleOrPurchaseClass = invoiceLayout !== 'receipt' ? (isSale ? ' print-document--sale' : isPurchase ? ' print-document--purchase' : '') : '';
-    const printClassName = `print-document${invoiceLayout === 'layout2' ? ' print-document--layout2' : ''}${invoiceLayout === 'receipt' ? ' print-document--receipt' : ''}${isMobileLayout ? ' print-document--mobile' : ''}${saleOrPurchaseClass}`;
+    const isReceipt = invoiceLayout === 'receipt';
+    const isBank = (documentTitle?.toLowerCase() || resolvedDocumentTitle?.toLowerCase() || '').includes('bank');
+    const isCash = (documentTitle?.toLowerCase() || resolvedDocumentTitle?.toLowerCase() || '').includes('cash');
+
+    const saleOrPurchaseClass = !isReceipt ? (isSale ? ' print-document--sale' : isPurchase ? ' print-document--purchase' : '') : '';
+    const receiptTypeClass = isReceipt ? (isBank ? ' print-document--bank' : isCash ? ' print-document--cash' : '') : '';
+
+    const printClassName = `print-document${invoiceLayout === 'layout2' ? ' print-document--layout2' : ''}${isReceipt ? ' print-document--receipt' : ''}${isMobileLayout ? ' print-document--mobile' : ''}${saleOrPurchaseClass}${receiptTypeClass}`;
 
     const formatDate = (date) =>
         new Date(date || new Date()).toLocaleDateString('en-GB', {
@@ -132,33 +138,33 @@ const PrintDocument = ({
         const isSupplier = (partyLabel?.toLowerCase() || '').includes('supplier');
         const composedName = isCustomer
             ? (customer.businessName ||
-               customer.business_name ||
-               orderData.customerInfo?.businessName ||
-               orderData.customerInfo?.business_name ||
-               customer.companyName ||
-               customer.name ||
-               customer.displayName ||
-               customer.fullName ||
-               '—')
+                customer.business_name ||
+                orderData.customerInfo?.businessName ||
+                orderData.customerInfo?.business_name ||
+                customer.companyName ||
+                customer.name ||
+                customer.displayName ||
+                customer.fullName ||
+                '—')
             : isSupplier
-            ? (customer.companyName ||
-               customer.company_name ||
-               customer.businessName ||
-               customer.business_name ||
-               orderData.supplierInfo?.companyName ||
-               orderData.supplierInfo?.businessName ||
-               orderData.supplierInfo?.business_name ||
-               customer.name ||
-               customer.displayName ||
-               customer.fullName ||
-               '—')
-            : (customer.name ||
-               customer.displayName ||
-               customer.businessName ||
-               customer.business_name ||
-               customer.companyName ||
-               customer.fullName ||
-               '—');
+                ? (customer.companyName ||
+                    customer.company_name ||
+                    customer.businessName ||
+                    customer.business_name ||
+                    orderData.supplierInfo?.companyName ||
+                    orderData.supplierInfo?.businessName ||
+                    orderData.supplierInfo?.business_name ||
+                    customer.name ||
+                    customer.displayName ||
+                    customer.fullName ||
+                    '—')
+                : (customer.name ||
+                    customer.displayName ||
+                    customer.businessName ||
+                    customer.business_name ||
+                    customer.companyName ||
+                    customer.fullName ||
+                    '—');
         const businessName =
             customer.businessName ||
             customer.companyName ||
@@ -209,7 +215,7 @@ const PrintDocument = ({
                 orderData.shippingAddress ||
                 orderData.billingAddress ||
                 '';
-            
+
             // Format address: object, array (suppliers store addresses array in address column), or string
             if (Array.isArray(addr) && addr.length > 0) {
                 const a = addr.find(x => x.isDefault) || addr.find(x => x.type === 'billing' || x.type === 'both') || addr[0];
@@ -370,19 +376,19 @@ const PrintDocument = ({
     const explicitFromPayment = orderData?.payment?.amountPaid;
     const explicitFromRoot = orderData?.amount_paid;
     const hasExplicitPaymentAmount =
-      (explicitFromPayment !== undefined && explicitFromPayment !== null) ||
-      (explicitFromRoot !== undefined && explicitFromRoot !== null);
+        (explicitFromPayment !== undefined && explicitFromPayment !== null) ||
+        (explicitFromRoot !== undefined && explicitFromRoot !== null);
     const rawReceived = toNumber(
-      hasExplicitPaymentAmount ? (explicitFromPayment ?? explicitFromRoot) : 0,
-      0
+        hasExplicitPaymentAmount ? (explicitFromPayment ?? explicitFromRoot) : 0,
+        0
     );
     const normalizedPaymentStatus = String(
-      orderData?.payment_status ?? orderData?.payment?.status ?? ''
+        orderData?.payment_status ?? orderData?.payment?.status ?? ''
     ).toLowerCase();
     const isPaidStatus = normalizedPaymentStatus === 'paid';
     const receivedAmount = hasExplicitPaymentAmount
-      ? rawReceived
-      : (isPaidStatus ? toNumber(totalValue, 0) : 0);
+        ? rawReceived
+        : (isPaidStatus ? toNumber(totalValue, 0) : 0);
     const invoiceBalance = toNumber(totalValue, 0) - toNumber(receivedAmount, 0);
     const previousBalance = ledgerBalance - invoiceBalance;
 
@@ -434,10 +440,10 @@ const PrintDocument = ({
                             <div className="receipt-voucher__value flex-1 p-2 border-l border-black font-bold text-lg">{formatCurrency(amount)}</div>
                         </div>
                         {ledgerBalanceProp != null && (
-                        <div className="receipt-voucher__row flex border-b border-black">
-                            <div className="receipt-voucher__label w-1/3 font-semibold p-2">Ledger Balance</div>
-                            <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{formatCurrency(Number(ledgerBalanceProp))}</div>
-                        </div>
+                            <div className="receipt-voucher__row flex border-b border-black">
+                                <div className="receipt-voucher__label w-1/3 font-semibold p-2">Ledger Balance</div>
+                                <div className="receipt-voucher__value flex-1 p-2 border-l border-black">{formatCurrency(Number(ledgerBalanceProp))}</div>
+                            </div>
                         )}
                         <div className="receipt-voucher__row flex border-b border-black">
                             <div className="receipt-voucher__label w-1/3 font-semibold p-2">Particular</div>
@@ -541,10 +547,10 @@ const PrintDocument = ({
                                         <div className="flex flex-col gap-0.5">
                                             <div className="flex items-center gap-2">
                                                 {(printSettings?.showProductImages !== false && (item.product?.imageUrl || item.imageUrl || item.product?.image || item.image)) && (
-                                                    <img 
-                                                        src={item.product?.imageUrl || item.imageUrl || item.product?.image || item.image} 
-                                                        alt="" 
-                                                        className="w-8 h-8 object-cover rounded border border-gray-200" 
+                                                    <img
+                                                        src={item.product?.imageUrl || item.imageUrl || item.product?.image || item.image}
+                                                        alt=""
+                                                        className="w-8 h-8 object-cover rounded border border-gray-200"
                                                     />
                                                 )}
                                                 <span>{item.product?.name || item.name || `Item ${index + 1}`}</span>
@@ -768,10 +774,10 @@ const PrintDocument = ({
                                     <div className="flex flex-col gap-0.5">
                                         <div className="flex items-center gap-2">
                                             {(printSettings?.showProductImages !== false && (item.product?.imageUrl || item.imageUrl || item.product?.image || item.image)) && (
-                                                <img 
-                                                    src={item.product?.imageUrl || item.imageUrl || item.product?.image || item.image} 
-                                                    alt="" 
-                                                    className="w-8 h-8 object-cover rounded border border-gray-200" 
+                                                <img
+                                                    src={item.product?.imageUrl || item.imageUrl || item.product?.image || item.image}
+                                                    alt=""
+                                                    className="w-8 h-8 object-cover rounded border border-gray-200"
                                                 />
                                             )}
                                             <span>{item.product?.name || item.name || `Item ${index + 1}`}</span>

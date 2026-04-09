@@ -11,21 +11,18 @@ import {
   TrendingUp,
   Printer,
   Calendar,
-  Download
+
 } from 'lucide-react';
 import {
   useGetPurchaseInvoicesQuery,
   useLazyGetPurchaseInvoiceQuery,
   useConfirmPurchaseInvoiceMutation,
   useDeletePurchaseInvoiceMutation,
-  useExportExcelMutation,
-  useExportCSVMutation,
-  useExportPDFMutation,
-  useExportJSONMutation,
-  useDownloadFileMutation,
+
 } from '../store/services/purchaseInvoicesApi';
 import { useLazyGetSupplierQuery } from '../store/services/suppliersApi';
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/errorHandler';
+import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { useTab } from '../contexts/TabContext';
 import { getComponentInfo } from '../components/ComponentRegistry';
@@ -33,13 +30,10 @@ import PrintModal from '../components/PrintModal';
 import { Button } from '@/components/ui/button';
 import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan, formatDateForInput } from '../utils/dateUtils';
-import ExportReportModal from '../components/ExportReportModal';
-import { useExportTabularDownload } from '../hooks/useExportTabularDownload';
-import {
-  buildTabularExportRunners,
-  TABULAR_EXPORT_FALLBACK_FILENAMES,
-} from '../utils/exportReportDownload';
-import { confirmTabularExportDownload } from '../utils/tabularExportConfirm';
+import ExcelExportButton from '../components/ExcelExportButton';
+import PdfExportButton from '../components/PdfExportButton';
+import { getInvoicePdfPayload } from '../utils/invoicePdfUtils';
+
 
 // Edit allowed only within 1 month of invoice date
 const canEditByDate = (invoice) => {
@@ -97,7 +91,7 @@ const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onP
             </div>
 
             <div className="text-sm text-gray-500">
-              {invoice.invoiceDate || invoice.invoice_date || invoice.createdAt 
+              {invoice.invoiceDate || invoice.invoice_date || invoice.createdAt
                 ? new Date(invoice.invoiceDate || invoice.invoice_date || invoice.createdAt).toLocaleDateString()
                 : 'Invalid Date'}
             </div>
@@ -148,6 +142,7 @@ const PurchaseInvoiceCard = ({ invoice, onEdit, onDelete, onConfirm, onView, onP
 );
 
 export const PurchaseInvoices = () => {
+  const { companyInfo: companySettings } = useCompanyInfo();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const today = getCurrentDatePakistan();
@@ -155,9 +150,7 @@ export const PurchaseInvoices = () => {
   const [dateTo, setDateTo] = useState(today); // Today
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState('csv');
-  const [isExporting, setIsExporting] = useState(false);
+
 
   const { openTab } = useTab();
 
@@ -191,12 +184,7 @@ export const PurchaseInvoices = () => {
   // Mutations
   const [confirmPurchaseInvoiceMutation, { isLoading: confirming }] = useConfirmPurchaseInvoiceMutation();
   const [deletePurchaseInvoiceMutation, { isLoading: deleting }] = useDeletePurchaseInvoiceMutation();
-  const [exportExcelMutation] = useExportExcelMutation();
-  const [exportCSVMutation] = useExportCSVMutation();
-  const [exportPDFMutation] = useExportPDFMutation();
-  const [exportJSONMutation] = useExportJSONMutation();
-  const [downloadFileMutation] = useDownloadFileMutation();
-  const runExportDownload = useExportTabularDownload(downloadFileMutation);
+
 
   const [getSupplierById] = useLazyGetSupplierQuery();
 
@@ -267,7 +255,7 @@ export const PurchaseInvoices = () => {
         <div>
           <div className="font-medium text-gray-900">{value}</div>
           <div className="text-sm text-gray-500">
-            {item.invoiceDate || item.invoice_date || item.createdAt 
+            {item.invoiceDate || item.invoice_date || item.createdAt
               ? new Date(item.invoiceDate || item.invoice_date || item.createdAt).toLocaleDateString()
               : 'Invalid Date'}
           </div>
@@ -429,25 +417,7 @@ export const PurchaseInvoices = () => {
     setShowViewModal(true);
   };
 
-  const handleExportConfirm = () =>
-    confirmTabularExportDownload({
-      format: exportFormat,
-      runExportDownload,
-      exportRunners: buildTabularExportRunners(
-        {
-          search: searchTerm || undefined,
-          status: statusFilter || undefined,
-          dateFrom: dateFrom || undefined,
-          dateTo: dateTo || undefined,
-        },
-        { exportExcelMutation, exportPDFMutation, exportJSONMutation, exportCSVMutation }
-      ),
-      fallbackFilenames: TABULAR_EXPORT_FALLBACK_FILENAMES.purchaseInvoices,
-      successMessage: (f) => `Exported purchase invoices as ${f.toUpperCase()}`,
-      errorContext: 'Purchase Invoice Export',
-      setIsExporting,
-      onSuccess: () => setShowExportModal(false),
-    });
+
 
   // Memoize invoices data - must be before conditional returns to follow Rules of Hooks
   const invoices = React.useMemo(() => {
@@ -459,6 +429,51 @@ export const PurchaseInvoices = () => {
     if (Array.isArray(data?.data)) return data.data;
     return [];
   }, [data]);
+
+  const getExportData = () => {
+    return {
+      title: 'Purchase Invoices Report',
+      filename: `Purchase_Invoices_${dateFrom}_to_${dateTo}.xlsx`,
+      company: {
+        name: companySettings?.companyName || 'ZARYAB IMPEX',
+        address: companySettings?.address || companySettings?.billingAddress || '',
+        contact: `${companySettings?.contactNumber || ''} ${companySettings?.email ? '| ' + companySettings.email : ''}`.trim()
+      },
+      columns: [
+        { header: 'S.No', key: 'sno', width: 8, type: 'number' },
+        { header: 'Image', key: 'imageUrl', width: 12, type: 'image' },
+        { header: 'Invoice #', key: 'invoiceNumber', width: 15 },
+        { header: 'Supplier', key: 'supplierName', width: 35 },
+        { header: 'Date', key: 'date', width: 15 },
+        { header: 'Items', key: 'itemsCount', width: 10, type: 'number' },
+        { header: 'Total', key: 'total', width: 20, type: 'currency' },
+        { header: 'Payment', key: 'paymentStatus', width: 15 },
+        { header: 'Notes', key: 'notes', width: 40 }
+      ],
+      data: invoices.map((invoice, i) => ({
+        sno: i + 1,
+        imageUrl: invoice.items?.[0]?.product?.imageUrl ?? invoice.items?.[0]?.productData?.imageUrl ?? null,
+        invoiceNumber: invoice.invoiceNumber ?? '—',
+        supplierName: invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || invoice.supplier?.companyName || invoice.supplier?.name || 'Unknown',
+        date: invoice.invoiceDate || invoice.invoice_date || invoice.createdAt
+          ? new Date(invoice.invoiceDate || invoice.invoice_date || invoice.createdAt).toLocaleDateString()
+          : 'Invalid Date',
+        itemsCount: invoice.items?.length ?? 0,
+        total: Number(invoice.pricing?.total || 0),
+        paymentStatus: (invoice.payment?.status || 'pending').toUpperCase(),
+        notes: invoice.notes?.trim() || ''
+      })),
+      summary: {
+        rows: [
+          {
+            label: 'GRAND TOTAL:',
+            invoiceNumber: `${invoices.length} Invoices`,
+            total: invoices.reduce((sum, o) => sum + Number(o.pricing?.total || 0), 0)
+          }
+        ]
+      }
+    };
+  };
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -484,16 +499,14 @@ export const PurchaseInvoices = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto items-stretch sm:items-center">
-          <Button
-            type="button"
-            variant="outline"
-            size="default"
-            className="flex items-center justify-center gap-2"
-            onClick={() => setShowExportModal(true)}
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
+          <ExcelExportButton
+            getData={getExportData}
+            label="Export"
+          />
+          <PdfExportButton
+            getData={getExportData}
+            label="PDF"
+          />
           <div className="w-full sm:w-auto">
             <DateFilter
               startDate={dateFrom}
@@ -556,8 +569,9 @@ export const PurchaseInvoices = () => {
           {/* Table Header - Desktop Only */}
           <div className="hidden md:block bg-gray-50 px-4 lg:px-6 py-3 border-b border-gray-200">
             <div className="grid grid-cols-12 gap-3 lg:gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div className="col-span-1">S.No</div>
               <div className="col-span-1">Invoice #</div>
-              <div className="col-span-3">Supplier</div>
+              <div className="col-span-2">Supplier</div>
               <div className="col-span-1">Date</div>
               <div className="col-span-1">Items</div>
               <div className="col-span-1">Total</div>
@@ -570,13 +584,14 @@ export const PurchaseInvoices = () => {
 
           {/* Table Body */}
           <div className="divide-y divide-gray-200">
-            {invoices.map((invoice) => (
-              <div key={invoice._id} className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors">
+            {invoices.map((invoice, idx) => (
+              <div key={invoice._id || idx} className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-colors">
                 {/* Mobile Card Layout */}
                 <div className="md:hidden space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{idx + 1}</span>
                         <h3 className="font-semibold text-sm text-gray-900 truncate">{invoice.invoiceNumber}</h3>
                         <StatusBadge status={invoice.status} />
                       </div>
@@ -584,7 +599,7 @@ export const PurchaseInvoices = () => {
                         {invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
                       </p>
                       <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                        <span>{invoice.invoiceDate || invoice.invoice_date || invoice.createdAt 
+                        <span>{invoice.invoiceDate || invoice.invoice_date || invoice.createdAt
                           ? new Date(invoice.invoiceDate || invoice.invoice_date || invoice.createdAt).toLocaleDateString()
                           : 'Invalid Date'}</span>
                         <span>•</span>
@@ -650,8 +665,12 @@ export const PurchaseInvoices = () => {
                   )}
                 </div>
 
-                {/* Desktop Table Layout */}
                 <div className="hidden md:grid grid-cols-12 gap-3 lg:gap-4 items-center">
+                  {/* S.No */}
+                  <div className="col-span-1 text-xs text-gray-500 font-medium">
+                    {idx + 1}
+                  </div>
+
                   {/* Invoice Number */}
                   <div className="col-span-1 min-w-0">
                     <div className="font-medium text-sm text-gray-900 truncate">
@@ -660,7 +679,7 @@ export const PurchaseInvoices = () => {
                   </div>
 
                   {/* Supplier */}
-                  <div className="col-span-3 min-w-0">
+                  <div className="col-span-2 min-w-0">
                     <div className="text-sm text-gray-900 truncate" title={invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}>
                       {invoice.supplierInfo?.businessName || invoice.supplierInfo?.business_name || invoice.supplierInfo?.companyName || invoice.supplierInfo?.name || 'Unknown Supplier'}
                     </div>
@@ -669,7 +688,7 @@ export const PurchaseInvoices = () => {
                   {/* Date */}
                   <div className="col-span-1">
                     <span className="text-xs sm:text-sm text-gray-600">
-                      {invoice.invoiceDate || invoice.invoice_date || invoice.createdAt 
+                      {invoice.invoiceDate || invoice.invoice_date || invoice.createdAt
                         ? new Date(invoice.invoiceDate || invoice.invoice_date || invoice.createdAt).toLocaleDateString()
                         : 'Invalid Date'}
                     </span>
@@ -732,6 +751,22 @@ export const PurchaseInvoices = () => {
                       >
                         <Printer className="h-4 w-4" />
                       </button>
+                      <ExcelExportButton
+                        getData={() => {
+                          const payload = getInvoicePdfPayload(invoice, companySettings, 'Purchase Invoice', 'Supplier');
+                          return {
+                            ...payload,
+                            filename: `Purchase_Invoice_${invoice.invoiceNumber}.xlsx`
+                          };
+                        }}
+                        label=""
+                        className="p-1 bg-transparent border-none shadow-none hover:bg-transparent text-green-600 hover:text-green-800 px-1 py-1"
+                      />
+                      <PdfExportButton
+                        getData={() => getInvoicePdfPayload(invoice, companySettings, 'Purchase Invoice', 'Supplier')}
+                        label=""
+                        className="p-1 bg-transparent border-none shadow-none hover:bg-transparent text-red-600 hover:text-red-800 px-1 py-1"
+                      />
 
                       {canEditByDate(invoice) && (
                         <button
@@ -763,17 +798,7 @@ export const PurchaseInvoices = () => {
       )}
 
 
-      <ExportReportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        title="Export Purchase Invoices"
-        format={exportFormat}
-        onFormatChange={setExportFormat}
-        onConfirm={handleExportConfirm}
-        isExporting={isExporting}
-        showDateRange={false}
-        namePrefix="purchase-invoices-export-format"
-      />
+
 
       {/* View Modal with Print Support */}
       <PrintModal

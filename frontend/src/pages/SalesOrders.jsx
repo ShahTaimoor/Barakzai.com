@@ -8,7 +8,7 @@ import {
   Edit,
   Trash2,
   Eye,
-  Download,
+
   RefreshCw,
   ArrowUpDown,
   RotateCcw,
@@ -30,7 +30,8 @@ import {
   EyeOff,
   Calculator,
   MessageSquare,
-  ChevronDown
+  ChevronDown,
+  Camera
 } from 'lucide-react';
 import { showSuccessToast, showErrorToast, handleApiError } from '../utils/errorHandler';
 import { formatDate, formatCurrency } from '../utils/formatters';
@@ -63,11 +64,7 @@ import {
   useConfirmSalesOrderMutation,
   useCancelSalesOrderMutation,
   useCloseSalesOrderMutation,
-  useExportExcelMutation,
-  useExportCSVMutation,
-  useExportPDFMutation,
-  useExportJSONMutation,
-  useDownloadFileMutation,
+
 } from '../store/services/salesOrdersApi';
 import {
   OrderConfirmationStatusBadge,
@@ -89,13 +86,10 @@ import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import NotesPanel from '../components/NotesPanel';
 import DateFilter from '../components/DateFilter';
 import { getCurrentDatePakistan, getDateDaysAgo } from '../utils/dateUtils';
-import ExportReportModal from '../components/ExportReportModal';
-import {
-  presentPdfExportBlob,
-  presentNonPdfExportDownload,
-  notifyExportDownloadCatchError,
-  unwrapExportDownloadBlob,
-} from '../utils/exportReportPresentation';
+import ExcelExportButton from '../components/ExcelExportButton';
+import PdfExportButton from '../components/PdfExportButton';
+import { getInvoicePdfPayload } from '../utils/invoicePdfUtils';
+
 
 // Helper function to safely render values
 const safeRender = (value) => {
@@ -242,13 +236,21 @@ const SalesOrders = ({ tabId }) => {
 
   // Cost price state
   const [showCostPrice, setShowCostPrice] = useState(false); // Toggle to show/hide cost prices
+  const [showProductImages, setShowProductImages] = useState(localStorage.getItem('showProductImagesUI') !== 'false');
+
+  useEffect(() => {
+    const handleConfigChange = () => {
+      setShowProductImages(localStorage.getItem('showProductImagesUI') !== 'false');
+    };
+    window.addEventListener('productImagesConfigChanged', handleConfigChange);
+    return () => window.removeEventListener('productImagesConfigChanged', handleConfigChange);
+  }, []);
+
   const [lastPurchasePrice, setLastPurchasePrice] = useState(null); // Last purchase price for selected product
   const [lastPurchasePrices, setLastPurchasePrices] = useState({}); // Store last purchase prices for products in cart
+  const [previewImageProduct, setPreviewImageProduct] = useState(null);
 
-  // Export state
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState('pdf');
-  const [isExporting, setIsExporting] = useState(false);
+
 
   // Auth context for permissions
   const { hasPermission, user } = useAuth();
@@ -487,11 +489,7 @@ const SalesOrders = ({ tabId }) => {
   const [updateItemsConfirmationMutation, { isLoading: updatingItemsConfirmation }] = useUpdateSalesOrderItemsConfirmationMutation();
   const [cancelSalesOrderMutation, { isLoading: cancelling }] = useCancelSalesOrderMutation();
   const [closeSalesOrderMutation, { isLoading: closing }] = useCloseSalesOrderMutation();
-  const [exportExcelMutation] = useExportExcelMutation();
-  const [exportCSVMutation] = useExportCSVMutation();
-  const [exportPDFMutation] = useExportPDFMutation();
-  const [exportJSONMutation] = useExportJSONMutation();
-  const [downloadFileMutation] = useDownloadFileMutation();
+
 
   // Helper functions
   const resetForm = () => {
@@ -1327,6 +1325,8 @@ const SalesOrders = ({ tabId }) => {
       const qty = Math.round(Number(item.quantity) || 1);
       const base = {
         product: item.product,
+        name: item.productData?.name || item.productData?.displayName || item.name || item.displayName || '',
+        sku: item.productData?.sku || item.sku || '',
         quantity: qty,
         unitPrice: item.unitPrice,
         totalPrice: item.total,
@@ -1391,6 +1391,8 @@ const SalesOrders = ({ tabId }) => {
         const qty = Math.max(1, Math.round(Number(item.quantity) || 1));
         const base = {
           product: getProductId(item),
+          name: item.productData?.name || item.productData?.displayName || item.name || item.displayName || '',
+          sku: item.productData?.sku || item.sku || '',
           quantity: qty,
           unitPrice: parseFloat(item.unitPrice) || 0,
           totalPrice: parseFloat(item.total) || parseFloat(item.unitPrice) * qty,
@@ -1543,76 +1545,7 @@ const SalesOrders = ({ tabId }) => {
     );
   };
 
-  const handleExportConfirm = async () => {
-    setIsExporting(true);
-    try {
-      // Build filters based on current filters
-      const exportFilters = {
-        dateFrom: filters.fromDate,
-        dateTo: filters.toDate,
-        status: filters.status,
-        customer: filters.customer,
-        orderNumber: filters.orderNumber,
-        orderType: filters.orderType
-      };
 
-      let response;
-      if (exportFormat === 'excel') {
-        response = await exportExcelMutation(exportFilters).unwrap();
-      } else if (exportFormat === 'csv') {
-        response = await exportCSVMutation(exportFilters).unwrap();
-      } else if (exportFormat === 'json') {
-        response = await exportJSONMutation(exportFilters).unwrap();
-      } else if (exportFormat === 'pdf') {
-        response = await exportPDFMutation(exportFilters).unwrap();
-      }
-
-      if (response?.filename) {
-        const filename = response.filename;
-
-        try {
-          // Add a small delay to ensure file is written (PDF generation is async)
-          if (exportFormat === 'pdf') {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-
-          let downloadResponse;
-          try {
-            downloadResponse = await downloadFileMutation(filename).unwrap();
-          } catch (downloadErr) {
-            notifyExportDownloadCatchError(downloadErr, showErrorToast);
-            return;
-          }
-
-          if (downloadResponse == null) {
-            showErrorToast('Download failed: No data received from server');
-            return;
-          }
-
-          if (exportFormat === 'pdf') {
-            presentPdfExportBlob(unwrapExportDownloadBlob(downloadResponse), filename, {
-              error: showErrorToast,
-              success: showSuccessToast,
-            });
-          } else {
-            presentNonPdfExportDownload(downloadResponse, exportFormat, filename, showSuccessToast);
-          }
-        } catch (downloadError) {
-          notifyExportDownloadCatchError(downloadError, showErrorToast);
-          return;
-        }
-      } else {
-        showErrorToast('Export failed: No filename received');
-        return;
-      }
-
-      setShowExportModal(false);
-    } catch (error) {
-      handleApiError(error, 'Export');
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleEdit = (order) => {
     setSelectedOrder(order);
@@ -1907,6 +1840,48 @@ const SalesOrders = ({ tabId }) => {
 
   const salesOrders = salesOrdersData?.data?.salesOrders ?? salesOrdersData?.salesOrders ?? [];
   const paginationInfo = salesOrdersData?.data?.pagination ?? salesOrdersData?.pagination ?? {};
+
+  const getExportData = () => {
+    return {
+      title: 'Sales Orders Report',
+      filename: `Sales_Orders_${filters.fromDate}_to_${filters.toDate}.xlsx`,
+      company: {
+        name: companySettings?.companyName || 'ZARYAB IMPEX',
+        address: companySettings?.address || companySettings?.billingAddress || '',
+        contact: `${companySettings?.contactNumber || ''} ${companySettings?.email ? '| ' + companySettings.email : ''}`.trim()
+      },
+      columns: [
+        { header: 'S.No', key: 'sno', width: 8, type: 'number' },
+        { header: 'Image', key: 'imageUrl', width: 12, type: 'image' },
+        { header: 'Order #', key: 'orderNumber', width: 25 },
+        { header: 'Customer', key: 'customerName', width: 35 },
+        { header: 'Date', key: 'date', width: 15 },
+        { header: 'Type', key: 'orderType', width: 15 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Total Amount', key: 'totalAmount', width: 15, type: 'currency' }
+      ],
+      data: salesOrders.map((order, i) => ({
+        sno: i + 1,
+        imageUrl: order.items?.[0]?.product?.imageUrl ?? order.items?.[0]?.productData?.imageUrl ?? null,
+        orderNumber: order?.soNumber ?? order?.so_number ?? order?.orderNumber ?? order?.invoiceNumber ?? '—',
+        customerName: order?.customer?.businessName ?? order?.customer?.business_name ?? order?.customer?.displayName ?? order?.customer?.name ?? 'Walk-in',
+        date: formatDate(order?.orderDate ?? order?.order_date ?? order?.createdAt ?? order?.created_at),
+        orderType: (order?.orderType || '—').toUpperCase(),
+        status: (order?.status || '—').toUpperCase(),
+        totalAmount: Number(order?.pricing?.totalAmount ?? order?.pricing?.total ?? order?.totalAmount ?? order?.total ?? 0)
+      })),
+      summary: {
+        rows: [
+          {
+            label: 'GRAND TOTAL:',
+            orderNumber: `${salesOrders.length} Orders`,
+            totalAmount: salesOrders.reduce((sum, o) => sum + Number(o?.pricing?.totalAmount ?? o?.pricing?.total ?? o?.totalAmount ?? o?.total ?? 0), 0)
+          }
+        ]
+      }
+    };
+  };
+
   const {
     subtotal,
     totalDiscount,
@@ -1922,16 +1897,7 @@ const SalesOrders = ({ tabId }) => {
           <p className="text-sm sm:text-base text-gray-600">Process sales order transactions</p>
         </div>
         <div className="flex items-center space-x-2 w-full sm:w-auto">
-          <Button
-            onClick={() => setShowExportModal(true)}
-            variant="secondary"
-            size="default"
-            className="flex-1 sm:flex-none"
-            title="Export sales orders data"
-          >
-            <Download className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Export</span>
-          </Button>
+
           <Button
             onClick={resetForm}
             variant="default"
@@ -2183,6 +2149,7 @@ const SalesOrders = ({ tabId }) => {
               priceType={priceType}
               dualUnitShowBoxInput={dualUnitShowBoxInputEnabled}
               dualUnitShowPiecesInput={dualUnitShowPiecesInputEnabled}
+              allowOutOfStock={true}
               onLastPurchasePriceFetched={(productId, price) => {
                 setLastPurchasePrices(prev => ({
                   ...prev,
@@ -2233,19 +2200,18 @@ const SalesOrders = ({ tabId }) => {
                 </div>
               )}
               <CartTableHeader
-                className={`hidden md:grid gap-x-1 items-center pb-2 border-b border-gray-300 mb-2 ${
-                  dualUnitShowBoxInputEnabled
-                    ? (
-                      showCostPrice && canViewCostPrice
-                        ? 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
-                        : 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
-                    )
-                    : (
-                      showCostPrice && canViewCostPrice
-                        ? 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
-                        : 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
-                    )
-                }`}
+                className={`hidden md:grid gap-x-1 items-center pb-2 border-b border-gray-300 mb-2 ${dualUnitShowBoxInputEnabled
+                  ? (
+                    showCostPrice && canViewCostPrice
+                      ? 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
+                      : 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
+                  )
+                  : (
+                    showCostPrice && canViewCostPrice
+                      ? 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
+                      : 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
+                  )
+                  }`}
                 columns={[
                   { key: 'sno', label: 'S.NO', labelClassName: 'text-xs font-semibold text-gray-600 uppercase text-left' },
                   { key: 'product', label: 'Product' },
@@ -2267,19 +2233,18 @@ const SalesOrders = ({ tabId }) => {
                   <div key={index} className={`py-1 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                     {/* Desktop Grid Layout */}
                     <div
-                      className={`hidden md:grid gap-x-1 items-center ${
-                        dualUnitShowBoxInputEnabled
-                          ? (
-                            showCostPrice && canViewCostPrice
-                              ? 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
-                              : 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
-                          )
-                          : (
-                            showCostPrice && canViewCostPrice
-                              ? 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
-                              : 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
-                          )
-                      }`}
+                      className={`hidden md:grid gap-x-1 items-center ${dualUnitShowBoxInputEnabled
+                        ? (
+                          showCostPrice && canViewCostPrice
+                            ? 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
+                            : 'grid-cols-[2.25rem_minmax(0,1fr)_4.75rem_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
+                        )
+                        : (
+                          showCostPrice && canViewCostPrice
+                            ? 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5rem_5.35rem_5.35rem_2.25rem]'
+                            : 'grid-cols-[2.25rem_minmax(0,1fr)_5.35rem_5.35rem_5.35rem_5.35rem_2.25rem]'
+                        )
+                        }`}
                     >
                       {/* Serial Number - 1 column */}
                       <div className="min-w-0 flex justify-start">
@@ -2289,7 +2254,19 @@ const SalesOrders = ({ tabId }) => {
                       </div>
 
                       {/* Product Name - reduced width to keep row alignment */}
-                      <div className="min-w-0 flex items-center h-8">
+                      <div className="min-w-0 flex items-center h-8 gap-2">
+                        {product?.imageUrl && showProductImages && (
+                          <div
+                            className="h-8 w-8 flex-shrink-0 bg-gray-100 rounded overflow-hidden border border-gray-200 cursor-pointer hover:border-primary-500 transition-colors group relative"
+                            onClick={() => setPreviewImageProduct(product)}
+                            title="Click to view full size"
+                          >
+                            <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center transition-colors">
+                              <Camera className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        )}
                         <div className="flex flex-col min-w-0 w-full">
                           <span className="font-medium text-sm truncate min-w-0">
                             {product?.isVariant
@@ -2350,23 +2327,25 @@ const SalesOrders = ({ tabId }) => {
                                       : piecesToBoxesAndPieces(item.quantity, piecesPerBox).pieces;
                                     const rawQty = nextBoxes * piecesPerBox + currentPieces;
                                     const stockCap = Number(product?.inventory?.currentStock ?? 0);
-                                    const cappedQty = stockCap > 0 ? Math.min(rawQty, stockCap) : rawQty;
+                                    if (rawQty > stockCap && stockCap >= 0) {
+                                      toast.warning(`Warning: Quantity ${rawQty} exceeds available stock ${stockCap}`, { duration: 3000, icon: '⚠️' });
+                                    }
+                                    const nextQty = rawQty;
                                     setFormData(prev => ({
                                       ...prev,
                                       items: prev.items.map((itm, i) => (
                                         i === index
-                                          ? { ...itm, boxes: nextBoxes, quantity: cappedQty, total: cappedQty * itm.unitPrice }
+                                          ? { ...itm, boxes: nextBoxes, quantity: nextQty, total: nextQty * itm.unitPrice }
                                           : itm
                                       ))
                                     }));
                                   }}
-                                  className={`text-sm font-semibold w-full min-w-0 rounded border px-2 py-1 text-center h-8 focus:outline-none focus:ring-2 focus:ring-primary-500/35 ${
-                                    (product?.inventory?.currentStock || 0) === 0
-                                      ? 'text-red-700 bg-red-50 border-red-200'
-                                      : (product?.inventory?.currentStock || 0) <= (product?.inventory?.reorderPoint || 0)
-                                        ? 'text-yellow-800 bg-yellow-50 border-yellow-200'
-                                        : 'text-gray-700 bg-gray-100 border-gray-200'
-                                  }`}
+                                  className={`text-sm font-semibold w-full min-w-0 rounded border px-2 py-1 text-center h-8 focus:outline-none focus:ring-2 focus:ring-primary-500/35 ${(product?.inventory?.currentStock || 0) === 0
+                                    ? 'text-red-700 bg-red-50 border-red-200'
+                                    : (product?.inventory?.currentStock || 0) <= (product?.inventory?.reorderPoint || 0)
+                                      ? 'text-yellow-800 bg-yellow-50 border-yellow-200'
+                                      : 'text-gray-700 bg-gray-100 border-gray-200'
+                                    }`}
                                   title="Full boxes"
                                 />
                               );
@@ -2396,6 +2375,10 @@ const SalesOrders = ({ tabId }) => {
                               handleRemoveItem(index);
                               return;
                             }
+                            const stockCap = Number(product?.inventory?.currentStock ?? 0);
+                            if (newQuantity > stockCap && stockCap >= 0) {
+                              toast.warning(`Warning: Quantity ${newQuantity} exceeds available stock ${stockCap}`, { duration: 3000, icon: '⚠️' });
+                            }
                             const ppb = getPiecesPerBox(product);
                             const { boxes, pieces } = ppb && dual ? dual : (ppb ? piecesToBoxesAndPieces(newQuantity, ppb) : {});
                             setFormData(prev => ({
@@ -2411,7 +2394,7 @@ const SalesOrders = ({ tabId }) => {
                             }));
                           }}
                           min={1}
-                          max={product?.inventory?.currentStock}
+                          max={undefined}
                           stockPiecesForRemaining={product?.inventory?.currentStock ?? 0}
 
                           showBoxInput={!dualUnitShowBoxInputEnabled && !hasDualUnit(product)}
@@ -2507,11 +2490,25 @@ const SalesOrders = ({ tabId }) => {
                     <div className="md:hidden p-3 bg-white border border-gray-200 rounded-lg space-y-3">
                       {/* Product Name and Delete Button Row */}
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-medium text-sm text-gray-900 truncate">
-                            {safeRender(product?.name) || 'Unknown Product'}
-                          </h5>
-                          {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low Stock</span>}
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          {product?.imageUrl && showProductImages && (
+                            <div
+                              className="h-10 w-10 flex-shrink-0 bg-gray-100 rounded overflow-hidden border border-gray-200 cursor-pointer hover:border-primary-500 transition-colors group relative"
+                              onClick={() => setPreviewImageProduct(product)}
+                              title="Click to view full size"
+                            >
+                              <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center transition-colors">
+                                <Camera className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h5 className="font-medium text-sm text-gray-900 truncate">
+                              {safeRender(product?.name) || 'Unknown Product'}
+                            </h5>
+                            {isLowStock && <span className="text-yellow-600 text-xs text-nowrap">⚠️ Low Stock</span>}
+                          </div>
                           {lastPurchasePrices[item.product?.toString()] !== undefined &&
                             item.unitPrice < lastPurchasePrices[item.product?.toString()] && (
                               <span className="text-xs ml-2 px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">
@@ -2549,22 +2546,21 @@ const SalesOrders = ({ tabId }) => {
                                 handleRemoveItem(index);
                                 return;
                               }
-                              const ppb = getPiecesPerBox(product);
-                              const { boxes, pieces } = ppb && dual ? dual : (ppb ? piecesToBoxesAndPieces(newQuantity, ppb) : {});
+                              const stockCap = Number(product?.inventory?.currentStock ?? 0);
+                              if (newQuantity > stockCap && stockCap >= 0) {
+                                toast.warning(`Warning: Quantity ${newQuantity} exceeds available stock ${stockCap}`, { duration: 3000, icon: '⚠️' });
+                              }
                               setFormData(prev => ({
                                 ...prev,
                                 items: prev.items.map((itm, i) =>
-                                  i === index ? {
-                                    ...itm,
-                                    quantity: newQuantity,
-                                    ...(ppb && { boxes, pieces }),
-                                    total: newQuantity * itm.unitPrice
-                                  } : itm
+                                  i === index
+                                    ? { ...itm, quantity: newQuantity, ...(dual || {}), total: newQuantity * itm.unitPrice }
+                                    : itm
                                 )
                               }));
                             }}
                             min={1}
-                            max={product?.inventory?.currentStock}
+                            max={undefined}
                             stockPiecesForRemaining={product?.inventory?.currentStock ?? 0}
                             showRemainingAfterSale={showRemainingStockAfterSaleEnabled}
                             showBoxInput={dualUnitShowBoxInputEnabled && !hasDualUnit(product)}
@@ -2646,14 +2642,12 @@ const SalesOrders = ({ tabId }) => {
       {/* Sales Order Details + checkout (same two-card layout as Sales) */}
       {formData.items.length > 0 && (
         <div
-          className={`mt-4 grid w-full min-w-0 grid-cols-1 gap-4 overflow-x-hidden lg:gap-5 lg:items-start ${
-            showSalesOrderDetailsFields ? 'lg:grid-cols-2' : 'lg:grid-cols-1'
-          }`}
+          className={`mt-4 grid w-full min-w-0 grid-cols-1 gap-4 overflow-x-hidden lg:gap-5 lg:items-start ${showSalesOrderDetailsFields ? 'lg:grid-cols-2' : 'lg:grid-cols-1'
+            }`}
         >
           <OrderCheckoutCard
-            className={`mt-0 ml-0 max-w-none min-w-0 w-full border-slate-200 bg-none bg-slate-50 shadow-sm ring-0 ${
-              showSalesOrderDetailsFields ? 'order-1' : 'order-2'
-            }`}
+            className={`mt-0 ml-0 max-w-none min-w-0 w-full border-slate-200 bg-none bg-slate-50 shadow-sm ring-0 ${showSalesOrderDetailsFields ? 'order-1' : 'order-2'
+              }`}
           >
             <OrderDetailsSection
               detailsTitle="Sales Order Details"
@@ -2778,159 +2772,158 @@ const SalesOrders = ({ tabId }) => {
           </OrderCheckoutCard>
 
           <OrderCheckoutCard
-            className={`mt-0 ml-0 max-w-none min-w-0 w-full border-slate-200 bg-none bg-slate-50 shadow-sm ring-0 ${
-              showSalesOrderDetailsFields ? 'order-2' : 'order-1'
-            }`}
+            className={`mt-0 ml-0 max-w-none min-w-0 w-full border-slate-200 bg-none bg-slate-50 shadow-sm ring-0 ${showSalesOrderDetailsFields ? 'order-2' : 'order-1'
+              }`}
           >
             <OrderSummaryContent className="bg-none bg-slate-50">
-            <div className="space-y-2">
-              {totalDiscount > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Discount:</span>
-                  <span className="text-xl font-semibold tabular-nums text-red-600">-{Math.round(totalDiscount)}</span>
-                </div>
-              )}
-              {!formData.isTaxExempt && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Tax (8%):</span>
-                  <span className="text-xl font-semibold tabular-nums text-foreground">{Math.round(totalTax)}</span>
-                </div>
-              )}
-              {selectedCustomer && (() => {
-                const ledgerBalance = selectedCustomer.currentBalance !== undefined && selectedCustomer.currentBalance !== null
-                  ? Number(selectedCustomer.currentBalance)
-                  : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
-                const receivedAmount = 0;
-                const invoiceBalance = total - receivedAmount;
-                const previousBalance = selectedOrder ? ledgerBalance - invoiceBalance : ledgerBalance;
-                const totalReceivables = selectedOrder ? ledgerBalance : ledgerBalance + invoiceBalance;
+              <div className="space-y-2">
+                {totalDiscount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Discount:</span>
+                    <span className="text-xl font-semibold tabular-nums text-red-600">-{Math.round(totalDiscount)}</span>
+                  </div>
+                )}
+                {!formData.isTaxExempt && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-muted-foreground">Tax (8%):</span>
+                    <span className="text-xl font-semibold tabular-nums text-foreground">{Math.round(totalTax)}</span>
+                  </div>
+                )}
+                {selectedCustomer && (() => {
+                  const ledgerBalance = selectedCustomer.currentBalance !== undefined && selectedCustomer.currentBalance !== null
+                    ? Number(selectedCustomer.currentBalance)
+                    : ((selectedCustomer.pendingBalance || 0) - (selectedCustomer.advanceBalance || 0));
+                  const receivedAmount = 0;
+                  const invoiceBalance = total - receivedAmount;
+                  const previousBalance = selectedOrder ? ledgerBalance - invoiceBalance : ledgerBalance;
+                  const totalReceivables = selectedOrder ? ledgerBalance : ledgerBalance + invoiceBalance;
 
-                return (
-                  <div className="mt-2">
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-4 md:gap-4">
-                      <div className="flex items-center justify-between md:block">
-                        <span className="text-sm font-medium text-muted-foreground">Subtotal:</span>
-                        <div className="text-2xl font-semibold tabular-nums text-foreground md:mt-1">{Math.round(subtotal)}</div>
-                      </div>
-                      <div className="flex items-center justify-between md:block">
-                        <span className="text-sm font-medium text-muted-foreground">Net Amount:</span>
-                        <div className="text-2xl font-bold tabular-nums text-primary md:mt-1">{Number(total.toFixed(2))}</div>
-                      </div>
-                      {(previousBalance !== 0 || selectedOrder) && (
+                  return (
+                    <div className="mt-2">
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-4 md:gap-4">
                         <div className="flex items-center justify-between md:block">
-                          <span className="text-sm font-medium text-muted-foreground">Previous Balance:</span>
-                          <div className={`text-2xl font-semibold tabular-nums md:mt-1 ${previousBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            {previousBalance < 0 ? '-' : '+'}{Math.abs(Number(previousBalance.toFixed(2)))}
-                          </div>
+                          <span className="text-sm font-medium text-muted-foreground">Subtotal:</span>
+                          <div className="text-2xl font-semibold tabular-nums text-foreground md:mt-1">{Math.round(subtotal)}</div>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between md:block">
-                        <span className={`text-sm font-semibold ${totalReceivables < 0 ? 'text-red-700' : 'text-green-700'}`}>
-                          Total Receivables:
-                        </span>
-                        <div className={`text-2xl font-bold tabular-nums md:mt-1 ${totalReceivables < 0 ? 'text-red-700' : 'text-green-700'}`}>
-                          {totalReceivables < 0 ? '-' : '+'}{Math.abs(Number(totalReceivables.toFixed(2)))}
+                        <div className="flex items-center justify-between md:block">
+                          <span className="text-sm font-medium text-muted-foreground">Net Amount:</span>
+                          <div className="text-2xl font-bold tabular-nums text-primary md:mt-1">{Number(total.toFixed(2))}</div>
+                        </div>
+                        {(previousBalance !== 0 || selectedOrder) && (
+                          <div className="flex items-center justify-between md:block">
+                            <span className="text-sm font-medium text-muted-foreground">Previous Balance:</span>
+                            <div className={`text-2xl font-semibold tabular-nums md:mt-1 ${previousBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              {previousBalance < 0 ? '-' : '+'}{Math.abs(Number(previousBalance.toFixed(2)))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between md:block">
+                          <span className={`text-sm font-semibold ${totalReceivables < 0 ? 'text-red-700' : 'text-green-700'}`}>
+                            Total Receivables:
+                          </span>
+                          <div className={`text-2xl font-bold tabular-nums md:mt-1 ${totalReceivables < 0 ? 'text-red-700' : 'text-green-700'}`}>
+                            {totalReceivables < 0 ? '-' : '+'}{Math.abs(Number(totalReceivables.toFixed(2)))}
+                          </div>
                         </div>
                       </div>
                     </div>
+                  );
+                })()}
+                {!selectedCustomer && (
+                  <div className="mt-2 flex items-center justify-between border-t pt-3">
+                    <span className="text-lg font-semibold text-primary">Total:</span>
+                    <span className="text-3xl font-bold tabular-nums text-primary">{Math.round(total)}</span>
                   </div>
-                );
-              })()}
-              {!selectedCustomer && (
-                <div className="mt-2 flex items-center justify-between border-t pt-3">
-                  <span className="text-lg font-semibold text-primary">Total:</span>
-                  <span className="text-3xl font-bold tabular-nums text-primary">{Math.round(total)}</span>
-                </div>
-              )}
-            </div>
-
-            <OrderCheckoutActions>
-              {formData.items.length > 0 && (
-                <Button
-                  onClick={resetForm}
-                  variant="secondary"
-                  className="flex-1"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Cart
-                </Button>
-              )}
-              {formData.items.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" className="flex-1">
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDirectPrintOrder(buildDraftSalesOrderPrintOrder());
-                      }}
-                    >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handlePrint(buildDraftSalesOrderPrintOrder())}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Print Preview
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <div className="flex items-center space-x-2 px-2">
-                <Input
-                  type="checkbox"
-                  id="soAutoPrint"
-                  checked={autoPrint}
-                  onChange={(e) => setAutoPrint(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="soAutoPrint" className="text-sm font-medium text-gray-700 cursor-pointer">
-                  Print after sale
-                </label>
+                )}
               </div>
-              {selectedOrder ? (
-                <>
+
+              <OrderCheckoutActions>
+                {formData.items.length > 0 && (
                   <Button
-                    type="button"
-                    onClick={cancelEdit}
+                    onClick={resetForm}
                     variant="secondary"
                     className="flex-1"
                   >
-                    Cancel Edit
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Clear Cart
                   </Button>
-                  <LoadingButton
-                    onClick={handleUpdate}
-                    isLoading={updating}
-                    disabled={updating || formData.items.length === 0}
+                )}
+                {formData.items.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="secondary" className="flex-1">
+                        <Printer className="h-4 w-4 mr-2" />
+                        Print
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setDirectPrintOrder(buildDraftSalesOrderPrintOrder());
+                        }}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Print
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handlePrint(buildDraftSalesOrderPrintOrder())}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Print Preview
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <div className="flex items-center space-x-2 px-2">
+                  <Input
+                    type="checkbox"
+                    id="soAutoPrint"
+                    checked={autoPrint}
+                    onChange={(e) => setAutoPrint(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="soAutoPrint" className="text-sm font-medium text-gray-700 cursor-pointer">
+                    Print after sale
+                  </label>
+                </div>
+                {selectedOrder ? (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={cancelEdit}
+                      variant="secondary"
+                      className="flex-1"
+                    >
+                      Cancel Edit
+                    </Button>
+                    <LoadingButton
+                      onClick={handleUpdate}
+                      isLoading={updating}
+                      disabled={updating || formData.items.length === 0}
+                      variant="default"
+                      size="lg"
+                      className="flex-2"
+                    >
+                      <Receipt className="h-4 w-4 mr-2" />
+                      {updating ? 'Updating...' : 'Update Sales Order'}
+                    </LoadingButton>
+                  </>
+                ) : (
+                  <Button
+                    onClick={handleCreate}
+                    disabled={creating || formData.items.length === 0}
                     variant="default"
                     size="lg"
                     className="flex-2"
                   >
                     <Receipt className="h-4 w-4 mr-2" />
-                    {updating ? 'Updating...' : 'Update Sales Order'}
-                  </LoadingButton>
-                </>
-              ) : (
-                <Button
-                  onClick={handleCreate}
-                  disabled={creating || formData.items.length === 0}
-                  variant="default"
-                  size="lg"
-                  className="flex-2"
-                >
-                  <Receipt className="h-4 w-4 mr-2" />
-                  {creating ? 'Creating...' : 'Create Sales Order'}
-                </Button>
-              )}
-            </OrderCheckoutActions>
-          </OrderSummaryContent>
-        </OrderCheckoutCard>
+                    {creating ? 'Creating...' : 'Create Sales Order'}
+                  </Button>
+                )}
+              </OrderCheckoutActions>
+            </OrderSummaryContent>
+          </OrderCheckoutCard>
         </div>
       )}
 
@@ -3018,9 +3011,17 @@ const SalesOrders = ({ tabId }) => {
               Sales Orders From: {formatDate(filters.fromDate)} To: {formatDate(filters.toDate)}
             </h3>
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 mr-2">
                 {paginationInfo.totalItems ?? paginationInfo.total ?? salesOrders.length} records
               </span>
+              <ExcelExportButton
+                getData={getExportData}
+                label="Export"
+              />
+              <PdfExportButton
+                getData={getExportData}
+                label="PDF"
+              />
               <button
                 onClick={() => refetch()}
                 className="p-2 text-gray-400 hover:text-gray-600"
@@ -3132,6 +3133,22 @@ const SalesOrders = ({ tabId }) => {
                           >
                             <Printer className="h-4 w-4" />
                           </button>
+                          <ExcelExportButton
+                            getData={() => {
+                              const payload = getInvoicePdfPayload(order, companySettings, 'Sales Order', 'Customer');
+                              return {
+                                ...payload,
+                                filename: `Sales_Order_${order.soNumber || order.orderNumber || order._id}.xlsx`
+                              };
+                            }}
+                            label=""
+                            className="p-1 bg-transparent border-none shadow-none hover:bg-transparent text-green-600 hover:text-green-800 px-1 py-1"
+                          />
+                          <PdfExportButton
+                            getData={() => getInvoicePdfPayload(order, companySettings, 'Sales Order', 'Customer')}
+                            label=""
+                            className="p-1 bg-transparent border-none shadow-none hover:bg-transparent text-red-600 hover:text-red-800 px-1 py-1"
+                          />
                           {order.status === 'draft' && (
                             <>
                               <button
@@ -3514,17 +3531,7 @@ const SalesOrders = ({ tabId }) => {
         )}
       </BaseModal>
 
-      <ExportReportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        title="Export Sales Orders"
-        format={exportFormat}
-        onFormatChange={setExportFormat}
-        onConfirm={handleExportConfirm}
-        isExporting={isExporting}
-        showDateRange={false}
-        namePrefix="sales-orders-export-format"
-      />
+
 
       {/* Out-of-stock warning modal (before confirm) */}
       <BaseModal
@@ -3611,6 +3618,26 @@ const SalesOrders = ({ tabId }) => {
           }}
         />
       )}
+
+      {/* Product Image Preview Modal */}
+      <BaseModal
+        isOpen={!!previewImageProduct}
+        onClose={() => setPreviewImageProduct(null)}
+        title={previewImageProduct?.displayName || previewImageProduct?.variantName || previewImageProduct?.name || 'Product Image'}
+      >
+        <div className="flex justify-center items-center bg-gray-50 rounded-lg overflow-hidden min-h-[300px] p-4">
+          {previewImageProduct?.imageUrl ? (
+            <img
+              src={previewImageProduct.imageUrl}
+              alt="Product Preview"
+              className="max-w-full max-h-[70vh] object-contain"
+            />
+          ) : (
+            <div className="text-gray-400">No image available</div>
+          )}
+        </div>
+      </BaseModal>
+
     </div>
   );
 };

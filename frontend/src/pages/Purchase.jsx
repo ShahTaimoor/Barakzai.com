@@ -13,8 +13,10 @@ import {
   Mail,
   MapPin,
   ArrowUpDown,
-  Download
+  Download,
+  Camera
 } from 'lucide-react';
+import BaseModal from '../components/BaseModal';
 import {
   useGetSupplierQuery,
   useLazySearchSuppliersQuery,
@@ -22,11 +24,7 @@ import {
 import {
   useCreatePurchaseInvoiceMutation,
   useUpdatePurchaseInvoiceMutation,
-  useExportExcelMutation,
-  useExportCSVMutation,
-  useExportPDFMutation,
-  useExportJSONMutation,
-  useDownloadFileMutation,
+
 } from '../store/services/purchaseInvoicesApi';
 import { SearchableDropdown } from '../components/SearchableDropdown';
 import { toast } from 'sonner';
@@ -64,18 +62,13 @@ import {
 } from '../utils/dualUnitUtils';
 import { useCompanyInfo } from '../hooks/useCompanyInfo';
 import { getLocalDateString } from '../utils/dateUtils';
-import {
-  presentPdfExportBlob,
-  presentNonPdfExportDownload,
-  unwrapExportDownloadBlob,
-  notifyExportDownloadCatchError,
-} from '../utils/exportReportPresentation';
-import ExportReportModal from '../components/ExportReportModal';
+
+
 import AsyncErrorBoundary from '../components/AsyncErrorBoundary';
 import { useResponsive } from '../components/ResponsiveContainer';
 import { ProductSearch as SharedSalesProductSearch } from '../components/sales/ProductSearch';
 
-const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove, onUpdateCartBoxCount }) => {
+const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove, onUpdateCartBoxCount, showProductImages, setPreviewImageProduct }) => {
   const { companyInfo: companySettings } = useCompanyInfo();
   const dualUnitShowBoxInputEnabled = companySettings.orderSettings?.dualUnitShowBoxInput !== false;
   const dualUnitShowPiecesInputEnabled = companySettings.orderSettings?.dualUnitShowPiecesInput !== false;
@@ -96,12 +89,25 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove, o
       {/* Mobile Card Layout */}
       <div className="md:hidden space-y-3 p-3 border border-gray-200 rounded-lg">
         <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>
-              {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low Stock</span>}
-            </div>
-            <p className="font-medium text-sm truncate">{displayName}</p>
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {product?.imageUrl && showProductImages && (
+              <div 
+                className="h-10 w-10 flex-shrink-0 bg-gray-100 rounded overflow-hidden border border-gray-200 cursor-pointer hover:border-primary-500 transition-colors group relative"
+                onClick={() => setPreviewImageProduct(product)}
+                title="Click to view full size"
+              >
+                <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center transition-colors">
+                  <Camera className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{index + 1}</span>
+                {isLowStock && <span className="text-yellow-600 text-xs">⚠️ Low Stock</span>}
+              </div>
+              <p className="font-medium text-sm truncate">{displayName}</p>
             {product.isVariant && (
               <p className="text-xs text-gray-500 mt-0.5">
                 {product.variantType}: {product.variantValue}
@@ -114,6 +120,7 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove, o
               if (s) return <p className="text-xs text-gray-600 font-mono mt-0.5">SKU: {s}</p>;
               return null;
             })()}
+          </div>
           </div>
           <Button
             onClick={() => onRemove(item.product?._id)}
@@ -201,7 +208,19 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove, o
             </span>
           </div>
 
-          <div className="min-w-0 flex items-center h-8">
+          <div className="min-w-0 flex items-center h-8 gap-2">
+            {product?.imageUrl && showProductImages && (
+              <div 
+                className="h-8 w-8 flex-shrink-0 bg-gray-100 rounded overflow-hidden border border-gray-200 cursor-pointer hover:border-primary-500 transition-colors group relative"
+                onClick={() => setPreviewImageProduct(product)}
+                title="Click to view full size"
+              >
+                <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 flex items-center justify-center transition-colors">
+                  <Camera className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            )}
             <div className="flex flex-col min-w-0 w-full">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-medium text-sm truncate min-w-0">{displayName}</span>
@@ -212,6 +231,13 @@ const PurchaseItem = ({ item, index, onUpdateQuantity, onUpdateCost, onRemove, o
                   {product.variantType}: {product.variantValue}
                 </span>
               )}
+              {(() => {
+                const b = (product.barcode ?? '').toString().trim();
+                if (b) return <span className="text-xs text-gray-600 font-mono truncate">Barcode: {b}</span>;
+                const s = (product.sku ?? '').toString().trim();
+                if (s) return <span className="text-xs text-gray-600 font-mono truncate">SKU: {s}</span>;
+                return null;
+              })()}
             </div>
           </div>
 
@@ -365,6 +391,17 @@ export const Purchase = ({ tabId, editData }) => {
   const [notes, setNotes] = useState('');
   const [taxExempt, setTaxExempt] = useState(true);
   const [showPurchaseDetailsFields, setShowPurchaseDetailsFields] = useState(false);
+  const [showProductImages, setShowProductImages] = useState(localStorage.getItem('showProductImagesUI') !== 'false');
+
+  useEffect(() => {
+    const handleConfigChange = () => {
+      setShowProductImages(localStorage.getItem('showProductImagesUI') !== 'false');
+    };
+    window.addEventListener('productImagesConfigChanged', handleConfigChange);
+    return () => window.removeEventListener('productImagesConfigChanged', handleConfigChange);
+  }, []);
+
+  const [previewImageProduct, setPreviewImageProduct] = useState(null);
 
   const { isMobile } = useResponsive();
   const { companyInfo: companySettings } = useCompanyInfo();
@@ -405,33 +442,11 @@ export const Purchase = ({ tabId, editData }) => {
   const [showReceiptLabelPrinter, setShowReceiptLabelPrinter] = useState(false);
   const [receiptLabelProducts, setReceiptLabelProducts] = useState([]);
 
-  // Export modal state
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState('pdf');
-  const [isExporting, setIsExporting] = useState(false);
 
-  // Calculate default date range (one month ago to today)
-  const getDefaultDateRange = () => {
-    const today = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(today.getMonth() - 1);
 
-    const formatDate = (date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
 
-    return {
-      from: formatDate(oneMonthAgo),
-      to: formatDate(today)
-    };
-  };
 
-  const defaultDateRange = getDefaultDateRange();
-  const [exportDateFrom, setExportDateFrom] = useState(defaultDateRange.from);
-  const [exportDateTo, setExportDateTo] = useState(defaultDateRange.to);
+
 
   const { updateTabTitle, getActiveTab, openTab } = useTab();
 
@@ -442,11 +457,7 @@ export const Purchase = ({ tabId, editData }) => {
   const [searchSuppliers, { data: suppliersSearchResult, isLoading: suppliersLoading, refetch: refetchSuppliers }] = useLazySearchSuppliersQuery();
   const [createPurchaseInvoice] = useCreatePurchaseInvoiceMutation();
   const [updatePurchaseInvoice] = useUpdatePurchaseInvoiceMutation();
-  const [exportExcel] = useExportExcelMutation();
-  const [exportCSV] = useExportCSVMutation();
-  const [exportPDF] = useExportPDFMutation();
-  const [exportJSON] = useExportJSONMutation();
-  const [downloadFile] = useDownloadFileMutation();
+
 
   // Focus on supplier selection field when component mounts
   useEffect(() => {
@@ -563,6 +574,15 @@ export const Purchase = ({ tabId, editData }) => {
   // Generate invoice number
   const generateInvoiceNumber = (supplier) => {
     if (!supplier) return '';
+
+    // Check if sequential numbering is enabled
+    const orderSettings = companySettings.orderSettings || {};
+    if (orderSettings.purchaseSequenceEnabled) {
+      const prefix = orderSettings.purchaseSequencePrefix || 'PUR-';
+      const nextNum = orderSettings.purchaseSequenceNext || 1;
+      const padding = orderSettings.purchaseSequencePadding || 3;
+      return `${prefix}${String(nextNum).padStart(padding, '0')}`;
+    }
 
     const now = new Date();
     const year = now.getFullYear();
@@ -961,77 +981,7 @@ export const Purchase = ({ tabId, editData }) => {
     });
   };
 
-  const handleExport = () => {
-    setShowExportModal(true);
-  };
 
-  const handleExportConfirm = async () => {
-    setIsExporting(true);
-    try {
-      // Build filters based on current view (if any filters exist)
-      const filters = {
-        // Include supplier filter if a supplier is selected
-        ...(selectedSupplier?._id && { supplier: selectedSupplier._id }),
-        // Include date range if selected
-        ...(exportDateFrom && { dateFrom: exportDateFrom }),
-        ...(exportDateTo && { dateTo: exportDateTo }),
-      };
-
-      let response;
-      if (exportFormat === 'excel') {
-        response = await exportExcel(filters).unwrap();
-      } else if (exportFormat === 'csv') {
-        response = await exportCSV(filters).unwrap();
-      } else if (exportFormat === 'json') {
-        response = await exportJSON(filters).unwrap();
-      } else if (exportFormat === 'pdf') {
-        response = await exportPDF(filters).unwrap();
-      }
-
-      if (response?.filename || response?.data?.filename) {
-        const filename = response.filename || response.data.filename;
-
-        try {
-          // Add a small delay to ensure file is written (PDF generation is async)
-          if (exportFormat === 'pdf') {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-
-          // Download the file
-          let downloadResponse;
-          try {
-            downloadResponse = await downloadFile(filename).unwrap();
-          } catch (downloadErr) {
-            notifyExportDownloadCatchError(downloadErr, (m) => toast.error(m));
-            return;
-          }
-
-          if (downloadResponse == null) {
-            toast.error('Download failed: No data received from server');
-            return;
-          }
-
-          const notifyPdf = { error: (m) => toast.error(m), success: (m) => toast.success(m) };
-
-          if (exportFormat === 'pdf') {
-            presentPdfExportBlob(unwrapExportDownloadBlob(downloadResponse), filename, notifyPdf);
-          } else {
-            presentNonPdfExportDownload(downloadResponse, exportFormat, filename, (msg) => toast.success(msg));
-          }
-
-          setShowExportModal(false);
-        } catch (downloadError) {
-          notifyExportDownloadCatchError(downloadError, (m) => toast.error(m));
-        }
-      } else {
-        toast.error('Export failed: No filename received');
-      }
-    } catch (error) {
-      toast.error('Failed to export purchase data: ' + (error?.data?.message || error?.message || 'Unknown error'));
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   const handleProcessPurchase = useCallback(() => {
     if (purchaseItems.length === 0) {
@@ -1057,7 +1007,7 @@ export const Purchase = ({ tabId, editData }) => {
 
     // Create purchase invoice data
     const invoiceData = {
-      supplier: selectedSupplier._id,
+      supplier: selectedSupplier.id || selectedSupplier._id,
       supplierInfo: {
         name: selectedSupplier.name,
         email: selectedSupplier.email,
@@ -1077,7 +1027,7 @@ export const Purchase = ({ tabId, editData }) => {
         })()
       },
       items: purchaseItems.map(item => ({
-        product: item.product?._id,
+        product: item.product?.id || item.product?._id,
         quantity: item.quantity,
         unitCost: item.costPerUnit,
         totalCost: item.quantity * item.costPerUnit
@@ -1126,15 +1076,7 @@ export const Purchase = ({ tabId, editData }) => {
             <p className="text-gray-600">Process purchase transactions</p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              onClick={handleExport}
-              variant="secondary"
-              size="default"
-              title="Export Purchase Report"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export Purchase Report
-            </Button>
+
             <Button
               onClick={() => {
                 const componentInfo = getComponentInfo('/purchase');
@@ -1197,7 +1139,7 @@ export const Purchase = ({ tabId, editData }) => {
                         /* ignore */
                       }
                     }
-                    if (selectedSupplier?._id && refetchSupplier) {
+                    if ((selectedSupplier?.id || selectedSupplier?._id) && refetchSupplier) {
                       try {
                         const result = await refetchSupplier();
                         const s =
@@ -1347,6 +1289,8 @@ export const Purchase = ({ tabId, editData }) => {
                 onUpdateCost={updateCost}
                 onRemove={removeFromPurchase}
                 onUpdateCartBoxCount={updateCartBoxCount}
+                showProductImages={showProductImages}
+                setPreviewImageProduct={setPreviewImageProduct}
               />
             ))}
           </CartItemsTableSection>
@@ -1931,8 +1875,7 @@ export const Purchase = ({ tabId, editData }) => {
         {showReceiptLabelPrinter && (
           <BarcodeLabelPrinter
             products={receiptLabelProducts}
-            quantityMode
-            modalTitle="Print labels — purchase invoice receipt"
+            quantityMode={true}
             onClose={() => {
               setShowReceiptLabelPrinter(false);
               setReceiptLabelProducts([]);
@@ -1940,30 +1883,25 @@ export const Purchase = ({ tabId, editData }) => {
           />
         )}
 
-        <ExportReportModal
-          isOpen={showExportModal}
-          onClose={() => {
-            setShowExportModal(false);
-            setExportDateFrom('');
-            setExportDateTo('');
-          }}
-          title="Export Purchase Report"
-          format={exportFormat}
-          onFormatChange={setExportFormat}
-          dateFrom={exportDateFrom}
-          dateTo={exportDateTo}
-          onDateFromChange={setExportDateFrom}
-          onDateToChange={setExportDateTo}
-          onResetDates={() => {
-            setExportDateFrom('');
-            setExportDateTo('');
-          }}
-          showDateResetLink={Boolean(exportDateFrom || exportDateTo)}
-          dateResetLinkLabel="Clear dates"
-          onConfirm={handleExportConfirm}
-          isExporting={isExporting}
-          namePrefix="purchase-export-format"
-        />
+        {/* Product Image Preview Modal */}
+        <BaseModal
+          isOpen={!!previewImageProduct}
+          onClose={() => setPreviewImageProduct(null)}
+          title={previewImageProduct?.displayName || previewImageProduct?.variantName || previewImageProduct?.name || 'Product Image'}
+        >
+          <div className="flex justify-center items-center bg-gray-50 rounded-lg overflow-hidden min-h-[300px] p-4">
+            {previewImageProduct?.imageUrl ? (
+              <img 
+                src={previewImageProduct.imageUrl} 
+                alt="Product Preview" 
+                className="max-w-full max-h-[70vh] object-contain"
+              />
+            ) : (
+              <div className="text-gray-400">No image available</div>
+            )}
+          </div>
+        </BaseModal>
+
       </div>
     </AsyncErrorBoundary>
   );

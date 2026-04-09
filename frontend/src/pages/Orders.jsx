@@ -28,6 +28,9 @@ import PrintModal from '../components/PrintModal';
 import BaseModal from '../components/BaseModal';
 import { Button } from '@/components/ui/button';
 import { formatDateForInput, getCurrentDatePakistan, getLocalDateString } from '../utils/dateUtils';
+import ExcelExportButton from '../components/ExcelExportButton';
+import PdfExportButton from '../components/PdfExportButton';
+import { getInvoicePdfPayload } from '../utils/invoicePdfUtils';
 
 // Safe date display: avoid "Invalid Date" when value is missing or invalid (PostgreSQL may send sale_date, created_at)
 const formatOrderDate = (order) => {
@@ -289,20 +292,20 @@ export const Orders = () => {
           const productObj = item.product && typeof item.product === 'object';
           const product = productObj
             ? {
-                _id: item.product._id || item.product.id,
-                name: item.product.name || item.product.displayName || item.product.variantName || 'Product',
-                isVariant: item.product.isVariant,
-                displayName: item.product.displayName,
-                variantName: item.product.variantName,
-                inventory: item.product.inventory || { currentStock: 0, reorderPoint: 0 },
-                pricing: item.product.pricing || { cost: 0 }
-              }
+              _id: item.product._id || item.product.id,
+              name: item.product.name || item.product.displayName || item.product.variantName || 'Product',
+              isVariant: item.product.isVariant,
+              displayName: item.product.displayName,
+              variantName: item.product.variantName,
+              inventory: item.product.inventory || { currentStock: 0, reorderPoint: 0 },
+              pricing: item.product.pricing || { cost: 0 }
+            }
             : {
-                _id: item.product_id || item.product,
-                name: item.productName || 'Unknown Product',
-                inventory: { currentStock: 0, reorderPoint: 0 },
-                pricing: { cost: 0 }
-              };
+              _id: item.product_id || item.product,
+              name: item.productName || 'Unknown Product',
+              inventory: { currentStock: 0, reorderPoint: 0 },
+              pricing: { cost: 0 }
+            };
           return {
             product,
             quantity: item.quantity || 1,
@@ -442,6 +445,51 @@ export const Orders = () => {
     }
   };
 
+  const getExportData = () => {
+    return {
+      title: 'Sales Invoices Report',
+      filename: `Sales_Invoices_${fromDate}_to_${toDate}.xlsx`,
+      company: {
+        name: companySettings.companyName || 'ZARYAB IMPEX',
+        address: companySettings.address || companySettings.billingAddress || '',
+        contact: `${companySettings.contactNumber || ''} ${companySettings.email ? '| ' + companySettings.email : ''}`.trim()
+      },
+      columns: [
+        { header: 'S.No', key: 'sno', width: 8, type: 'number' },
+        { header: 'Image', key: 'imageUrl', width: 12, type: 'image' },
+        { header: 'Invoice #', key: 'orderNumber', width: 15 },
+        { header: 'Customer', key: 'customerName', width: 35 },
+        { header: 'Date', key: 'date', width: 15 },
+        { header: 'Items', key: 'itemsCount', width: 10, type: 'number' },
+        { header: 'Total', key: 'total', width: 20, type: 'currency' },
+        { header: 'Payment', key: 'paymentStatus', width: 15 },
+        { header: 'Type', key: 'orderType', width: 15 },
+        { header: 'Notes', key: 'notes', width: 40 }
+      ],
+      data: orders.map((order, i) => ({
+        sno: i + 1,
+        imageUrl: order.items?.[0]?.product?.imageUrl ?? order.items?.[0]?.productData?.imageUrl ?? null,
+        orderNumber: order.order_number ?? order.orderNumber ?? '—',
+        customerName: order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer',
+        date: formatOrderDate(order),
+        itemsCount: order.items?.length ?? 0,
+        total: Number(order.pricing?.total ?? order.total ?? 0),
+        paymentStatus: getDerivedPaymentStatus(order).toUpperCase(),
+        orderType: (order.orderType ?? order.order_type ?? '—').toUpperCase(),
+        notes: order.notes?.trim() || ''
+      })),
+      summary: {
+        rows: [
+          {
+            label: 'GRAND TOTAL:',
+            orderNumber: `${orders.length} Invoices`,
+            total: orders.reduce((sum, o) => sum + Number(o.pricing?.total ?? o.total ?? 0), 0)
+          }
+        ]
+      }
+    };
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -457,8 +505,6 @@ export const Orders = () => {
       </div>
     );
   }
-
-  // orders already defined above via useMemo
 
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden px-2 sm:px-0">
@@ -480,6 +526,14 @@ export const Orders = () => {
             <BookOpen className="h-4 w-4" />
             {isPostingToLedger ? 'Posting…' : 'Post missing to ledger'}
           </button>
+          <ExcelExportButton
+            getData={getExportData}
+            label="Export"
+          />
+          <PdfExportButton
+            getData={getExportData}
+            label="PDF"
+          />
           <DateFilter
             startDate={fromDate}
             endDate={toDate}
@@ -537,16 +591,17 @@ export const Orders = () => {
           {/* Desktop Table Header */}
           <div className="hidden lg:block bg-gray-50 border-b border-gray-200">
             <div className="px-4 xl:px-6 py-3">
-              <div className="grid grid-cols-12 gap-3 xl:gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div className="grid grid-cols-[3rem_7rem_1fr_6rem_4rem_6rem_1fr_5.5rem_1fr_6rem] gap-3 xl:gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <div className="col-span-1">S.No</div>
                 <div className="col-span-1">Order #</div>
-                <div className="col-span-3">Customer</div>
+                <div className="col-span-1">Customer</div>
                 <div className="col-span-1">Date</div>
-                <div className="col-span-1">Items</div>
-                <div className="col-span-1">Total</div>
-                <div className="col-span-2">Status</div>
-                <div className="col-span-1">Type</div>
+                <div className="col-span-1 text-center">Items</div>
+                <div className="col-span-1 text-center">Total</div>
+                <div className="col-span-1 text-center">Status</div>
+                <div className="col-span-1 text-center">Type</div>
                 <div className="col-span-1">Notes</div>
-                <div className="col-span-1 min-w-[100px] text-right">Actions</div>
+                <div className="col-span-1 text-right">Actions</div>
               </div>
             </div>
           </div>
@@ -562,230 +617,124 @@ export const Orders = () => {
               <div key={order?.id ?? order?._id ?? order?.order_number ?? order?.orderNumber ?? `order-${idx}`}>
                 {/* Desktop Table Row */}
                 <div className="hidden lg:block px-4 xl:px-6 py-3 xl:py-4 hover:bg-gray-50 transition-colors">
-                  <div className="grid grid-cols-12 gap-3 xl:gap-4 items-center">
+                  <div className="grid grid-cols-[3rem_7rem_1fr_6rem_4rem_6rem_1fr_5.5rem_1fr_6rem] gap-3 xl:gap-4 items-center text-sm">
+                    {/* S.No */}
+                    <div className="col-span-1 text-gray-500 font-medium">
+                      {idx + 1}
+                    </div>
+
                     {/* Order Number */}
                     <div className="col-span-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate text-sm">
+                      <div className="font-medium text-gray-900 truncate">
                         #{order.order_number ?? order.orderNumber ?? '—'}
                       </div>
                     </div>
 
                     {/* Customer */}
-                    <div className="col-span-3 min-w-0">
-                      <div className="text-sm text-gray-900 truncate" title={order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}>
+                    <div className="col-span-1 min-w-0">
+                      <div className="text-gray-900 truncate" title={order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in'}>
                         {order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}
                       </div>
                     </div>
 
                     {/* Date */}
-                    <div className="col-span-1">
-                      <span className="text-xs xl:text-sm text-gray-600">
-                        {formatOrderDate(order)}
-                      </span>
+                    <div className="col-span-1 text-gray-600">
+                      {formatOrderDate(order)}
                     </div>
 
                     {/* Items */}
-                    <div className="col-span-1">
-                      <span className="text-xs xl:text-sm text-gray-600">
-                        {order.items?.length ?? 0}
-                      </span>
+                    <div className="col-span-1 text-center text-gray-600">
+                      {order.items?.length ?? 0}
                     </div>
 
                     {/* Total */}
-                    <div className="col-span-1">
-                      <span className="font-semibold text-gray-900 text-sm xl:text-base">
-                        {Math.round(order.pricing?.total ?? order.total ?? 0)}
-                      </span>
+                    <div className="col-span-1 text-center font-semibold text-gray-900">
+                      {Math.round(order.pricing?.total ?? order.total ?? 0)}
                     </div>
 
                     {/* Status */}
-                    <div className="col-span-2">
-                      <div className="flex flex-wrap gap-1">
-                        <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${(order?.status === 'completed' || order?.status === 'delivered')
-                            ? 'bg-green-100 text-green-800'
-                            : (order?.status === 'pending' || order?.status === 'processing')
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : order?.status === 'cancelled'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                          } `}>
-                          {order?.status ?? '—'}
-                        </span>
-                        <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${getDerivedPaymentStatus(order) === 'paid'
-                            ? 'bg-green-100 text-green-800'
-                            : getDerivedPaymentStatus(order) === 'partial'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-gray-100 text-gray-800'
-                          } `}>
-                          {getDerivedPaymentStatus(order)}
-                        </span>
-                      </div>
+                    <div className="col-span-1 flex flex-row flex-wrap gap-1 justify-center items-center">
+                      <span className={`inline-flex px-2 py-0.5 text-[10px] font-medium rounded-full ${(order?.status === 'completed' || order?.status === 'delivered')
+                          ? 'bg-green-100 text-green-800'
+                          : (order?.status === 'pending' || order?.status === 'processing')
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                        {order?.status ?? '—'}
+                      </span>
+                      <span className={`inline-flex px-2 py-0.5 text-[10px] font-medium rounded-full ${getDerivedPaymentStatus(order) === 'paid'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        {getDerivedPaymentStatus(order)}
+                      </span>
                     </div>
 
                     {/* Type */}
-                    <div className="col-span-1">
-                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                    <div className="col-span-1 text-center">
+                      <span className="text-[10px] text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full uppercase">
                         {order.orderType ?? order.order_type ?? '—'}
                       </span>
                     </div>
 
                     {/* Notes */}
                     <div className="col-span-1 min-w-0">
-                      <span
-                        className="text-xs text-gray-600 block truncate"
-                        title={order.notes?.trim() || 'No notes'}
-                      >
+                      <span className="text-xs text-gray-500 block truncate" title={order.notes?.trim() || '—'}>
                         {order.notes?.trim() || '—'}
                       </span>
                     </div>
 
                     {/* Actions */}
-                    <div className="col-span-1 flex justify-end">
-                      <div className="flex items-center flex-nowrap gap-1">
-                        <button
-                          onClick={() => handleView(order)}
-                          className="shrink-0 text-primary-600 hover:text-primary-800 p-1"
-                          title="View Invoice"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handlePrint(order)}
-                          className="shrink-0 text-green-600 hover:text-green-800 p-1"
-                          title="Print Invoice"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </button>
-                        {canEditInvoice(order) && (
-                          <button
-                            onClick={() => handleEdit(order)}
-                            className="shrink-0 text-blue-600 hover:text-blue-800 p-1"
-                            title="Edit Invoice"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canDeleteInvoice(order) && (
-                          <button
-                            onClick={() => handleDelete(order)}
-                            className="shrink-0 text-red-600 hover:text-red-800 p-1"
-                            title="Delete Invoice"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
+                    <div className="col-span-1 flex justify-end gap-0.5">
+                      <button onClick={() => handleView(order)} className="p-1 text-primary-600 hover:text-primary-800" title="View"><Eye className="h-4 w-4" /></button>
+                      <button onClick={() => handlePrint(order)} className="p-1 text-green-600 hover:text-green-800" title="Print"><Printer className="h-4 w-4" /></button>
+                      <ExcelExportButton
+                        getData={() => {
+                          const payload = getInvoicePdfPayload(order, companySettings, 'Sales Invoice', 'Customer');
+                          return {
+                            ...payload,
+                            filename: `Invoice_${order.order_number ?? order.orderNumber}.xlsx`
+                          };
+                        }}
+                        label=""
+                        className="p-1 bg-transparent border-none shadow-none hover:bg-transparent text-green-600 hover:text-green-800 px-1 py-1"
+                      />
+                      <PdfExportButton
+                        getData={() => getInvoicePdfPayload(order, companySettings, 'Sales Invoice', 'Customer')}
+                        label=""
+                        className="p-1 bg-transparent border-none shadow-none hover:bg-transparent text-red-600 hover:text-red-800 px-1 py-1"
+                      />
+                      {canEditInvoice(order) && <button onClick={() => handleEdit(order)} className="p-1 text-blue-600 hover:text-blue-800" title="Edit"><Edit className="h-4 w-4" /></button>}
+                      {canDeleteInvoice(order) && <button onClick={() => handleDelete(order)} className="p-1 text-red-600 hover:text-red-800" title="Delete"><Trash2 className="h-4 w-4" /></button>}
                     </div>
                   </div>
                 </div>
 
-                {/* Mobile/Tablet Card View */}
+                {/* Mobile View */}
                 <div className="lg:hidden px-4 py-4 hover:bg-gray-50 transition-colors">
                   <div className="space-y-3">
-                    {/* Header Row */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-semibold text-gray-900 truncate">
-                          #{order.order_number ?? order.orderNumber ?? '—'}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1 truncate">
-                          {order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in Customer'}
-                        </p>
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start gap-3">
+                        <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">#{idx + 1}</span>
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">#{order.order_number ?? '—'}</h3>
+                          <p className="text-xs text-gray-500">{order.customer?.businessName ?? order.customer?.business_name ?? order.customer?.displayName ?? order.customer?.name ?? order.customerInfo?.businessName ?? order.customerInfo?.business_name ?? order.customerInfo?.name ?? 'Walk-in'}</p>
+                        </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-lg font-semibold text-gray-900">
-                          {Math.round(order.pricing?.total ?? order.total ?? 0)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {order.items?.length ?? 0} item{(order.items?.length ?? 0) !== 1 ? 's' : ''}
-                        </p>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-900">{Math.round(order.pricing?.total ?? 0)}</p>
+                        <p className="text-[10px] text-gray-500">{formatOrderDate(order)}</p>
                       </div>
                     </div>
-
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500">Date</p>
-                        <p className="text-sm font-medium text-gray-900">
-                          {formatOrderDate(order)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Type</p>
-                        <span className="inline-flex text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                          {order.orderType ?? order.order_type ?? '—'}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-50 text-blue-700 uppercase">{order.orderType ?? '—'}</span>
+                      <span className={`inline-flex px-2 py-0.5 text-[10px] font-medium rounded-full ${order?.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>{order?.status ?? '—'}</span>
                     </div>
-
-                    {/* Status Badges */}
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${(order?.status === 'completed' || order?.status === 'delivered')
-                          ? 'bg-green-100 text-green-800'
-                          : (order?.status === 'pending' || order?.status === 'processing')
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : order?.status === 'cancelled'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-800'
-                        } `}>
-                        {order?.status ?? '—'}
-                      </span>
-                      <span className={`inline - flex px - 2 py - 1 text - xs font - medium rounded - full ${getDerivedPaymentStatus(order) === 'paid'
-                          ? 'bg-green-100 text-green-800'
-                          : getDerivedPaymentStatus(order) === 'partial'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
-                        } `}>
-                        {getDerivedPaymentStatus(order)}
-                      </span>
-                    </div>
-
-                    {/* Notes */}
-                    {order.notes?.trim() && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Notes</p>
-                        <p className="text-sm text-gray-700 line-clamp-2">
-                          {order.notes.trim()}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="pt-3 border-t border-gray-200">
-                      <div className="flex items-center flex-nowrap gap-1">
-                        <button
-                          onClick={() => handleView(order)}
-                          className="shrink-0 text-primary-600 hover:text-primary-800 p-2 rounded hover:bg-primary-50 transition-colors"
-                          title="View Invoice"
-                        >
-                          <Eye className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handlePrint(order)}
-                          className="shrink-0 text-green-600 hover:text-green-800 p-2 rounded hover:bg-green-50 transition-colors"
-                          title="Print Invoice"
-                        >
-                          <Printer className="h-5 w-5" />
-                        </button>
-                        {canEditInvoice(order) && (
-                          <button
-                            onClick={() => handleEdit(order)}
-                            className="shrink-0 text-blue-600 hover:text-blue-800 p-2 rounded hover:bg-blue-50 transition-colors"
-                            title="Edit Invoice"
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                        )}
-                        {canDeleteInvoice(order) && (
-                          <button
-                            onClick={() => handleDelete(order)}
-                            className="shrink-0 text-red-600 hover:text-red-800 p-2 rounded hover:bg-red-50 transition-colors"
-                            title="Delete Invoice"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        )}
-                      </div>
+                    <div className="flex justify-start gap-1 pt-2 border-t border-gray-100">
+                      <button onClick={() => handleView(order)} className="p-2 text-primary-600"><Eye className="h-5 w-5" /></button>
+                      <button onClick={() => handlePrint(order)} className="p-2 text-green-600"><Printer className="h-5 w-5" /></button>
+                      {canEditInvoice(order) && <button onClick={() => handleEdit(order)} className="p-2 text-blue-600"><Edit className="h-5 w-5" /></button>}
+                      {canDeleteInvoice(order) && <button onClick={() => handleDelete(order)} className="p-2 text-red-600"><Trash2 className="h-5 w-5" /></button>}
                     </div>
                   </div>
                 </div>
@@ -841,201 +790,199 @@ export const Orders = () => {
       >
         {selectedOrder && (
           <>
-              {/* Invoice Header */}
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">{companyName}</h1>
-                {companyAddress && (
-                  <p className="text-sm text-gray-600">{companyAddress}</p>
-                )}
-                {(companyPhone || companyEmail) && (
-                  <p className="text-sm text-gray-600">
-                    {[companyPhone && `Phone: ${companyPhone} `, companyEmail && `Email: ${companyEmail} `]
-                      .filter(Boolean)
-                      .join(' | ')}
-                  </p>
-                )}
-                <p className="text-lg text-gray-600">Sales Invoice</p>
-              </div>
-
-              {/* Invoice Details */}
-              <div className="grid grid-cols-3 gap-8 mb-8">
-                {/* Customer Information */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Bill To:</h3>
-                  <div className="space-y-1">
-                    <p className="font-medium">{selectedOrder.customer?.business_name ?? selectedOrder.customer?.businessName ?? selectedOrder.customer?.name ?? selectedOrder.customerInfo?.businessName ?? selectedOrder.customerInfo?.business_name ?? selectedOrder.customerInfo?.name ?? 'Walk-in Customer'}</p>
-                    <p className="text-gray-600">{selectedOrder.customerInfo?.email || ''}</p>
-                    <p className="text-gray-600">{selectedOrder.customerInfo?.phone || ''}</p>
-                    <p className="text-gray-600">{selectedOrder.customerInfo?.address || ''}</p>
-                    {selectedOrder.customerInfo?.pendingBalance && (
-                      <p className="font-medium text-gray-900 mt-2">
-                        Pending Balance: {Math.round(selectedOrder.customerInfo.pendingBalance)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Invoice Information */}
-                <div className="text-right">
-                  <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Invoice Details:</h3>
-                  <div className="space-y-1">
-                    <p><span className="font-medium">Invoice #:</span> {selectedOrder.order_number ?? selectedOrder.orderNumber ?? '—'}</p>
-                    <p><span className="font-medium">Date:</span> {formatOrderDate(selectedOrder)}</p>
-                    {(selectedOrder.sale_date ?? selectedOrder.billDate) && (selectedOrder.created_at ?? selectedOrder.createdAt) && new Date(selectedOrder.sale_date ?? selectedOrder.billDate).getTime() !== new Date(selectedOrder.created_at ?? selectedOrder.createdAt).getTime() && (
-                      <p className="text-xs text-gray-500">(Original: {formatOrderDate({ created_at: selectedOrder.created_at, createdAt: selectedOrder.createdAt })})</p>
-                    )}
-                    <p><span className="font-medium">Status:</span> {selectedOrder.status ?? selectedOrder.Status ?? '—'}</p>
-                    <p><span className="font-medium">Type:</span> {selectedOrder.order_type ?? selectedOrder.orderType ?? '—'}</p>
-                  </div>
-                </div>
-
-                {/* Payment Information */}
-                <div className="text-right">
-                  <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Payment:</h3>
-                  <div className="space-y-1">
-                    <p><span className="font-medium">Status:</span> {getDerivedPaymentStatus(selectedOrder)}</p>
-                    <p><span className="font-medium">Method:</span> {selectedOrder.payment?.method ?? selectedOrder.payment_method ?? '—'}</p>
-                    <p><span className="font-medium">Amount:</span> {Math.round(selectedOrder.pricing?.total ?? selectedOrder.total ?? 0)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* CCTV Camera Time Section */}
-              {(selectedOrder.billStartTime || selectedOrder.billEndTime) && (
-                <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 border-b border-blue-300 pb-2 mb-4 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Camera Time
-                  </h3>
-                  <div className="space-y-2">
-                    {selectedOrder.billStartTime && (
-                      <p className="text-sm">
-                        <span className="font-medium text-gray-700">From:</span>{' '}
-                        <span className="text-gray-900">
-                          {new Date(selectedOrder.billStartTime).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false
-                          })}
-                        </span>
-                      </p>
-                    )}
-                    {selectedOrder.billEndTime && (
-                      <p className="text-sm">
-                        <span className="font-medium text-gray-700">To:</span>{' '}
-                        <span className="text-gray-900">
-                          {new Date(selectedOrder.billEndTime).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false
-                          })}
-                        </span>
-                      </p>
-                    )}
-                    {selectedOrder.billStartTime && selectedOrder.billEndTime && (
-                      <p className="text-xs text-gray-600 mt-2">
-                        Duration: {Math.round((new Date(selectedOrder.billEndTime) - new Date(selectedOrder.billStartTime)) / 1000)} seconds
-                      </p>
-                    )}
-                  </div>
-                </div>
+            {/* Invoice Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900">{companyName}</h1>
+              {companyAddress && (
+                <p className="text-sm text-gray-600">{companyAddress}</p>
               )}
+              {(companyPhone || companyEmail) && (
+                <p className="text-sm text-gray-600">
+                  {[companyPhone && `Phone: ${companyPhone} `, companyEmail && `Email: ${companyEmail} `]
+                    .filter(Boolean)
+                    .join(' | ')}
+                </p>
+              )}
+              <p className="text-lg text-gray-600">Sales Invoice</p>
+            </div>
 
-              {/* Items Table */}
-              <div className="mb-8">
-                <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Items:</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border border-gray-300 px-4 py-2 text-left">Item</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">Description</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right">Qty</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right">Price</th>
-                        <th className="border border-gray-300 px-4 py-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedOrder.items?.map((item, index) => (
-                        <tr key={index}>
-                          <td className="border border-gray-300 px-4 py-2">{item.product?.name || 'Unknown Product'}</td>
-                          <td className="border border-gray-300 px-4 py-2">{item.product?.description || ''}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-right">{item.quantity}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-right">{Math.round(item.unitPrice)}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-right">{Math.round(item.total)}</td>
-                        </tr>
-                      )) || (
-                          <tr>
-                            <td colSpan="5" className="border border-gray-300 px-4 py-2 text-center text-gray-500">
-                              No items found
-                            </td>
-                          </tr>
-                        )}
-                    </tbody>
-                  </table>
+            {/* Invoice Details */}
+            <div className="grid grid-cols-3 gap-8 mb-8">
+              {/* Customer Information */}
+              <div>
+                <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Bill To:</h3>
+                <div className="space-y-1">
+                  <p className="font-medium">{selectedOrder.customer?.business_name ?? selectedOrder.customer?.businessName ?? selectedOrder.customer?.name ?? selectedOrder.customerInfo?.businessName ?? selectedOrder.customerInfo?.business_name ?? selectedOrder.customerInfo?.name ?? 'Walk-in Customer'}</p>
+                  <p className="text-gray-600">{selectedOrder.customerInfo?.email || ''}</p>
+                  <p className="text-gray-600">{selectedOrder.customerInfo?.phone || ''}</p>
+                  <p className="text-gray-600">{selectedOrder.customerInfo?.address || ''}</p>
+                  {selectedOrder.customerInfo?.pendingBalance && (
+                    <p className="font-medium text-gray-900 mt-2">
+                      Pending Balance: {Math.round(selectedOrder.customerInfo.pendingBalance)}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Totals - use top-level subtotal/tax/discount/total (sales from API) and fall back to sum from items when 0 */}
-              {(() => {
-                const items = Array.isArray(selectedOrder?.items) ? selectedOrder.items : [];
-                const sumFromItems = items.reduce((s, i) => {
-                  const qty = Number(i.quantity ?? i.qty) || 0;
-                  const price = Number(i.unitPrice ?? i.unit_price ?? i.price) || 0;
-                  const lineTotal = Number(i.total ?? i.subtotal ?? i.lineTotal) || (qty * price);
-                  return s + lineTotal;
-                }, 0);
-                const viewSubtotal = Number(selectedOrder?.subtotal ?? selectedOrder?.pricing?.subtotal) || (items.length > 0 ? sumFromItems : 0);
-                const viewDiscount = Number(selectedOrder?.discount ?? selectedOrder?.pricing?.discountAmount ?? selectedOrder?.pricing?.discount) || 0;
-                const viewTax = Number(selectedOrder?.tax ?? selectedOrder?.pricing?.taxAmount) || 0;
-                const viewTotal = Number(selectedOrder?.total ?? selectedOrder?.pricing?.total) || (viewSubtotal - viewDiscount + viewTax);
-                return (
-                  <div className="flex justify-end">
-                    <div className="w-80">
-                      <table className="w-full">
-                        <tbody>
-                          <tr>
-                            <td className="px-4 py-2">Subtotal:</td>
-                            <td className="px-4 py-2 text-right">{Math.round(viewSubtotal)}</td>
-                          </tr>
-                          <tr>
-                            <td className="px-4 py-2">Tax:</td>
-                            <td className="px-4 py-2 text-right">{Math.round(viewTax)}</td>
-                          </tr>
-                          <tr>
-                            <td className="px-4 py-2">Discount:</td>
-                            <td className="px-4 py-2 text-right">{Math.round(viewDiscount)}</td>
-                          </tr>
-                          <tr className="border-t-2 border-gray-900">
-                            <td className="px-4 py-2 font-bold">Total:</td>
-                            <td className="px-4 py-2 text-right font-bold">{Math.round(viewTotal)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Footer */}
-              <div className="mt-8 text-center text-sm text-gray-500">
-                Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+              {/* Invoice Information */}
+              <div className="text-right">
+                <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Invoice Details:</h3>
+                <div className="space-y-1">
+                  <p><span className="font-medium">Invoice #:</span> {selectedOrder.order_number ?? selectedOrder.orderNumber ?? '—'}</p>
+                  <p><span className="font-medium">Date:</span> {formatOrderDate(selectedOrder)}</p>
+                  {(selectedOrder.sale_date ?? selectedOrder.billDate) && (selectedOrder.created_at ?? selectedOrder.createdAt) && new Date(selectedOrder.sale_date ?? selectedOrder.billDate).getTime() !== new Date(selectedOrder.created_at ?? selectedOrder.createdAt).getTime() && (
+                    <p className="text-xs text-gray-500">(Original: {formatOrderDate({ created_at: selectedOrder.created_at, createdAt: selectedOrder.createdAt })})</p>
+                  )}
+                  <p><span className="font-medium">Status:</span> {selectedOrder.status ?? selectedOrder.Status ?? '—'}</p>
+                  <p><span className="font-medium">Type:</span> {selectedOrder.order_type ?? selectedOrder.orderType ?? '—'}</p>
+                </div>
               </div>
+
+              {/* Payment Information */}
+              <div className="text-right">
+                <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Payment:</h3>
+                <div className="space-y-1">
+                  <p><span className="font-medium">Status:</span> {getDerivedPaymentStatus(selectedOrder)}</p>
+                  <p><span className="font-medium">Method:</span> {selectedOrder.payment?.method ?? selectedOrder.payment_method ?? '—'}</p>
+                  <p><span className="font-medium">Amount:</span> {Math.round(selectedOrder.pricing?.total ?? selectedOrder.total ?? 0)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* CCTV Camera Time Section */}
+            {(selectedOrder.billStartTime || selectedOrder.billEndTime) && (
+              <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="font-semibold text-gray-900 border-b border-blue-300 pb-2 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Camera Time
+                </h3>
+                <div className="space-y-2">
+                  {selectedOrder.billStartTime && (
+                    <p className="text-sm">
+                      <span className="font-medium text-gray-700">From:</span>{' '}
+                      <span className="text-gray-900">
+                        {new Date(selectedOrder.billStartTime).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false
+                        })}
+                      </span>
+                    </p>
+                  )}
+                  {selectedOrder.billEndTime && (
+                    <p className="text-sm">
+                      <span className="font-medium text-gray-700">To:</span>{' '}
+                      <span className="text-gray-900">
+                        {new Date(selectedOrder.billEndTime).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: false
+                        })}
+                      </span>
+                    </p>
+                  )}
+                  {selectedOrder.billStartTime && selectedOrder.billEndTime && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      Duration: {Math.round((new Date(selectedOrder.billEndTime) - new Date(selectedOrder.billStartTime)) / 1000)} seconds
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Items Table */}
+            <div className="mb-8">
+              <h3 className="font-semibold text-gray-900 border-b border-gray-300 pb-2 mb-4">Items:</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-300 px-4 py-2 text-left">Item</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">Description</th>
+                      <th className="border border-gray-300 px-4 py-2 text-right">Qty</th>
+                      <th className="border border-gray-300 px-4 py-2 text-right">Price</th>
+                      <th className="border border-gray-300 px-4 py-2 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedOrder.items?.map((item, index) => (
+                      <tr key={index}>
+                        <td className="border border-gray-300 px-4 py-2">{item.product?.name || 'Unknown Product'}</td>
+                        <td className="border border-gray-300 px-4 py-2">{item.product?.description || ''}</td>
+                        <td className="border border-gray-300 px-4 py-2 text-right">{item.quantity}</td>
+                        <td className="border border-gray-300 px-4 py-2 text-right">{Math.round(item.unitPrice)}</td>
+                        <td className="border border-gray-300 px-4 py-2 text-right">{Math.round(item.total)}</td>
+                      </tr>
+                    )) || (
+                        <tr>
+                          <td colSpan="5" className="border border-gray-300 px-4 py-2 text-center text-gray-500">
+                            No items found
+                          </td>
+                        </tr>
+                      )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Totals */}
+            {(() => {
+              const items = Array.isArray(selectedOrder?.items) ? selectedOrder.items : [];
+              const sumFromItems = items.reduce((s, i) => {
+                const qty = Number(i.quantity ?? i.qty) || 0;
+                const price = Number(i.unitPrice ?? i.unit_price ?? i.price) || 0;
+                const lineTotal = Number(i.total ?? i.subtotal ?? i.lineTotal) || (qty * price);
+                return s + lineTotal;
+              }, 0);
+              const viewSubtotal = Number(selectedOrder?.subtotal ?? selectedOrder?.pricing?.subtotal) || (items.length > 0 ? sumFromItems : 0);
+              const viewDiscount = Number(selectedOrder?.discount ?? selectedOrder?.pricing?.discountAmount ?? selectedOrder?.pricing?.discount) || 0;
+              const viewTax = Number(selectedOrder?.tax ?? selectedOrder?.pricing?.taxAmount) || 0;
+              const viewTotal = Number(selectedOrder?.total ?? selectedOrder?.pricing?.total) || (viewSubtotal - viewDiscount + viewTax);
+              return (
+                <div className="flex justify-end">
+                  <div className="w-80">
+                    <table className="w-full">
+                      <tbody>
+                        <tr>
+                          <td className="px-4 py-2">Subtotal:</td>
+                          <td className="px-4 py-2 text-right">{Math.round(viewSubtotal)}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2">Tax:</td>
+                          <td className="px-4 py-2 text-right">{Math.round(viewTax)}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2">Discount:</td>
+                          <td className="px-4 py-2 text-right">{Math.round(viewDiscount)}</td>
+                        </tr>
+                        <tr className="border-t-2 border-gray-900">
+                          <td className="px-4 py-2 font-bold">Total:</td>
+                          <td className="px-4 py-2 text-right font-bold">{Math.round(viewTotal)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Footer */}
+            <div className="mt-8 text-center text-sm text-gray-500">
+              Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+            </div>
           </>
         )}
       </BaseModal>
-
-      {/* Edit Modal removed: editing opens Sales page in new tab (same as Purchase Invoice) */}
 
       {/* Print Modal */}
       <PrintModal

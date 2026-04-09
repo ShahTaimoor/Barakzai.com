@@ -426,6 +426,24 @@ class ProductServicePostgres {
           const currentStock =
             hasCurrent ? Number(invData.currentStock) : existingCurrent;
 
+          // If stock changed manually, record in accounting ledger
+          if (hasCurrent && Math.abs(currentStock - existingCurrent) > 0.0001) {
+            try {
+              const delta = currentStock - existingCurrent;
+              // Ensure product has the required field from the repository update result
+              const cost = Number(product.cost_price ?? product.costPrice ?? 0);
+              const validatedUserId = isValidUuid(userId) ? userId : null;
+              
+              await AccountingService.recordStockAdjustment(id, delta, cost, {
+                createdBy: validatedUserId,
+                reason: updateData.reason || 'Manual Adjustment'
+              });
+            } catch (adjErr) {
+              console.error('Failed to record stock adjustment in ledger:', adjErr);
+              // We log but don't rethrow to avoid blocking the physical inventory update below
+            }
+          }
+
           // Determine resulting reorder point.
           const reorderPoint =
             (invData.reorderPoint !== undefined ? invData.reorderPoint : invData.minStock) ??
@@ -673,6 +691,46 @@ class ProductServicePostgres {
     const categoryIds = [...new Set(rows.map(p => p.category_id).filter(Boolean))];
     const categoryMap = await getCategoryMap(categoryIds);
     return rows.map(p => toApiProduct(p, categoryMap));
+  }
+  async bulkCreateProducts(productsData, userId, req = null) {
+    const results = { created: 0, failed: 0, errors: [] };
+    
+    for (const item of productsData) {
+      try {
+        // Map Excel-style fields to DB-style fields (handles both spaces and underscores)
+        const formattedProduct = {
+          name: item.name || item.product_name || item.productName || item['Product Name'],
+          sku: item.sku || item.product_sku || item['SKU'],
+          barcode: item.barcode || item['Barcode'],
+          category: item.category || item.category_name || item['Category'] || item['category'],
+          pricing: {
+            cost: item.cost || item.cost_price || item.costPrice || item['Cost Price'] || 0,
+            retail: item.retail || item.retail_price || item.retailPrice || item['Retail Price'] || 0,
+            wholesale: item.wholesale || item.wholesale_price || item.wholesalePrice || item['Wholesale Price'] || 0
+          },
+          inventory: {
+            currentStock: item.stock || item.opening_stock || item.openingStock || item['Opening Stock'] || 0,
+            reorderPoint: 10
+          },
+          status: (item.status || item['Status'] || 'active').toLowerCase()
+        };
+
+        if (!formattedProduct.name) {
+          throw new Error('Product name is missing');
+        }
+
+        await this.createProduct(formattedProduct, userId, req);
+        results.created++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push({ 
+          name: item.name || 'Unknown', 
+          error: error.message 
+        });
+      }
+    }
+    
+    return results;
   }
 }
 

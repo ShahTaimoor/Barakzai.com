@@ -12,6 +12,8 @@ const AccountingService = require('./accountingService');
 const profitDistributionService = require('./profitDistributionService');
 const discountService = require('./discountService');
 const paymentRepository = require('../repositories/postgres/PaymentRepository');
+const settingsService = require('./settingsService');
+const purchaseInvoiceRepository = require('../repositories/postgres/PurchaseInvoiceRepository');
 
 // Helper function to parse date string as local date (not UTC)
 const parseLocalDate = (dateString) => {
@@ -71,8 +73,15 @@ class SalesService {
   transformCustomerToUppercase(customer) {
     if (!customer) return customer;
     if (customer.toObject) customer = customer.toObject();
+
+    // Postgres uses business_name, frontend uses businessName
+    if (customer.business_name && !customer.businessName) {
+      customer.businessName = customer.business_name;
+    }
+
     if (customer.name) customer.name = customer.name.toUpperCase();
     if (customer.businessName) customer.businessName = customer.businessName.toUpperCase();
+    if (customer.business_name) customer.business_name = customer.business_name.toUpperCase();
     if (customer.firstName) customer.firstName = customer.firstName.toUpperCase();
     if (customer.lastName) customer.lastName = customer.lastName.toUpperCase();
     return customer;
@@ -94,7 +103,7 @@ class SalesService {
     if (productIds.length === 0) return items;
 
     const [products, invRows] = await Promise.all([
-      productRepository.findAll({ ids: productIds }, { limit: 1000 }),
+      productRepository.findAll({ ids: productIds, includeDeleted: true }, { limit: 1000 }),
       inventoryRepository.findByProductIds(productIds)
     ]);
     const invByProduct = new Map((invRows || []).map(inv => [String(inv.product_id), inv]));
@@ -117,7 +126,7 @@ class SalesService {
     }
     for (const id of productIds) {
       if (productMap.has(id)) continue;
-      const v = await productVariantRepository.findById(id);
+      const v = await productVariantRepository.findById(id, true);
       if (v) {
         const inv = invByProduct.get(id);
         const invData = v.inventory_data || v.inventory || {};
@@ -138,16 +147,30 @@ class SalesService {
       }
     }
 
-    return items.map(item => {
+    const results = [];
+    for (const item of items) {
       const i = { ...item };
       const p = i.product || i.product_id;
       const id = !p ? null : (typeof p === 'string' ? p : (p._id || p.id || p));
       const sid = id && typeof id === 'string' ? id : (id && id.toString ? id.toString() : null);
+
       if (sid && productMap.has(sid)) {
         i.product = productMap.get(sid);
+      } else if (!i.product || typeof i.product === 'string') {
+        // Fallback: If product not found in DB, use denormalized name/sku from the item itself
+        const fallbackName = i.name || i.productName || i.display_name || 'Unknown Product';
+        i.product = {
+          _id: sid,
+          id: sid,
+          name: fallbackName,
+          sku: i.sku || i.product_sku || null,
+          imageUrl: i.imageUrl || i.image_url || null,
+          isDeleted: true
+        };
       }
-      return i;
-    });
+      results.push(i);
+    }
+    return results;
   }
 
   /**
@@ -459,11 +482,11 @@ class SalesService {
 
     for (const item of items) {
       // Try to find as product first, then as variant
-      let product = await productRepository.findById(item.product);
+      let product = await productRepository.findById(item.product, true);
       let isVariant = false;
 
       if (!product) {
-        product = await productVariantRepository.findById(item.product);
+        product = await productVariantRepository.findById(item.product, true);
         if (product) isVariant = true;
       }
 
@@ -503,6 +526,8 @@ class SalesService {
 
       orderItems.push({
         product: productId,
+        name: product.name || product.displayName || 'Product',
+        sku: product.sku || null,
         quantity: item.quantity,
         unitCost,
         unitPrice,
@@ -567,8 +592,33 @@ class SalesService {
       }
     }
 
-    // Generate order number if not provided (sales/invoices use INV-, not SO- which is for sales orders only)
-    const orderNumber = data.orderNumber || `INV-${Date.now()}`;
+    // Generate order number if not provided
+    let orderNumber = data.orderNumber;
+    const settings = await settingsService.getCompanySettings();
+    const orderSettings = settings?.orderSettings || {};
+
+    if (orderSettings.invoiceSequenceEnabled) {
+      const prefix = orderSettings.invoiceSequencePrefix || 'INV-';
+      const nextNum = orderSettings.invoiceSequenceNext || 1;
+      const padding = orderSettings.invoiceSequencePadding || 3;
+      
+      // If no orderNumber provided by frontend, use the one from settings
+      if (!orderNumber) {
+        orderNumber = `${prefix}${String(nextNum).padStart(padding, '0')}`;
+      }
+
+      // Always increment next number in settings if it's a NEW sale
+      await settingsService.updateCompanySettings({
+        orderSettings: {
+          ...orderSettings,
+          invoiceSequenceNext: nextNum + 1
+        }
+      });
+    }
+
+    if (!orderNumber) {
+      orderNumber = `INV-${Date.now()}`;
+    }
 
     // Prepare sale data for PostgreSQL (include applied discount codes when provided from POS)
     const amountPaidAtCreate = parseFloat(payment?.amount ?? 0) || 0;
@@ -641,8 +691,14 @@ class SalesService {
         const productIds = orderItems.map(item => item.product);
         const productMap = new Map();
         for (const id of productIds) {
-          const p = await productRepository.findById(id);
-          if (p) productMap.set((id && id.toString ? id.toString() : id), p.name || p.displayName || 'Product');
+          const p = await productRepository.findById(id, true);
+          if (!p) {
+            // Check variants if not found in base products
+            const v = await productVariantRepository.findById(id, true);
+            if (v) productMap.set((id && id.toString ? id.toString() : id), v.display_name || v.variant_name || 'Variant');
+          } else {
+            productMap.set((id && id.toString ? id.toString() : id), p.name || p.displayName || 'Product');
+          }
         }
 
         const lineItems = orderItems.map(item => ({
