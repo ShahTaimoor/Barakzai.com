@@ -553,6 +553,7 @@ class SalesService {
         product: productId,
         name: product.name || product.displayName || 'Product',
         sku: product.sku || null,
+        barcode: product.barcode || null,
         quantity: item.quantity,
         unitCost,
         unitPrice,

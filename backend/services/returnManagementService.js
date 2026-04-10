@@ -7,6 +7,7 @@ const SalesOrderRepository = require('../repositories/SalesOrderRepository');
 const PurchaseInvoiceRepository = require('../repositories/PurchaseInvoiceRepository');
 const PurchaseOrderRepository = require('../repositories/PurchaseOrderRepository');
 const ProductRepository = require('../repositories/postgres/ProductRepository');
+const ProductVariantRepository = require('../repositories/postgres/ProductVariantRepository');
 const CustomerRepository = require('../repositories/postgres/CustomerRepository');
 const SupplierRepository = require('../repositories/postgres/SupplierRepository');
 const InventoryRepository = require('../repositories/postgres/InventoryRepository');
@@ -26,6 +27,40 @@ function toUuid(value) {
   }
   const s = String(value).trim();
   return UUID_REGEX.test(s) ? s : null;
+}
+
+/** Resolve a catalog product or variant for return flows (line items may reference either). */
+async function findProductOrVariantById(rawId) {
+  if (rawId == null) return null;
+  const id = typeof rawId === 'object' ? (rawId.id || rawId._id) : rawId;
+  if (!id) return null;
+  const sid = String(id);
+  let p = await ProductRepository.findById(sid);
+  if (p) return p;
+  const v = await ProductVariantRepository.findById(sid);
+  if (!v) return null;
+  const pricing =
+    typeof v.pricing === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(v.pricing || '{}');
+          } catch {
+            return {};
+          }
+        })()
+      : v.pricing || {};
+  return {
+    ...v,
+    id: v.id,
+    _id: v.id,
+    name: v.display_name || v.variant_name || 'Variant',
+    sku: v.sku,
+    pricing: {
+      cost: pricing.cost ?? pricing.cost_price ?? 0,
+      retail: pricing.retail,
+      wholesale: pricing.wholesale
+    }
+  };
 }
 
 class ReturnManagementService {
@@ -62,7 +97,9 @@ class ReturnManagementService {
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       const productId = it.product || it.product_id;
-      const product = productId ? await ProductRepository.findById(typeof productId === 'object' ? (productId.id || productId._id) : productId) : null;
+      const product = productId
+        ? await findProductOrVariantById(typeof productId === 'object' ? (productId.id || productId._id) : productId)
+        : null;
       normalizedItems.push({
         ...it,
         _id: it.id || it._id || `${id}-${i}`,
@@ -369,7 +406,7 @@ class ReturnManagementService {
       }
 
       const productId = orderItem.product && (orderItem.product.id || orderItem.product._id);
-      const product = productId ? await ProductRepository.findById(productId) : null;
+      const product = productId ? await findProductOrVariantById(productId) : null;
       if (!product) {
         throw new Error(`Product not found: ${productId || orderItem.product}`);
       }
@@ -1407,7 +1444,7 @@ class ReturnManagementService {
         let product = null;
         if (productId) {
           const pId = typeof productId === 'object' ? (productId.id || productId._id) : productId;
-          product = await ProductRepository.findById(pId);
+          product = await findProductOrVariantById(pId);
         }
         populatedItems.push({
           ...item,
