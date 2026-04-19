@@ -139,7 +139,8 @@ class ProductServicePostgres {
     const limit = getAll ? 999999 : (parseInt(queryParams.limit) || 20);
 
     const filters = this.buildFilter(queryParams);
-    const result = await productRepository.findWithPagination(filters, { page, limit });
+    const sortBy = queryParams.sortBy || queryParams.sort;
+    const result = await productRepository.findWithPagination(filters, { page, limit, sortBy });
 
     const categoryIds = [...new Set(result.products.map(p => p.category_id).filter(Boolean))];
     const categoryMap = await getCategoryMap(categoryIds);
@@ -528,7 +529,8 @@ class ProductServicePostgres {
 
   async getProductsForExport(filters = {}) {
     const f = this.buildFilter(filters);
-    const rows = await productRepository.findAll(f, { limit: 999999 });
+    const sortBy = filters.sortBy || filters.sort;
+    const rows = await productRepository.findAll(f, { limit: 999999, sortBy });
     const categoryIds = [...new Set(rows.map(p => p.category_id).filter(Boolean))];
     const categoryMap = await getCategoryMap(categoryIds);
     return rows.map(p => toApiProduct(p, categoryMap));

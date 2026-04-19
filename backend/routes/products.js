@@ -94,18 +94,19 @@ router.get('/', [
   query('dateTo').optional({ checkFalsy: true }).isISO8601(),
   query('dateField').optional({ checkFalsy: true }).isIn(['createdAt', 'updatedAt']),
   query('brand').optional({ checkFalsy: true }).trim(),
-  query('searchFields').optional({ checkFalsy: true }).custom((value) => {
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed);
-      } catch {
-        return false;
+    query('searchFields').optional({ checkFalsy: true }).custom((value) => {
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed);
+        } catch {
+          return false;
+        }
       }
-    }
-    return true;
-  })
-], async (req, res) => {
+      return true;
+    }),
+    query('sortBy').optional({ checkFalsy: true }).isIn(['name_asc', 'name_desc', 'created_at_desc'])
+  ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

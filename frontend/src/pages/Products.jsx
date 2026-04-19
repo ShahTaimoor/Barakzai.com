@@ -62,6 +62,7 @@ export const Products = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_LIMIT);
   const [filters, setFilters] = useState({});
+  const [sortBy, setSortBy] = useState('created_at_desc');
   const [bulkUpdateType, setBulkUpdateType] = useState(null);
   const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
@@ -75,6 +76,7 @@ export const Products = () => {
     search: searchTerm || undefined,
     page: currentPage,
     limit: itemsPerPage,
+    sortBy,
     ...filters
   };
 
@@ -152,6 +154,7 @@ export const Products = () => {
   const handleClearFilters = () => {
     setFilters({});
     setSearchTerm('');
+    setSortBy('created_at_desc');
     setCurrentPage(1);
   };
 
@@ -382,18 +385,36 @@ export const Products = () => {
               className="pl-10 w-full text-sm sm:text-base"
             />
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <label htmlFor="limit-select" className="text-sm text-gray-600 whitespace-nowrap">Show:</label>
-            <select
-              id="limit-select"
-              value={itemsPerPage}
-              onChange={handleLimitChange}
-              className="input text-sm py-2 pr-8 pl-3 min-w-[80px]"
-            >
-              {LIMIT_OPTIONS.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <label htmlFor="sort-select" className="text-sm font-medium text-gray-600 whitespace-nowrap">Sort:</label>
+              <select
+                id="sort-select"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="input text-sm py-2 pr-8 pl-3 min-w-[120px]"
+              >
+                <option value="created_at_desc">Latest First</option>
+                <option value="name_asc">Name (A to Z)</option>
+                <option value="name_desc">Name (Z to A)</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="limit-select" className="text-sm font-medium text-gray-600 whitespace-nowrap">Show:</label>
+              <select
+                id="limit-select"
+                value={itemsPerPage}
+                onChange={handleLimitChange}
+                className="input text-sm py-2 pr-8 pl-3 min-w-[80px]"
+              >
+                {LIMIT_OPTIONS.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

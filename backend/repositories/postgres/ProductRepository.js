@@ -83,7 +83,15 @@ class ProductRepository {
       sql += ' AND stock_quantity > 0';
     }
 
-    sql += ' ORDER BY created_at DESC, name ASC';
+    // Apply dynamic sorting
+    if (options.sortBy === 'name_asc') {
+      sql += ' ORDER BY name ASC';
+    } else if (options.sortBy === 'name_desc') {
+      sql += ' ORDER BY name DESC';
+    } else {
+      sql += ' ORDER BY created_at DESC, name ASC';
+    }
+
     if (options.limit) {
       sql += ` LIMIT $${paramCount++}`;
       params.push(options.limit);
@@ -310,7 +318,7 @@ class ProductRepository {
     const countResult = await query(countSql, countParams);
     const total = parseInt(countResult.rows[0].count, 10);
 
-    const products = await this.findAll(filters, { limit, offset });
+    const products = await this.findAll(filters, { limit, offset, sortBy: options.sortBy });
     return {
       products,
       pagination: {
